@@ -1,0 +1,47 @@
+# AUTU-LIO — Quy trình làm việc với GitHub
+
+## 1. Repository chính thức
+- Repository: HUY-HOA-1/AUTU-LIO
+- Nhánh mặc định hiện tại: main
+- Repository đang ở chế độ private.
+- Tài khoản kết nối HUY-HOA-1 hiện có quyền quản trị repository.
+- Không tạo repository trùng lặp và không chuyển quyền sở hữu nếu chưa có yêu cầu rõ ràng.
+
+## 2. Quy tắc trước khi thay đổi
+1. Đọc cấu trúc repository và nội dung file liên quan trước khi sửa.
+2. Không ghi đè hoặc xóa file khi chưa đọc nội dung và kiểm tra mục đích sử dụng.
+3. Giữ các thay đổi trong phạm vi yêu cầu; không tự ý thay đổi kiến trúc hoặc tính năng đã thống nhất.
+4. Với mã nguồn ứng dụng, ưu tiên nhánh riêng cho từng nhóm công việc và kiểm tra diff trước khi đưa vào nhánh chính.
+5. Với tài liệu thiết kế ban đầu của repository trống, có thể commit trực tiếp lên main để lưu tiến độ.
+
+## 3. Quy tắc commit
+- Mỗi nhóm thay đổi có một commit riêng, nội dung ngắn gọn, mô tả đúng việc đã làm.
+- Không commit file bí mật, token, mật khẩu, khóa riêng, keystore hoặc thông tin OAuth client secret.
+- Không đưa dữ liệu cá nhân thật của khách hàng vào repository.
+- Sau mỗi lần ghi file phải đọc lại hoặc kiểm tra metadata để xác nhận nội dung đã được lưu.
+- Báo cáo rõ file nào được thêm/sửa, commit nào được tạo và đường dẫn GitHub để người dùng kiểm tra.
+
+## 4. Quy tắc build APK và GitHub Actions
+- Không tự kích hoạt, dispatch, rerun hoặc khởi chạy workflow build APK.
+- Chủ repository tự nhấn chạy workflow trên GitHub Actions.
+- Chỉ kiểm tra trạng thái, log và artifact của lần chạy khi chủ ứng dụng yêu cầu theo dõi hoặc cung cấp lần chạy cần kiểm tra.
+- Khi báo cáo build, phân biệt rõ: đang chờ, đang chạy, thành công, thất bại, bị hủy; không suy đoán kết quả.
+- Không tuyên bố APK đã được tạo nếu chưa xác minh artifact tải được.
+- Không tự động tải lên hoặc phát hành APK cho người dùng cuối.
+
+## 5. Phân biệt hai tài khoản GitHub
+- Repository AUTU-LIO hiện thuộc HUY-HOA-1 và tài khoản này có quyền ghi. Các commit trong repository này sử dụng kết nối HUY-HOA-1 để bảo đảm quyền truy cập đúng chủ sở hữu.
+- Quy trình của COC-LIO không được áp dụng máy móc sang tài khoản/repository khác khi quyền truy cập khác nhau.
+- Nếu chủ ứng dụng muốn chuyển AUTU-LIO sang HUY-HOA, cần thực hiện chuyển quyền hoặc cấp quyền repository trước; không tự ý di chuyển.
+
+## 6. Kiểm tra chất lượng
+- Đọc lại file sau khi tạo/sửa.
+- Kiểm tra tên file, đường dẫn, nhánh và commit.
+- Khi đã có mã nguồn: rà soát lỗi biên dịch, cảnh báo, quyền Android, bảo mật và khả năng tương thích trước khi đề nghị build.
+- Chỉ nói đã kiểm thử khi thực sự có kết quả kiểm thử.
+
+## 7. Trạng thái hiện tại
+- Repository mới có tài liệu định hướng và tài liệu thiết kế giao diện.
+- Chưa có mã nguồn Android, Gradle project hay GitHub Actions workflow.
+- Chưa có APK và chưa có lần chạy build để theo dõi.
+- Giai đoạn hiện tại là thiết kế UI/UX; chưa tích hợp backend hoặc Google OAuth.
