@@ -807,9 +807,12 @@ private fun MoreScreen(
     page: String,
     onSelect: (String) -> Unit,
     onTheme: () -> Unit,
-    onMessage: (String) -> Unit
+    onMessage: (String) -> Unit,
+    sessionToken: String,
+    onLogout: () -> Unit
 ) {
     val items = listOf(
+        Triple("team", tr("Cộng tác viên", "Collaborators"), Icons.Outlined.Group),
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện", "Libraries"), Icons.Outlined.ListAlt),
         Triple("release", tr("Phát hành", "Releases"), Icons.Outlined.PlayArrow),
@@ -858,6 +861,7 @@ private fun MoreScreen(
                 }
             )
             when (page) {
+                "team" -> CollaboratorsManagementContent(sessionToken)
                 "licenses" -> {
                     CardBox {
                         Text(tr("Thông tin giấy phép", "License information"), fontWeight = FontWeight.SemiBold)
@@ -889,7 +893,8 @@ private fun MoreScreen(
                 "settings" -> {
                     SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO Admin Studio · 0.1.0")
-                    SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Cấu hình đăng nhập và quyền quản trị sẽ được bổ sung khi tích hợp máy chủ.", "Sign-in and admin access controls will be added with the server integration."))
+                    SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Quyền quản trị được xác minh trên máy chủ.", "Admin permissions are verified by the server."))
+                    SettingRow(Icons.Outlined.ExitToApp, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập AUTU-LIO", "End your AUTU-LIO session"), onLogout)
                 }
             }
             OutlinedButton(
