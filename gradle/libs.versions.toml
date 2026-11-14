@@ -1,4 +1,6 @@
 [versions]
+credentials = "1.6.0"
+googleid = "1.2.1"
 agp = "9.3.1"
 kotlin = "2.4.21"
 composeBom = "2026.09.00"
@@ -13,6 +15,10 @@ androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+
+credential-manager = { module = "androidx.credentials:credentials", version.ref = "credentials" }
+credential-manager-play-services-auth = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
+googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
