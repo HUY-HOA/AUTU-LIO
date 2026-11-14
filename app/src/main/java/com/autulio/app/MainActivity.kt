@@ -170,6 +170,7 @@ private fun CustomerApp() {
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
     var previewEntered by rememberSaveable { mutableStateOf(false) }
+    var scriptDetail by rememberSaveable { mutableStateOf(false) }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -202,18 +203,23 @@ private fun CustomerApp() {
                 )
             } else when (page) {
                 "home" -> CustomerHome(Modifier.padding(padding), onScripts = { page = "scripts" })
-                "scripts" -> EmptyPage(
-                    Modifier.padding(padding),
-                    tr("Kịch bản", "Scripts"),
-                    tr("Kịch bản do chủ ứng dụng phát hành sẽ xuất hiện tại đây.", "Scripts published by the app owner will appear here."),
-                    Icons.Outlined.ListAlt
-                )
-                "device" -> EmptyPage(
-                    Modifier.padding(padding),
-                    tr("Thiết bị và giấy phép", "Device and license"),
-                    tr("Thông tin đăng ký sẽ xuất hiện sau khi đăng nhập.", "Registration details will appear after sign-in."),
-                    Icons.Outlined.Smartphone
-                )
+                "scripts" -> if (scriptDetail) {
+                    CustomerScriptDetail(
+                        Modifier.padding(padding),
+                        onBack = { scriptDetail = false },
+                        onPreviewAction = {
+                            scope.launch {
+                                host.showSnackbar(tr("Đây chỉ là bản xem trước. AUTU-LIO chưa thực hiện thao tác trên màn hình.", "This is preview only. AUTU-LIO did not perform any screen actions."))
+                            }
+                        }
+                    )
+                } else {
+                    CustomerScriptsScreen(
+                        Modifier.padding(padding),
+                        onOpen = { scriptDetail = true }
+                    )
+                }
+                "device" -> CustomerDeviceLicensePage(Modifier.padding(padding))
                 else -> SettingsScreen(Modifier.padding(padding), onTheme = { dark = !dark })
             }
         }
@@ -554,6 +560,179 @@ private fun CustomerHome(modifier: Modifier, onScripts: () -> Unit) {
         EmptyState(Icons.Outlined.ListAlt, tr("Chưa có kịch bản", "No scripts available"), tr("Kịch bản được chủ ứng dụng phát hành sẽ xuất hiện tại đây.", "Scripts published by the app owner will appear here."))
         Button(onClick = onScripts, modifier = Modifier.fillMaxWidth()) { Text(tr("Xem kịch bản", "View scripts")) }
         Text(tr("Prototype giao diện · Chưa đăng nhập", "UI prototype · Not signed in"), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun CustomerScriptsScreen(modifier: Modifier, onOpen: () -> Unit) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        BrandHeader(admin = false)
+        Heading(tr("Kịch bản", "Scripts"), tr("Các kịch bản do chủ ứng dụng cung cấp", "Scripts provided by the app owner"))
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(15.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        tr("MẪU XEM TRƯỚC · KHÔNG PHẢI GÓI THẬT", "PREVIEW SAMPLE · NOT A REAL PACKAGE"),
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Kịch bản minh họa", "Sample script"), modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Outlined.ChevronRight, contentDescription = null)
+                }
+                Text(
+                    tr("Màn hình mẫu để kiểm tra luồng xem chi tiết và các nút điều khiển. Không chứa thao tác tự động hóa thật.",
+                        "A sample screen to preview the details and control flow. It contains no real automation actions."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
+                OutlinedButton(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Xem chi tiết mẫu", "View sample details"))
+                }
+            }
+        }
+        CardBox {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Outlined.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column {
+                    Text(tr("Kho kịch bản chưa kết nối", "Script library not connected"), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        tr("Kịch bản thật sẽ xuất hiện sau khi đăng nhập và đồng bộ giấy phép.",
+                            "Real scripts will appear after sign-in and license synchronization."),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomerScriptDetail(
+    modifier: Modifier,
+    onBack: () -> Unit,
+    onPreviewAction: () -> Unit
+) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        BrandHeader(admin = false)
+        TextButton(onClick = onBack) { Text(tr("← Quay lại danh sách", "← Back to scripts")) }
+        Heading(tr("Kịch bản minh họa", "Sample script"), tr("Chi tiết bản xem trước", "Preview details"))
+        CardBox {
+            Surface(
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    tr("CHỈ XEM TRƯỚC", "PREVIEW ONLY"),
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp
+                )
+            }
+            Text(tr("Mô tả", "Description"), fontWeight = FontWeight.SemiBold)
+            Text(
+                tr("Đây là nội dung minh họa để kiểm tra bố cục. Chưa có package được phát hành hoặc tải về thiết bị.",
+                    "This is sample content for layout testing. No released package has been downloaded to this device."),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                lineHeight = 18.sp
+            )
+        }
+        CardBox {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Icon(Icons.Outlined.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column {
+                    Text(tr("Chưa sẵn sàng chạy", "Not ready to run"), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        tr("Runtime AutoClick và quyền trợ năng chưa được tích hợp.", "The AutoClick runtime and accessibility service are not integrated."),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+        Text(tr("Bảng điều khiển", "Controls"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+        Button(onClick = onPreviewAction, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Outlined.PlayArrow, null)
+            Spacer(Modifier.width(8.dp))
+            Text(tr("Thử nút chạy (không thực thi)", "Preview Run button (no execution)"))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            OutlinedButton(onClick = onPreviewAction, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Outlined.Pause, null)
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Tạm dừng mẫu", "Pause sample"))
+            }
+            OutlinedButton(onClick = onPreviewAction, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Outlined.Stop, null)
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Dừng mẫu", "Stop sample"))
+            }
+        }
+        Text(
+            tr("Các nút trên chỉ kiểm tra giao diện và thông báo. Chúng không chạm, vuốt hoặc điều khiển ứng dụng khác.",
+                "These buttons only test the interface and messages. They do not tap, swipe, or control other apps."),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 11.sp,
+            lineHeight = 16.sp
+        )
+    }
+}
+
+@Composable
+private fun CustomerDeviceLicensePage(modifier: Modifier) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        BrandHeader(admin = false)
+        Heading(tr("Thiết bị và giấy phép", "Device and license"), tr("Thông tin đăng ký của tài khoản", "Account registration information"))
+        CardBox {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Outlined.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column {
+                    Text(tr("Chưa đăng nhập thật", "Not signed in"), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        tr("Đây là chế độ xem trước. Chưa có dữ liệu thiết bị hoặc giấy phép được truy xuất.",
+                            "This is preview mode. No device or license data has been retrieved."),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+        Text(tr("Thiết bị hiện tại", "Current device"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+        SettingRow(Icons.Outlined.Smartphone, tr("Thông tin thiết bị", "Device information"), tr("Chỉ hiển thị sau khi đăng nhập và đồng ý cung cấp dữ liệu cần thiết.", "Shown after sign-in and consent to necessary data."))
+        Text(tr("Giấy phép", "License"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+        EmptyState(
+            Icons.Outlined.VerifiedUser,
+            tr("Chưa có thông tin giấy phép", "No license information"),
+            tr("Gói sử dụng, thời hạn và giới hạn thiết bị sẽ hiển thị sau khi máy chủ xác minh tài khoản.",
+                "Plan, duration and device limit will appear after the server verifies the account.")
+        )
     }
 }
 
