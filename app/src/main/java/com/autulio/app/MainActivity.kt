@@ -907,6 +907,271 @@ private fun MoreScreen(
     }
 }
 
+private fun roleTitle(role: String): String = when (role) {
+    "OWNER" -> tr("Chủ sở hữu", "Owner")
+    "DEVELOPER" -> tr("Nhà phát triển", "Developer")
+    "DESIGNER" -> tr("Nhà thiết kế", "Designer")
+    "REVIEWER" -> tr("Người kiểm duyệt", "Reviewer")
+    "CUSTOMER" -> tr("Người dùng", "Customer")
+    else -> role
+}
+
+@Composable
+private fun AdminAccountPage(
+    role: AccessRole,
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        BrandHeader(admin = true)
+        Heading(tr("Tài khoản cộng tác viên", "Collaborator account"), tr("Vai trò được máy chủ xác minh", "Role verified by the server"))
+        CardBox {
+            Text(tr("Vai trò hiện tại", "Current role"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            Text(roleTitle(role.name), fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(
+                when (role) {
+                    AccessRole.DEVELOPER -> tr("Bạn có thể tạo, chỉnh sửa và kiểm thử kịch bản được giao.", "You can create, edit and test assigned scripts.")
+                    AccessRole.DESIGNER -> tr("Bạn có thể thiết kế giao diện và xem trước thay đổi.", "You can design the interface and preview changes.")
+                    AccessRole.REVIEWER -> tr("Bạn có thể kiểm tra nội dung và duyệt yêu cầu thay đổi.", "You can inspect content and review change requests.")
+                    else -> tr("Quyền truy cập do chủ sở hữu quản lý.", "Access is managed by the owner.")
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+        }
+        OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Outlined.ExitToApp, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(tr("Đăng xuất", "Sign out"))
+        }
+    }
+}
+
+@Composable
+private fun CollaboratorsManagementContent(sessionToken: String) {
+    val scope = rememberCoroutineScope()
+    var email by rememberSaveable { mutableStateOf("") }
+    var selectedRole by rememberSaveable { mutableStateOf("DEVELOPER") }
+    var loading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var invitation by remember { mutableStateOf<CollaboratorInvitation?>(null) }
+    var collaborators by remember { mutableStateOf<List<Collaborator>>(emptyList()) }
+    var editTarget by remember { mutableStateOf<Collaborator?>(null) }
+    var revokeTarget by remember { mutableStateOf<Collaborator?>(null) }
+    var roleToAssign by rememberSaveable { mutableStateOf("DEVELOPER") }
+
+    LaunchedEffect(sessionToken) {
+        if (sessionToken.isNotBlank()) {
+            runCatching { AutuLioApi.listCollaborators(sessionToken) }
+                .onSuccess { collaborators = it }
+                .onFailure { errorMessage = it.message ?: tr("Không tải được cộng tác viên.", "Could not load collaborators.") }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Heading(
+            tr("Quản lý cộng tác viên", "Collaborator management"),
+            tr("Mời người khác tham gia thiết kế, lập trình hoặc kiểm duyệt.", "Invite others to design, develop or review.")
+        )
+        CardBox {
+            Text(tr("Mời cộng tác viên", "Invite a collaborator"), fontWeight = FontWeight.SemiBold)
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Gmail") },
+                placeholder = { Text("name@gmail.com") }
+            )
+            Text(tr("Chọn quyền", "Choose a role"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                listOf(
+                    "DEVELOPER" to tr("Lập trình", "Developer"),
+                    "DESIGNER" to tr("Thiết kế", "Designer"),
+                    "REVIEWER" to tr("Kiểm duyệt", "Reviewer")
+                ).forEach { option ->
+                    FilterChip(
+                        selected = selectedRole == option.first,
+                        onClick = { selectedRole = option.first },
+                        label = { Text(option.second) }
+                    )
+                }
+            }
+            Button(
+                onClick = {
+                    scope.launch {
+                        loading = true
+                        errorMessage = null
+                        try {
+                            invitation = AutuLioApi.createInvitation(sessionToken, email.trim(), selectedRole)
+                            collaborators = AutuLioApi.listCollaborators(sessionToken)
+                        } catch (error: Exception) {
+                            errorMessage = error.message ?: tr("Không tạo được lời mời.", "Could not create the invitation.")
+                        } finally {
+                            loading = false
+                        }
+                    }
+                },
+                enabled = !loading && email.isNotBlank(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(tr("Tạo lời mời", "Create invitation"))
+            }
+            Text(
+                tr("Mã mời có hiệu lực 7 ngày và chỉ hiển thị một lần. Người được mời phải đăng nhập Google bằng đúng Gmail đã nhập.",
+                    "The invitation code lasts 7 days and is shown once. The invitee must sign in with the exact Google email entered above."),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 16.sp
+            )
+        }
+
+        invitation?.let { created ->
+            CardBox {
+                Text(tr("Lời mời đã tạo", "Invitation created"), fontWeight = FontWeight.SemiBold)
+                Text(created.email + " · " + roleTitle(created.role), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SelectionContainer {
+                    Text(created.code, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+                Text(
+                    tr("Sao chép mã và gửi riêng cho người được mời. Mã không được lưu lại ở máy chủ dưới dạng văn bản gốc.",
+                        "Copy this code and send it privately. The original code is not stored on the server."),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+
+        if (!errorMessage.isNullOrBlank()) {
+            Text(errorMessage.orEmpty(), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+        }
+
+        Text(tr("Danh sách cộng tác viên", "Collaborators"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+        if (collaborators.isEmpty()) {
+            EmptyState(
+                Icons.Outlined.Group,
+                tr("Chưa có cộng tác viên", "No collaborators"),
+                tr("Người đã chấp nhận lời mời sẽ xuất hiện tại đây.", "People who accept an invitation will appear here.")
+            )
+        } else {
+            collaborators.forEach { collaborator ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text(collaborator.email, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            roleTitle(collaborator.role) + " · " + if (collaborator.status == "ACTIVE") tr("Đang hoạt động", "Active") else tr("Đã thu hồi", "Revoked"),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    editTarget = collaborator
+                                    roleToAssign = collaborator.role
+                                },
+                                enabled = collaborator.status == "ACTIVE" && !loading,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(tr("Đổi quyền", "Change role"))
+                            }
+                            OutlinedButton(
+                                onClick = { revokeTarget = collaborator },
+                                enabled = collaborator.status == "ACTIVE" && !loading,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(tr("Thu hồi", "Revoke"))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    editTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { editTarget = null },
+            title = { Text(tr("Đổi vai trò", "Change role")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(target.email, fontSize = 12.sp)
+                    listOf(
+                        "DEVELOPER" to tr("Nhà phát triển", "Developer"),
+                        "DESIGNER" to tr("Nhà thiết kế", "Designer"),
+                        "REVIEWER" to tr("Người kiểm duyệt", "Reviewer"),
+                        "CUSTOMER" to tr("Người dùng", "Customer")
+                    ).forEach { option ->
+                        FilterChip(
+                            selected = roleToAssign == option.first,
+                            onClick = { roleToAssign = option.first },
+                            label = { Text(option.second) }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selected = roleToAssign
+                    editTarget = null
+                    scope.launch {
+                        loading = true
+                        try {
+                            AutuLioApi.updateCollaboratorRole(sessionToken, target.id, selected)
+                            collaborators = AutuLioApi.listCollaborators(sessionToken)
+                        } catch (error: Exception) {
+                            errorMessage = error.message ?: tr("Không đổi được quyền.", "Could not change the role.")
+                        } finally {
+                            loading = false
+                        }
+                    }
+                }) { Text(tr("Lưu", "Save")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { editTarget = null }) { Text(tr("Hủy", "Cancel")) }
+            }
+        )
+    }
+
+    revokeTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { revokeTarget = null },
+            title = { Text(tr("Thu hồi quyền cộng tác viên?", "Revoke collaborator access?")) },
+            text = { Text(tr("Người này sẽ không thể truy cập khu vực cộng tác viên sau khi máy chủ xác nhận thu hồi.", "This person will lose collaborator access after the server confirms revocation.")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    revokeTarget = null
+                    scope.launch {
+                        loading = true
+                        try {
+                            AutuLioApi.revokeCollaborator(sessionToken, target.id)
+                            collaborators = AutuLioApi.listCollaborators(sessionToken)
+                        } catch (error: Exception) {
+                            errorMessage = error.message ?: tr("Không thu hồi được quyền.", "Could not revoke access.")
+                        } finally {
+                            loading = false
+                        }
+                    }
+                }) { Text(tr("Thu hồi", "Revoke")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { revokeTarget = null }) { Text(tr("Hủy", "Cancel")) }
+            }
+        )
+    }
+}
+
 @Composable
 private fun AdminModulePage(
     modifier: Modifier,
