@@ -78,6 +78,7 @@ private fun AdminApp() {
     var editor by rememberSaveable { mutableStateOf<String?>(null) }
     var createDialog by remember { mutableStateOf(false) }
     val scripts = remember { mutableStateListOf<String>() }
+    val draftContents = remember { mutableStateMapOf<String, String>() }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -99,8 +100,11 @@ private fun AdminApp() {
             }
         ) { padding ->
             if (editor != null) {
+                val editingName = editor.orEmpty()
                 EditorScreen(
-                    name = editor!!,
+                    name = editingName,
+                    code = draftContents[editingName].orEmpty(),
+                    onCodeChange = { draftContents[editingName] = it },
                     modifier = Modifier.padding(padding),
                     onBack = { editor = null },
                     onMessage = { scope.launch { host.showSnackbar(it) } }
@@ -157,6 +161,7 @@ private fun AdminApp() {
             onDismiss = { createDialog = false },
             onCreate = { name ->
                 scripts.add(name)
+                draftContents[name] = ""
                 editor = name
                 page = "scripts"
                 createDialog = false
@@ -378,13 +383,19 @@ private fun ScriptsScreen(modifier: Modifier, scripts: List<String>, onCreate: (
 }
 
 @Composable
-private fun EditorScreen(name: String, modifier: Modifier, onBack: () -> Unit, onMessage: (String) -> Unit) {
-    var code by rememberSaveable(name) { mutableStateOf("") }
+private fun EditorScreen(
+    name: String,
+    code: String,
+    onCodeChange: (String) -> Unit,
+    modifier: Modifier,
+    onBack: () -> Unit,
+    onMessage: (String) -> Unit
+) {
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Heading(name, tr("Bản nháp · Runtime chưa được tích hợp", "Draft · Runtime is not integrated"))
         Text(tr("Ngôn ngữ riêng AUTU-LIO sẽ được định nghĩa trước khi thực thi. Nội dung dưới đây chưa chạy được.", "The AUTU-LIO language will be specified before execution. Text below is not executable."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        OutlinedTextField(value = code, onValueChange = { code = it }, modifier = Modifier.fillMaxWidth().weight(1f), minLines = 10, placeholder = { Text(tr("Nhập nội dung bản nháp...", "Enter draft content...")) })
+        OutlinedTextField(value = code, onValueChange = onCodeChange, modifier = Modifier.fillMaxWidth().weight(1f), minLines = 10, placeholder = { Text(tr("Nhập nội dung bản nháp...", "Enter draft content...")) })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { onMessage(tr("Bộ kiểm tra cú pháp chưa được tích hợp.", "Syntax checker is not integrated.")) }, modifier = Modifier.weight(1f)) { Text(tr("Kiểm tra", "Check")) }
             Button(onClick = { onMessage(tr("Runtime chưa sẵn sàng để chạy thử.", "Runtime is not ready for testing.")) }, modifier = Modifier.weight(1f)) {
@@ -393,7 +404,7 @@ private fun EditorScreen(name: String, modifier: Modifier, onBack: () -> Unit, o
                 Text(tr("Chạy thử", "Test"))
             }
         }
-        OutlinedButton(onClick = { onMessage(tr("Bản nháp chưa được đồng bộ lên máy chủ.", "Draft has not been synced to a server.")) }, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { onMessage(tr("Bản nháp đang được giữ trong bộ nhớ của phiên hiện tại; chưa được lưu bền vững hoặc đồng bộ máy chủ.", "Draft is kept in the current app session; it is not persisted to storage or synced to a server.")) }, modifier = Modifier.fillMaxWidth()) {
             Text(tr("Lưu bản nháp", "Save draft"))
         }
     }
