@@ -8,6 +8,7 @@
 
 - Quyết định kiến trúc mới: một APK, phân quyền trong ứng dụng; không dùng Firebase.
 - Tài liệu phân quyền: `docs/ONE-APP-ACCESS-CONTROL.md`.
+- Đã thêm mã nguồn khung Cloudflare Worker, D1 migration, API session và mời cộng tác viên tại `backend/`; chưa tạo D1 hoặc triển khai Worker.
 - Bộ chọn Admin/khách hàng trong Debug chỉ là preview, không phải đăng nhập hoặc xác minh quyền.
 
 Dự án đã chuyển từ tài liệu thiết kế sang **prototype Android Kotlin/Jetpack Compose**. Đã chuyển dự án sang **một APK duy nhất** với application ID `com.autulio.app`. Các giao diện Admin và AutoClick là các khu vực trong cùng ứng dụng, được mở theo vai trò do máy chủ xác minh. Bản Debug hiện có bộ chọn giao diện thử nghiệm để kiểm tra bố cục; bộ chọn này không cấp quyền thật.
@@ -52,10 +53,10 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 ## 4. Phần chưa triển khai
 
-- Google Credential Manager / Google Sign-In và hệ thống tài khoản thực.
-- Cloudflare Workers / D1 / R2 và API.
-- Xác minh Google ID token phía máy chủ, session và phân quyền vai trò.
-- Quản lý lời mời, cộng tác viên và lịch sử thay đổi quyền.
+- Android Google Credential Manager / Google Sign-In và nối API thực.
+- Tạo D1 database, cấu hình Cloudflare Worker, secrets và triển khai API.
+- Kết nối Android với API để tạo/khôi phục session và lấy vai trò.
+- Kiểm thử end-to-end đăng nhập Google, bootstrap Owner, lời mời cộng tác viên, đổi/thu hồi quyền.
 - Đồng bộ tài khoản, thiết bị, giấy phép và dữ liệu khách hàng.
 - Trình biên dịch, parser, bytecode và runtime của ngôn ngữ AUTU-LIO.
 - Engine thực hiện Auto Click, Accessibility Service, overlay và điều khiển vòng đời tác vụ.
