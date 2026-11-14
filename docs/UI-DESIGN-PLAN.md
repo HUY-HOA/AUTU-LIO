@@ -7,7 +7,7 @@
 - Ngôn ngữ mặc định: tiếng Việt. Nếu ngôn ngữ thiết bị là tiếng Anh thì dùng tiếng Anh; ngôn ngữ khác dùng tiếng Anh.
 
 ## 2. Cấu trúc ứng dụng đề xuất
-Dùng chung bộ nhận diện và thành phần giao diện, nhưng tách quyền và màn hình thành hai biến thể:
+Dùng chung một APK, bộ nhận diện và thành phần giao diện. Các khu vực Admin và AutoClick được hiển thị theo vai trò tài khoản đã được máy chủ xác minh; bản Debug chỉ có bộ chọn preview để kiểm tra bố cục.
 - **AUTU-LIO Admin Studio:** dành cho chủ ứng dụng/quản trị viên; có quản lý, trình soạn thảo và phát hành kịch bản.
 - **AUTU-LIO AutoClick:** dành cho khách hàng; chỉ chạy các kịch bản và tính năng đã được chủ ứng dụng phát hành. Không có trình lập trình, không xem hoặc sửa mã nguồn.
 
