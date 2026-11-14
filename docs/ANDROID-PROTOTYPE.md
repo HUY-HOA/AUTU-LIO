@@ -66,9 +66,8 @@ Liên kết workflow: https://github.com/HUY-HOA-1/AUTU-LIO/actions/workflows/bu
 ## 7. Lưu ý an toàn
 - Bộ chọn preview chỉ tồn tại trong Debug; không được dùng để cấp quyền Admin ở bản phát hành.
 - Tài khoản/role thực phải được Cloudflare Worker xác minh từ Google ID token và dữ liệu quyền phía máy chủ.
-- Chỉ thử đăng nhập thật sau khi OAuth client ID và Worker được cấu hình; không nhập mật khẩu Google vào biểu mẫu trong app.
+- Chỉ thử đăng nhập thật sau khi OAuth client ID và Worker được cấu hình; ứng dụng dùng giao diện hệ thống Credential Manager, không yêu cầu người dùng nhập mật khẩu Google trong AUTU-LIO.
 - Đây là APK debug để thử giao diện, không phải bản phát hành thương mại.
 - Không dùng APK prototype để bán hoặc cấp cho khách hàng.
-- Không nhập mật khẩu Google thật vào màn hình thử nghiệm.
 - Chỉ cấp quyền Android khi chức năng thực tế cần quyền đó và đã có giải thích.
 - Chỉ chuyển sang bản release sau khi hoàn thành backend, bảo mật, runtime, kiểm thử thiết bị và cấu hình ký phát hành.
