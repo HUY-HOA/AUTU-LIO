@@ -54,7 +54,7 @@ Cloudflare vẫn cần được cấu hình và triển khai riêng. Tài liệu
 
 ## 5. Lời mời cộng tác viên
 
-Quy trình dự kiến:
+API và giao diện quản lý đã có mã nguồn; quy trình cần Worker/D1 được triển khai mới sử dụng được live:
 
 1. Chủ sở hữu nhập Gmail của người cần mời.
 2. Chọn một vai trò: Nhà phát triển, Nhà thiết kế hoặc Người kiểm duyệt.
@@ -78,4 +78,4 @@ Không tự động cấp quyền chỉ vì một người biết hoặc nhập 
 
 Đã cập nhật cấu hình dự án để tạo một APK duy nhất và thêm mô hình vai trò/quyền phía Android. Bộ chọn Admin/khách hàng hiện tại chỉ chạy trong bản Debug để kiểm tra giao diện.
 
-Chưa cấu hình Google OAuth client ID, chưa tạo D1 database hoặc triển khai Worker, chưa kiểm thử end-to-end. Do đó đăng nhập và quản lý cộng tác viên đã có mã nguồn nhưng chưa hoạt động live. Mô hình quyền Kotlin phía client không phải lớp bảo mật cuối cùng; mọi thao tác nhạy cảm phải do Worker kiểm tra. Không coi mô hình quyền Kotlin phía client là lớp bảo mật cuối cùng.
+Chưa cấu hình Google OAuth client ID, chưa tạo D1 database hoặc triển khai Worker, chưa kiểm thử end-to-end. Do đó đăng nhập và quản lý cộng tác viên đã có mã nguồn nhưng chưa hoạt động live. Mô hình quyền Kotlin phía client không phải lớp bảo mật cuối cùng; mọi thao tác nhạy cảm phải do Worker kiểm tra.
