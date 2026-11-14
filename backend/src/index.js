@@ -158,7 +158,7 @@ async function loadGoogleJwks() {
   return response.json();
 }
 
-async function verifyGoogleIdToken(idToken, env) {
+async function verifyGoogleIdToken(idToken, env, expectedNonce) {
   if (!env.GOOGLE_WEB_CLIENT_ID || env.GOOGLE_WEB_CLIENT_ID === "SET_GOOGLE_WEB_CLIENT_ID") {
     throw new Error("google_client_id_not_configured");
   }
@@ -187,6 +187,9 @@ async function verifyGoogleIdToken(idToken, env) {
   if (typeof claims.email !== "string" || !claims.email) throw new Error("missing_email");
   if (claims.email_verified !== true && claims.email_verified !== "true") {
     throw new Error("email_not_verified");
+  }
+  if (typeof expectedNonce !== "string" || expectedNonce.length < 20 || claims.nonce !== expectedNonce) {
+    throw new Error("invalid_nonce");
   }
 
   let jwks = await loadGoogleJwks();
@@ -219,15 +222,16 @@ async function googleLogin(request, env) {
   const body = await readJson(request);
   const idToken = body?.idToken;
   const invitationCode = typeof body?.invitationCode === "string" ? body.invitationCode.trim() : "";
+  const nonce = typeof body?.nonce === "string" ? body.nonce : "";
 
-  if (typeof idToken !== "string" || idToken.length < 100 || idToken.length > 12000) {
+  if (typeof idToken !== "string" || idToken.length < 100 || idToken.length > 12000 || nonce.length < 20 || nonce.length > 200) {
     return json({ error: "invalid_request" }, 400);
   }
   if (invitationCode.length > 200) return json({ error: "invalid_invitation_code" }, 400);
 
   let claims;
   try {
-    claims = await verifyGoogleIdToken(idToken, env);
+    claims = await verifyGoogleIdToken(idToken, env, nonce);
   } catch (error) {
     const reason = error instanceof Error ? error.message : "invalid_id_token";
     const status = reason === "google_client_id_not_configured" ? 503 : 401;
