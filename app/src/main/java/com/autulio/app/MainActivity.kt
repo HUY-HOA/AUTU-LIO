@@ -697,13 +697,20 @@ private fun OverviewScreen(
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Metric(tr("Khách hàng", "Customers"), "—", Icons.Outlined.Group, Modifier.weight(1f))
-            Metric(tr("Thiết bị", "Devices"), "—", Icons.Outlined.Smartphone, Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Metric(tr("Giấy phép còn hạn", "Active licenses"), "—", Icons.Outlined.VerifiedUser, Modifier.weight(1f))
-            Metric(tr("Kịch bản phát hành", "Published scripts"), "—", Icons.Outlined.Code, Modifier.weight(1f))
+        if (canManageCustomers) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Metric(tr("Khách hàng", "Customers"), "—", Icons.Outlined.Group, Modifier.weight(1f))
+                Metric(tr("Thiết bị", "Devices"), "—", Icons.Outlined.Smartphone, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Metric(tr("Giấy phép còn hạn", "Active licenses"), "—", Icons.Outlined.VerifiedUser, Modifier.weight(1f))
+                Metric(tr("Kịch bản phát hành", "Published scripts"), "—", Icons.Outlined.Code, Modifier.weight(1f))
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Metric(tr("Không gian làm việc", "Workspace"), "—", Icons.Outlined.Code, Modifier.weight(1f))
+                Metric(tr("Trạng thái quyền", "Access status"), "—", Icons.Outlined.VerifiedUser, Modifier.weight(1f))
+            }
         }
         if (canCreate || canManageCustomers) {
             Text(tr("Truy cập nhanh", "Quick actions"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
@@ -892,6 +899,7 @@ private fun MoreScreen(
                     "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
                     "release" -> tr("Quản lý phiên bản và phân phối", "Manage versions and distribution")
                     "logs" -> tr("Theo dõi sự kiện và lỗi hệ thống", "Review system events and errors")
+                    "team" -> tr("Mời và quản lý quyền của cộng tác viên", "Invite collaborators and manage their access")
                     else -> tr("Tùy chỉnh ứng dụng quản trị", "Customize the admin application")
                 }
             )
@@ -932,11 +940,13 @@ private fun MoreScreen(
                     SettingRow(Icons.Outlined.ExitToApp, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập AUTU-LIO", "End your AUTU-LIO session"), onLogout)
                 }
             }
-            OutlinedButton(
-                onClick = { onMessage(tr("Máy chủ chưa được kết nối. Thao tác chưa thể lưu dữ liệu thật.", "The server is not connected. This action cannot save live data yet.")) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(tr("Kiểm tra kết nối máy chủ", "Check server connection"))
+            if (page != "team") {
+                OutlinedButton(
+                    onClick = { onMessage(tr("Chức năng này chưa được kết nối với API.", "This feature is not connected to the API yet.")) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(tr("Kiểm tra kết nối máy chủ", "Check server connection"))
+                }
             }
         }
     }
