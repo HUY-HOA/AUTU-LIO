@@ -1,4 +1,6 @@
-const GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+const GOOGLE_JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
 const SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 30;
 const INVITATION_LIFETIME_SECONDS = 60 * 60 * 24 * 7;
 const COLLABORATOR_ROLES = new Set(["DEVELOPER", "DESIGNER", "REVIEWER"]);
@@ -107,25 +109,10 @@ async function readJson(request) {
   }
 }
 
-function decodeBase64Url(value) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
-}
-
-function decodeJsonSegment(value) {
-  return JSON.parse(new TextDecoder().decode(decodeBase64Url(value)));
-}
-
 function encodeBase64Url(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
 }
 
 function randomToken(byteLength = 32) {
@@ -141,48 +128,23 @@ async function sha256Hex(value) {
     .join("");
 }
 
-async function loadGoogleJwks() {
-  const cacheKey = new Request(GOOGLE_JWKS_URL);
-  const cache = caches.default;
-  let response = await cache.match(cacheKey);
-
-  if (!response) {
-    response = await fetch(GOOGLE_JWKS_URL, {
-      headers: { "Accept": "application/json" }
-    });
-    if (!response.ok) throw new Error("google_jwks_unavailable");
-    await cache.put(cacheKey, response.clone());
-  }
-
-  if (!response.ok) throw new Error("google_jwks_unavailable");
-  return response.json();
-}
-
 async function verifyGoogleIdToken(idToken, env, expectedNonce) {
   if (!env.GOOGLE_WEB_CLIENT_ID || env.GOOGLE_WEB_CLIENT_ID === "SET_GOOGLE_WEB_CLIENT_ID") {
     throw new Error("google_client_id_not_configured");
   }
 
-  const parts = idToken.split(".");
-  if (parts.length !== 3) throw new Error("invalid_id_token");
-
-  const header = decodeJsonSegment(parts[0]);
-  const claims = decodeJsonSegment(parts[1]);
-
-  if (header.alg !== "RS256" || typeof header.kid !== "string") {
-    throw new Error("unsupported_id_token_signature");
-  }
-
+  const verified = await jwtVerify(idToken, GOOGLE_JWKS, {
+    issuer: ["https://accounts.google.com", "accounts.google.com"],
+    audience: env.GOOGLE_WEB_CLIENT_ID,
+    algorithms: ["RS256"],
+    clockTolerance: 60
+  });
+  const claims = verified.payload;
   const now = Math.floor(Date.now() / 1000);
-  const audience = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-  if (!audience.includes(env.GOOGLE_WEB_CLIENT_ID)) throw new Error("invalid_audience");
-  if (audience.length > 1 && claims.azp !== env.GOOGLE_WEB_CLIENT_ID) throw new Error("invalid_authorized_party");
-  if (claims.iss !== "https://accounts.google.com" && claims.iss !== "accounts.google.com") {
-    throw new Error("invalid_issuer");
+
+  if (Array.isArray(claims.aud) && claims.aud.length > 1 && claims.azp !== env.GOOGLE_WEB_CLIENT_ID) {
+    throw new Error("invalid_authorized_party");
   }
-  if (!Number.isFinite(claims.exp) || claims.exp <= now) throw new Error("expired_id_token");
-  if (!Number.isFinite(claims.iat) || claims.iat > now + 60) throw new Error("invalid_issue_time");
-  if (claims.nbf !== undefined && claims.nbf > now + 60) throw new Error("token_not_yet_valid");
   if (typeof claims.sub !== "string" || !claims.sub) throw new Error("missing_google_subject");
   if (typeof claims.email !== "string" || !claims.email) throw new Error("missing_email");
   if (claims.email_verified !== true && claims.email_verified !== "true") {
@@ -191,29 +153,9 @@ async function verifyGoogleIdToken(idToken, env, expectedNonce) {
   if (typeof expectedNonce !== "string" || expectedNonce.length < 20 || claims.nonce !== expectedNonce) {
     throw new Error("invalid_nonce");
   }
-
-  let jwks = await loadGoogleJwks();
-  let jwk = Array.isArray(jwks.keys) ? jwks.keys.find((key) => key.kid === header.kid) : null;
-
-  if (!jwk) {
-    const refresh = await fetch(GOOGLE_JWKS_URL, { headers: { "Accept": "application/json" } });
-    if (!refresh.ok) throw new Error("google_jwks_unavailable");
-    jwks = await refresh.json();
-    jwk = Array.isArray(jwks.keys) ? jwks.keys.find((key) => key.kid === header.kid) : null;
+  if (typeof claims.iat !== "number" || claims.iat > now + 60) {
+    throw new Error("invalid_issue_time");
   }
-  if (!jwk) throw new Error("unknown_google_signing_key");
-
-  const publicKey = await crypto.subtle.importKey(
-    "jwk",
-    jwk,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["verify"]
-  );
-  const signedData = new TextEncoder().encode(parts[0] + "." + parts[1]);
-  const signature = decodeBase64Url(parts[2]);
-  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", publicKey, signature, signedData);
-  if (!valid) throw new Error("invalid_id_token_signature");
 
   return claims;
 }
