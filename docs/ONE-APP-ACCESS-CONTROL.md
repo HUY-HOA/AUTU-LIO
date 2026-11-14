@@ -78,4 +78,4 @@ Không tự động cấp quyền chỉ vì một người biết hoặc nhập 
 
 Đã cập nhật cấu hình dự án để tạo một APK duy nhất và thêm mô hình vai trò/quyền phía Android. Bộ chọn Admin/khách hàng hiện tại chỉ chạy trong bản Debug để kiểm tra giao diện.
 
-Chưa tích hợp Credential Manager, Google OAuth client ID, Cloudflare Worker/D1/R2, session thật, lời mời cộng tác viên, kiểm tra quyền máy chủ hoặc chạy Auto Click thực tế. Không coi mô hình quyền Kotlin phía client là lớp bảo mật cuối cùng.
+Chưa tích hợp Credential Manager vào giao diện Android, chưa cấu hình Google OAuth client ID, chưa tạo D1 database hoặc triển khai Worker, chưa có session thật trong ứng dụng và chưa kiểm thử end-to-end lời mời cộng tác viên. Worker source chỉ mới nằm trong GitHub, chưa hoạt động trên Cloudflare. Không coi mô hình quyền Kotlin phía client là lớp bảo mật cuối cùng.
