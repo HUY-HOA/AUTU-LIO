@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.autulio.app.access.AccessRole
 import com.autulio.app.auth.AutuLioApi
+import com.autulio.app.auth.Collaborator
+import com.autulio.app.auth.CollaboratorInvitation
 import com.autulio.app.auth.GoogleAuthRepository
 import com.autulio.app.auth.SecureSessionStore
 import kotlinx.coroutines.launch
@@ -422,7 +424,8 @@ private fun AdminApp(role: AccessRole = AccessRole.OWNER, onLogout: () -> Unit =
                     Modifier.padding(padding),
                     onNavigate = { page = it },
                     onCreate = { if (role == AccessRole.OWNER || role == AccessRole.DEVELOPER) createDialog = true },
-                    canCreate = role == AccessRole.OWNER || role == AccessRole.DEVELOPER
+                    canCreate = role == AccessRole.OWNER || role == AccessRole.DEVELOPER,
+                    canManageCustomers = role == AccessRole.OWNER
                 )
                 "scripts" -> ScriptsScreen(
                     Modifier.padding(padding),
@@ -520,10 +523,13 @@ private fun AdminApp(role: AccessRole = AccessRole.OWNER, onLogout: () -> Unit =
 }
 
 @Composable
-private fun CustomerApp() {
+private fun CustomerApp(
+    initiallySignedIn: Boolean = false,
+    onLogout: () -> Unit = {}
+) {
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
-    var previewEntered by rememberSaveable { mutableStateOf(false) }
+    var previewEntered by rememberSaveable { mutableStateOf(initiallySignedIn) }
     var scriptDetail by rememberSaveable { mutableStateOf(false) }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -556,7 +562,7 @@ private fun CustomerApp() {
                     onPreview = { previewEntered = true }
                 )
             } else when (page) {
-                "home" -> CustomerHome(Modifier.padding(padding), onScripts = { page = "scripts" })
+                "home" -> CustomerHome(Modifier.padding(padding), onScripts = { page = "scripts" }, authenticated = initiallySignedIn)
                 "scripts" -> if (scriptDetail) {
                     CustomerScriptDetail(
                         Modifier.padding(padding),
@@ -573,8 +579,8 @@ private fun CustomerApp() {
                         onOpen = { scriptDetail = true }
                     )
                 }
-                "device" -> CustomerDeviceLicensePage(Modifier.padding(padding))
-                else -> SettingsScreen(Modifier.padding(padding), onTheme = { dark = !dark })
+                "device" -> CustomerDeviceLicensePage(Modifier.padding(padding), signedIn = initiallySignedIn)
+                else -> SettingsScreen(Modifier.padding(padding), onTheme = { dark = !dark }, onLogout = onLogout)
             }
         }
     }
@@ -939,7 +945,7 @@ private fun AdminModulePage(
 }
 
 @Composable
-private fun CustomerHome(modifier: Modifier, onScripts: () -> Unit) {
+private fun CustomerHome(modifier: Modifier, onScripts: () -> Unit, authenticated: Boolean = false) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
         BrandHeader(admin = false)
         Heading(tr("Xin chào!", "Welcome!"), tr("Sẵn sàng sử dụng AUTU-LIO", "Ready to use AUTU-LIO"))
@@ -955,7 +961,14 @@ private fun CustomerHome(modifier: Modifier, onScripts: () -> Unit) {
         Text(tr("Kịch bản của bạn", "Your scripts"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
         EmptyState(Icons.Outlined.ListAlt, tr("Chưa có kịch bản", "No scripts available"), tr("Kịch bản được chủ ứng dụng phát hành sẽ xuất hiện tại đây.", "Scripts published by the app owner will appear here."))
         Button(onClick = onScripts, modifier = Modifier.fillMaxWidth()) { Text(tr("Xem kịch bản", "View scripts")) }
-        Text(tr("Prototype giao diện · Chưa đăng nhập", "UI prototype · Not signed in"), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            if (authenticated) tr("Tài khoản đã được xác minh", "Account verified")
+            else tr("Prototype giao diện · Chế độ xem thử", "UI prototype · Preview mode"),
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -1099,7 +1112,7 @@ private fun CustomerScriptDetail(
 }
 
 @Composable
-private fun CustomerDeviceLicensePage(modifier: Modifier) {
+private fun CustomerDeviceLicensePage(modifier: Modifier, signedIn: Boolean = false) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
@@ -1110,10 +1123,16 @@ private fun CustomerDeviceLicensePage(modifier: Modifier) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Icon(Icons.Outlined.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column {
-                    Text(tr("Chưa đăng nhập thật", "Not signed in"), fontWeight = FontWeight.SemiBold)
                     Text(
-                        tr("Đây là chế độ xem trước. Chưa có dữ liệu thiết bị hoặc giấy phép được truy xuất.",
-                            "This is preview mode. No device or license data has been retrieved."),
+                        if (signedIn) tr("Đã đăng nhập", "Signed in")
+                        else tr("Chế độ xem thử", "Preview mode"),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        if (signedIn) tr("Dữ liệu thiết bị và giấy phép sẽ xuất hiện sau khi các API tương ứng được kết nối.",
+                            "Device and license data will appear after their APIs are connected.")
+                        else tr("Chưa có dữ liệu thiết bị hoặc giấy phép được truy xuất.",
+                            "No device or license data has been retrieved."),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
@@ -1133,13 +1152,14 @@ private fun CustomerDeviceLicensePage(modifier: Modifier) {
 }
 
 @Composable
-private fun SettingsScreen(modifier: Modifier, onTheme: () -> Unit) {
+private fun SettingsScreen(modifier: Modifier, onTheme: () -> Unit, onLogout: () -> Unit = {}) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         BrandHeader(admin = false)
         Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
         SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO 0.1.0 · Prototype")
         SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Thông tin quyền sẽ được bổ sung", "Permission details will be provided"))
+        SettingRow(Icons.Outlined.ExitToApp, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập AUTU-LIO", "End your AUTU-LIO session"), onLogout)
     }
 }
 
