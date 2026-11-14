@@ -27,6 +27,9 @@
 - Không tự kích hoạt, dispatch, rerun hoặc khởi chạy workflow build APK khi chưa có lệnh `BUILD APK` độc lập.
 - Khi có lệnh hợp lệ `BUILD APK`, kiểm tra mã nguồn và workflow trước; chỉ kích hoạt quy trình build nếu repository đã có cấu hình build phù hợp và thao tác đó được kết nối hỗ trợ.
 - Nếu chưa có mã nguồn, chưa có workflow hoặc không thể kích hoạt build qua kết nối hiện có, phải nói rõ tình trạng; không giả vờ build.
+- Workflow hiện tại là `.github/workflows/build-apks.yml`, chỉ có `workflow_dispatch`; không chạy tự động khi push hoặc theo lịch.
+- Workflow tạo hai artifact debug riêng: `AUTU-LIO-Admin-Debug` và `AUTU-LIO-AutoClick-Debug`.
+- Nếu kết nối GitHub hiện tại không hỗ trợ thao tác dispatch, chủ ứng dụng cần mở GitHub Actions → AUTU-LIO Android APK → Run workflow. Không được báo đã bắt đầu cho đến khi nhìn thấy một workflow run thực tế.
 - Chỉ kiểm tra trạng thái, log và artifact của lần chạy khi chủ ứng dụng yêu cầu theo dõi hoặc cung cấp lần chạy cần kiểm tra.
 - Khi báo cáo build, phân biệt rõ: đang chờ, đang chạy, thành công, thất bại, bị hủy; không suy đoán kết quả.
 - Không tuyên bố APK đã được tạo nếu chưa xác minh artifact tải được.
@@ -44,7 +47,7 @@
 - Chỉ nói đã kiểm thử khi thực sự có kết quả kiểm thử.
 
 ## 7. Trạng thái hiện tại
-- Repository mới có tài liệu định hướng và tài liệu thiết kế giao diện.
-- Chưa có mã nguồn Android, Gradle project hay GitHub Actions workflow.
-- Chưa có APK và chưa có lần chạy build để theo dõi.
-- Giai đoạn hiện tại là thiết kế UI/UX; chưa tích hợp backend hoặc Google OAuth.
+- Repository có tài liệu thiết kế, project Gradle Android và prototype giao diện Kotlin/Jetpack Compose.
+- Đã cấu hình hai product flavor: Admin và Client.
+- Đã tạo GitHub Actions workflow thủ công để build hai APK debug; chưa có lần chạy build được xác minh.
+- Chưa tích hợp backend, Google OAuth, giấy phép thật, compiler/runtime hoặc engine tự động hóa.
