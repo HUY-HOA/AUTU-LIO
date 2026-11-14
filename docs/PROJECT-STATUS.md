@@ -6,10 +6,11 @@
 
 ## 1. Mốc hiện tại
 
-Dự án đã chuyển từ tài liệu thiết kế sang **prototype Android Kotlin/Jetpack Compose**. Có hai product flavors được cấu hình trong cùng codebase:
+- Quyết định kiến trúc mới: một APK, phân quyền trong ứng dụng; không dùng Firebase.
+- Tài liệu phân quyền: `docs/ONE-APP-ACCESS-CONTROL.md`.
+- Bộ chọn Admin/khách hàng trong Debug chỉ là preview, không phải đăng nhập hoặc xác minh quyền.
 
-- `adminDebug` — AUTU-LIO Admin Studio (`com.autulio.app.admin`).
-- `clientDebug` — AUTU-LIO AutoClick (`com.autulio.app.client`).
+Dự án đã chuyển từ tài liệu thiết kế sang **prototype Android Kotlin/Jetpack Compose**. Đã chuyển dự án sang **một APK duy nhất** với application ID `com.autulio.app`. Các giao diện Admin và AutoClick là các khu vực trong cùng ứng dụng, được mở theo vai trò do máy chủ xác minh. Bản Debug hiện có bộ chọn giao diện thử nghiệm để kiểm tra bố cục; bộ chọn này không cấp quyền thật.
 
 Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Đây chưa phải bản ứng dụng có backend và chức năng tự động hóa thực tế.
 
@@ -24,7 +25,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
 - Chuyển giao diện sáng / tối.
 
-### AutoClick khách hàng
+### Giao diện người dùng
 - Màn hình đăng nhập prototype và chế độ xem trước.
 - Trang chủ.
 - Danh sách và chi tiết một kịch bản mẫu được ghi rõ là dữ liệu xem trước.
@@ -34,7 +35,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 ## 3. Build
 
 - Đã có workflow `.github/workflows/build-apks.yml`.
-- Workflow kiểm tra lint và tạo hai APK debug riêng.
+- Workflow được chỉnh để kiểm tra lint và tạo một APK debug duy nhất (`AUTU-LIO-Debug`).
 - Trigger được thiết lập theo `workflow_dispatch` hoặc nhánh `build-requests/**`; push thông thường lên `main` không tự build.
 - **Chưa có workflow run được xác minh và chưa có APK artifact được xác minh.**
 - Tuân thủ quy tắc: chỉ bắt đầu build khi chủ ứng dụng gửi riêng đúng lệnh `BUILD APK`.
@@ -51,8 +52,10 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 ## 4. Phần chưa triển khai
 
-- Google OAuth và hệ thống tài khoản thực.
+- Google Credential Manager / Google Sign-In và hệ thống tài khoản thực.
 - Cloudflare Workers / D1 / R2 và API.
+- Xác minh Google ID token phía máy chủ, session và phân quyền vai trò.
+- Quản lý lời mời, cộng tác viên và lịch sử thay đổi quyền.
 - Đồng bộ tài khoản, thiết bị, giấy phép và dữ liệu khách hàng.
 - Trình biên dịch, parser, bytecode và runtime của ngôn ngữ AUTU-LIO.
 - Engine thực hiện Auto Click, Accessibility Service, overlay và điều khiển vòng đời tác vụ.
@@ -62,7 +65,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 ## 5. Việc tiếp theo
 
-1. Khi có lệnh build hợp lệ, chạy workflow để kiểm tra khả năng biên dịch và lấy APK debug.
+1. Khi có lệnh build hợp lệ, chạy workflow để kiểm tra khả năng biên dịch và lấy một APK debug.
 2. Sửa các lỗi lint / build phát hiện được trước khi phát hành APK thử nghiệm.
 3. Thử hai APK trên điện thoại, thu thập lỗi giao diện và điều chỉnh.
 4. Thiết kế đặc tả ngôn ngữ AUTU-LIO trước khi viết parser/compiler/runtime.

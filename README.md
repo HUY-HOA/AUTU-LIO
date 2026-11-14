@@ -1,9 +1,12 @@
 # AUTU-LIO
 
-Ứng dụng tự động hóa thao tác trên Android, được phát triển theo hai biến thể:
+Ứng dụng tự động hóa thao tác trên Android, phát hành dưới dạng **một APK duy nhất**. Sau khi đăng nhập và xác minh vai trò, ứng dụng mở giao diện và quyền phù hợp:
 
-- **Admin Studio:** dành cho chủ ứng dụng để quản lý và phát triển kịch bản.
-- **AutoClick:** dành cho khách hàng để sử dụng các kịch bản đã được phát hành.
+- **Chủ sở hữu:** quản trị toàn bộ ứng dụng, cộng tác viên, kịch bản và phát hành.
+- **Nhà phát triển:** viết, sửa và kiểm thử kịch bản theo quyền được cấp.
+- **Nhà thiết kế:** thiết kế giao diện và xem trước.
+- **Người kiểm duyệt:** kiểm tra và duyệt bản phát hành.
+- **Người dùng:** chỉ sử dụng kịch bản đã phát hành.
 
 ## Repository
 
@@ -21,18 +24,18 @@
 - [Thư viện và Phát hành](docs/04-library-and-release.md)
 - [Ứng dụng khách hàng](docs/05-customer-app.md)
 - [Quản lý khách hàng, thiết bị và giấy phép](docs/06-admin-customers-devices-license.md)
+- [Một ứng dụng và phân quyền](docs/ONE-APP-ACCESS-CONTROL.md)
 - [Quy trình GitHub](docs/GITHUB-WORKFLOW.md)
 - [Hướng dẫn kiểm thử prototype Android](docs/ANDROID-PROTOTYPE.md)
 
 ## Build
 
-Hai APK debug được tạo từ cùng codebase bằng product flavors:
+Một APK debug duy nhất được tạo từ ứng dụng có giao diện theo quyền tài khoản:
 
-- `adminDebug` — AUTU-LIO Admin Studio
-- `clientDebug` — AUTU-LIO AutoClick
+- `debug` — AUTU-LIO (bản thử nghiệm một ứng dụng, có bộ chọn giao diện preview chỉ dành cho Debug).
 
 Build chỉ được khởi chạy theo đúng quy tắc trong [GITHUB-WORKFLOW.md](docs/GITHUB-WORKFLOW.md). Workflow APK chỉ chạy qua `workflow_dispatch` hoặc nhánh yêu cầu build chuyên biệt `build-requests/**`; push thông thường lên `main` không tự build.
 
 ## Trạng thái
 
-Đã có prototype Android Kotlin/Jetpack Compose với hai biến thể Admin và Client. Các màn hình quản trị và luồng xem trước khách hàng đã có thể điều hướng; dữ liệu máy chủ và thao tác Auto Click vẫn chưa hoạt động. Google OAuth, Cloudflare, giấy phép thực tế, trình biên dịch/ngôn ngữ riêng và engine tự động hóa chưa được tích hợp. Chưa có APK build thành công được xác minh. Xem [trạng thái dự án](docs/PROJECT-STATUS.md) để biết chi tiết.
+Đã có prototype Android Kotlin/Jetpack Compose được chuyển sang một APK duy nhất. Bản Debug có bộ chọn giao diện xem thử Admin/khách hàng; đây không phải cơ chế cấp quyền thật. Google OAuth, xác minh vai trò bằng Cloudflare, quản lý cộng tác viên, giấy phép, trình biên dịch/ngôn ngữ riêng và engine tự động hóa chưa được tích hợp. Chưa có APK build thành công được xác minh. Xem [trạng thái dự án](docs/PROJECT-STATUS.md) để biết chi tiết.

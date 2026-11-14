@@ -1,6 +1,6 @@
 name: AUTU-LIO Android APK
 
-run-name: AUTU-LIO APK build - ${{ github.ref_name }}
+run-name: AUTU-LIO single APK build - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build Admin and Client APKs
+    name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -52,7 +52,7 @@ jobs:
           {
             echo "## AUTU-LIO APK build"
             echo "- Source branch: \`$GITHUB_REF_NAME\`"
-            echo "- Variants: Admin Debug and Client Debug"
+            echo "- Output: one AUTU-LIO Debug APK with role-based screens"
             echo "- Progress is shown by completed GitHub Actions steps; Gradle does not provide a reliable overall percentage."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -63,23 +63,15 @@ jobs:
           sdkmanager --list_installed
 
       - name: Run Android checks
-        run: gradle --no-daemon :app:lintAdminDebug :app:lintClientDebug
+        run: gradle --no-daemon :app:lintDebug
 
-      - name: Build both APK variants
-        run: gradle --no-daemon :app:assembleAdminDebug :app:assembleClientDebug
+      - name: Build one APK
+        run: gradle --no-daemon :app:assembleDebug
 
-      - name: Upload Admin APK
+      - name: Upload AUTU-LIO APK
         uses: actions/upload-artifact@v4
         with:
-          name: AUTU-LIO-Admin-Debug
-          path: app/build/outputs/apk/admin/debug/*.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload Client APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: AUTU-LIO-AutoClick-Debug
-          path: app/build/outputs/apk/client/debug/*.apk
+          name: AUTU-LIO-Debug
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -33,7 +34,79 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            if (BuildConfig.FLAVOR == "admin") AdminApp() else CustomerApp()
+            AutuLioAppEntry()
+        }
+    }
+}
+
+@Composable
+private fun AutuLioAppEntry() {
+    var previewRole by rememberSaveable { mutableStateOf<String?>(null) }
+
+    if (!BuildConfig.DEBUG) {
+        CustomerApp()
+    } else if (previewRole == null) {
+        RolePreviewChooser(
+            onOpenAdmin = { previewRole = "admin" },
+            onOpenCustomer = { previewRole = "customer" }
+        )
+    } else {
+        BackHandler { previewRole = null }
+        if (previewRole == "admin") AdminApp() else CustomerApp()
+    }
+}
+
+@Composable
+private fun RolePreviewChooser(
+    onOpenAdmin: () -> Unit,
+    onOpenCustomer: () -> Unit
+) {
+    AppTheme(dark = true) {
+        Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                BrandHeader(admin = false)
+                Heading(
+                    tr("Chọn giao diện kiểm thử", "Choose a test view"),
+                    tr("Một ứng dụng AUTU-LIO, giao diện được mở theo quyền tài khoản.", "One AUTU-LIO app; the interface is selected by the account role.")
+                )
+                CardBox {
+                    Text(
+                        tr("Chế độ xem thử dành cho bản Debug", "Debug-only preview mode"),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        tr("Hai lựa chọn dưới đây chỉ giúp kiểm tra bố cục. Chúng không đăng nhập, không cấp quyền Admin và không thay thế xác minh quyền trên máy chủ.",
+                            "These choices only preview layouts. They do not sign in, grant Admin access, or replace server-side authorization."),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
+                    )
+                }
+                Button(onClick = onOpenAdmin, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.Code, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Xem thử giao diện Admin", "Preview Admin interface"))
+                }
+                OutlinedButton(onClick = onOpenCustomer, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.Person, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Xem thử giao diện người dùng", "Preview customer interface"))
+                }
+                Text(
+                    tr("Bản phát hành sẽ chỉ mở quyền Admin sau khi Google đăng nhập và máy chủ xác minh vai trò.",
+                        "The release build will grant Admin access only after Google sign-in and server-side role verification."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp
+                )
+            }
         }
     }
 }

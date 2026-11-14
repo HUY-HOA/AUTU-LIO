@@ -3,11 +3,11 @@
 ## 1. Mục đích
 Bản prototype dùng để kiểm tra bố cục, màu sắc, điều hướng và trải nghiệm trên điện thoại. Đây chưa phải bản Auto Click có thể thực hiện tự động hóa thật.
 
-## 2. Hai APK dự kiến
-- **AUTU-LIO Admin Studio** — biến thể `adminDebug`, application ID `com.autulio.app.admin`.
-- **AUTU-LIO AutoClick** — biến thể `clientDebug`, application ID `com.autulio.app.client`.
-
-Hai biến thể dùng chung codebase nhưng chọn giao diện theo product flavor, vì vậy có thể cài song song trên cùng điện thoại.
+## 2. Một APK duy nhất
+- **AUTU-LIO** — biến thể `debug`, application ID `com.autulio.app`.
+- Giao diện Admin và giao diện người dùng là hai khu vực của cùng ứng dụng.
+- Trong bản Debug, bộ chọn giao diện cho phép mở bản xem thử Admin hoặc người dùng để kiểm tra bố cục. Đây không phải đăng nhập và không xác minh quyền.
+- Bản Release phải lấy vai trò từ máy chủ sau Google Sign-In; không được cung cấp bộ chọn vai trò cục bộ.
 
 ## 3. Các mục có thể kiểm tra trong prototype
 
@@ -50,14 +50,15 @@ Nút Kiểm tra / Chạy thử trong editor chỉ thông báo trạng thái chư
 2. Chọn workflow **AUTU-LIO Android APK**.
 3. Chọn **Run workflow** trên nhánh `main`.
 4. Chờ job chạy hoàn tất; kiểm tra các bước lint và assemble.
-5. Khi thành công, tải hai artifact riêng:
-   - `AUTU-LIO-Admin-Debug`
-   - `AUTU-LIO-AutoClick-Debug`
+5. Khi thành công, tải artifact duy nhất `AUTU-LIO-Debug`.
 6. Giải nén ZIP artifact rồi cài file APK trên Android.
 
 Liên kết workflow: https://github.com/HUY-HOA-1/AUTU-LIO/actions/workflows/build-apks.yml
 
 ## 6. Lưu ý an toàn
+- Bộ chọn preview chỉ tồn tại trong Debug; không được dùng để cấp quyền Admin ở bản phát hành.
+- Tài khoản/role thực phải được Cloudflare Worker xác minh từ Google ID token và dữ liệu quyền phía máy chủ.
+- Không dùng màn hình đăng nhập prototype với tài khoản thật cho đến khi OAuth được tích hợp.
 - Đây là APK debug để thử giao diện, không phải bản phát hành thương mại.
 - Không dùng APK prototype để bán hoặc cấp cho khách hàng.
 - Không nhập mật khẩu Google thật vào màn hình thử nghiệm.
