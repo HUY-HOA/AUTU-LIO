@@ -19,6 +19,7 @@
 - [Trình soạn thảo ngôn ngữ riêng](docs/03-script-editor.md)
 - [Thư viện và Phát hành](docs/04-library-and-release.md)
 - [Ứng dụng khách hàng](docs/05-customer-app.md)
+- [Quản lý khách hàng, thiết bị và giấy phép](docs/06-admin-customers-devices-license.md)
 - [Quy trình GitHub](docs/GITHUB-WORKFLOW.md)
 
 ## Build
@@ -32,4 +33,4 @@ Build chỉ được khởi chạy theo đúng quy tắc trong [GITHUB-WORKFLOW.
 
 ## Trạng thái
 
-Giai đoạn hiện tại là prototype giao diện Android. Google OAuth, Cloudflare, giấy phép thực tế, trình biên dịch/ngôn ngữ riêng và engine tự động hóa chưa được tích hợp. Dữ liệu hiển thị trong prototype không phải dữ liệu khách hàng thật.
+Đã có project Android Kotlin/Jetpack Compose ban đầu với hai biến thể Admin và Client. Màn hình hiện là prototype giao diện dùng dữ liệu rỗng/tạm thời. Google OAuth, Cloudflare, giấy phép thực tế, trình biên dịch/ngôn ngữ riêng và engine tự động hóa chưa được tích hợp. Chưa có APK build thành công được xác minh.
