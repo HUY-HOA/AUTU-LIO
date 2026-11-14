@@ -14,6 +14,10 @@
 - Repository: [HUY-HOA-1/AUTU-LIO](https://github.com/HUY-HOA-1/AUTU-LIO)
 - Nhánh chính: main
 
+## Backend
+
+- [Cloudflare API, Google token và phân quyền cộng tác viên](backend/README.md)
+
 ## Tài liệu thiết kế
 
 - [Định hướng UI tổng thể](docs/UI-DESIGN-PLAN.md)
