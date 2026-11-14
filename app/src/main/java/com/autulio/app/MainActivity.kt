@@ -56,11 +56,16 @@ private fun AutuLioAppEntry() {
     } else if (previewRole == null) {
         RolePreviewChooser(
             onOpenAdmin = { previewRole = "admin" },
-            onOpenCustomer = { previewRole = "customer" }
+            onOpenCustomer = { previewRole = "customer" },
+            onOpenLiveLogin = { previewRole = "live" }
         )
     } else {
         BackHandler { previewRole = null }
-        if (previewRole == "admin") AdminApp() else CustomerApp()
+        when (previewRole) {
+            "admin" -> AdminApp()
+            "customer" -> CustomerApp()
+            else -> AuthenticatedApp()
+        }
     }
 }
 
@@ -245,7 +250,8 @@ private fun AuthLoadingScreen() {
 @Composable
 private fun RolePreviewChooser(
     onOpenAdmin: () -> Unit,
-    onOpenCustomer: () -> Unit
+    onOpenCustomer: () -> Unit,
+    onOpenLiveLogin: () -> Unit
 ) {
     AppTheme(dark = true) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
@@ -285,6 +291,18 @@ private fun RolePreviewChooser(
                     Spacer(Modifier.width(8.dp))
                     Text(tr("Xem thử giao diện người dùng", "Preview customer interface"))
                 }
+                OutlinedButton(onClick = onOpenLiveLogin, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.Login, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Thử đăng nhập Google thật", "Test real Google sign-in"))
+                }
+                Text(
+                    tr("Đăng nhập thật chỉ hoạt động khi Google Web Client ID và API Cloudflare đã được cấu hình.",
+                        "Real sign-in works only after the Google Web Client ID and Cloudflare API are configured."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp
+                )
                 Text(
                     tr("Bản phát hành sẽ chỉ mở quyền Admin sau khi Google đăng nhập và máy chủ xác minh vai trò.",
                         "The release build will grant Admin access only after Google sign-in and server-side role verification."),
