@@ -1,10 +1,12 @@
 package com.autulio.app
 
+import android.app.Activity
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -26,6 +28,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.autulio.app.access.AccessRole
+import com.autulio.app.auth.AutuLioApi
+import com.autulio.app.auth.GoogleAuthRepository
+import com.autulio.app.auth.SecureSessionStore
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.Locale
@@ -44,7 +50,7 @@ private fun AutuLioAppEntry() {
     var previewRole by rememberSaveable { mutableStateOf<String?>(null) }
 
     if (!BuildConfig.DEBUG) {
-        CustomerApp()
+        AuthenticatedApp()
     } else if (previewRole == null) {
         RolePreviewChooser(
             onOpenAdmin = { previewRole = "admin" },
@@ -53,6 +59,184 @@ private fun AutuLioAppEntry() {
     } else {
         BackHandler { previewRole = null }
         if (previewRole == "admin") AdminApp() else CustomerApp()
+    }
+}
+
+@Composable
+private fun AuthenticatedApp() {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val scope = rememberCoroutineScope()
+    var roleName by rememberSaveable { mutableStateOf<String?>(null) }
+    var checkingSession by rememberSaveable { mutableStateOf(true) }
+    var signingIn by rememberSaveable { mutableStateOf(false) }
+    var loginError by rememberSaveable { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        val token = SecureSessionStore.read(context)
+        if (!token.isNullOrBlank()) {
+            val user = runCatching { AutuLioApi.currentUser(token) }.getOrNull()
+            if (user != null) {
+                roleName = user.role
+            } else {
+                SecureSessionStore.clear(context)
+            }
+        }
+        checkingSession = false
+    }
+
+    val logout: () -> Unit = {
+        scope.launch {
+            val token = SecureSessionStore.read(context)
+            if (!token.isNullOrBlank()) AutuLioApi.logout(token)
+            SecureSessionStore.clear(context)
+            roleName = null
+            loginError = null
+        }
+    }
+
+    when {
+        checkingSession -> AuthLoadingScreen()
+        roleName == null -> AuthLoginScreen(
+            busy = signingIn,
+            errorMessage = loginError,
+            onSignIn = { invitationCode ->
+                scope.launch {
+                    if (activity == null) {
+                        loginError = tr("Không xác định được màn hình đăng nhập.", "Could not access the sign-in activity.")
+                    } else {
+                        signingIn = true
+                        loginError = null
+                        try {
+                            val session = GoogleAuthRepository(activity).signIn(invitationCode)
+                            SecureSessionStore.save(context, session.sessionToken)
+                            roleName = session.user.role
+                        } catch (error: Exception) {
+                            loginError = error.message ?: tr("Đăng nhập thất bại. Vui lòng thử lại.", "Sign-in failed. Please try again.")
+                        } finally {
+                            signingIn = false
+                        }
+                    }
+                }
+            }
+        )
+        roleName == AccessRole.CUSTOMER.name -> CustomerApp(
+            initiallySignedIn = true,
+            onLogout = logout
+        )
+        else -> {
+            val role = runCatching { AccessRole.valueOf(roleName.orEmpty()) }.getOrNull()
+            if (role == null) {
+                AuthLoginScreen(
+                    busy = false,
+                    errorMessage = tr("Vai trò tài khoản không hợp lệ. Vui lòng đăng nhập lại.", "Invalid account role. Please sign in again."),
+                    onSignIn = { invitationCode ->
+                        scope.launch {
+                            if (activity != null) {
+                                signingIn = true
+                                loginError = null
+                                try {
+                                    val session = GoogleAuthRepository(activity).signIn(invitationCode)
+                                    SecureSessionStore.save(context, session.sessionToken)
+                                    roleName = session.user.role
+                                } catch (error: Exception) {
+                                    loginError = error.message ?: tr("Đăng nhập thất bại.", "Sign-in failed.")
+                                } finally {
+                                    signingIn = false
+                                }
+                            }
+                        }
+                    }
+                )
+            } else {
+                AdminApp(role = role, onLogout = logout)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthLoginScreen(
+    busy: Boolean,
+    errorMessage: String?,
+    onSignIn: (String?) -> Unit
+) {
+    var invitationCode by rememberSaveable { mutableStateOf("") }
+    AppTheme(dark = true) {
+        Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(15.dp)
+            ) {
+                Spacer(Modifier.height(20.dp))
+                BrandHeader(admin = false)
+                Spacer(Modifier.height(12.dp))
+                Icon(Icons.Outlined.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(52.dp))
+                Heading(
+                    tr("Đăng nhập AUTU-LIO", "Sign in to AUTU-LIO"),
+                    tr("Dùng Google để xác minh tài khoản và quyền sử dụng.", "Use Google to verify your account and access role.")
+                )
+                CardBox {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            tr("Nếu bạn được mời làm cộng tác viên, nhập mã mời ở đây. Người dùng thông thường có thể để trống.",
+                                "If you were invited as a collaborator, enter the invitation code here. Regular users can leave it blank."),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp
+                        )
+                        OutlinedTextField(
+                            value = invitationCode,
+                            onValueChange = { invitationCode = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(tr("Mã mời (không bắt buộc)", "Invitation code (optional)")) },
+                            singleLine = true
+                        )
+                        Button(
+                            onClick = { onSignIn(invitationCode.trim().ifBlank { null }) },
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (busy) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                            } else {
+                                Icon(Icons.Outlined.Person, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(tr("Đăng nhập bằng Google", "Continue with Google"))
+                        }
+                        if (!errorMessage.isNullOrBlank()) {
+                            Text(errorMessage, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        }
+                    }
+                }
+                Text(
+                    tr("AUTU-LIO không dùng Firebase. Quyền tài khoản được xác minh trên máy chủ.",
+                        "AUTU-LIO does not use Firebase. Account roles are verified by the server."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthLoadingScreen() {
+    AppTheme(dark = true) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                CircularProgressIndicator()
+                Text(tr("Đang kiểm tra phiên đăng nhập...", "Checking your sign-in session..."), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 
