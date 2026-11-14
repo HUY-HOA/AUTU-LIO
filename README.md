@@ -42,4 +42,4 @@ Build chỉ được khởi chạy theo đúng quy tắc trong [GITHUB-WORKFLOW.
 
 ## Trạng thái
 
-Đã có prototype Android Kotlin/Jetpack Compose được chuyển sang một APK duy nhất. Bản Debug có bộ chọn giao diện xem thử Admin/khách hàng; đây không phải cơ chế cấp quyền thật. Google OAuth, xác minh vai trò bằng Cloudflare, quản lý cộng tác viên, giấy phép, trình biên dịch/ngôn ngữ riêng và engine tự động hóa chưa được tích hợp. Chưa có APK build thành công được xác minh. Xem [trạng thái dự án](docs/PROJECT-STATUS.md) để biết chi tiết.
+Đã chuyển sang một APK Kotlin/Jetpack Compose. Mã Android cho Google Credential Manager, session Android Keystore và màn hình quản lý cộng tác viên đã được thêm; mã Cloudflare Worker/D1 cho xác minh token, vai trò và lời mời cũng đã được chuẩn bị. Các phần này chưa hoạt động live cho đến khi cấu hình OAuth, tạo D1, triển khai Worker và kiểm thử. Bộ chọn giao diện Debug chỉ là preview, không cấp quyền thật. Trình biên dịch/ngôn ngữ riêng và engine Auto Click vẫn chưa hoàn thiện. Chưa có APK build thành công được xác minh. Xem [trạng thái dự án](docs/PROJECT-STATUS.md) để biết chi tiết.
