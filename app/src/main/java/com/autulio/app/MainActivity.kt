@@ -75,6 +75,7 @@ private fun AuthenticatedApp() {
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
     var roleName by rememberSaveable { mutableStateOf<String?>(null) }
+    var accountId by rememberSaveable { mutableStateOf<String?>(null) }
     var checkingSession by rememberSaveable { mutableStateOf(true) }
     var signingIn by rememberSaveable { mutableStateOf(false) }
     var loginError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -85,6 +86,7 @@ private fun AuthenticatedApp() {
             val user = runCatching { AutuLioApi.currentUser(token) }.getOrNull()
             if (user != null) {
                 roleName = user.role
+                accountId = user.id
             } else {
                 SecureSessionStore.clear(context)
             }
@@ -98,6 +100,7 @@ private fun AuthenticatedApp() {
             if (!token.isNullOrBlank()) AutuLioApi.logout(token)
             SecureSessionStore.clear(context)
             roleName = null
+            accountId = null
             loginError = null
         }
     }
@@ -118,6 +121,7 @@ private fun AuthenticatedApp() {
                             val session = GoogleAuthRepository(activity).signIn(invitationCode)
                             SecureSessionStore.save(context, session.sessionToken)
                             roleName = session.user.role
+                            accountId = session.user.id
                         } catch (error: Exception) {
                             loginError = error.message ?: tr("Đăng nhập thất bại. Vui lòng thử lại.", "Sign-in failed. Please try again.")
                         } finally {
@@ -146,6 +150,7 @@ private fun AuthenticatedApp() {
                                     val session = GoogleAuthRepository(activity).signIn(invitationCode)
                                     SecureSessionStore.save(context, session.sessionToken)
                                     roleName = session.user.role
+                                    accountId = session.user.id
                                 } catch (error: Exception) {
                                     loginError = error.message ?: tr("Đăng nhập thất bại.", "Sign-in failed.")
                                 } finally {
@@ -156,7 +161,7 @@ private fun AuthenticatedApp() {
                     }
                 )
             } else {
-                AdminApp(role = role, onLogout = logout)
+                AdminApp(role = role, accountId = accountId.orEmpty(), onLogout = logout)
             }
         }
     }
@@ -274,8 +279,8 @@ private fun RolePreviewChooser(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        tr("Hai lựa chọn dưới đây chỉ giúp kiểm tra bố cục. Chúng không đăng nhập, không cấp quyền Admin và không thay thế xác minh quyền trên máy chủ.",
-                            "These choices only preview layouts. They do not sign in, grant Admin access, or replace server-side authorization."),
+                        tr("Các lựa chọn xem thử chỉ giúp kiểm tra bố cục. Chúng không đăng nhập, không cấp quyền Admin và không thay thế xác minh quyền trên máy chủ.",
+                            "Preview choices only test layouts. They do not sign in, grant Admin access, or replace server-side authorization."),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         lineHeight = 18.sp
@@ -356,10 +361,14 @@ private val customerTabs = listOf(
 )
 
 @Composable
-private fun AdminApp(role: AccessRole = AccessRole.OWNER, onLogout: () -> Unit = {}) {
+private fun AdminApp(
+    role: AccessRole = AccessRole.OWNER,
+    accountId: String = "debug-preview",
+    onLogout: () -> Unit = {}
+) {
     val context = LocalContext.current
     val preferences = remember(context) {
-        context.getSharedPreferences("autulio_admin_drafts", Context.MODE_PRIVATE)
+        context.getSharedPreferences("autulio_admin_drafts_" + accountId, Context.MODE_PRIVATE)
     }
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("overview") }
