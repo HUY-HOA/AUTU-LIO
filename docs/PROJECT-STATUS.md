@@ -17,8 +17,10 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 ## 2. Phần đã có trong mã nguồn
 
-### Admin Studio
+### Giao diện quản trị theo vai trò
 - Trang tổng quan.
+- Chủ sở hữu có màn hình cộng tác viên: tạo mã mời theo Gmail/vai trò, xem danh sách, đổi vai trò và thu hồi tài khoản. Các thao tác gọi API Worker, hiện chưa hoạt động live do backend chưa triển khai.
+- Nhà phát triển được mở khu vực kịch bản; Nhà thiết kế mở khu vực thiết kế; Người kiểm duyệt mở khu vực duyệt. Các khu vực thiết kế/duyệt hiện là prototype, chưa có trình sửa trực quan hoặc hàng đợi duyệt thật.
 - Danh sách kịch bản, tìm kiếm và lọc Bản nháp / Đã phát hành.
 - Tạo kịch bản, lưu tên và nội dung bản nháp vào vùng lưu trữ riêng của ứng dụng trên thiết bị; nội dung được khôi phục sau khi đóng/mở lại app.
 - Bản nháp chưa đồng bộ máy chủ và chưa được mã hóa riêng ở tầng ứng dụng.
@@ -27,11 +29,13 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Chuyển giao diện sáng / tối.
 
 ### Giao diện người dùng
-- Màn hình đăng nhập prototype và chế độ xem trước.
+- Màn hình đăng nhập Google bằng Credential Manager trong luồng xác thực thật.
 - Trang chủ.
 - Danh sách và chi tiết một kịch bản mẫu được ghi rõ là dữ liệu xem trước.
 - Các nút Chạy / Tạm dừng / Dừng mẫu chỉ hiển thị thông báo; không thao tác trên màn hình.
 - Trang Thiết bị / Giấy phép và Cài đặt.
+- Android gửi Google ID token kèm nonce tới API, nhận session/role và mã hóa session bằng AES-GCM với khóa trong Android Keystore.
+- Bản Debug có nút riêng để thử đăng nhập thật; vẫn có các mục preview chỉ để kiểm tra giao diện.
 
 ## 3. Build
 
@@ -51,12 +55,13 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Tạm đặt `android.builtInKotlin=false` và `android.newDsl=false` để dùng Kotlin Android plugin 2.4.21 trong bộ phiên bản tương thích đã chọn. Đây là bước tương thích tạm thời; cần chuyển sang Kotlin tích hợp của AGP trước khi nâng AGP 10.
 - Cấu hình trên đã được rà soát theo bảng tương thích và tài liệu công cụ, nhưng **chưa được kiểm chứng bằng một lần chạy Gradle thực tế** vì chưa nhận lệnh build độc lập.
 
-## 4. Phần chưa triển khai
+## 4. Phần chưa triển khai hoặc chưa xác minh
 
-- Android Google Credential Manager / Google Sign-In và nối API thực.
-- Tạo D1 database, cấu hình Cloudflare Worker, secrets và triển khai API.
-- Kết nối Android với API để tạo/khôi phục session và lấy vai trò.
-- Kiểm thử end-to-end đăng nhập Google, bootstrap Owner, lời mời cộng tác viên, đổi/thu hồi quyền.
+- Tạo D1 database, thay database ID placeholder, cấu hình secrets và triển khai Cloudflare Worker.
+- Tạo Google OAuth Android/Web clients và thiết lập Web Client ID, package name, SHA-1 ký APK.
+- Điền GitHub Actions Variables `AUTULIO_API_BASE_URL` và `AUTULIO_GOOGLE_WEB_CLIENT_ID`.
+- Thiết lập `OWNER_BOOTSTRAP_EMAIL` secret trước lần đăng nhập Owner đầu tiên.
+- Kiểm thử end-to-end đăng nhập Google, bootstrap Owner, lời mời cộng tác viên, đổi/thu hồi quyền. Mã Android/backend đã có nhưng chưa thể coi là đăng nhập live trước khi các bước trên thành công.
 - Đồng bộ tài khoản, thiết bị, giấy phép và dữ liệu khách hàng.
 - Trình biên dịch, parser, bytecode và runtime của ngôn ngữ AUTU-LIO.
 - Engine thực hiện Auto Click, Accessibility Service, overlay và điều khiển vòng đời tác vụ.
@@ -66,12 +71,12 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 ## 5. Việc tiếp theo
 
-1. Khi có lệnh build hợp lệ, chạy workflow để kiểm tra khả năng biên dịch và lấy một APK debug.
-2. Sửa các lỗi lint / build phát hiện được trước khi phát hành APK thử nghiệm.
-3. Thử hai APK trên điện thoại, thu thập lỗi giao diện và điều chỉnh.
-4. Thiết kế đặc tả ngôn ngữ AUTU-LIO trước khi viết parser/compiler/runtime.
-5. Triển khai engine tự động hóa có giới hạn quyền và xin quyền Android minh bạch.
-6. Tích hợp backend, đăng nhập, giấy phép và cập nhật package sau khi kiến trúc runtime đã ổn định.
+1. Hoàn tất cấu hình OAuth Google, D1 và triển khai Worker; chạy thử đăng nhập + cộng tác viên.
+2. Sau khi có cấu hình, khi chủ ứng dụng gửi đúng lệnh `BUILD APK`, chạy workflow tạo một APK debug.
+3. Sửa lỗi lint/build và thử APK trên Android.
+4. Xây dựng API khách hàng, thiết bị, giấy phép và phân phối kịch bản.
+5. Thiết kế đặc tả ngôn ngữ AUTU-LIO, parser/compiler/bytecode/runtime.
+6. Xây dựng engine Auto Click, Accessibility Service và overlay; kiểm thử quyền Android.
 
 ## 6. Quy tắc báo cáo
 
