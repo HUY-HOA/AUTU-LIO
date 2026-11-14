@@ -1,11 +1,11 @@
-val autuApiBaseUrl = providers.gradleProperty("AUTULIO_API_BASE_URL").orElse("")
-val autuGoogleWebClientId = providers.gradleProperty("AUTULIO_GOOGLE_WEB_CLIENT_ID").orElse("")
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+val autuApiBaseUrl = providers.gradleProperty("AUTULIO_API_BASE_URL").orElse("")
+val autuGoogleWebClientId = providers.gradleProperty("AUTULIO_GOOGLE_WEB_CLIENT_ID").orElse("")
 
 android {
     namespace = "com.autulio.app"
