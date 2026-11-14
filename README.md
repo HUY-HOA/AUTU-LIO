@@ -14,6 +14,7 @@
 ## Tài liệu thiết kế
 
 - [Định hướng UI tổng thể](docs/UI-DESIGN-PLAN.md)
+- [Trạng thái và lộ trình dự án](docs/PROJECT-STATUS.md)
 - [Màn hình Tổng quan Admin](docs/01-admin-dashboard.md)
 - [Quản lý kịch bản](docs/02-script-management.md)
 - [Trình soạn thảo ngôn ngữ riêng](docs/03-script-editor.md)
@@ -34,4 +35,4 @@ Build chỉ được khởi chạy theo đúng quy tắc trong [GITHUB-WORKFLOW.
 
 ## Trạng thái
 
-Đã có project Android Kotlin/Jetpack Compose ban đầu với hai biến thể Admin và Client. Màn hình hiện là prototype giao diện dùng dữ liệu rỗng/tạm thời. Google OAuth, Cloudflare, giấy phép thực tế, trình biên dịch/ngôn ngữ riêng và engine tự động hóa chưa được tích hợp. Chưa có APK build thành công được xác minh.
+Đã có prototype Android Kotlin/Jetpack Compose với hai biến thể Admin và Client. Các màn hình quản trị và luồng xem trước khách hàng đã có thể điều hướng; dữ liệu máy chủ và thao tác Auto Click vẫn chưa hoạt động. Google OAuth, Cloudflare, giấy phép thực tế, trình biên dịch/ngôn ngữ riêng và engine tự động hóa chưa được tích hợp. Chưa có APK build thành công được xác minh. Xem [trạng thái dự án](docs/PROJECT-STATUS.md) để biết chi tiết.
