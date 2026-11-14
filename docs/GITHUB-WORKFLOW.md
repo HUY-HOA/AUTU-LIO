@@ -22,8 +22,11 @@
 - Báo cáo rõ file nào được thêm/sửa, commit nào được tạo và đường dẫn GitHub để người dùng kiểm tra.
 
 ## 4. Quy tắc build APK và GitHub Actions
-- Không tự kích hoạt, dispatch, rerun hoặc khởi chạy workflow build APK.
-- Chủ repository tự nhấn chạy workflow trên GitHub Actions.
+- Chỉ bắt đầu quy trình build khi chủ ứng dụng gửi đúng nội dung lệnh: `BUILD APK` (viết hoa, đúng cụm từ).
+- Các tin nhắn hỏi tiến độ, yêu cầu kiểm tra, sửa lỗi, hoặc nhắc đến cụm từ BUILD APK nhưng không phải lệnh độc lập không tự động cho phép bắt đầu build.
+- Không tự kích hoạt, dispatch, rerun hoặc khởi chạy workflow build APK khi chưa có lệnh `BUILD APK` độc lập.
+- Khi có lệnh hợp lệ `BUILD APK`, kiểm tra mã nguồn và workflow trước; chỉ kích hoạt quy trình build nếu repository đã có cấu hình build phù hợp và thao tác đó được kết nối hỗ trợ.
+- Nếu chưa có mã nguồn, chưa có workflow hoặc không thể kích hoạt build qua kết nối hiện có, phải nói rõ tình trạng; không giả vờ build.
 - Chỉ kiểm tra trạng thái, log và artifact của lần chạy khi chủ ứng dụng yêu cầu theo dõi hoặc cung cấp lần chạy cần kiểm tra.
 - Khi báo cáo build, phân biệt rõ: đang chờ, đang chạy, thành công, thất bại, bị hủy; không suy đoán kết quả.
 - Không tuyên bố APK đã được tạo nếu chưa xác minh artifact tải được.
