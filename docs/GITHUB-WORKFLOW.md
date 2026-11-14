@@ -41,6 +41,7 @@
 
 - Ứng dụng chỉ có một application ID `com.autulio.app`; không sử dụng product flavor Admin/Client.
 - GitHub Actions chạy `:app:lintDebug` và `:app:assembleDebug`, sau đó tải artifact `AUTU-LIO-Debug`.
+- Workflow đọc hai GitHub Actions Variables công khai `AUTULIO_API_BASE_URL` và `AUTULIO_GOOGLE_WEB_CLIENT_ID` rồi truyền vào Gradle. Nếu chưa đặt, APK vẫn có thể build nhưng đăng nhập Google sẽ báo thiếu cấu hình.
 
 - AGP `9.3.1`, Kotlin Gradle Plugin `2.4.21`, Compose Compiler plugin `2.4.21`.
 - GitHub Actions dùng JDK `21`, Gradle `9.6.0`, Android SDK API `37` và Build Tools `36.0.0`.
@@ -60,7 +61,8 @@
 - Chỉ nói đã kiểm thử khi thực sự có kết quả kiểm thử.
 
 ## 8. Trạng thái hiện tại
-- Repository có tài liệu thiết kế, project Gradle Android và prototype giao diện Kotlin/Jetpack Compose.
-- Đã chuyển từ hai product flavor Admin/Client sang một APK duy nhất, có giao diện theo vai trò.
-- Đã tạo GitHub Actions workflow chỉ chạy thủ công hoặc qua nhánh yêu cầu build chuyên biệt; chưa có lần chạy build được xác minh.
-- Chưa tích hợp backend, Google OAuth, giấy phép thật, compiler/runtime hoặc engine tự động hóa.
+- Repository có prototype Kotlin/Jetpack Compose một APK, mã Android Google Credential Manager và màn hình cộng tác viên.
+- Đã thêm mã nguồn Cloudflare Worker/D1 cho xác minh Google token, session và API quản lý cộng tác viên; chưa tạo D1 database hoặc deploy Worker.
+- Google OAuth client IDs và các biến cấu hình chưa được thiết lập; chưa kiểm thử đăng nhập thật.
+- GitHub Actions workflow đã tạo một artifact debug, nhưng chưa có lần chạy build được xác minh.
+- Giấy phép thật, compiler/runtime và engine tự động hóa vẫn chưa hoàn thiện.
