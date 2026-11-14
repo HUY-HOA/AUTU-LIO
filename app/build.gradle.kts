@@ -16,23 +16,6 @@ android {
         versionName = "0.1.0"
     }
 
-    flavorDimensions += "edition"
-
-    productFlavors {
-        create("admin") {
-            dimension = "edition"
-            applicationIdSuffix = ".admin"
-            resValue("string", "app_name", "AUTU-LIO Admin Studio")
-            buildConfigField("String", "EDITION_NAME", "\"Admin Studio\"")
-        }
-        create("client") {
-            dimension = "edition"
-            applicationIdSuffix = ".client"
-            resValue("string", "app_name", "AUTU-LIO AutoClick")
-            buildConfigField("String", "EDITION_NAME", "\"AutoClick\"")
-        }
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
