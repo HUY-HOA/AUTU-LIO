@@ -22,6 +22,9 @@ jobs:
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      ORG_GRADLE_PROJECT_AUTULIO_API_BASE_URL: ${{ vars.AUTULIO_API_BASE_URL }}
+      ORG_GRADLE_PROJECT_AUTULIO_GOOGLE_WEB_CLIENT_ID: ${{ vars.AUTULIO_GOOGLE_WEB_CLIENT_ID }}
 
     steps:
       - name: Checkout source
