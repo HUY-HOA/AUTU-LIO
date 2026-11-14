@@ -38,6 +38,16 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - **Chưa có workflow run được xác minh và chưa có APK artifact được xác minh.**
 - Tuân thủ quy tắc: chỉ bắt đầu build khi chủ ứng dụng gửi riêng đúng lệnh `BUILD APK`.
 
+### Cấu hình build đã được đồng bộ tĩnh (chưa chạy thử)
+
+- Android Gradle Plugin: `9.3.1`.
+- Kotlin Gradle Plugin và Compose Compiler plugin: `2.4.21`.
+- Gradle trong GitHub Actions: `9.6.0`.
+- JDK chạy build: `21`; bytecode ứng dụng vẫn đặt Java/Kotlin target `17`.
+- Android SDK: `compileSdk 37`, Build Tools `36.0.0`.
+- Tạm đặt `android.builtInKotlin=false` và `android.newDsl=false` để dùng Kotlin Android plugin 2.4.21 trong bộ phiên bản tương thích đã chọn. Đây là bước tương thích tạm thời; cần chuyển sang Kotlin tích hợp của AGP trước khi nâng AGP 10.
+- Cấu hình trên đã được rà soát theo bảng tương thích và tài liệu công cụ, nhưng **chưa được kiểm chứng bằng một lần chạy Gradle thực tế** vì chưa nhận lệnh build độc lập.
+
 ## 4. Phần chưa triển khai
 
 - Google OAuth và hệ thống tài khoản thực.
