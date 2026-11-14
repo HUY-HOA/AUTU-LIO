@@ -17,12 +17,18 @@ Hai biến thể dùng chung codebase nhưng chọn giao diện theo product fla
 - Mở tạo bản nháp, nhập tên kịch bản và đi vào màn hình editor.
 - Bật/tắt giao diện sáng và tối trong mục quản lý thêm.
 - Thông báo rõ các chức năng chưa kết nối.
+- Mục Thêm mở được các trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
+- Trang Khách hàng và Thiết bị có bố cục quản trị riêng, hiện trạng thái chưa có dữ liệu máy chủ.
+- Bộ lọc Kịch bản phân biệt Bản nháp và Đã phát hành.
 
 ### AutoClick
 - Màn hình chào và đăng nhập Google ở dạng giao diện.
 - Nút đăng nhập Google hiện chỉ thông báo OAuth chưa được tích hợp.
 - Nút xem trước để vào giao diện khách hàng mà không đăng nhập thật.
-- Trang chủ, kịch bản, thiết bị/giấy phép và cài đặt.
+- Trang chủ, danh sách kịch bản, thiết bị/giấy phép và cài đặt.
+- Danh sách có một mục **mẫu xem trước**, được đánh dấu rõ là không phải package thật.
+- Mở được chi tiết mẫu; nút Chạy/Tạm dừng/Dừng chỉ hiển thị thông báo, không điều khiển màn hình hoặc ứng dụng khác.
+- Trang thiết bị/giấy phép giải thích dữ liệu nào sẽ hiển thị sau khi đăng nhập thật.
 - Bật/tắt giao diện sáng và tối.
 
 ## 4. Những chức năng chưa hoạt động
