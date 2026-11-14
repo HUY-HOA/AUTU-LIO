@@ -117,23 +117,38 @@ private fun AdminApp() {
                     onCreate = { createDialog = true },
                     onOpen = { editor = it }
                 )
-                "customers" -> EmptyPage(
+                "customers" -> AdminModulePage(
                     Modifier.padding(padding),
-                    tr("Khách hàng", "Customers"),
-                    tr("Quản lý tài khoản người dùng", "Manage user accounts"),
-                    Icons.Outlined.Group
+                    title = tr("Khách hàng", "Customers"),
+                    subtitle = tr("Quản lý tài khoản và trạng thái khách hàng", "Manage customer accounts and status"),
+                    icon = Icons.Outlined.Group,
+                    details = listOf(
+                        tr("Hồ sơ và email tài khoản", "Customer profiles and account email"),
+                        tr("Số thiết bị đã liên kết", "Number of linked devices"),
+                        tr("Loại giấy phép và ngày hết hạn", "License type and expiry date"),
+                        tr("Lần hoạt động gần nhất", "Last active time")
+                    ),
+                    onBack = { page = "overview" }
                 )
-                "devices" -> EmptyPage(
+                "devices" -> AdminModulePage(
                     Modifier.padding(padding),
-                    tr("Thiết bị", "Devices"),
-                    tr("Theo dõi thiết bị đã đăng ký", "Review registered devices"),
-                    Icons.Outlined.Smartphone
+                    title = tr("Thiết bị", "Devices"),
+                    subtitle = tr("Theo dõi thiết bị đã đăng ký", "Review registered devices"),
+                    icon = Icons.Outlined.Smartphone,
+                    details = listOf(
+                        tr("Hãng và model thiết bị", "Device manufacturer and model"),
+                        tr("Phiên bản Android và AUTU-LIO", "Android and AUTU-LIO versions"),
+                        tr("Tài khoản sở hữu thiết bị", "Device owner account"),
+                        tr("Ngày đăng ký và hoạt động gần nhất", "Registration and last active time")
+                    ),
+                    onBack = { page = "overview" }
                 )
                 else -> MoreScreen(
                     Modifier.padding(padding),
                     page,
                     onSelect = { page = it },
-                    onTheme = { dark = !dark }
+                    onTheme = { dark = !dark },
+                    onMessage = { scope.launch { host.showSnackbar(it) } }
                 )
             }
         }
@@ -302,7 +317,11 @@ private fun OverviewScreen(modifier: Modifier, onNavigate: (String) -> Unit, onC
 private fun ScriptsScreen(modifier: Modifier, scripts: List<String>, onCreate: () -> Unit, onOpen: (String) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
-    val filtered = scripts.filter { it.contains(query, true) }
+    val filtered = scripts.filter { name ->
+        val matchesQuery = name.contains(query, ignoreCase = true)
+        val matchesStatus = filter == "all" || filter == "draft"
+        matchesQuery && matchesStatus
+    }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
@@ -329,7 +348,11 @@ private fun ScriptsScreen(modifier: Modifier, scripts: List<String>, onCreate: (
         }
         Text(tr("Bản nháp trong bản thử nghiệm chỉ lưu tạm trong phiên hiện tại.", "Prototype drafts are temporary and kept only in this session."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (filtered.isEmpty()) {
-            EmptyState(Icons.Outlined.ListAlt, tr("Chưa có kịch bản nào", "No scripts yet"), tr("Tạo kịch bản đầu tiên để bắt đầu.", "Create your first script to get started."))
+            EmptyState(
+                Icons.Outlined.ListAlt,
+                if (filter == "published") tr("Chưa có kịch bản phát hành", "No published scripts") else tr("Chưa có kịch bản nào", "No scripts yet"),
+                if (filter == "published") tr("Các kịch bản đã phát hành sẽ xuất hiện tại đây sau khi được kết nối.", "Published scripts will appear here after the service is connected.") else tr("Tạo kịch bản đầu tiên để bắt đầu.", "Create your first script to get started.")
+            )
         } else filtered.forEach { name ->
             Card(
                 modifier = Modifier.fillMaxWidth().clickable { onOpen(name) },
@@ -371,7 +394,13 @@ private fun EditorScreen(name: String, modifier: Modifier, onBack: () -> Unit, o
 }
 
 @Composable
-private fun MoreScreen(modifier: Modifier, page: String, onSelect: (String) -> Unit, onTheme: () -> Unit) {
+private fun MoreScreen(
+    modifier: Modifier,
+    page: String,
+    onSelect: (String) -> Unit,
+    onTheme: () -> Unit,
+    onMessage: (String) -> Unit
+) {
     val items = listOf(
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện", "Libraries"), Icons.Outlined.ListAlt),
@@ -379,30 +408,131 @@ private fun MoreScreen(modifier: Modifier, page: String, onSelect: (String) -> U
         Triple("logs", tr("Nhật ký", "Logs"), Icons.Outlined.Info),
         Triple("settings", tr("Cài đặt", "Settings"), Icons.Outlined.Settings)
     )
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val selected = items.firstOrNull { it.first == page }
+
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         BrandHeader(admin = true)
-        Heading(if (page == "more") tr("Quản lý khác", "More management") else items.firstOrNull { it.first == page }?.second ?: tr("Quản lý", "Management"), tr("Công cụ quản trị AUTU-LIO", "AUTU-LIO administration tools"))
-        items.forEach { item ->
-            Card(
-                modifier = Modifier.fillMaxWidth().clickable { onSelect(item.first) },
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        if (page == "more") {
+            Heading(tr("Quản lý khác", "More management"), tr("Công cụ quản trị AUTU-LIO", "AUTU-LIO administration tools"))
+            items.forEach { item ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onSelect(item.first) },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(item.third, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Text(item.second, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                        Icon(Icons.Outlined.ChevronRight, null)
+                    }
+                }
+            }
+            OutlinedButton(onClick = onTheme, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Outlined.Palette, null)
+                Spacer(Modifier.width(8.dp))
+                Text(tr("Chuyển giao diện sáng / tối", "Toggle light / dark mode"))
+            }
+        } else {
+            TextButton(onClick = { onSelect("more") }) {
+                Text(tr("← Quay lại", "← Back"))
+            }
+            Heading(
+                selected?.second ?: tr("Quản lý", "Management"),
+                when (page) {
+                    "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
+                    "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
+                    "release" -> tr("Quản lý phiên bản và phân phối", "Manage versions and distribution")
+                    "logs" -> tr("Theo dõi sự kiện và lỗi hệ thống", "Review system events and errors")
+                    else -> tr("Tùy chỉnh ứng dụng quản trị", "Customize the admin application")
+                }
+            )
+            when (page) {
+                "licenses" -> {
+                    CardBox {
+                        Text(tr("Thông tin giấy phép", "License information"), fontWeight = FontWeight.SemiBold)
+                        Text(tr("Khách hàng · Gói sử dụng · Thời hạn · Giới hạn thiết bị · Trạng thái", "Customer · Plan · Duration · Device limit · Status"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    EmptyState(Icons.Outlined.VerifiedUser, tr("Chưa có giấy phép", "No licenses yet"), tr("Dữ liệu giấy phép sẽ xuất hiện sau khi kết nối máy chủ.", "License data will appear after the server is connected."))
+                }
+                "library" -> {
+                    CardBox {
+                        Text(tr("Thư viện dùng chung", "Shared libraries"), fontWeight = FontWeight.SemiBold)
+                        Text(tr("Phiên bản · Hàm · Tương thích runtime · Kịch bản phụ thuộc", "Version · Functions · Runtime compatibility · Script dependencies"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    EmptyState(Icons.Outlined.ListAlt, tr("Chưa có thư viện", "No libraries yet"), tr("Thư viện dùng chung sẽ xuất hiện sau khi bộ máy ngôn ngữ được triển khai.", "Shared libraries will appear after the language runtime is implemented."))
+                }
+                "release" -> {
+                    CardBox {
+                        Text(tr("Quy trình phát hành", "Release workflow"), fontWeight = FontWeight.SemiBold)
+                        Text(tr("Kiểm tra · Tăng phiên bản · Ghi chú · Chọn kênh · Xác nhận · Phân phối", "Validate · Version · Notes · Channel · Confirm · Distribute"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    EmptyState(Icons.Outlined.PlayArrow, tr("Chưa có bản phát hành", "No releases yet"), tr("Chỉ phát hành khi gói đã được kiểm tra và ký xác thực.", "A package can only be released after validation and signing."))
+                }
+                "logs" -> {
+                    CardBox {
+                        Text(tr("Nhật ký hệ thống", "System logs"), fontWeight = FontWeight.SemiBold)
+                        Text(tr("Thời gian · Loại sự kiện · Mức độ · Thiết bị · Kết quả", "Time · Event type · Severity · Device · Result"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    EmptyState(Icons.Outlined.Info, tr("Chưa có nhật ký", "No logs yet"), tr("Nhật ký chỉ xuất hiện sau khi các thành phần thực tế được kết nối.", "Logs will appear after live components are connected."))
+                }
+                "settings" -> {
+                    SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
+                    SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO Admin Studio · 0.1.0")
+                    SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Cấu hình đăng nhập và quyền quản trị sẽ được bổ sung khi tích hợp máy chủ.", "Sign-in and admin access controls will be added with the server integration."))
+                }
+            }
+            OutlinedButton(
+                onClick = { onMessage(tr("Máy chủ chưa được kết nối. Thao tác chưa thể lưu dữ liệu thật.", "The server is not connected. This action cannot save live data yet.")) },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(item.third, null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(12.dp))
-                    Text(item.second, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                    Icon(Icons.Outlined.ChevronRight, null)
+                Text(tr("Kiểm tra kết nối máy chủ", "Check server connection"))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminModulePage(
+    modifier: Modifier,
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    details: List<String>,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        BrandHeader(admin = true)
+        TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
+        Heading(title, subtitle)
+        CardBox {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column {
+                    Text(tr("Chưa kết nối máy chủ", "Server not connected"), fontWeight = FontWeight.SemiBold)
+                    Text(tr("Đây là giao diện prototype; chưa có dữ liệu khách hàng hoặc thiết bị thật.", "This is a UI prototype; no live customer or device data is available."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
             }
         }
-        OutlinedButton(onClick = onTheme, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Outlined.Palette, null)
-            Spacer(Modifier.width(8.dp))
-            Text(tr("Chuyển giao diện sáng / tối", "Toggle light / dark mode"))
+        Text(tr("Thông tin sẽ quản lý", "Information managed"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+        details.forEach { detail ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(10.dp))
+                    Text(detail, fontSize = 13.sp)
+                }
+            }
         }
-        if (page != "more" && page != "settings") {
-            EmptyState(Icons.Outlined.Info, tr("Chưa có dữ liệu", "No data yet"), tr("Chức năng sẽ hoạt động sau khi tích hợp hệ thống.", "This feature will work after the system is integrated."))
-        }
+        EmptyState(icon, tr("Chưa có dữ liệu", "No data yet"), tr("Dữ liệu thật sẽ hiển thị sau khi tích hợp xác thực và máy chủ.", "Live data will appear after authentication and server integration."))
     }
 }
 
