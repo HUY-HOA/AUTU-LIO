@@ -1,5 +1,6 @@
 package com.autulio.app
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,11 +20,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -73,12 +76,36 @@ private val customerTabs = listOf(
 
 @Composable
 private fun AdminApp() {
+    val context = LocalContext.current
+    val preferences = remember(context) {
+        context.getSharedPreferences("autulio_admin_drafts", Context.MODE_PRIVATE)
+    }
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("overview") }
     var editor by rememberSaveable { mutableStateOf<String?>(null) }
     var createDialog by remember { mutableStateOf(false) }
-    val scripts = remember { mutableStateListOf<String>() }
-    val draftContents = remember { mutableStateMapOf<String, String>() }
+    val scripts = remember(preferences) {
+        mutableStateListOf<String>().apply {
+            val saved = runCatching {
+                JSONArray(preferences.getString("scripts", "[]") ?: "[]")
+            }.getOrNull()
+            if (saved != null) {
+                for (index in 0 until saved.length()) {
+                    val name = saved.optString(index).trim()
+                    if (name.isNotEmpty() && none { it.equals(name, ignoreCase = true) }) add(name)
+                }
+            }
+        }
+    }
+    val draftContents = remember(preferences) {
+        mutableStateMapOf<String, String>().apply {
+            preferences.all.forEach { (key, value) ->
+                if (key.startsWith("draft:") && value is String) {
+                    put(key.removePrefix("draft:"), value)
+                }
+            }
+        }
+    }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -104,10 +131,22 @@ private fun AdminApp() {
                 EditorScreen(
                     name = editingName,
                     code = draftContents[editingName].orEmpty(),
-                    onCodeChange = { draftContents[editingName] = it },
+                    onCodeChange = {
+                        draftContents[editingName] = it
+                        preferences.edit().putString("draft:$editingName", it).apply()
+                    },
                     modifier = Modifier.padding(padding),
                     onBack = { editor = null },
-                    onMessage = { scope.launch { host.showSnackbar(it) } }
+                    onMessage = { scope.launch { host.showSnackbar(it) } },
+                    onSaveDraft = {
+                        preferences.edit()
+                            .putString("scripts", JSONArray(scripts).toString())
+                            .putString("draft:$editingName", draftContents[editingName].orEmpty())
+                            .apply()
+                        scope.launch {
+                            host.showSnackbar(tr("Đã lưu bản nháp trên thiết bị này. Chưa đồng bộ máy chủ.", "Draft saved on this device. It has not been synced to a server."))
+                        }
+                    }
                 )
             } else when (page) {
                 "overview" -> OverviewScreen(
@@ -160,11 +199,21 @@ private fun AdminApp() {
         if (createDialog) CreateDialog(
             onDismiss = { createDialog = false },
             onCreate = { name ->
-                scripts.add(name)
-                draftContents[name] = ""
-                editor = name
-                page = "scripts"
-                createDialog = false
+                if (scripts.any { it.equals(name, ignoreCase = true) }) {
+                    scope.launch {
+                        host.showSnackbar(tr("Tên kịch bản đã tồn tại.", "A script with this name already exists."))
+                    }
+                } else {
+                    scripts.add(name)
+                    draftContents[name] = ""
+                    preferences.edit()
+                        .putString("scripts", JSONArray(scripts).toString())
+                        .putString("draft:$name", "")
+                        .apply()
+                    editor = name
+                    page = "scripts"
+                    createDialog = false
+                }
             }
         )
     }
@@ -357,7 +406,7 @@ private fun ScriptsScreen(modifier: Modifier, scripts: List<String>, onCreate: (
                 FilterChip(filter == it.first, onClick = { filter = it.first }, label = { Text(it.second) })
             }
         }
-        Text(tr("Bản nháp trong bản thử nghiệm chỉ lưu tạm trong phiên hiện tại.", "Prototype drafts are temporary and kept only in this session."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tr("Bản nháp được lưu trên thiết bị này; chưa đồng bộ máy chủ.", "Drafts are saved on this device and are not synced to a server."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (filtered.isEmpty()) {
             EmptyState(
                 Icons.Outlined.ListAlt,
@@ -389,11 +438,12 @@ private fun EditorScreen(
     onCodeChange: (String) -> Unit,
     modifier: Modifier,
     onBack: () -> Unit,
-    onMessage: (String) -> Unit
+    onMessage: (String) -> Unit,
+    onSaveDraft: () -> Unit
 ) {
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
-        Heading(name, tr("Bản nháp · Runtime chưa được tích hợp", "Draft · Runtime is not integrated"))
+        Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(tr("Ngôn ngữ riêng AUTU-LIO sẽ được định nghĩa trước khi thực thi. Nội dung dưới đây chưa chạy được.", "The AUTU-LIO language will be specified before execution. Text below is not executable."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         OutlinedTextField(value = code, onValueChange = onCodeChange, modifier = Modifier.fillMaxWidth().weight(1f), minLines = 10, placeholder = { Text(tr("Nhập nội dung bản nháp...", "Enter draft content...")) })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -404,8 +454,8 @@ private fun EditorScreen(
                 Text(tr("Chạy thử", "Test"))
             }
         }
-        OutlinedButton(onClick = { onMessage(tr("Bản nháp đang được giữ trong bộ nhớ của phiên hiện tại; chưa được lưu bền vững hoặc đồng bộ máy chủ.", "Draft is kept in the current app session; it is not persisted to storage or synced to a server.")) }, modifier = Modifier.fillMaxWidth()) {
-            Text(tr("Lưu bản nháp", "Save draft"))
+        OutlinedButton(onClick = onSaveDraft, modifier = Modifier.fillMaxWidth()) {
+            Text(tr("Lưu bản nháp trên thiết bị", "Save draft on this device"))
         }
     }
 }
