@@ -37,18 +37,26 @@
 - Không tuyên bố APK đã được tạo nếu chưa xác minh artifact tải được.
 - Không tự động tải lên hoặc phát hành APK cho người dùng cuối.
 
-## 5. Phân biệt hai tài khoản GitHub
+## 5. Bộ công cụ build hiện tại
+
+- AGP `9.3.1`, Kotlin Gradle Plugin `2.4.21`, Compose Compiler plugin `2.4.21`.
+- GitHub Actions dùng JDK `21`, Gradle `9.6.0`, Android SDK API `37` và Build Tools `36.0.0`.
+- Ứng dụng vẫn tạo bytecode tương thích Java/Kotlin `17`.
+- `gradle.properties` đang tạm tắt built-in Kotlin và Android new DSL để dùng Kotlin Android plugin 2.4.21. Phải rà soát lại khi nâng AGP hoặc chuyển sang built-in Kotlin.
+- Các phiên bản này mới được kiểm tra tĩnh qua tài liệu tương thích; không được gọi là build thành công cho đến khi GitHub Actions chạy thật và tạo artifact.
+
+## 6. Phân biệt hai tài khoản GitHub
 - Repository AUTU-LIO hiện thuộc HUY-HOA-1 và tài khoản này có quyền ghi. Các commit trong repository này sử dụng kết nối HUY-HOA-1 để bảo đảm quyền truy cập đúng chủ sở hữu.
 - Quy trình của COC-LIO không được áp dụng máy móc sang tài khoản/repository khác khi quyền truy cập khác nhau.
 - Nếu chủ ứng dụng muốn chuyển AUTU-LIO sang HUY-HOA, cần thực hiện chuyển quyền hoặc cấp quyền repository trước; không tự ý di chuyển.
 
-## 6. Kiểm tra chất lượng
+## 7. Kiểm tra chất lượng
 - Đọc lại file sau khi tạo/sửa.
 - Kiểm tra tên file, đường dẫn, nhánh và commit.
 - Khi đã có mã nguồn: rà soát lỗi biên dịch, cảnh báo, quyền Android, bảo mật và khả năng tương thích trước khi đề nghị build.
 - Chỉ nói đã kiểm thử khi thực sự có kết quả kiểm thử.
 
-## 7. Trạng thái hiện tại
+## 8. Trạng thái hiện tại
 - Repository có tài liệu thiết kế, project Gradle Android và prototype giao diện Kotlin/Jetpack Compose.
 - Đã cấu hình hai product flavor: Admin và Client.
 - Đã tạo GitHub Actions workflow chỉ chạy thủ công hoặc qua nhánh yêu cầu build chuyên biệt; chưa có lần chạy build được xác minh.
