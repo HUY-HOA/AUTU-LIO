@@ -37,7 +37,7 @@ data class CollaboratorInvitation(
     val code: String
 )
 
-class AutuLioApiException(val code: String, val status: Int) : Exception(messageFor(code, status))
+class AutuLioApiException(val code: String, val status: Int) : Exception(autuLioApiMessageFor(code, status))
 
 object AutuLioApi {
     suspend fun signIn(idToken: String, nonce: String, invitationCode: String? = null): AuthSession {
@@ -171,22 +171,23 @@ object AutuLioApi {
         role = value.optString("role", "CUSTOMER")
     )
 
-    private fun messageFor(code: String, status: Int): String = when (code) {
-        "auth_not_configured" -> "Máy chủ chưa được cấu hình đăng nhập Google."
-        "invalid_google_token" -> "Google không xác minh được tài khoản. Vui lòng đăng nhập lại."
-        "google_token_already_used" -> "Mã đăng nhập đã được sử dụng. Hãy chọn tài khoản Google lại."
-        "invitation_invalid_or_expired" -> "Mã mời không hợp lệ, đã hết hạn hoặc không khớp email."
-        "invalid_collaborator_role", "invalid_role" -> "Vai trò được chọn không hợp lệ."
-        "invalid_email" -> "Địa chỉ Gmail không hợp lệ."
-        "unauthorized" -> "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
-        "forbidden" -> "Tài khoản không có quyền thực hiện thao tác này."
-        "origin_not_allowed" -> "Nguồn truy cập này chưa được cho phép."
-        else -> when (status) {
-            401 -> "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại."
-            403 -> "Bạn không có quyền thực hiện thao tác này."
-            404 -> "Không tìm thấy dữ liệu yêu cầu."
-            503 -> "Dịch vụ đăng nhập chưa được cấu hình."
-            else -> "Không thể kết nối dịch vụ AUTU-LIO. Vui lòng thử lại."
-        }
+}
+
+private fun autuLioApiMessageFor(code: String, status: Int): String = when (code) {
+    "auth_not_configured" -> "Máy chủ chưa được cấu hình đăng nhập Google."
+    "invalid_google_token" -> "Google không xác minh được tài khoản. Vui lòng đăng nhập lại."
+    "google_token_already_used" -> "Mã đăng nhập đã được sử dụng. Hãy chọn tài khoản Google lại."
+    "invitation_invalid_or_expired" -> "Mã mời không hợp lệ, đã hết hạn hoặc không khớp email."
+    "invalid_collaborator_role", "invalid_role" -> "Vai trò được chọn không hợp lệ."
+    "invalid_email" -> "Địa chỉ Gmail không hợp lệ."
+    "unauthorized" -> "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
+    "forbidden" -> "Tài khoản không có quyền thực hiện thao tác này."
+    "origin_not_allowed" -> "Nguồn truy cập này chưa được cho phép."
+    else -> when (status) {
+        401 -> "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại."
+        403 -> "Bạn không có quyền thực hiện thao tác này."
+        404 -> "Không tìm thấy dữ liệu yêu cầu."
+        503 -> "Dịch vụ đăng nhập chưa được cấu hình."
+        else -> "Không thể kết nối dịch vụ AUTU-LIO. Vui lòng thử lại."
     }
 }
