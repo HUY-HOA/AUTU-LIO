@@ -18,7 +18,8 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 ### Admin Studio
 - Trang tổng quan.
 - Danh sách kịch bản, tìm kiếm và lọc Bản nháp / Đã phát hành.
-- Tạo bản nháp và mở trình soạn thảo prototype.
+- Tạo kịch bản, lưu tên và nội dung bản nháp vào vùng lưu trữ riêng của ứng dụng trên thiết bị; nội dung được khôi phục sau khi đóng/mở lại app.
+- Bản nháp chưa đồng bộ máy chủ và chưa được mã hóa riêng ở tầng ứng dụng.
 - Trang Khách hàng và Thiết bị.
 - Trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
 - Chuyển giao diện sáng / tối.
