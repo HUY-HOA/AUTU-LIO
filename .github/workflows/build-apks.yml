@@ -1,7 +1,14 @@
 name: AUTU-LIO Android APK
 
+run-name: AUTU-LIO APK build - ${{ github.ref_name }}
+
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'build-requests/**'
+    paths:
+      - '.build-requests/**'
 
 permissions:
   contents: read
@@ -39,6 +46,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "9.6.0"
+
+      - name: Write build summary
+        run: |
+          {
+            echo "## AUTU-LIO APK build"
+            echo "- Source branch: \`$GITHUB_REF_NAME\`"
+            echo "- Variants: Admin Debug and Client Debug"
+            echo "- Progress is shown by completed GitHub Actions steps; Gradle does not provide a reliable overall percentage."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify toolchain
         run: |
