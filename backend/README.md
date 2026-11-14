@@ -28,6 +28,15 @@ The Worker is not deployed by this repository change. The D1 database and its ID
 
 Do not commit `.dev.vars`, Cloudflare API tokens, Google client secrets, private signing keys or customer data.
 
+## Android app configuration
+
+The Android client reads two non-secret Gradle properties:
+
+- `AUTULIO_API_BASE_URL`: Worker HTTPS base URL, e.g. `https://autu-lio-api.<account>.workers.dev`.
+- `AUTULIO_GOOGLE_WEB_CLIENT_ID`: Google OAuth Web application client ID used by Credential Manager as the server client ID.
+
+For local Gradle builds, place both properties in the user's `~/.gradle/gradle.properties`. For GitHub Actions, add repository Variables named `AUTULIO_API_BASE_URL` and `AUTULIO_GOOGLE_WEB_CLIENT_ID`; the workflow passes them to Gradle. Do not store a Google client secret in the Android app. Also configure an Android OAuth client for package `com.autulio.app` and the SHA-1 fingerprint of the signing certificate used for the APK.
+
 ## First owner
 
 The first Google account whose verified email matches the secret `OWNER_BOOTSTRAP_EMAIL` becomes the sole active OWNER. The bootstrap email is only used when no active owner exists. After owner creation, database role assignments are authoritative.
@@ -48,7 +57,7 @@ If the bootstrap secret is missing or incorrect, sign-in will create a CUSTOMER 
 
 ## Security boundaries
 
-- Google ID tokens are validated on the Worker: signature, issuer, audience, expiry, issue time and verified email.
+- Google ID tokens are validated on the Worker with `jose` and Google's remote JWKS: signature, issuer, audience, expiry, issue time, verified email and nonce.
 - The Google `sub` claim is the durable identity key. Email is used only for owner bootstrap and invitation matching.
 - Google ID tokens are consumed once by token hash. AUTU-LIO uses its own random opaque session token; only its SHA-256 hash is stored in D1.
 - Current role and account status are read from D1 for each authenticated request. Revocation therefore takes effect server-side without trusting an app-supplied role.
