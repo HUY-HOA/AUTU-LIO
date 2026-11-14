@@ -12,7 +12,7 @@ Cùng một ứng dụng hiển thị các khu vực khác nhau sau khi tài kho
 - Người kiểm duyệt
 - Người dùng
 
-Bộ chọn giao diện trong bản Debug chỉ để kiểm tra bố cục. Nó không đăng nhập và không cấp quyền. Bản Release không được cung cấp bộ chọn vai trò cục bộ.
+Bản Debug có hai lối preview không cấp quyền và một lối thử đăng nhập Google thật khi đã cấu hình. Bản Release không có bộ chọn vai trò cục bộ; màn hình chỉ được mở theo role từ máy chủ.
 
 ## 2. Ma trận quyền
 
@@ -32,7 +32,7 @@ Luồng xác thực đã được chuẩn bị trong mã Android và Worker:
 
 1. Android dùng Credential Manager để hiển thị giao diện đăng nhập Google.
 2. Ứng dụng nhận Google ID token và gửi token qua HTTPS đến Cloudflare Worker.
-3. Worker xác minh chữ ký, issuer, audience và thời hạn token với Google.
+3. Worker xác minh chữ ký bằng Google JWKS qua thư viện `jose`, issuer, audience, thời hạn, email đã xác minh và nonce.
 4. Worker dùng định danh Google `sub` đã xác minh để tìm tài khoản và vai trò trong D1.
 5. Ứng dụng chỉ mở màn hình tương ứng với vai trò do máy chủ trả về.
 
@@ -78,4 +78,4 @@ Không tự động cấp quyền chỉ vì một người biết hoặc nhập 
 
 Đã cập nhật cấu hình dự án để tạo một APK duy nhất và thêm mô hình vai trò/quyền phía Android. Bộ chọn Admin/khách hàng hiện tại chỉ chạy trong bản Debug để kiểm tra giao diện.
 
-Chưa tích hợp Credential Manager vào giao diện Android, chưa cấu hình Google OAuth client ID, chưa tạo D1 database hoặc triển khai Worker, chưa có session thật trong ứng dụng và chưa kiểm thử end-to-end lời mời cộng tác viên. Worker source chỉ mới nằm trong GitHub, chưa hoạt động trên Cloudflare. Không coi mô hình quyền Kotlin phía client là lớp bảo mật cuối cùng.
+Chưa cấu hình Google OAuth client ID, chưa tạo D1 database hoặc triển khai Worker, chưa kiểm thử end-to-end. Do đó đăng nhập và quản lý cộng tác viên đã có mã nguồn nhưng chưa hoạt động live. Mô hình quyền Kotlin phía client không phải lớp bảo mật cuối cùng; mọi thao tác nhạy cảm phải do Worker kiểm tra. Không coi mô hình quyền Kotlin phía client là lớp bảo mật cuối cùng.
