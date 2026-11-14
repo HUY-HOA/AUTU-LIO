@@ -837,7 +837,7 @@ private fun EmptyPage(modifier: Modifier, title: String, subtitle: String, icon:
 
 @Composable
 private fun BrandHeader(admin: Boolean) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)) {
                 Icon(Icons.Outlined.Code, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(10.dp).size(22.dp))
@@ -846,10 +846,6 @@ private fun BrandHeader(admin: Boolean) {
                 Text("AUTU-LIO", fontWeight = FontWeight.Bold, fontSize = 17.sp, letterSpacing = 0.5.sp)
                 Text(if (admin) "ADMIN STUDIO" else "AUTOCLICK", fontSize = 10.sp, letterSpacing = 1.1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        Row {
-            IconButton(onClick = {}) { Icon(Icons.Outlined.NotificationsNone, tr("Thông báo", "Notifications")) }
-            IconButton(onClick = {}) { Icon(Icons.Outlined.Person, tr("Tài khoản", "Account")) }
         }
     }
 }
