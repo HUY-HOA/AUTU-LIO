@@ -28,7 +28,7 @@
 - Khi có lệnh hợp lệ `BUILD APK`, kiểm tra mã nguồn và workflow trước; chỉ kích hoạt quy trình build nếu repository đã có cấu hình build phù hợp và thao tác đó được kết nối hỗ trợ.
 - Nếu chưa có mã nguồn, chưa có workflow hoặc không thể kích hoạt build qua kết nối hiện có, phải nói rõ tình trạng; không giả vờ build.
 - Workflow hiện tại là `.github/workflows/build-apks.yml`: có `workflow_dispatch` và chỉ nhận push từ nhánh `build-requests/**` khi có file trong `.build-requests/**`. Push thông thường lên `main` không chạy build.
-- Workflow tạo hai artifact debug riêng: `AUTU-LIO-Admin-Debug` và `AUTU-LIO-AutoClick-Debug`.
+- Workflow tạo một artifact debug duy nhất: `AUTU-LIO-Debug`.
 - Nếu kết nối GitHub không hỗ trợ dispatch trực tiếp, sau lệnh độc lập `BUILD APK`, tạo nhánh `build-requests/<mã-yêu-cầu>` từ `main` và thêm đúng một file marker trong `.build-requests/` để kích hoạt workflow. Không tạo nhánh/file marker trước khi nhận đúng lệnh.
 - Nếu trigger bằng nhánh không xuất hiện run, chủ ứng dụng mở GitHub Actions → AUTU-LIO Android APK → Run workflow. Không được báo đã bắt đầu cho đến khi nhìn thấy một workflow run thực tế.
 - Chỉ kiểm tra trạng thái, log và artifact của lần chạy khi chủ ứng dụng yêu cầu theo dõi hoặc cung cấp lần chạy cần kiểm tra.
@@ -38,6 +38,9 @@
 - Không tự động tải lên hoặc phát hành APK cho người dùng cuối.
 
 ## 5. Bộ công cụ build hiện tại
+
+- Ứng dụng chỉ có một application ID `com.autulio.app`; không sử dụng product flavor Admin/Client.
+- GitHub Actions chạy `:app:lintDebug` và `:app:assembleDebug`, sau đó tải artifact `AUTU-LIO-Debug`.
 
 - AGP `9.3.1`, Kotlin Gradle Plugin `2.4.21`, Compose Compiler plugin `2.4.21`.
 - GitHub Actions dùng JDK `21`, Gradle `9.6.0`, Android SDK API `37` và Build Tools `36.0.0`.
@@ -58,6 +61,6 @@
 
 ## 8. Trạng thái hiện tại
 - Repository có tài liệu thiết kế, project Gradle Android và prototype giao diện Kotlin/Jetpack Compose.
-- Đã cấu hình hai product flavor: Admin và Client.
+- Đã chuyển từ hai product flavor Admin/Client sang một APK duy nhất, có giao diện theo vai trò.
 - Đã tạo GitHub Actions workflow chỉ chạy thủ công hoặc qua nhánh yêu cầu build chuyên biệt; chưa có lần chạy build được xác minh.
 - Chưa tích hợp backend, Google OAuth, giấy phép thật, compiler/runtime hoặc engine tự động hóa.
