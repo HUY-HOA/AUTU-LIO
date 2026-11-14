@@ -2,7 +2,7 @@
 
 ## 1. Phạm vi
 - Sản phẩm chỉ phát triển cho Android.
-- Giai đoạn hiện tại ưu tiên thiết kế giao diện và trải nghiệm; chưa tích hợp Google OAuth, Cloudflare, thanh toán hoặc backend.
+- Prototype giao diện Android bằng Kotlin/Jetpack Compose đã được triển khai để kiểm tra bố cục và điều hướng; Google OAuth, Cloudflare, thanh toán và backend chưa được tích hợp.
 - Chưa build APK trong giai đoạn duyệt thiết kế.
 - Ngôn ngữ mặc định: tiếng Việt. Nếu ngôn ngữ thiết bị là tiếng Anh thì dùng tiếng Anh; ngôn ngữ khác dùng tiếng Anh.
 
@@ -41,13 +41,13 @@ Dùng chung bộ nhận diện và thành phần giao diện, nhưng tách quy�
 7. Thiết bị và giấy phép.
 8. Hỗ trợ, nhật ký lỗi được phép gửi và cài đặt.
 
-## 6. Thứ tự thiết kế
-1. Chốt bố cục và phong cách trang Tổng quan Admin.
-2. Thiết kế thanh điều hướng Admin và các màn hình quản lý chính.
-3. Thiết kế Trình soạn thảo kịch bản.
-4. Thiết kế trang chủ và luồng chạy kịch bản của khách hàng.
-5. Rà soát kích thước màn hình, trạng thái và khả năng tiếp cận.
-6. Sau khi duyệt thiết kế mới triển khai giao diện bằng Kotlin và Jetpack Compose.
+## 6. Thứ tự triển khai
+1. Đã dựng prototype trang Tổng quan Admin và thanh điều hướng.
+2. Đã dựng prototype quản lý kịch bản và trình soạn thảo.
+3. Đã dựng các trang quản trị Khách hàng, Thiết bị, Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
+4. Đã dựng luồng xem trước khách hàng gồm Trang chủ, danh sách/chi tiết kịch bản mẫu, Thiết bị/Giấy phép và Cài đặt.
+5. Tiếp theo: kiểm thử build APK debug, sửa lỗi giao diện theo phản hồi trên thiết bị thật.
+6. Sau khi prototype ổn định, triển khai dữ liệu cục bộ, backend, xác thực, giấy phép và runtime theo từng giai đoạn.
 
 ## 7. Nguyên tắc bảo mật và quyền riêng tư
 - Giao diện khách hàng không cung cấp đường vào Admin Studio hoặc trình soạn thảo.
@@ -56,4 +56,4 @@ Dùng chung bộ nhận diện và thành phần giao diện, nhưng tách quy�
 - Các thao tác khóa tài khoản, thu hồi giấy phép và phát hành phiên bản phải có xác nhận phù hợp.
 
 ## 8. Trạng thái hiện tại
-Đây là bản định hướng giao diện ban đầu để duyệt. Các màn hình, tên mục và chi tiết tương tác sẽ được hoàn thiện từng bước trước khi viết mã giao diện.
+Prototype giao diện Android đã được viết bằng Kotlin/Jetpack Compose. Một số trang hiện mới có bố cục và trạng thái rỗng, chưa đọc/ghi dữ liệu thật. Các thao tác Chạy thử trên màn hình khách hàng chỉ là mô phỏng giao diện; chưa có engine Auto Click. Chi tiết tiến độ và phần chưa triển khai được ghi tại docs/PROJECT-STATUS.md.
