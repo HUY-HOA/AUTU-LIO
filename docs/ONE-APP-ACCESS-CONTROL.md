@@ -28,7 +28,7 @@ Mỗi tài khoản cộng tác viên được gán vai trò bởi chủ sở h�
 
 ## 3. Google Sign-In không cần Firebase
 
-Luồng xác thực dự kiến:
+Luồng xác thực đã được chuẩn bị trong mã Android và Worker:
 
 1. Android dùng Credential Manager để hiển thị giao diện đăng nhập Google.
 2. Ứng dụng nhận Google ID token và gửi token qua HTTPS đến Cloudflare Worker.
