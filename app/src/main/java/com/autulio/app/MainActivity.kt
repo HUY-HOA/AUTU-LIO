@@ -324,6 +324,10 @@ private val adminTabs = listOf(
     Tab("more", "Thêm", "More", Icons.Outlined.MoreHoriz)
 )
 
+private val designTab = Tab("design", "Thiết kế", "Design", Icons.Outlined.Palette)
+private val reviewTab = Tab("review", "Duyệt", "Review", Icons.Outlined.VerifiedUser)
+private val accountTab = Tab("account", "Tài khoản", "Account", Icons.Outlined.AccountCircle)
+
 private val customerTabs = listOf(
     Tab("home", "Trang chủ", "Home", Icons.Outlined.Home),
     Tab("scripts", "Kịch bản", "Scripts", Icons.Outlined.ListAlt),
@@ -332,7 +336,7 @@ private val customerTabs = listOf(
 )
 
 @Composable
-private fun AdminApp() {
+private fun AdminApp(role: AccessRole = AccessRole.OWNER, onLogout: () -> Unit = {}) {
     val context = LocalContext.current
     val preferences = remember(context) {
         context.getSharedPreferences("autulio_admin_drafts", Context.MODE_PRIVATE)
@@ -365,6 +369,13 @@ private fun AdminApp() {
     }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val visibleTabs = when (role) {
+        AccessRole.OWNER -> adminTabs
+        AccessRole.DEVELOPER -> listOf(adminTabs[0], adminTabs[1], accountTab)
+        AccessRole.DESIGNER -> listOf(adminTabs[0], designTab, accountTab)
+        AccessRole.REVIEWER -> listOf(adminTabs[0], reviewTab, accountTab)
+        AccessRole.CUSTOMER -> listOf(accountTab)
+    }
 
     AppTheme(dark) {
         Scaffold(
@@ -372,9 +383,9 @@ private fun AdminApp() {
             snackbarHost = { SnackbarHost(host) },
             bottomBar = {
                 if (editor == null) NavigationBar {
-                    adminTabs.forEach { tab ->
+                    visibleTabs.forEach { tab ->
                         NavigationBarItem(
-                            selected = page == tab.key || (page !in adminTabs.map { it.key } && tab.key == "more"),
+                            selected = page == tab.key || (page !in visibleTabs.map { it.key } && tab.key == if (role == AccessRole.OWNER) "more" else "account"),
                             onClick = { page = tab.key },
                             icon = { Icon(tab.icon, contentDescription = tr(tab.vi, tab.en)) },
                             label = { Text(tr(tab.vi, tab.en), fontSize = 10.sp) }
@@ -388,6 +399,7 @@ private fun AdminApp() {
                 EditorScreen(
                     name = editingName,
                     code = draftContents[editingName].orEmpty(),
+                    readOnly = role == AccessRole.REVIEWER,
                     onCodeChange = {
                         draftContents[editingName] = it
                         preferences.edit().putString("draft:$editingName", it).apply()
@@ -409,13 +421,15 @@ private fun AdminApp() {
                 "overview" -> OverviewScreen(
                     Modifier.padding(padding),
                     onNavigate = { page = it },
-                    onCreate = { createDialog = true }
+                    onCreate = { if (role == AccessRole.OWNER || role == AccessRole.DEVELOPER) createDialog = true },
+                    canCreate = role == AccessRole.OWNER || role == AccessRole.DEVELOPER
                 )
                 "scripts" -> ScriptsScreen(
                     Modifier.padding(padding),
                     scripts = scripts,
                     onCreate = { createDialog = true },
-                    onOpen = { editor = it }
+                    onOpen = { editor = it },
+                    canCreate = role == AccessRole.OWNER || role == AccessRole.DEVELOPER
                 )
                 "customers" -> AdminModulePage(
                     Modifier.padding(padding),
@@ -443,12 +457,41 @@ private fun AdminApp() {
                     ),
                     onBack = { page = "overview" }
                 )
+                "design" -> AdminModulePage(
+                    Modifier.padding(padding),
+                    title = tr("Thiết kế giao diện", "Interface design"),
+                    subtitle = tr("Khu vực thiết kế dành cho cộng tác viên được phân quyền", "Design workspace for authorized collaborators"),
+                    icon = Icons.Outlined.Palette,
+                    details = listOf(
+                        tr("Thiết kế bố cục màn hình Auto Click", "Design AutoClick screen layouts"),
+                        tr("Điều chỉnh màu sắc, biểu tượng và kiểu chữ", "Adjust colors, icons and typography"),
+                        tr("Xem trước thay đổi trước khi gửi duyệt", "Preview changes before submitting for review"),
+                        tr("Không có quyền sửa mã kịch bản hoặc phát hành", "Cannot edit scripts or publish releases")
+                    ),
+                    onBack = { page = "overview" }
+                )
+                "review" -> AdminModulePage(
+                    Modifier.padding(padding),
+                    title = tr("Kiểm duyệt", "Review"),
+                    subtitle = tr("Kiểm tra bản thay đổi trước khi chủ sở hữu phát hành", "Review changes before the owner publishes"),
+                    icon = Icons.Outlined.VerifiedUser,
+                    details = listOf(
+                        tr("Kiểm tra kịch bản và giao diện gửi duyệt", "Check submitted scripts and interface changes"),
+                        tr("Ghi nhận kết quả kiểm thử", "Record test results"),
+                        tr("Duyệt hoặc từ chối yêu cầu phát hành", "Approve or reject release requests"),
+                        tr("Không tự phát hành hoặc thay đổi quyền tài khoản", "Cannot publish or change account permissions")
+                    ),
+                    onBack = { page = "overview" }
+                )
+                "account" -> AdminAccountPage(role = role, onLogout = onLogout, modifier = Modifier.padding(padding))
                 else -> MoreScreen(
                     Modifier.padding(padding),
                     page,
                     onSelect = { page = it },
                     onTheme = { dark = !dark },
-                    onMessage = { scope.launch { host.showSnackbar(it) } }
+                    onMessage = { scope.launch { host.showSnackbar(it) } },
+                    sessionToken = SecureSessionStore.read(context).orEmpty(),
+                    onLogout = onLogout
                 )
             }
         }
