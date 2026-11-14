@@ -14,7 +14,9 @@ Hai biến thể dùng chung codebase nhưng chọn giao diện theo product fla
 ### Admin Studio
 - Trang Tổng quan và thẻ thống kê trống.
 - Điều hướng Tổng quan / Kịch bản / Khách hàng / Thiết bị / Thêm.
-- Mở tạo bản nháp, nhập tên kịch bản và đi vào màn hình editor.
+- Tạo kịch bản, nhập nội dung và lưu bản nháp cục bộ.
+- Bản nháp được giữ trong vùng lưu trữ riêng của AUTU-LIO Admin Studio và khôi phục sau khi đóng/mở lại ứng dụng.
+- Nội dung chưa đồng bộ máy chủ và chưa được mã hóa riêng ở tầng ứng dụng.
 - Bật/tắt giao diện sáng và tối trong mục quản lý thêm.
 - Thông báo rõ các chức năng chưa kết nối.
 - Mục Thêm mở được các trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
