@@ -30,7 +30,7 @@ Hai APK debug được tạo từ cùng codebase bằng product flavors:
 - `adminDebug` — AUTU-LIO Admin Studio
 - `clientDebug` — AUTU-LIO AutoClick
 
-Build chỉ được khởi chạy theo đúng quy tắc trong [GITHUB-WORKFLOW.md](docs/GITHUB-WORKFLOW.md). Workflow APK chỉ có `workflow_dispatch`, không build tự động theo mỗi lần push.
+Build chỉ được khởi chạy theo đúng quy tắc trong [GITHUB-WORKFLOW.md](docs/GITHUB-WORKFLOW.md). Workflow APK chỉ chạy qua `workflow_dispatch` hoặc nhánh yêu cầu build chuyên biệt `build-requests/**`; push thông thường lên `main` không tự build.
 
 ## Trạng thái
 
