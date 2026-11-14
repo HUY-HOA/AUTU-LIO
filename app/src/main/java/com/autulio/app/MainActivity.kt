@@ -634,7 +634,13 @@ private fun CustomerLoginPage(
 }
 
 @Composable
-private fun OverviewScreen(modifier: Modifier, onNavigate: (String) -> Unit, onCreate: () -> Unit) {
+private fun OverviewScreen(
+    modifier: Modifier,
+    onNavigate: (String) -> Unit,
+    onCreate: () -> Unit,
+    canCreate: Boolean = true,
+    canManageCustomers: Boolean = true
+) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(15.dp)
@@ -658,14 +664,20 @@ private fun OverviewScreen(modifier: Modifier, onNavigate: (String) -> Unit, onC
             Metric(tr("Giấy phép còn hạn", "Active licenses"), "—", Icons.Outlined.VerifiedUser, Modifier.weight(1f))
             Metric(tr("Kịch bản phát hành", "Published scripts"), "—", Icons.Outlined.Code, Modifier.weight(1f))
         }
-        Text(tr("Truy cập nhanh", "Quick actions"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ActionTile(tr("Tạo kịch bản", "Create script"), Icons.Outlined.Add, Modifier.weight(1f), onCreate)
-            ActionTile(tr("Kịch bản", "Scripts"), Icons.Outlined.ListAlt, Modifier.weight(1f)) { onNavigate("scripts") }
+        if (canCreate || canManageCustomers) {
+            Text(tr("Truy cập nhanh", "Quick actions"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ActionTile(tr("Khách hàng", "Customers"), Icons.Outlined.Group, Modifier.weight(1f)) { onNavigate("customers") }
-            ActionTile(tr("Thiết bị", "Devices"), Icons.Outlined.Smartphone, Modifier.weight(1f)) { onNavigate("devices") }
+        if (canCreate) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ActionTile(tr("Tạo kịch bản", "Create script"), Icons.Outlined.Add, Modifier.weight(1f), onCreate)
+                ActionTile(tr("Kịch bản", "Scripts"), Icons.Outlined.ListAlt, Modifier.weight(1f)) { onNavigate("scripts") }
+            }
+        }
+        if (canManageCustomers) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ActionTile(tr("Khách hàng", "Customers"), Icons.Outlined.Group, Modifier.weight(1f)) { onNavigate("customers") }
+                ActionTile(tr("Thiết bị", "Devices"), Icons.Outlined.Smartphone, Modifier.weight(1f)) { onNavigate("devices") }
+            }
         }
         Text(tr("Hoạt động gần đây", "Recent activity"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
         EmptyState(Icons.Outlined.Info, tr("Chưa có hoạt động", "No activity yet"), tr("Nhật ký sẽ xuất hiện khi máy chủ được kết nối.", "Activity will appear after the server is connected."))
@@ -674,7 +686,13 @@ private fun OverviewScreen(modifier: Modifier, onNavigate: (String) -> Unit, onC
 }
 
 @Composable
-private fun ScriptsScreen(modifier: Modifier, scripts: List<String>, onCreate: () -> Unit, onOpen: (String) -> Unit) {
+private fun ScriptsScreen(
+    modifier: Modifier,
+    scripts: List<String>,
+    onCreate: () -> Unit,
+    onOpen: (String) -> Unit,
+    canCreate: Boolean = true
+) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
     val filtered = scripts.filter { name ->
@@ -688,10 +706,12 @@ private fun ScriptsScreen(modifier: Modifier, scripts: List<String>, onCreate: (
     ) {
         BrandHeader(admin = true)
         Heading(tr("Kịch bản", "Scripts"), tr("Tạo, quản lý và phát hành kịch bản", "Create, manage and publish scripts"))
-        Button(onClick = onCreate, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Outlined.Add, contentDescription = null)
-            Spacer(Modifier.width(7.dp))
-            Text(tr("Tạo kịch bản mới", "Create new script"))
+        if (canCreate) {
+            Button(onClick = onCreate, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Outlined.Add, contentDescription = null)
+                Spacer(Modifier.width(7.dp))
+                Text(tr("Tạo kịch bản mới", "Create new script"))
+            }
         }
         OutlinedTextField(
             value = query,
@@ -735,6 +755,7 @@ private fun ScriptsScreen(modifier: Modifier, scripts: List<String>, onCreate: (
 private fun EditorScreen(
     name: String,
     code: String,
+    readOnly: Boolean = false,
     onCodeChange: (String) -> Unit,
     modifier: Modifier,
     onBack: () -> Unit,
@@ -744,8 +765,20 @@ private fun EditorScreen(
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
-        Text(tr("Ngôn ngữ riêng AUTU-LIO sẽ được định nghĩa trước khi thực thi. Nội dung dưới đây chưa chạy được.", "The AUTU-LIO language will be specified before execution. Text below is not executable."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        OutlinedTextField(value = code, onValueChange = onCodeChange, modifier = Modifier.fillMaxWidth().weight(1f), minLines = 10, placeholder = { Text(tr("Nhập nội dung bản nháp...", "Enter draft content...")) })
+        Text(
+            if (readOnly) tr("Chế độ kiểm duyệt: chỉ được xem nội dung, không thể sửa mã.", "Review mode: content is read-only.")
+            else tr("Ngôn ngữ riêng AUTU-LIO sẽ được định nghĩa trước khi thực thi. Nội dung dưới đây chưa chạy được.", "The AUTU-LIO language will be specified before execution. Text below is not executable."),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp
+        )
+        OutlinedTextField(
+            value = code,
+            onValueChange = onCodeChange,
+            enabled = !readOnly,
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            minLines = 10,
+            placeholder = { Text(tr("Nhập nội dung bản nháp...", "Enter draft content...")) }
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { onMessage(tr("Bộ kiểm tra cú pháp chưa được tích hợp.", "Syntax checker is not integrated.")) }, modifier = Modifier.weight(1f)) { Text(tr("Kiểm tra", "Check")) }
             Button(onClick = { onMessage(tr("Runtime chưa sẵn sàng để chạy thử.", "Runtime is not ready for testing.")) }, modifier = Modifier.weight(1f)) {
@@ -754,8 +787,10 @@ private fun EditorScreen(
                 Text(tr("Chạy thử", "Test"))
             }
         }
-        OutlinedButton(onClick = onSaveDraft, modifier = Modifier.fillMaxWidth()) {
-            Text(tr("Lưu bản nháp trên thiết bị", "Save draft on this device"))
+        if (!readOnly) {
+            OutlinedButton(onClick = onSaveDraft, modifier = Modifier.fillMaxWidth()) {
+                Text(tr("Lưu bản nháp trên thiết bị", "Save draft on this device"))
+            }
         }
     }
 }
