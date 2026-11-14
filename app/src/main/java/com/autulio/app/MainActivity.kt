@@ -2,6 +2,7 @@ package com.autulio.app
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -72,7 +73,7 @@ private fun AutuLioAppEntry() {
 @Composable
 private fun AuthenticatedApp() {
     val context = LocalContext.current
-    val activity = context as? Activity
+    val activity = context.findActivity()
     val scope = rememberCoroutineScope()
     var roleName by rememberSaveable { mutableStateOf<String?>(null) }
     var accountId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -81,6 +82,7 @@ private fun AuthenticatedApp() {
     var loginError by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
+        checkingSession = true
         val token = SecureSessionStore.read(context)
         if (!token.isNullOrBlank()) {
             val user = runCatching { AutuLioApi.currentUser(token) }.getOrNull()
@@ -318,6 +320,12 @@ private fun RolePreviewChooser(
             }
         }
     }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 private fun tr(vi: String, en: String) =
