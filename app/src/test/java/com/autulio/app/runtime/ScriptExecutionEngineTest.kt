@@ -191,6 +191,29 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
+    fun dispatchesBackAndHomeNavigationActions() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                QUAY_LẠI()
+                VỀ_MÀN_HÌNH_CHÍNH()
+                """
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("back", "home"), dispatcher.actions)
+            assertEquals(2L, engine.snapshot().completedInstructions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
     fun rejectsProgramWithTamperedInstructionMetadata() {
         val engine = ScriptExecutionEngine(RecordingDispatcher())
         try {
@@ -372,6 +395,16 @@ class ScriptExecutionEngineTest {
         override fun openApp(packageName: String): Boolean {
             actions += "open:$packageName"
             return appLaunchResult
+        }
+
+        override fun goBack(): Boolean {
+            actions += "back"
+            return true
+        }
+
+        override fun goHome(): Boolean {
+            actions += "home"
+            return true
         }
 
         override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
