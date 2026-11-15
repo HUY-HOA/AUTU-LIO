@@ -268,6 +268,81 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun waitUntilPollsConditionAndContinuesWhenItBecomesTrue() {
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        val taps = CopyOnWriteArrayList<String>()
+        val completed = CountDownLatch(1)
+        val dispatcher = object : ScriptActionDispatcher {
+            override fun tap(x: Int, y: Int): Boolean {
+                taps += "$x,$y"
+                return true
+            }
+            override fun longPress(x: Int, y: Int, durationMs: Int) = true
+            override fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int) = true
+            override fun evaluateFunction(name: String, arguments: List<Any?>): Any? =
+                name == "SẴN_SÀNG" && calls.incrementAndGet() >= 3
+        }
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile("CHỜ_ĐẾN_KHI(SẴN_SÀNG(), 2000, 50)\nCHẠM(5, 6)")
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(3, calls.get())
+            assertEquals(listOf("5,6"), taps)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
+    fun waitUntilFailsWithTimeoutInsteadOfWaitingForever() {
+        val failed = CountDownLatch(1)
+        val dispatcher = object : ScriptActionDispatcher {
+            override fun tap(x: Int, y: Int) = true
+            override fun longPress(x: Int, y: Int, durationMs: Int) = true
+            override fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int) = true
+            override fun evaluateFunction(name: String, arguments: List<Any?>): Any? = false
+        }
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.FAILED) failed.countDown()
+        }
+        try {
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(compile("CHỜ_ĐẾN_KHI(SẴN_SÀNG(), 150, 50)")))
+            assertTrue(failed.await(2, TimeUnit.SECONDS))
+            assertEquals("wait_until_timeout", engine.snapshot().errorCode)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
+    fun loopUntilStopsWhenConditionBecomesTrue() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT dem = 0
+                LẶP_ĐẾN_KHI(dem >= 3) {
+                    dem = dem + 1
+                    CHẠM(dem, 30)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:1,30", "tap:2,30", "tap:3,30"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
