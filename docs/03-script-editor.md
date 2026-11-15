@@ -1,7 +1,7 @@
 # AUTU-LIO — Trình soạn thảo và ngôn ngữ kịch bản
 
 **Phiên bản ngôn ngữ đầu tiên:** AUTU-LIO Script 0.1  
-**Trạng thái:** Parser/validator và runtime core Kotlin đã hợp nhất vào main. Nhánh phát triển tiếp theo đang tích hợp AccessibilityService, cửa sổ điều khiển nổi và màn hình soạn thảo riêng. Các thay đổi mới chưa hợp nhất và chưa được thử trên thiết bị thật.
+**Trạng thái:** Parser/validator và runtime core Kotlin đã hợp nhất vào main. PR #18 tích hợp cửa sổ soạn thảo riêng, bộ thực thi gesture qua AccessibilityService, cửa sổ điều khiển nổi, thư viện mẫu mã nguồn và hướng dẫn ngay trong trình soạn thảo. CI và kiểm thử thiết bị thật vẫn cần hoàn tất trước khi xác nhận hoạt động thực tế.
 
 ## 1. Mục tiêu
 
@@ -62,8 +62,11 @@ Bộ phân tích tạo cây lệnh có cấu trúc (AST), đếm số lệnh sau
 
 - Trình soạn thảo được mở bằng một Activity riêng, không nằm chen trong màn hình quản lý chính.
 - Bản nháp được lưu cục bộ qua `SecureScriptDraftStore` và mã hóa AES-GCM bằng Android Keystore.
+- Nút **Mẫu có sẵn** cung cấp các kịch bản chạm, chạm theo chuỗi, nhấn giữ, vuốt và lặp; chọn mẫu sẽ chèn toàn bộ mã vào vùng soạn thảo để người dùng tiếp tục sửa.
+- Người dùng cũng có thể tự viết mã từ đầu hoặc kết hợp mẫu với mã tự viết trong cùng vùng soạn thảo.
+- Nút **Hướng dẫn** giải thích cú pháp, tham số, tọa độ pixel, kiểm tra mã, cấp quyền Trợ năng và cách chạy trên ứng dụng mục tiêu.
 - Nút **Kiểm tra mã** gọi ScriptCompiler 0.1 và hiển thị lỗi theo dòng/cột hoặc số lệnh/thời lượng tĩnh.
-- Nút **Chuẩn bị cửa sổ chạy** chỉ biên dịch kịch bản và yêu cầu AccessibilityService hiển thị cửa sổ nổi ở trạng thái chờ. Nó không tự chạy thao tác.
+- Nút **Chuẩn bị chạy** chỉ biên dịch kịch bản và yêu cầu AccessibilityService hiển thị cửa sổ nổi ở trạng thái chờ. Nó không tự chạy thao tác.
 - Người dùng chuyển sang ứng dụng mục tiêu, sau đó chủ động nhấn **Chạy** trên cửa sổ nổi. Cửa sổ có Tạm dừng/Tiếp tục, Dừng, thu nhỏ, di chuyển và đóng.
 - Runtime core chạy tuần tự ở worker riêng; dispatcher gửi gesture qua Android `AccessibilityService.dispatchGesture()`.
 - Kiểm tra mã không yêu cầu quyền Trợ năng và không gửi thao tác lên màn hình.
@@ -87,8 +90,8 @@ Bộ JUnit của ScriptCompiler kiểm tra cú pháp, giới hạn và ngân sá
 ## 7. Phạm vi chưa hoàn tất
 
 - Biến, kiểu dữ liệu, biểu thức, điều kiện, hàm tự định nghĩa và thư viện.
-- Gợi ý mã/tô màu cú pháp/nút chuyển tới lỗi.
-- Hoàn tất tích hợp giao diện cấp quyền Trợ năng và các trạng thái dịch vụ không kết nối/bị tắt.
+- Gợi ý mã theo ngữ cảnh, tô màu cú pháp và nhảy đến vị trí lỗi.
+- Hoàn thiện thông báo trạng thái dịch vụ Trợ năng và xử lý Android thu hồi dịch vụ khi cửa sổ chạy đang mở.
 - Thử nghiệm dispatchGesture, cửa sổ nổi và điều khiển phiên chạy trên thiết bị Android thật, gồm xoay màn hình, nhiều mật độ và nhiều phiên bản Android.
 - Kiểm tra hành vi dừng khi gesture đang diễn ra, hệ thống thu hồi dịch vụ hoặc tiến trình bị kết thúc.
 - Mở trình soạn thảo riêng cho mọi vai trò Chủ sở hữu/Nhà phát triển có quyền chỉnh sửa; hiện Activity riêng đã nối từ Admin Studio, cần rà soát workspace Nhà phát triển.
