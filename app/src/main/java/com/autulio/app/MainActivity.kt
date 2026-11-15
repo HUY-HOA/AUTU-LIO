@@ -474,6 +474,7 @@ private fun EditorScreen(
     onBack: () -> Unit,
     onMessage: (String) -> Unit,
     onSaveDraft: () -> Unit,
+    allowTest: Boolean,
     onPrepareRun: (String) -> Unit
 ) {
     var validationText by rememberSaveable { mutableStateOf("") }
@@ -528,13 +529,15 @@ private fun EditorScreen(
                 },
                 modifier = Modifier.weight(1f)
             ) { Text(tr("Kiểm tra mã", "Check code")) }
-            Button(
-                onClick = { onPrepareRun(code) },
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.Outlined.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(5.dp))
-                Text(tr("Chuẩn bị cửa sổ chạy", "Prepare runner window"))
+            if (allowTest) {
+                Button(
+                    onClick = { onPrepareRun(code) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Outlined.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.width(5.dp))
+                    Text(tr("Chuẩn bị cửa sổ chạy", "Prepare runner window"))
+                }
             }
         }
         if (validationText.isNotBlank()) {
@@ -1093,22 +1096,34 @@ private fun CreateDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
 class ScriptEditorActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_SCRIPT_NAME = "com.autulio.app.extra.SCRIPT_NAME"
+        private const val EXTRA_NAMESPACE = "com.autulio.app.extra.SCRIPT_NAMESPACE"
+        private const val EXTRA_ALLOW_TEST = "com.autulio.app.extra.ALLOW_TEST"
 
-        fun intent(context: Context, scriptName: String): Intent =
+        fun intent(
+            context: Context,
+            scriptName: String,
+            namespace: String = "admin",
+            allowTest: Boolean = true
+        ): Intent =
             Intent(context, ScriptEditorActivity::class.java)
                 .putExtra(EXTRA_SCRIPT_NAME, scriptName)
+                .putExtra(EXTRA_NAMESPACE, namespace)
+                .putExtra(EXTRA_ALLOW_TEST, allowTest)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val scriptName = intent.getStringExtra(EXTRA_SCRIPT_NAME)?.trim().orEmpty()
-        if (scriptName.isBlank()) {
+        val namespace = intent.getStringExtra(EXTRA_NAMESPACE) ?: "admin"
+        val allowTest = intent.getBooleanExtra(EXTRA_ALLOW_TEST, false)
+        if (scriptName.isBlank() || namespace !in setOf("admin", "developer")) {
             finish()
             return
         }
 
-        val store = SecureScriptDraftStore(this)
+        val store = SecureScriptDraftStore(this, namespace)
         val initial = store.load()
+        val initialNames = (initial.names + scriptName).distinctBy { it.lowercase(Locale.ROOT) }
         val initialCode = initial.contents[scriptName].orEmpty()
         setContent {
             var code by remember { mutableStateOf(initialCode) }
@@ -1125,7 +1140,7 @@ class ScriptEditorActivity : ComponentActivity() {
                         code = code,
                         onCodeChange = { updatedCode ->
                             code = updatedCode
-                            store.save(initial.names, initial.contents + (scriptName to updatedCode))
+                            store.save(initialNames, initial.contents + (scriptName to updatedCode))
                             setResult(Activity.RESULT_OK)
                         },
                         modifier = Modifier.padding(padding),
@@ -1137,7 +1152,7 @@ class ScriptEditorActivity : ComponentActivity() {
                             scope.launch { host.showSnackbar(message) }
                         },
                         onSaveDraft = {
-                            store.save(initial.names, initial.contents + (scriptName to code))
+                            store.save(initialNames, initial.contents + (scriptName to code))
                             setResult(Activity.RESULT_OK)
                             scope.launch {
                                 host.showSnackbar(
@@ -1145,8 +1160,10 @@ class ScriptEditorActivity : ComponentActivity() {
                                 )
                             }
                         },
+                        allowTest = allowTest,
                         onPrepareRun = { source ->
-                            store.save(initial.names, initial.contents + (scriptName to source))
+                            if (!allowTest) return@EditorScreen
+                            store.save(initialNames, initial.contents + (scriptName to source))
                             setResult(Activity.RESULT_OK)
                             val compilation = ScriptCompiler.compile(source)
                             if (!compilation.isSuccess) {
