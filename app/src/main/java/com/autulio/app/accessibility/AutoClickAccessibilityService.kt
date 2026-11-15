@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
@@ -15,11 +16,9 @@ import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.graphics.drawable.GradientDrawable
 import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
-import com.autulio.app.runtime.ScriptExecutionStartResult
 import com.autulio.app.runtime.ScriptExecutionState
 import com.autulio.app.script.ScriptProgram
 import java.util.concurrent.CountDownLatch
@@ -32,6 +31,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         @Volatile
         private var activeInstance: AutoClickAccessibilityService? = null
 
+        private const val TAP_DURATION_MS = 80
+        private const val GESTURE_TIMEOUT_GRACE_MS = 3_000L
+
         fun current(): AutoClickAccessibilityService? = activeInstance
     }
 
@@ -40,10 +42,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var windowManager: WindowManager? = null
     private var floatingWindow: LinearLayout? = null
     private var statusLabel: TextView? = null
-    private var pauseButton: Button? = null
+    private var primaryButton: Button? = null
+    private var stopButton: Button? = null
     private var actionRow: LinearLayout? = null
-    private var windowParams: WindowManager.LayoutParams? = null
     private var collapsed = false
+    private var pendingProgram: ScriptProgram? = null
     private var latestSnapshot: ScriptExecutionSnapshot? = null
 
     override fun onServiceConnected() {
@@ -67,26 +70,25 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         executionEngine?.close()
         executionEngine = null
         removeFloatingWindow()
+        pendingProgram = null
         if (activeInstance === this) activeInstance = null
         super.onDestroy()
     }
 
-    fun startProgram(program: ScriptProgram): ScriptExecutionStartResult {
-        val engine = executionEngine
-            ?: return ScriptExecutionStartResult.Rejected(
-                "accessibility_service_unavailable",
-                "AUTU-LIO Accessibility Service is not connected."
-            )
-        val result = engine.start(program)
-        if (result == ScriptExecutionStartResult.Started ||
-            result == ScriptExecutionStartResult.AlreadyRunning
-        ) {
-            mainHandler.post {
-                showFloatingWindow()
-                renderSnapshot(engine.snapshot())
-            }
+    fun prepareProgram(program: ScriptProgram): Boolean {
+        if (executionEngine == null) return false
+        val state = executionEngine?.snapshot()?.state
+        if (state == ScriptExecutionState.RUNNING ||
+            state == ScriptExecutionState.PAUSED ||
+            state == ScriptExecutionState.STOPPING
+        ) return false
+
+        pendingProgram = program
+        mainHandler.post {
+            showFloatingWindow()
+            renderSnapshot(executionEngine?.snapshot())
         }
-        return result
+        return true
     }
 
     fun pauseExecution(): Boolean = executionEngine?.pause() == true
@@ -236,6 +238,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
             setOnClickListener {
                 executionEngine?.stop()
+                pendingProgram = null
                 removeFloatingWindow()
             }
         }
@@ -252,17 +255,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val pause = Button(this).apply {
-            text = "Tạm dừng"
+        val primary = Button(this).apply {
             isAllCaps = false
-            setOnClickListener {
-                val snapshot = executionEngine?.snapshot()
-                if (snapshot?.state == ScriptExecutionState.PAUSED) {
-                    executionEngine?.resume()
-                } else {
-                    executionEngine?.pause()
-                }
-            }
+            setOnClickListener { onPrimaryAction() }
         }
         val stop = Button(this).apply {
             text = "Dừng"
@@ -270,7 +265,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             setOnClickListener { executionEngine?.stop() }
         }
         controls.addView(
-            pause,
+            primary,
             LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(5) }
         )
         controls.addView(
@@ -327,43 +322,69 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             manager.addView(root, params)
             floatingWindow = root
             statusLabel = status
-            pauseButton = pause
+            primaryButton = primary
+            stopButton = stop
             actionRow = controls
-            windowParams = params
             renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
         } catch (_: RuntimeException) {
             floatingWindow = null
             statusLabel = null
-            pauseButton = null
+            primaryButton = null
+            stopButton = null
             actionRow = null
-            windowParams = null
+        }
+    }
+
+    private fun onPrimaryAction() {
+        val engine = executionEngine ?: return
+        when (engine.snapshot().state) {
+            ScriptExecutionState.RUNNING -> engine.pause()
+            ScriptExecutionState.PAUSED -> engine.resume()
+            ScriptExecutionState.STOPPING -> Unit
+            ScriptExecutionState.IDLE,
+            ScriptExecutionState.COMPLETED,
+            ScriptExecutionState.CANCELLED,
+            ScriptExecutionState.FAILED -> {
+                val program = pendingProgram ?: return
+                engine.start(program)
+            }
         }
     }
 
     private fun renderSnapshot(snapshot: ScriptExecutionSnapshot?) {
-        if (snapshot == null) return
-        latestSnapshot = snapshot
+        if (snapshot != null) latestSnapshot = snapshot
         val status = statusLabel ?: return
-        val pause = pauseButton ?: return
+        val primary = primaryButton ?: return
+        val stop = stopButton ?: return
+        val current = snapshot ?: latestSnapshot
+        val state = current?.state ?: ScriptExecutionState.IDLE
 
-        val vi = when (snapshot.state) {
-            ScriptExecutionState.IDLE -> "Sẵn sàng"
-            ScriptExecutionState.RUNNING -> "Đang chạy"
-            ScriptExecutionState.PAUSED -> "Đã tạm dừng"
-            ScriptExecutionState.STOPPING -> "Đang dừng"
-            ScriptExecutionState.COMPLETED -> "Hoàn tất"
-            ScriptExecutionState.CANCELLED -> "Đã dừng"
-            ScriptExecutionState.FAILED -> "Lỗi: ${snapshot.message ?: snapshot.errorCode ?: "không xác định"}"
+        status.text = when (state) {
+            ScriptExecutionState.IDLE ->
+                "Sẵn sàng · Mở ứng dụng mục tiêu rồi nhấn Chạy"
+            ScriptExecutionState.RUNNING ->
+                "Đang chạy · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0} lệnh"
+            ScriptExecutionState.PAUSED ->
+                "Đã tạm dừng · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0} lệnh"
+            ScriptExecutionState.STOPPING -> "Đang dừng…"
+            ScriptExecutionState.COMPLETED -> "Hoàn tất · Có thể chạy lại"
+            ScriptExecutionState.CANCELLED -> "Đã dừng · Có thể chạy lại"
+            ScriptExecutionState.FAILED ->
+                "Lỗi · ${current?.message ?: current?.errorCode ?: "Không xác định"}"
         }
-        status.text = "$vi · ${snapshot.completedInstructions}/${snapshot.totalInstructions} lệnh"
 
-        val active = snapshot.state == ScriptExecutionState.RUNNING ||
-            snapshot.state == ScriptExecutionState.PAUSED ||
-            snapshot.state == ScriptExecutionState.STOPPING
-        pause.text = if (snapshot.state == ScriptExecutionState.PAUSED) "Tiếp tục" else "Tạm dừng"
-        pause.isEnabled = snapshot.state == ScriptExecutionState.RUNNING ||
-            snapshot.state == ScriptExecutionState.PAUSED
-        actionRow?.visibility = if (active) View.VISIBLE else View.GONE
+        val running = state == ScriptExecutionState.RUNNING
+        val paused = state == ScriptExecutionState.PAUSED
+        val stopping = state == ScriptExecutionState.STOPPING
+        primary.text = when {
+            running -> "Tạm dừng"
+            paused -> "Tiếp tục"
+            else -> "Chạy"
+        }
+        primary.isEnabled = pendingProgram != null && !stopping
+        stop.visibility = if (running || paused || stopping) View.VISIBLE else View.GONE
+        actionRow?.visibility = if (collapsed) View.GONE else View.VISIBLE
+        status.visibility = if (collapsed) View.GONE else View.VISIBLE
     }
 
     private fun setCollapsed(value: Boolean) {
@@ -378,14 +399,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         if (manager != null) runCatching { manager.removeView(root) }
         floatingWindow = null
         statusLabel = null
-        pauseButton = null
+        primaryButton = null
+        stopButton = null
         actionRow = null
-        windowParams = null
         collapsed = false
-    }
-
-    private companion object {
-        const val TAP_DURATION_MS = 80
-        const val GESTURE_TIMEOUT_GRACE_MS = 3_000L
     }
 }
