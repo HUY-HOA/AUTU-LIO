@@ -718,7 +718,7 @@ private fun MoreScreen(
         return
     }
     if (page == "packages") {
-        AdminPackagesScreen(accessToken = accessToken, modifier = modifier)
+        AdminPackagesScreen(accessToken = accessToken, modifier = modifier, onBack = { onSelect("more") })
         return
     }
     if (page == "projects") {
