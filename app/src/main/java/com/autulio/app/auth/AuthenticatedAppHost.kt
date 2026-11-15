@@ -88,10 +88,22 @@ internal fun AuthenticatedAppHost() {
     }
 
     val currentUser = user
-    if (currentUser != null && accessToken != null) {
+    val currentToken = accessToken
+    if (currentUser != null && currentToken != null) {
         when (currentUser.role) {
-            AccessRole.OWNER -> AdminApp(accessToken = accessToken, onLogout = ::signOut)
-            AccessRole.CUSTOMER -> CustomerApp(email = currentUser.email, onLogout = ::signOut)
+            AccessRole.OWNER -> AdminApp(accessToken = currentToken, onLogout = ::signOut)
+            AccessRole.CUSTOMER -> CustomerApp(
+                accessToken = currentToken,
+                email = currentUser.email,
+                onLogout = ::signOut,
+                onRoleUpdated = {
+                    scope.launch {
+                        runCatching { repository.currentUser(currentToken) }
+                            .onSuccess { user = it }
+                            .onFailure { errorMessage = it.message.orEmpty() }
+                    }
+                }
+            )
             AccessRole.DEVELOPER,
             AccessRole.DESIGNER,
             AccessRole.REVIEWER -> CollaboratorWorkspace(
