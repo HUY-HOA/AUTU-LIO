@@ -42,6 +42,7 @@ import com.autulio.app.access.defaultPermissions
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
+import com.autulio.app.script.ScriptTemplate
 import com.autulio.app.script.ScriptTemplateCatalog
 
 class MainActivity : ComponentActivity() {
@@ -257,7 +258,17 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     onTheme = { dark = !dark },
                     onMessage = { scope.launch { host.showSnackbar(it) } },
                     onLogout = onLogout,
-                    accessToken = accessToken
+                    accessToken = accessToken,
+                    onOpenTemplate = { template ->
+                        val draftName = "Mẫu - " + tr(template.nameVi, template.nameEn)
+                        editorLauncher.launch(
+                            ScriptEditorActivity.intent(
+                                context = context,
+                                scriptName = draftName,
+                                initialSource = template.source
+                            )
+                        )
+                    }
                 )
             }
         }
@@ -557,7 +568,7 @@ private fun ScriptsScreen(
                         Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                         Text(tr("Bản nháp", "Draft"), color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
                     }
-                    Text(tr("Chạm để mở trình soạn thảo prototype.", "Tap to open the editor prototype."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    Text(tr("Chạm để mở trình soạn thảo và tiếp tục chỉnh sửa AUTU.", "Tap to open the editor and continue editing this AUTU."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
             }
         }
@@ -586,8 +597,8 @@ private fun EditorScreen(
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(
             tr(
-                "Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. AUTU-LIO Script 0.1 hỗ trợ tap, longPress, swipe, wait và repeat.",
-                "Choose a built-in template, or write and edit your own source below. AUTU-LIO Script 0.1 supports tap, longPress, swipe, wait and repeat."
+                "Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. AUTU-LIO Script ${ScriptCompiler.LANGUAGE_VERSION} hỗ trợ lệnh thao tác, biến, biểu thức, điều kiện, vòng lặp và trạng thái thiết bị.",
+                "Choose a built-in template, or write and edit your own source below. AUTU-LIO Script ${ScriptCompiler.LANGUAGE_VERSION} supports gestures, variables, expressions, conditions, loops and device state."
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
@@ -794,7 +805,8 @@ private fun MoreScreen(
     onTheme: () -> Unit,
     onMessage: (String) -> Unit,
     onLogout: () -> Unit,
-    accessToken: String?
+    accessToken: String?,
+    onOpenTemplate: (ScriptTemplate) -> Unit
 ) {
     if (page == "licenses") {
         LicensesAdminScreen(accessToken = accessToken, modifier = modifier)
@@ -802,6 +814,14 @@ private fun MoreScreen(
     }
     if (page == "packages") {
         AdminPackagesScreen(accessToken = accessToken, modifier = modifier, onBack = { onSelect("more") })
+        return
+    }
+    if (page == "library") {
+        AdminTemplateLibraryScreen(
+            modifier = modifier,
+            onBack = { onSelect("more") },
+            onOpenTemplate = onOpenTemplate
+        )
         return
     }
     if (page == "projects") {
@@ -819,7 +839,7 @@ private fun MoreScreen(
         Triple("collaborators", tr("Cộng tác viên", "Collaborators"), Icons.Outlined.PersonAdd),
         Triple("projects", tr("Dự án cộng tác", "Shared projects"), Icons.Outlined.FolderOpen),
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
-        Triple("library", tr("Thư viện", "Libraries"), Icons.Outlined.ListAlt),
+        Triple("library", tr("Thư viện mẫu AUTU", "AUTU template library"), Icons.Outlined.ListAlt),
         Triple("packages", tr("Gói AUTU", "AUTU packages"), Icons.Outlined.Code),
         Triple("release", tr("Phát hành", "Releases"), Icons.Outlined.PlayArrow),
         Triple("logs", tr("Nhật ký", "Logs"), Icons.Outlined.Info),
@@ -882,13 +902,6 @@ private fun MoreScreen(
                     modifier = Modifier.fillMaxSize(),
                     onBack = { onSelect("more") }
                 )
-                "library" -> {
-                    CardBox {
-                        Text(tr("Thư viện dùng chung", "Shared libraries"), fontWeight = FontWeight.SemiBold)
-                        Text(tr("Phiên bản · Hàm · Tương thích runtime · Kịch bản phụ thuộc", "Version · Functions · Runtime compatibility · Script dependencies"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                    }
-                    EmptyState(Icons.Outlined.ListAlt, tr("Chưa có thư viện", "No libraries yet"), tr("Thư viện dùng chung sẽ xuất hiện sau khi bộ máy ngôn ngữ được triển khai.", "Shared libraries will appear after the language runtime is implemented."))
-                }
                 "release" -> {
                     CardBox {
                         Text(tr("Quy trình phát hành", "Release workflow"), fontWeight = FontWeight.SemiBold)
@@ -1396,17 +1409,20 @@ class ScriptEditorActivity : ComponentActivity() {
         private const val EXTRA_SCRIPT_NAME = "com.autulio.app.extra.SCRIPT_NAME"
         private const val EXTRA_NAMESPACE = "com.autulio.app.extra.SCRIPT_NAMESPACE"
         private const val EXTRA_ALLOW_TEST = "com.autulio.app.extra.ALLOW_TEST"
+        private const val EXTRA_INITIAL_SOURCE = "com.autulio.app.extra.INITIAL_SOURCE"
 
         fun intent(
             context: Context,
             scriptName: String,
             namespace: String = "admin",
-            allowTest: Boolean = true
+            allowTest: Boolean = true,
+            initialSource: String? = null
         ): Intent =
             Intent(context, ScriptEditorActivity::class.java)
                 .putExtra(EXTRA_SCRIPT_NAME, scriptName)
                 .putExtra(EXTRA_NAMESPACE, namespace)
                 .putExtra(EXTRA_ALLOW_TEST, allowTest)
+                .putExtra(EXTRA_INITIAL_SOURCE, initialSource)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -1422,7 +1438,11 @@ class ScriptEditorActivity : ComponentActivity() {
         val store = SecureScriptDraftStore(this, namespace)
         val initial = store.load()
         val initialNames = (initial.names + scriptName).distinctBy { it.lowercase(Locale.ROOT) }
-        val initialCode = initial.contents[scriptName].orEmpty()
+        val savedCode = initial.contents[scriptName]
+        val initialCode = savedCode ?: intent.getStringExtra(EXTRA_INITIAL_SOURCE).orEmpty()
+        if (savedCode == null && initialCode.isNotBlank()) {
+            store.save(initialNames, initial.contents + (scriptName to initialCode))
+        }
         setContent {
             var code by remember { mutableStateOf(initialCode) }
             val host = remember { SnackbarHostState() }
