@@ -53,16 +53,19 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 ## 4. Phần chưa triển khai
 
-- Google Credential Manager / Google Sign-In và hệ thống tài khoản thực.
+- Android đã tích hợp khung Google Credential Manager 1.6.0 / Google ID 1.2.1, nonce, gọi Auth API và xác minh session trên máy chủ; cần Google OAuth Client ID + Worker URL để bật đăng nhập thật.
 - Cloudflare D1 database `autu_lio_auth` đã được tạo ở APAC; bảng tài khoản, nonce, session, lời mời, quyền ghi đè, nhật ký và cấu hình đã được khởi tạo. Worker source và cấu hình binding đã được thêm vào repository nhưng chưa deploy.
 - Google OAuth Client ID và OWNER_EMAIL chưa được cấu hình; Worker chưa deploy nên đăng nhập thật và xác minh vai trò vẫn chưa hoạt động.
+- Android lưu session bằng AES-GCM/Android Keystore; bản Release chỉ mở UI theo role xác minh, bản Debug có bộ chọn preview role riêng.
+- Developer/Designer/Reviewer có không gian UI prototype riêng; nháp Developer và tùy chọn Designer hiện chỉ lưu/xem cục bộ, chưa đồng bộ máy chủ.
 - API tạo/nhận lời mời, liệt kê/đổi quyền/thu hồi cộng tác viên đã có trong Worker source; chưa hoạt động với app do Worker chưa deploy và chưa có OAuth secrets.
 - Đồng bộ tài khoản, thiết bị, giấy phép và dữ liệu khách hàng.
 - Trình biên dịch, parser, bytecode và runtime của ngôn ngữ AUTU-LIO.
 - Engine thực hiện Auto Click, Accessibility Service, overlay và điều khiển vòng đời tác vụ.
 - Đóng gói, ký, mã hóa và phân phối kịch bản thật.
 - Cập nhật từ xa, nhật ký máy chủ và quy trình thu hồi package.
-- Kiểm thử lint/build và thử nghiệm APK trên thiết bị thật.
+- Kiểm thử đăng nhập Google thực trên thiết bị; nối giao diện cộng tác viên vào API; kiểm thử compile Kotlin Android.
+- Kiểm thử lint/build APK và thử nghiệm APK trên thiết bị thật.
 
 ## 5. Việc tiếp theo
 
