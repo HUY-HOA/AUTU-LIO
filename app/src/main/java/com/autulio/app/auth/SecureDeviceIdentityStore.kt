@@ -71,6 +71,13 @@ class SecureDeviceIdentityStore(@Suppress("UNUSED_PARAMETER") context: Context) 
     }
 
     @Synchronized
+    fun getExisting(): DeviceIdentity? {
+        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        if (!keyStore.containsAlias(KEY_ALIAS)) return null
+        return getOrCreate()
+    }
+
+    @Synchronized
     fun signChallenge(challengeId: String, nonce: String): String {
         require(challengeId.isNotBlank() && nonce.isNotBlank())
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
