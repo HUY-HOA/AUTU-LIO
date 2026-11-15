@@ -690,11 +690,16 @@ private fun EditorScreen(
                         tr("2. Sửa tọa độ X, Y theo vị trí trên màn hình điện thoại. Tọa độ tính bằng pixel; cần kiểm tra lại khi đổi độ phân giải hoặc xoay màn hình.", "2. Adjust X and Y to match positions on the phone screen. Coordinates are pixels and should be checked after changing resolution or rotating the device.")
                     )
                     Text(tr("Các lệnh đang hỗ trợ", "Supported commands"), fontWeight = FontWeight.SemiBold)
-                    Text("tap(x, y)  ·  " + tr("Chạm một lần", "Single tap"))
-                    Text("longPress(x, y, ms)  ·  " + tr("Nhấn giữ", "Long press"))
-                    Text("swipe(x1, y1, x2, y2, ms)  ·  " + tr("Vuốt", "Swipe"))
-                    Text("wait(ms)  ·  " + tr("Chờ", "Wait"))
-                    Text("repeat(n) { ... }  ·  " + tr("Lặp nhóm lệnh", "Repeat a block"))
+                    Text("CHẠM(x, y)  ·  " + tr("Chạm một lần", "Single tap"))
+                    Text("NHẤN_GIỮ(x, y, ms)  ·  " + tr("Nhấn giữ", "Long press"))
+                    Text("VUỐT(x1, y1, x2, y2, ms)  ·  " + tr("Vuốt", "Swipe"))
+                    Text("CHỜ(ms)  ·  " + tr("Chờ", "Wait"))
+                    Text("MỞ_ỨNG_DỤNG(\"tên.gói\")  ·  " + tr("Mở ứng dụng", "Launch an app"))
+                    Text("ĐẶT ten = 3  ·  " + tr("Khai báo biến", "Declare a variable"))
+                    Text("NẾU (ten > 1) { ... } NGƯỢC_LẠI { ... }")
+                    Text("LẶP(ten) { ... }  ·  " + tr("Lặp theo số lần", "Repeat a fixed count"))
+                    Text("LẶP_KHI (ten < 10) { ... }  ·  " + tr("Lặp theo điều kiện", "Repeat while a condition is true"))
+                    Text("PIN(), ĐANG_SẠC(), CÓ_MẠNG(), MÀN_HÌNH_SÁNG()")
                     Text(
                         tr("3. Nhấn Kiểm tra mã để tìm lỗi cú pháp. Chỉ khi mã hợp lệ mới chuẩn bị được cửa sổ chạy.", "3. Tap Check code to find syntax errors. Only valid code can be prepared for running.")
                     )
@@ -705,7 +710,7 @@ private fun EditorScreen(
                         tr("5. Khi cửa sổ chạy xuất hiện, chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi. Có thể Tạm dừng, Tiếp tục, Dừng hoặc thu nhỏ bất cứ lúc nào.", "5. When the runner appears, switch to the target app and press Run on the floating window. You can pause, resume, stop or collapse it.")
                     )
                     Text(
-                        tr("Lưu ý: Phiên bản 0.1 chưa hỗ trợ biến, điều kiện, hàm tự định nghĩa hoặc tự nhận diện hình ảnh. Không chạy mẫu trước khi sửa tọa độ cho đúng ứng dụng của bạn.", "Note: Version 0.1 does not yet support variables, conditions, custom functions or image recognition. Do not run a template until its coordinates match your target app.")
+                        tr("Biến, phép tính, điều kiện, vòng lặp và các hàm trạng thái thiết bị đang được hỗ trợ. Quét ảnh/OCR và các hàm Android nâng cao chỉ hiển thị khi đã được tích hợp và cấp quyền phù hợp. Luôn kiểm tra tọa độ và tên gói trước khi chạy.", "Variables, expressions, conditions, loops and device-state functions are supported. Image/OCR and advanced Android functions are only available when integrated and properly authorized. Verify coordinates and package names before running.")
                     )
                 }
             },
