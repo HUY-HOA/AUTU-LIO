@@ -74,7 +74,13 @@ Không tự động cấp quyền chỉ vì một người biết hoặc nhập 
 - Quyền Android như Accessibility chỉ được yêu cầu khi tính năng thật cần, có giải thích rõ và người dùng tự cấp theo cơ chế hệ điều hành.
 - Thu thập tối thiểu dữ liệu tài khoản/thiết bị cần cho giấy phép và bảo mật; không thu thập nội dung riêng tư không cần thiết.
 
-## 7. Trạng thái triển khai
+## 7. Prototype quản lý cộng tác viên
+
+Màn hình Admin có mục Quản lý cộng tác viên, cho phép nhập Gmail, chọn vai trò Nhà phát triển / Nhà thiết kế / Người kiểm duyệt, lưu và xóa bản nháp lời mời trên thiết bị. Dữ liệu prototype được lưu trong vùng riêng của ứng dụng; không gửi lên máy chủ và không cấp quyền thực tế. Không được dùng danh sách cục bộ này làm nguồn phân quyền.
+
+Khi backend hoạt động, cần thay phần lưu cục bộ bằng API có xác thực session. Worker phải kiểm tra vai trò OWNER, xác thực email/Google identity, mã lời mời dùng một lần có thời hạn, chống gửi lặp và ghi nhật ký thay đổi. Người được mời chỉ có quyền sau khi chấp nhận và máy chủ gán role thành công.
+
+## 8. Trạng thái triển khai
 
 Đã cập nhật cấu hình dự án để tạo một APK duy nhất và thêm mô hình vai trò/quyền phía Android. Bộ chọn Admin/khách hàng hiện tại chỉ chạy trong bản Debug để kiểm tra giao diện.
 

@@ -23,6 +23,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Bản nháp chưa đồng bộ máy chủ và chưa được mã hóa riêng ở tầng ứng dụng.
 - Trang Khách hàng và Thiết bị.
 - Trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
+- Trang Quản lý cộng tác viên prototype: nhập Gmail, chọn Nhà phát triển / Nhà thiết kế / Người kiểm duyệt, lưu và xóa bản nháp lời mời cục bộ. Chưa gửi lời mời, chưa gán vai trò trên máy chủ.
 - Chuyển giao diện sáng / tối.
 
 ### Giao diện người dùng
@@ -67,7 +68,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 1. Khi có lệnh build hợp lệ, chạy workflow để kiểm tra khả năng biên dịch và lấy một APK debug.
 2. Sửa các lỗi lint / build phát hiện được trước khi phát hành APK thử nghiệm.
-3. Thử hai APK trên điện thoại, thu thập lỗi giao diện và điều chỉnh.
+3. Thử một APK AUTU-LIO trên điện thoại, thu thập lỗi giao diện và điều chỉnh.
 4. Thiết kế đặc tả ngôn ngữ AUTU-LIO trước khi viết parser/compiler/runtime.
 5. Triển khai engine tự động hóa có giới hạn quyền và xin quyền Android minh bạch.
 6. Tích hợp backend, đăng nhập, giấy phép và cập nhật package sau khi kiến trúc runtime đã ổn định.
