@@ -1,6 +1,8 @@
 package com.autulio.app
 
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,13 +19,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.EncryptedAutuPackageDecryptor
 import com.autulio.app.auth.CustomerAccountOverview
 import com.autulio.app.auth.CustomerRecord
 import com.autulio.app.auth.DeviceRecord
 import com.autulio.app.auth.LicenseRecord
 import com.autulio.app.auth.SecureDeviceIdentityStore
 import com.autulio.app.BuildConfig
+import com.autulio.app.script.ScriptCompiler
 import kotlinx.coroutines.launch
 
 @Composable
@@ -543,6 +548,187 @@ internal fun CustomerDeviceLicenseScreen(
             },
             dismissButton = { TextButton(onClick = { showRegistrationConsent = false }, enabled = !registering) { Text(tr("Hủy", "Cancel")) } }
         )
+    }
+}
+
+@Composable
+internal fun CustomerPackagesScreen(
+    accessToken: String?,
+    modifier: Modifier = Modifier,
+    onOpenDevices: () -> Unit
+) {
+    val context = LocalContext.current
+    val repository = remember(context) { AuthRepository(context) }
+    val identityStore = remember(context) { SecureDeviceIdentityStore(context) }
+    val identity = remember(context) { runCatching { identityStore.getExistingIdentity() }.getOrNull() }
+    val scope = rememberCoroutineScope()
+    var packages by remember { mutableStateOf<List<com.autulio.app.auth.AutuPackageRecord>>(emptyList()) }
+    var loading by remember { mutableStateOf(false) }
+    var runningId by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf("") }
+    var notice by remember { mutableStateOf("") }
+
+    suspend fun refresh() {
+        if (accessToken.isNullOrBlank() || identity == null) return
+        loading = true
+        error = ""
+        try {
+            packages = repository.listCustomerPackages(accessToken, identity.fingerprintSha256).packages
+        } catch (exception: Exception) {
+            error = exception.message ?: tr("Không tải được kho AUTU.", "Could not load the AUTU library.")
+        } finally {
+            loading = false
+        }
+    }
+
+    LaunchedEffect(accessToken, identity?.fingerprintSha256) { refresh() }
+
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Heading(
+                    tr("Kho AUTU đã phát hành", "Published AUTU library"),
+                    tr("Gói được máy chủ xác minh giấy phép và mã hóa riêng cho thiết bị này.", "Packages are license-checked by the server and encrypted for this device.")
+                )
+            }
+            IconButton(onClick = { scope.launch { refresh() } }, enabled = !loading && !accessToken.isNullOrBlank() && identity != null) {
+                Icon(Icons.Outlined.Refresh, contentDescription = tr("Làm mới", "Refresh"))
+            }
+        }
+        if (accessToken.isNullOrBlank()) {
+            LiveManagementUnavailable()
+        } else if (identity == null) {
+            CardBox {
+                Icon(Icons.Outlined.Devices, null, tint = MaterialTheme.colorScheme.primary)
+                Text(tr("Chưa đăng ký thiết bị", "This device is not registered"), fontWeight = FontWeight.SemiBold)
+                Text(
+                    tr("Đăng ký thiết bị trong trang Thiết bị và giấy phép trước khi tải gói AUTU. Khóa riêng sẽ được giữ trong Android Keystore.",
+                        "Register this device on the Device and license page before downloading AUTUs. Its private key remains in Android Keystore."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+                Button(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Mở Thiết bị và giấy phép", "Open Device and license"))
+                }
+            }
+        } else {
+            if (loading && packages.isEmpty()) {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            if (error.isNotBlank()) {
+                Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                if (error.contains("thiết bị", ignoreCase = true) || error.contains("device", ignoreCase = true)) {
+                    OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
+                        Text(tr("Kiểm tra thiết bị và giấy phép", "Check device and license"))
+                    }
+                }
+            }
+            if (notice.isNotBlank()) {
+                CardBox {
+                    Text(notice, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                }
+            }
+            if (!loading && packages.isEmpty() && error.isBlank()) {
+                EmptyState(
+                    Icons.Outlined.VerifiedUser,
+                    tr("Chưa có gói được phát hành", "No published packages yet"),
+                    tr("Khi chủ ứng dụng phát hành AUTU cho tài khoản của bạn, gói sẽ xuất hiện ở đây.", "AUTUs published for your account will appear here.")
+                )
+            }
+            packages.forEach { item ->
+                CardBox {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(item.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                "v${item.latestVersion}",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    if (item.description.isNotBlank()) {
+                        Text(item.description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    Text(
+                        "AUTU Script ${item.languageVersion}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                    Button(
+                        onClick = {
+                            val token = accessToken ?: return@Button
+                            val deviceIdentity = identity
+                            scope.launch {
+                                runningId = item.id
+                                error = ""
+                                notice = ""
+                                try {
+                                    val encryptedPackage = repository.downloadCustomerPackage(
+                                        token,
+                                        item.id,
+                                        deviceIdentity.fingerprintSha256
+                                    )
+                                    val source = EncryptedAutuPackageDecryptor.decryptSource(identityStore, encryptedPackage)
+                                    val compilation = ScriptCompiler.compile(source)
+                                    if (!compilation.isSuccess || compilation.program == null) {
+                                        val details = compilation.diagnostics.joinToString("; ") {
+                                            "Dòng ${it.line}: ${it.messageVi}"
+                                        }
+                                        throw IllegalStateException(
+                                            tr("Gói AUTU không hợp lệ: $details", "The AUTU package is invalid: $details")
+                                        )
+                                    }
+                                    if (compilation.program.languageVersion != encryptedPackage.languageVersion) {
+                                        throw IllegalStateException(
+                                            tr("Phiên bản ngôn ngữ của gói không tương thích với ứng dụng.", "The package language version is incompatible with this app.")
+                                        )
+                                    }
+                                    val service = AutoClickAccessibilityService.current()
+                                    if (service == null) {
+                                        notice = tr(
+                                            "Đã tải và xác minh gói. Hãy bật AUTU-LIO trong Cài đặt > Trợ năng, quay lại đây và nhấn Chuẩn bị chạy lần nữa.",
+                                            "The package was downloaded and verified. Enable AUTU-LIO under Settings > Accessibility, return here and tap Prepare to run again."
+                                        )
+                                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                    } else if (service.prepareProgram(compilation.program)) {
+                                        notice = tr(
+                                            "Đã giải mã, kiểm tra toàn vẹn và chuẩn bị AUTU. Chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.",
+                                            "AUTU was decrypted, integrity-checked and prepared. Switch to the target app and press Run on the floating controller."
+                                        )
+                                    } else {
+                                        throw IllegalStateException(
+                                            tr("Không thể chuẩn bị bộ chạy AUTU trên thiết bị.", "Could not prepare the AUTU runner on this device.")
+                                        )
+                                    }
+                                } catch (exception: Exception) {
+                                    error = exception.message ?: tr("Không thể tải hoặc chạy gói AUTU.", "Could not download or prepare this AUTU.")
+                                } finally {
+                                    runningId = null
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = runningId == null && !loading
+                    ) {
+                        if (runningId == item.id) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else Icon(Icons.Outlined.VerifiedUser, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(tr("Tải và chuẩn bị chạy", "Download and prepare"))
+                    }
+                }
+            }
+        }
     }
 }
 
