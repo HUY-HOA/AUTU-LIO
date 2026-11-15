@@ -711,6 +711,10 @@ private fun MoreScreen(
         LicensesAdminScreen(accessToken = accessToken, modifier = modifier)
         return
     }
+    if (page == "packages") {
+        AdminPackagesScreen(accessToken = accessToken, modifier = modifier)
+        return
+    }
     if (page == "projects") {
         if (!accessToken.isNullOrBlank()) {
             ProjectsAdminScreen(accessToken, modifier = modifier, onBack = { onSelect("more") })
@@ -727,6 +731,7 @@ private fun MoreScreen(
         Triple("projects", tr("Dự án cộng tác", "Shared projects"), Icons.Outlined.FolderOpen),
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện", "Libraries"), Icons.Outlined.ListAlt),
+        Triple("packages", tr("Gói AUTU", "AUTU packages"), Icons.Outlined.Code),
         Triple("release", tr("Phát hành", "Releases"), Icons.Outlined.PlayArrow),
         Triple("logs", tr("Nhật ký", "Logs"), Icons.Outlined.Info),
         Triple("settings", tr("Cài đặt", "Settings"), Icons.Outlined.Settings)
@@ -768,6 +773,7 @@ private fun MoreScreen(
                     "collaborators" -> tr("Mời và phân quyền nhà phát triển, nhà thiết kế, người kiểm duyệt", "Invite and assign developers, designers and reviewers")
                     "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
                     "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
+                    "packages" -> tr("Mã hóa, phát hành phiên bản và phân phối AUTU cho khách hàng", "Encrypt, publish and distribute AUTU versions to customers")
                     "release" -> tr("Quản lý phiên bản và phân phối", "Manage versions and distribution")
                     "logs" -> tr("Theo dõi sự kiện và lỗi hệ thống", "Review system events and errors")
                     else -> tr("Tùy chỉnh ứng dụng quản trị", "Customize the admin application")
@@ -782,6 +788,7 @@ private fun MoreScreen(
                     }
                     EmptyState(Icons.Outlined.VerifiedUser, tr("Chưa có giấy phép", "No licenses yet"), tr("Dữ liệu giấy phép sẽ xuất hiện sau khi kết nối máy chủ.", "License data will appear after the server is connected."))
                 }
+                "packages" -> AdminPackagesScreen(accessToken = accessToken, modifier = Modifier.fillMaxSize())
                 "library" -> {
                     CardBox {
                         Text(tr("Thư viện dùng chung", "Shared libraries"), fontWeight = FontWeight.SemiBold)
@@ -810,11 +817,13 @@ private fun MoreScreen(
                     SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
                 }
             }
-            OutlinedButton(
-                onClick = { onMessage(tr("Máy chủ chưa được kết nối. Thao tác chưa thể lưu dữ liệu thật.", "The server is not connected. This action cannot save live data yet.")) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(tr("Kiểm tra kết nối máy chủ", "Check server connection"))
+            if (page != "packages") {
+                OutlinedButton(
+                    onClick = { onMessage(tr("Máy chủ chưa được kết nối. Thao tác chưa thể lưu dữ liệu thật.", "The server is not connected. This action cannot save live data yet.")) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(tr("Kiểm tra kết nối máy chủ", "Check server connection"))
+                }
             }
         }
     }
