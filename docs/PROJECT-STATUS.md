@@ -23,7 +23,8 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Bản nháp chưa đồng bộ máy chủ và chưa được mã hóa riêng ở tầng ứng dụng.
 - Trang Khách hàng và Thiết bị.
 - Trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
-- Trang Quản lý cộng tác viên prototype: nhập Gmail, chọn Nhà phát triển / Nhà thiết kế / Người kiểm duyệt, lưu và xóa bản nháp lời mời cục bộ. Chưa gửi lời mời, chưa gán vai trò trên máy chủ.
+- Trang Quản lý cộng tác viên được nối API cho bản Release: tải danh sách, tạo lời mời, hiển thị mã một lần để sao chép/chia sẻ, đổi vai trò, thu hồi cộng tác viên và hủy lời mời đang chờ. Debug preview vẫn dùng bản nháp cục bộ.
+- Người dùng đã đăng nhập có thể dán mã lời mời trong Cài đặt; máy chủ kiểm tra đúng email Google, chấp nhận token một lần và app tải lại role. Chưa gửi email tự động.
 - Chuyển giao diện sáng / tối.
 
 ### Giao diện người dùng
@@ -53,9 +54,10 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 ## 4. Phần chưa triển khai
 
-- Android đã tích hợp khung Google Credential Manager 1.6.0 / Google ID 1.2.1, nonce, gọi Auth API và xác minh session trên máy chủ; cần Google OAuth Client ID + Worker URL để bật đăng nhập thật.
+- Android đã tích hợp Google Credential Manager 1.6.0 / Google ID 1.2.1, nonce, gọi Auth API, xác minh session trên máy chủ và lưu session mã hóa bằng Android Keystore; cần Google OAuth Client ID + Worker URL để bật đăng nhập thật.
 - Cloudflare D1 database `autu_lio_auth` đã được tạo ở APAC; bảng tài khoản, nonce, session, lời mời, quyền ghi đè, nhật ký và cấu hình đã được khởi tạo. Worker source và cấu hình binding đã được thêm vào repository nhưng chưa deploy.
 - Google OAuth Client ID và OWNER_EMAIL chưa được cấu hình; Worker chưa deploy nên đăng nhập thật và xác minh vai trò vẫn chưa hoạt động.
+- Các thao tác quản lý cộng tác viên và nhận lời mời đã nối API; các API chỉ dùng được sau khi Worker deploy và cấu hình secrets.
 - Android lưu session bằng AES-GCM/Android Keystore; bản Release chỉ mở UI theo role xác minh, bản Debug có bộ chọn preview role riêng.
 - Developer/Designer/Reviewer có không gian UI prototype riêng; nháp Developer và tùy chọn Designer hiện chỉ lưu/xem cục bộ, chưa đồng bộ máy chủ.
 - API tạo/nhận lời mời, liệt kê/đổi quyền/thu hồi cộng tác viên đã có trong Worker source; chưa hoạt động với app do Worker chưa deploy và chưa có OAuth secrets.
@@ -64,7 +66,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Engine thực hiện Auto Click, Accessibility Service, overlay và điều khiển vòng đời tác vụ.
 - Đóng gói, ký, mã hóa và phân phối kịch bản thật.
 - Cập nhật từ xa, nhật ký máy chủ và quy trình thu hồi package.
-- Kiểm thử đăng nhập Google thực trên thiết bị; nối giao diện cộng tác viên vào API; kiểm thử compile Kotlin Android.
+- Deploy Auth Worker sau khi có OAuth secrets; kiểm thử đăng nhập Google thực và kiểm thử các thao tác cộng tác viên trên điện thoại.
 - Kiểm thử lint/build APK và thử nghiệm APK trên thiết bị thật.
 
 ## 5. Việc tiếp theo
