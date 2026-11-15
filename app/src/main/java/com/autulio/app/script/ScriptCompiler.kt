@@ -70,7 +70,13 @@ object ScriptCompiler {
         "CHỜ" to "CHỜ", "WAIT" to "CHỜ",
         "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG", "OPENAPP" to "MỞ_ỨNG_DỤNG",
         "QUAY_LẠI" to "QUAY_LẠI", "BACK" to "QUAY_LẠI",
-        "VỀ_MÀN_HÌNH_CHÍNH" to "VỀ_MÀN_HÌNH_CHÍNH", "HOME" to "VỀ_MÀN_HÌNH_CHÍNH"
+        "VỀ_MÀN_HÌNH_CHÍNH" to "VỀ_MÀN_HÌNH_CHÍNH", "HOME" to "VỀ_MÀN_HÌNH_CHÍNH",
+        "ỨNG_DỤNG_GẦN_ĐÂY" to "ỨNG_DỤNG_GẦN_ĐÂY", "RECENTS" to "ỨNG_DỤNG_GẦN_ĐÂY",
+        "MỞ_THÔNG_BÁO" to "MỞ_THÔNG_BÁO", "NOTIFICATIONS" to "MỞ_THÔNG_BÁO",
+        "MỞ_CÀI_ĐẶT_NHANH" to "MỞ_CÀI_ĐẶT_NHANH", "QUICKSETTINGS" to "MỞ_CÀI_ĐẶT_NHANH",
+        "HIỆN_MENU_NGUỒN" to "HIỆN_MENU_NGUỒN", "POWERDIALOG" to "HIỆN_MENU_NGUỒN",
+        "KHÓA_MÀN_HÌNH" to "KHÓA_MÀN_HÌNH", "LOCKSCREEN" to "KHÓA_MÀN_HÌNH",
+        "CHIA_MÀN_HÌNH" to "CHIA_MÀN_HÌNH", "SPLITSCREEN" to "CHIA_MÀN_HÌNH"
     )
 
     fun compile(source: String): ScriptCompileResult {
