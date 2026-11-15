@@ -14,6 +14,8 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Role-based permission defaults plus owner-managed permission overrides for Developer, Designer and Reviewer.
 - Permission changes are audited; changing a collaborator role resets overrides to that role's defaults.
 - Project creation and explicit membership management, with project data isolated by membership checks.
+- Owner-managed project roster; only active Developer, Designer and Reviewer accounts can be added.
+- UI design drafts store title, subtitle, button label, accent color and selected components as JSON; Android provides a form editor and live preview.
 - Server-backed script drafts and UI design drafts with revision checks to prevent silent overwrites.
 - Immutable snapshots for review submissions, review decisions and audit records.
 - D1 schema migrations and local migration validation.
@@ -28,7 +30,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001` and `0002` have been applied to the connected D1 database and recorded in its migration ledger. Migration `0003_shared_project_workspaces.sql` is currently on the feature branch and must pass CI before it is applied to the live database. Keep every SQL migration in source control as the schema history.
+Migrations `0001_identity_and_collaborators.sql`, `0002_single_owner.sql`, and `0003_shared_project_workspaces.sql` have been applied to the connected D1 database and recorded in `d1_migrations`. The five workspace tables are present and `PRAGMA foreign_key_check` returned no errors. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
@@ -53,7 +55,7 @@ From this directory:
 4. Set the two secrets using `npx wrangler secret put GOOGLE_CLIENT_ID` and `npx wrangler secret put OWNER_EMAIL`.
 5. Deploy only after Google Cloud OAuth configuration and Android package/SHA fingerprints have been prepared and reviewed.
 
-This repository currently contains the Worker source and D1 binding configuration. The Worker has not been deployed, Google OAuth has not been configured, and no client login is active yet.
+The repository contains Worker source and D1 binding configuration. D1 migrations `0001`–`0003` are applied, but the Worker has not been deployed and Google OAuth has not been configured. No client login or shared project API is active from the app yet.
 
 ## API
 
