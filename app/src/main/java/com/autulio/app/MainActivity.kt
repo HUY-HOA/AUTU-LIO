@@ -1,10 +1,15 @@
 package com.autulio.app
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -30,6 +35,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.Locale
 import com.autulio.app.access.AccessRole
+import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.access.defaultPermissions
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
@@ -179,7 +185,6 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
     val initialDrafts = remember(draftStore) { draftStore.load() }
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("overview") }
-    var editor by rememberSaveable { mutableStateOf<String?>(null) }
     var createDialog by remember { mutableStateOf(false) }
     val scripts = remember(initialDrafts) {
         mutableStateListOf<String>().apply { addAll(initialDrafts.names) }
@@ -189,13 +194,24 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
     }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val editorLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val updated = draftStore.load()
+            scripts.clear()
+            scripts.addAll(updated.names)
+            draftContents.clear()
+            draftContents.putAll(updated.contents)
+        }
+    }
 
     AppTheme(dark) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(host) },
             bottomBar = {
-                if (editor == null) NavigationBar {
+                NavigationBar {
                     adminTabs.forEach { tab ->
                         NavigationBarItem(
                             selected = page == tab.key || (page !in adminTabs.map { it.key } && tab.key == "more"),
@@ -207,26 +223,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                 }
             }
         ) { padding ->
-            if (editor != null) {
-                val editingName = editor.orEmpty()
-                EditorScreen(
-                    name = editingName,
-                    code = draftContents[editingName].orEmpty(),
-                    onCodeChange = {
-                        draftContents[editingName] = it
-                        draftStore.save(scripts.toList(), draftContents.toMap())
-                    },
-                    modifier = Modifier.padding(padding),
-                    onBack = { editor = null },
-                    onMessage = { scope.launch { host.showSnackbar(it) } },
-                    onSaveDraft = {
-                        draftStore.save(scripts.toList(), draftContents.toMap())
-                        scope.launch {
-                            host.showSnackbar(tr("Đã lưu bản nháp trên thiết bị này. Chưa đồng bộ máy chủ.", "Draft saved on this device. It has not been synced to a server."))
-                        }
-                    }
-                )
-            } else when (page) {
+            when (page) {
                 "overview" -> OverviewScreen(
                     Modifier.padding(padding),
                     onNavigate = { page = it },
@@ -236,7 +233,9 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     Modifier.padding(padding),
                     scripts = scripts,
                     onCreate = { createDialog = true },
-                    onOpen = { editor = it }
+                    onOpen = { name ->
+                        editorLauncher.launch(ScriptEditorActivity.intent(context, name))
+                    }
                 )
                 "customers" -> AdminModulePage(
                     Modifier.padding(padding),
@@ -287,9 +286,9 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     scripts.add(name)
                     draftContents[name] = ""
                     draftStore.save(scripts.toList(), draftContents.toMap())
-                    editor = name
                     page = "scripts"
                     createDialog = false
+                    editorLauncher.launch(ScriptEditorActivity.intent(context, name))
                 }
             }
         )
@@ -474,7 +473,8 @@ private fun EditorScreen(
     modifier: Modifier,
     onBack: () -> Unit,
     onMessage: (String) -> Unit,
-    onSaveDraft: () -> Unit
+    onSaveDraft: () -> Unit,
+    onPrepareRun: (String) -> Unit
 ) {
     var validationText by rememberSaveable { mutableStateOf("") }
     var validationSucceeded by rememberSaveable { mutableStateOf<Boolean?>(null) }
@@ -484,8 +484,8 @@ private fun EditorScreen(
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(
             tr(
-                "Ngôn ngữ AUTU-LIO 0.1: tap, longPress, swipe, wait và repeat. Kiểm tra chỉ phân tích mã, chưa thực hiện thao tác.",
-                "AUTU-LIO 0.1 supports tap, longPress, swipe, wait and repeat. Check only analyzes source; it does not perform actions."
+                "Ngôn ngữ AUTU-LIO 0.1: tap, longPress, swipe, wait và repeat. Trình soạn thảo mở riêng; bảng chạy chỉ thao tác sau khi bạn nhấn Chạy trên ứng dụng mục tiêu.",
+                "AUTU-LIO 0.1 supports tap, longPress, swipe, wait and repeat. The editor is separate; the runner acts only after you press Run over the target app."
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
@@ -529,12 +529,12 @@ private fun EditorScreen(
                 modifier = Modifier.weight(1f)
             ) { Text(tr("Kiểm tra mã", "Check code")) }
             Button(
-                onClick = { onMessage(tr("Runtime Android chưa sẵn sàng. Chưa có thao tác nào được thực hiện.", "The Android runtime is not ready. No actions were performed.")) },
+                onClick = { onPrepareRun(code) },
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Outlined.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(5.dp))
-                Text(tr("Chạy thử", "Test"))
+                Text(tr("Chuẩn bị cửa sổ chạy", "Prepare runner window"))
             }
         }
         if (validationText.isNotBlank()) {
@@ -1087,4 +1087,110 @@ private fun CreateDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Hủy", "Cancel")) } }
     )
+}
+
+
+class ScriptEditorActivity : ComponentActivity() {
+    companion object {
+        private const val EXTRA_SCRIPT_NAME = "com.autulio.app.extra.SCRIPT_NAME"
+
+        fun intent(context: Context, scriptName: String): Intent =
+            Intent(context, ScriptEditorActivity::class.java)
+                .putExtra(EXTRA_SCRIPT_NAME, scriptName)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val scriptName = intent.getStringExtra(EXTRA_SCRIPT_NAME)?.trim().orEmpty()
+        if (scriptName.isBlank()) {
+            finish()
+            return
+        }
+
+        val store = SecureScriptDraftStore(this)
+        val initial = store.load()
+        val initialCode = initial.contents[scriptName].orEmpty()
+        setContent {
+            var code by remember { mutableStateOf(initialCode) }
+            val host = remember { SnackbarHostState() }
+            val scope = rememberCoroutineScope()
+
+            AppTheme(dark = true) {
+                Scaffold(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    snackbarHost = { SnackbarHost(host) }
+                ) { padding ->
+                    EditorScreen(
+                        name = scriptName,
+                        code = code,
+                        onCodeChange = { updatedCode ->
+                            code = updatedCode
+                            store.save(initial.names, initial.contents + (scriptName to updatedCode))
+                            setResult(Activity.RESULT_OK)
+                        },
+                        modifier = Modifier.padding(padding),
+                        onBack = {
+                            setResult(Activity.RESULT_OK)
+                            finish()
+                        },
+                        onMessage = { message ->
+                            scope.launch { host.showSnackbar(message) }
+                        },
+                        onSaveDraft = {
+                            store.save(initial.names, initial.contents + (scriptName to code))
+                            setResult(Activity.RESULT_OK)
+                            scope.launch {
+                                host.showSnackbar(
+                                    tr("Đã lưu bản nháp được mã hóa trên thiết bị.", "Encrypted draft saved on this device.")
+                                )
+                            }
+                        },
+                        onPrepareRun = { source ->
+                            store.save(initial.names, initial.contents + (scriptName to source))
+                            setResult(Activity.RESULT_OK)
+                            val compilation = ScriptCompiler.compile(source)
+                            if (!compilation.isSuccess) {
+                                val message = compilation.diagnostics.joinToString("\n") { diagnostic ->
+                                    tr(
+                                        "Dòng ${diagnostic.line}, cột ${diagnostic.column}: ${diagnostic.messageVi}",
+                                        "Line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.messageEn}"
+                                    )
+                                }
+                                scope.launch { host.showSnackbar(message) }
+                            } else {
+                                val service = AutoClickAccessibilityService.current()
+                                if (service == null) {
+                                    scope.launch {
+                                        host.showSnackbar(
+                                            tr(
+                                                "Hãy bật AUTU-LIO trong Cài đặt > Trợ năng, sau đó quay lại chuẩn bị chạy.",
+                                                "Enable AUTU-LIO in Settings > Accessibility, then return to prepare the runner."
+                                            )
+                                        )
+                                    }
+                                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                } else if (service.prepareProgram(compilation.program!!)) {
+                                    scope.launch {
+                                        host.showSnackbar(
+                                            tr(
+                                                "Cửa sổ chạy đã sẵn sàng. Mở ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.",
+                                                "Runner is ready. Open the target app, then press Run in the floating window."
+                                            )
+                                        )
+                                    }
+                                    finish()
+                                } else {
+                                    scope.launch {
+                                        host.showSnackbar(
+                                            tr("Đang có kịch bản chạy. Hãy dừng kịch bản hiện tại trước.", "A script is already running. Stop it before preparing another.")
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
