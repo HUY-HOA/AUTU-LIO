@@ -203,6 +203,33 @@ data class CustomerDeviceInfo(
     val revokedAt: Long?
 )
 
+data class AutuPackageRecord(
+    val id: String,
+    val name: String,
+    val description: String,
+    val status: String,
+    val latestVersion: Int,
+    val languageVersion: String,
+    val publishedAt: Long?
+)
+
+data class CustomerAutuPackageCatalog(
+    val deviceId: String,
+    val packages: List<AutuPackageRecord>
+)
+
+data class EncryptedAutuPackage(
+    val id: String,
+    val name: String,
+    val description: String,
+    val version: Int,
+    val languageVersion: String,
+    val ciphertext: String,
+    val contentIv: String,
+    val wrappedKey: String,
+    val sourceSha256: String
+)
+
 class AuthRepository(context: Context) {
     private val appContext = context.applicationContext
     private val credentialManager = CredentialManager.create(appContext)
@@ -840,6 +867,171 @@ class AuthRepository(context: Context) {
             "/api/admin/devices/$deviceId",
             "PATCH",
             JSONObject().put("status", "REVOKED"),
+            accessToken
+        )
+    }
+
+    suspend fun listCustomerPackages(accessToken: String, deviceFingerprint: String): CustomerAutuPackageCatalog {
+        require(deviceFingerprint.matches(Regex("^[a-fA-F0-9]{64}$")))
+        val encodedFingerprint = URLEncoder.encode(deviceFingerprint.lowercase(Locale.ROOT), "UTF-8")
+        val result = apiRequest(
+            "/api/customer/packages?deviceFingerprint=$encodedFingerprint",
+            "GET",
+            bearerToken = accessToken
+        )
+        val packages = buildList {
+            val items = result.optJSONArray("packages") ?: JSONArray()
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                if (id.isBlank()) continue
+                add(
+                    AutuPackageRecord(
+                        id = id,
+                        name = item.optString("name"),
+                        description = item.optString("description"),
+                        status = "ACTIVE",
+                        latestVersion = item.optInt("latest_version"),
+                        languageVersion = item.optString("language_version"),
+                        publishedAt = item.optLong("published_at").takeIf { item.has("published_at") && !item.isNull("published_at") }
+                    )
+                )
+            }
+        }
+        val deviceId = result.optString("deviceId")
+        if (deviceId.isBlank()) throw IOException("Máy chủ không xác nhận thiết bị đang sử dụng.")
+        return CustomerAutuPackageCatalog(deviceId, packages)
+    }
+
+    suspend fun downloadCustomerPackage(
+        accessToken: String,
+        packageId: String,
+        deviceFingerprint: String
+    ): EncryptedAutuPackage {
+        require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(deviceFingerprint.matches(Regex("^[a-fA-F0-9]{64}$")))
+        val encodedFingerprint = URLEncoder.encode(deviceFingerprint.lowercase(Locale.ROOT), "UTF-8")
+        val result = apiRequest(
+            "/api/customer/packages/$packageId/download?deviceFingerprint=$encodedFingerprint",
+            "GET",
+            bearerToken = accessToken
+        )
+        val item = result.optJSONObject("package") ?: throw IOException("Máy chủ không trả về gói AUTU đã mã hóa.")
+        val id = item.optString("id")
+        val ciphertext = item.optString("ciphertext")
+        val contentIv = item.optString("contentIv")
+        val wrappedKey = item.optString("wrappedKey")
+        val sourceSha256 = item.optString("sourceSha256")
+        if (id != packageId || ciphertext.isBlank() || contentIv.isBlank() || wrappedKey.isBlank() ||
+            !sourceSha256.matches(Regex("^[a-fA-F0-9]{64}$"))) {
+            throw IOException("Dữ liệu gói AUTU tải về không hợp lệ.")
+        }
+        return EncryptedAutuPackage(
+            id = id,
+            name = item.optString("name"),
+            description = item.optString("description"),
+            version = item.optInt("version"),
+            languageVersion = item.optString("languageVersion"),
+            ciphertext = ciphertext,
+            contentIv = contentIv,
+            wrappedKey = wrappedKey,
+            sourceSha256 = sourceSha256.lowercase(Locale.ROOT)
+        )
+    }
+
+    suspend fun listAdminPackages(accessToken: String): List<AutuPackageRecord> {
+        val result = apiRequest("/api/admin/packages", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("packages") ?: JSONArray()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                if (id.isBlank()) continue
+                add(
+                    AutuPackageRecord(
+                        id = id,
+                        name = item.optString("name"),
+                        description = item.optString("description"),
+                        status = item.optString("status"),
+                        latestVersion = item.optInt("latest_version"),
+                        languageVersion = item.optString("language_version"),
+                        publishedAt = item.optLong("published_at").takeIf { item.has("published_at") && !item.isNull("published_at") }
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun publishAdminPackage(
+        accessToken: String,
+        name: String,
+        description: String,
+        languageVersion: String,
+        source: String
+    ): AutuPackageRecord {
+        val result = apiRequest(
+            "/api/admin/packages",
+            "POST",
+            JSONObject()
+                .put("name", name)
+                .put("description", description)
+                .put("languageVersion", languageVersion)
+                .put("source", source),
+            accessToken
+        )
+        val item = result.optJSONObject("package") ?: throw IOException("Máy chủ không xác nhận phát hành gói AUTU.")
+        val id = item.optString("id")
+        if (!result.optBoolean("published") || id.isBlank()) throw IOException("Phát hành gói AUTU không thành công.")
+        return AutuPackageRecord(
+            id = id,
+            name = item.optString("name"),
+            description = item.optString("description"),
+            status = item.optString("status"),
+            latestVersion = item.optInt("latestVersion"),
+            languageVersion = item.optString("languageVersion"),
+            publishedAt = item.optLong("createdAt").takeIf { item.has("createdAt") }
+        )
+    }
+
+    suspend fun publishAdminPackageVersion(
+        accessToken: String,
+        packageId: String,
+        name: String,
+        description: String,
+        languageVersion: String,
+        source: String
+    ): AutuPackageRecord {
+        require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/admin/packages/$packageId/versions",
+            "POST",
+            JSONObject()
+                .put("name", name)
+                .put("description", description)
+                .put("languageVersion", languageVersion)
+                .put("source", source),
+            accessToken
+        )
+        val item = result.optJSONObject("package") ?: throw IOException("Máy chủ không xác nhận phiên bản AUTU mới.")
+        if (!result.optBoolean("published")) throw IOException("Phát hành phiên bản AUTU không thành công.")
+        return AutuPackageRecord(
+            id = item.optString("id"),
+            name = item.optString("name"),
+            description = item.optString("description"),
+            status = item.optString("status"),
+            latestVersion = item.optInt("latestVersion"),
+            languageVersion = item.optString("languageVersion"),
+            publishedAt = item.optLong("updatedAt").takeIf { item.has("updatedAt") }
+        )
+    }
+
+    suspend fun setAdminPackageStatus(accessToken: String, packageId: String, status: String) {
+        require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(status in setOf("ACTIVE", "ARCHIVED"))
+        apiRequest(
+            "/api/admin/packages/$packageId",
+            "PATCH",
+            JSONObject().put("status", status),
             accessToken
         )
     }
