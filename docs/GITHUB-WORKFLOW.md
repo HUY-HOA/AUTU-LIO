@@ -46,7 +46,7 @@
 - GitHub Actions dùng JDK `21`, Gradle `9.6.0`, Android SDK API `37` và Build Tools `36.0.0`.
 - Ứng dụng vẫn tạo bytecode tương thích Java/Kotlin `17`.
 - `gradle.properties` đang tạm tắt built-in Kotlin và Android new DSL để dùng Kotlin Android plugin 2.4.21. Phải rà soát lại khi nâng AGP hoặc chuyển sang built-in Kotlin.
-- Các phiên bản này mới được kiểm tra tĩnh qua tài liệu tương thích; không được gọi là build thành công cho đến khi GitHub Actions chạy thật và tạo artifact.
+- GitHub Actions đã chạy `:app:compileDebugKotlin` thành công trên nhánh PR cộng tác. Đây chỉ là xác nhận biên dịch Kotlin; chưa xác nhận `:app:lintDebug`/`:app:assembleDebug` và chưa có APK artifact.
 
 ## 6. Phân biệt hai tài khoản GitHub
 - Repository AUTU-LIO hiện thuộc HUY-HOA-1 và tài khoản này có quyền ghi. Các commit trong repository này sử dụng kết nối HUY-HOA-1 để bảo đảm quyền truy cập đúng chủ sở hữu.
@@ -60,7 +60,8 @@
 - Chỉ nói đã kiểm thử khi thực sự có kết quả kiểm thử.
 
 ## 8. Trạng thái hiện tại
-- Repository có tài liệu thiết kế, project Gradle Android và prototype giao diện Kotlin/Jetpack Compose.
-- Đã chuyển từ hai product flavor Admin/Client sang một APK duy nhất, có giao diện theo vai trò.
-- Đã tạo GitHub Actions workflow chỉ chạy thủ công hoặc qua nhánh yêu cầu build chuyên biệt; chưa có lần chạy build được xác minh.
-- Chưa tích hợp backend, Google OAuth, giấy phép thật, compiler/runtime hoặc engine tự động hóa.
+- Repository có prototype Android Kotlin/Jetpack Compose trong một APK duy nhất, có giao diện theo vai trò.
+- Đã tích hợp mã nguồn Google Credential Manager, Cloudflare Worker API, phân quyền cộng tác viên, workspace dự án dùng chung và kiểm duyệt; các kiểm tra Kotlin compilation và Worker/D1 đã đạt trên PR.
+- D1 migrations `0001`–`0003` đã áp dụng; Worker chưa deploy và Google OAuth chưa cấu hình nên đăng nhập/API thật chưa hoạt động.
+- Chưa có lần chạy workflow đóng gói APK hoặc APK artifact được xác minh; chỉ build sau lệnh độc lập `BUILD APK`.
+- Chưa có giấy phép thật, compiler/runtime AUTU-LIO hoặc engine Auto Click.
