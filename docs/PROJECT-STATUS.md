@@ -12,7 +12,7 @@
 
 Dự án đã chuyển từ tài liệu thiết kế sang **prototype Android Kotlin/Jetpack Compose**. Đã chuyển dự án sang **một APK duy nhất** với application ID `com.autulio.app`. Các giao diện Admin và AutoClick là các khu vực trong cùng ứng dụng, được mở theo vai trò do máy chủ xác minh. Bản Debug hiện có bộ chọn giao diện thử nghiệm để kiểm tra bố cục; bộ chọn này không cấp quyền thật.
 
-Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Mã nguồn workspace cộng tác và Worker API đã có trong `main`; schema D1 cho workspace đã áp dụng. Bộ test Worker mới gồm 10 ca về health/config, xác thực, quyền OWNER-only, kiểm tra đầu vào và CORS đã chạy thành công trên nhánh PR và sau merge vào `main` (PR #13, commit `9fb9c5db`). Tài khoản Cloudflare đã có D1 nhưng danh sách Worker đang trống; Worker chưa deploy và Google OAuth chưa cấu hình, nên đăng nhập thật và đồng bộ giữa các tài khoản chưa hoạt động. PR #14 đã đưa AUTU-LIO Script 0.1 vào `main` ở commit `51460f66`: parser Kotlin tạo AST, chẩn đoán lỗi dòng/cột, giới hạn vòng lặp/số lệnh/thời lượng và nút Kiểm tra mã trong editor. GitHub Actions chạy `:app:testDebugUnitTest` thành công (12 test); đây là kiểm thử mã nguồn, không tạo APK. Engine Auto Click và runtime Android vẫn chưa có.
+Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Mã nguồn workspace cộng tác và Worker API đã có trong `main`; schema D1 cho workspace đã áp dụng. Bộ test Worker mới gồm 10 ca về health/config, xác thực, quyền OWNER-only, kiểm tra đầu vào và CORS đã chạy thành công trên nhánh PR và sau merge vào `main` (PR #13, commit `9fb9c5db`). Tài khoản Cloudflare đã có D1 nhưng danh sách Worker đang trống; Worker chưa deploy và Google OAuth chưa cấu hình, nên đăng nhập thật và đồng bộ giữa các tài khoản chưa hoạt động. PR #14 đã đưa AUTU-LIO Script 0.1 vào `main` ở commit `51460f66`: parser Kotlin tạo AST, chẩn đoán lỗi dòng/cột, giới hạn vòng lặp/số lệnh/thời lượng và nút Kiểm tra mã trong editor. GitHub Actions chạy `:app:testDebugUnitTest` thành công (12 test); đây là kiểm thử mã nguồn, không tạo APK. PR runtime core đang bổ sung interpreter tuần tự cho AST, trạng thái chạy/tạm dừng/tiếp tục/dừng và kiểm tra lại ngân sách runtime; phần này chưa tự thực hiện thao tác màn hình vì AccessibilityService dispatcher và kết nối giao diện chưa tích hợp.
 
 ## 2. Bảo mật và ký APK
 
@@ -81,10 +81,10 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Developer/Designer/Reviewer có workspace riêng cho dự án được giao. API lưu nội dung lên D1 theo revision; giao diện mới đã biên dịch thành công nhưng chưa được thử với tài khoản Google thật do Worker chưa deploy.
 - Worker source có API xác thực, lời mời, quyền chi tiết, tạo dự án, membership, script/UI drafts, submission và review. Các endpoint chưa hoạt động công khai vì Worker chưa deploy và OAuth secrets chưa cấu hình.
 - Đồng bộ tài khoản, thiết bị, giấy phép và dữ liệu khách hàng.
-- Parser/validator AUTU-LIO Script 0.1 đã có; còn thiếu interpreter/runtime, bytecode, biến, điều kiện, hàm tự định nghĩa và thư viện.
-- Engine thực hiện Auto Click, Accessibility Service, overlay và điều khiển vòng đời tác vụ.
+- Parser/validator AUTU-LIO Script 0.1 đã có; runtime core interpreter đang được bổ sung trong PR #17. Còn thiếu AccessibilityService dispatcher, nối UI điều khiển, bytecode/package, biến, điều kiện, hàm tự định nghĩa và thư viện.
+- AccessibilityService dispatcher để thực hiện thao tác AutoClick thật, overlay và kết nối điều khiển vòng đời tác vụ vào giao diện.
 - Đóng gói, ký, mã hóa và phân phối kịch bản thật.
-- Cần chủ sở hữu tạo keystore Release và nhập bốn GitHub Actions secrets theo `docs/SECURITY-AND-SIGNING.md`; hiện chưa có khóa ký Release thật.
+- Đã cấu hình bốn GitHub Actions secrets cho khóa ký Release riêng của AUTU-LIO; lượt build Release #2 đã xác thực chữ ký APK thành công. Không thay hoặc làm mất bản sao lưu keystore.
 - Cập nhật từ xa, nhật ký máy chủ và quy trình thu hồi package.
 - Xác nhận Gmail chính xác của chủ sở hữu và tạo OAuth Client IDs trong Google Cloud; cấu hình `GOOGLE_CLIENT_ID`, `OWNER_EMAIL`, `GOOGLE_ALLOWED_AZP` và Worker URL.
 - Deploy Worker, kiểm thử `/health`, đăng nhập Google thật, mời cộng tác viên, phân quyền, lưu bản nháp, xử lý revision conflict và duyệt submission.
