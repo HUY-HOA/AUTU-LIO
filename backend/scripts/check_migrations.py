@@ -25,6 +25,10 @@ required_tables = {
     "script_drafts",
     "ui_drafts",
     "change_submissions",
+    "autu_products",
+    "autu_releases",
+    "autu_licenses",
+    "autu_license_devices",
 }
 actual_tables = {
     row[0]
@@ -122,11 +126,61 @@ except sqlite3.IntegrityError:
 else:
     raise SystemExit("Submission accepted an unsupported change kind")
 
+database.execute(
+    "INSERT INTO autu_products (id, name, description, status, created_by, created_at, updated_at) "
+    "VALUES ('autu-1', 'Automation One', 'Sample', 'PUBLISHED', 'owner-1', 1, 1)"
+)
+database.execute(
+    "INSERT INTO autu_releases "
+    "(id, autu_id, version, language_version, source_ciphertext, source_iv, wrapped_data_key, wrapped_key_iv, source_sha256, status, created_by, created_at) "
+    "VALUES ('release-1', 'autu-1', '1.0.0', '0.2', 'ciphertext', 'iv', 'wrapped', 'wrap-iv', 'hash', 'PUBLISHED', 'owner-1', 1)"
+)
+database.execute(
+    "INSERT INTO autu_licenses "
+    "(id, autu_id, user_id, status, starts_at, expires_at, max_devices, created_by, updated_by, created_at, updated_at) "
+    "VALUES ('license-1', 'autu-1', 'customer-1', 'ACTIVE', 1, NULL, 2, 'owner-1', 'owner-1', 1, 1)"
+) if database.execute(
+    "SELECT id FROM users WHERE id = 'customer-1'"
+).fetchone() else database.execute(
+    "INSERT INTO users (id, google_sub, email, role, status, created_at, updated_at) "
+    "VALUES ('customer-1', 'google-customer', 'customer@example.com', 'CUSTOMER', 'ACTIVE', 1, 1)"
+)
+database.execute(
+    "INSERT INTO autu_licenses "
+    "(id, autu_id, user_id, status, starts_at, expires_at, max_devices, created_by, updated_by, created_at, updated_at) "
+    "VALUES ('license-1', 'autu-1', 'customer-1', 'ACTIVE', 1, NULL, 2, 'owner-1', 'owner-1', 1, 1)"
+)
+database.execute(
+    "INSERT INTO autu_license_devices "
+    "(id, license_id, install_id, device_label, app_version, status, registered_at, last_seen_at) "
+    "VALUES ('device-1', 'license-1', 'install-1', 'Android phone', '1.0.0', 'ACTIVE', 1, 1)"
+)
+try:
+    database.execute(
+        "INSERT INTO autu_releases "
+        "(id, autu_id, version, language_version, source_ciphertext, source_iv, wrapped_data_key, wrapped_key_iv, source_sha256, status, created_by, created_at) "
+        "VALUES ('release-duplicate', 'autu-1', '1.0.0', '0.2', 'ciphertext', 'iv', 'wrapped', 'wrap-iv', 'hash', 'PUBLISHED', 'owner-1', 2)"
+    )
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise SystemExit("AUTU release accepted a duplicate version")
+try:
+    database.execute(
+        "INSERT INTO autu_license_devices "
+        "(id, license_id, install_id, device_label, app_version, status, registered_at, last_seen_at) "
+        "VALUES ('device-duplicate', 'license-1', 'install-1', 'Duplicate', '1.0.0', 'ACTIVE', 2, 2)"
+    )
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise SystemExit("AUTU license accepted a duplicate installation ID")
+
 foreign_key_errors = database.execute("PRAGMA foreign_key_check").fetchall()
 if foreign_key_errors:
     raise SystemExit(f"Foreign key violations: {foreign_key_errors}")
 
 print(
     f"OK: {len(required_tables)} required tables, {len(migrations)} migrations, "
-    "single-owner, project membership, draft uniqueness and submission constraints"
+    "single-owner, project membership, draft uniqueness, submissions, AUTU release and device constraints"
 )
