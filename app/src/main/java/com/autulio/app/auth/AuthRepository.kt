@@ -13,7 +13,9 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import com.autulio.app.access.AccessRole
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URLEncoder
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -28,6 +30,36 @@ data class AuthenticatedUser(
 data class AuthSession(
     val accessToken: String,
     val user: AuthenticatedUser
+)
+
+data class CollaboratorRecord(
+    val id: String,
+    val email: String,
+    val displayName: String?,
+    val role: AccessRole,
+    val status: String,
+    val lastLoginAt: Long?
+)
+
+data class PendingInvitation(
+    val id: String,
+    val email: String,
+    val role: AccessRole,
+    val createdAt: Long,
+    val expiresAt: Long
+)
+
+data class CollaboratorDirectory(
+    val collaborators: List<CollaboratorRecord>,
+    val pendingInvitations: List<PendingInvitation>
+)
+
+data class CreatedInvitation(
+    val id: String,
+    val email: String,
+    val role: AccessRole,
+    val expiresAt: Long,
+    val invitationToken: String
 )
 
 class AuthRepository(context: Context) {
@@ -102,6 +134,133 @@ class AuthRepository(context: Context) {
                 body = JSONObject(),
                 bearerToken = accessToken
             )
+        }
+    }
+
+    suspend fun listCollaborators(accessToken: String): CollaboratorDirectory {
+        val result = apiRequest(
+            path = "/api/admin/collaborators",
+            method = "GET",
+            bearerToken = accessToken
+        )
+        val collaborators = result.optJSONArray("collaborators").toCollaborators()
+        val invitations = result.optJSONArray("pendingInvitations").toInvitations()
+        return CollaboratorDirectory(collaborators, invitations)
+    }
+
+    suspend fun createInvitation(
+        accessToken: String,
+        email: String,
+        role: AccessRole,
+        expiresInDays: Int = 7
+    ): CreatedInvitation {
+        require(role in setOf(AccessRole.DEVELOPER, AccessRole.DESIGNER, AccessRole.REVIEWER))
+        val result = apiRequest(
+            path = "/api/admin/invitations",
+            method = "POST",
+            body = JSONObject()
+                .put("email", email.trim())
+                .put("role", role.name)
+                .put("expiresInDays", expiresInDays.coerceIn(1, 30)),
+            bearerToken = accessToken
+        )
+        val invitationToken = result.optString("invitationToken")
+        val id = result.optString("invitationId")
+        if (id.isBlank() || invitationToken.isBlank()) {
+            throw IOException("Máy chủ không trả về mã lời mời.")
+        }
+        return CreatedInvitation(
+            id = id,
+            email = result.optString("email"),
+            role = AccessRole.valueOf(result.optString("role")),
+            expiresAt = result.optLong("expiresAt"),
+            invitationToken = invitationToken
+        )
+    }
+
+    suspend fun updateCollaboratorRole(
+        accessToken: String,
+        userId: String,
+        role: AccessRole
+    ) {
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(role in setOf(
+            AccessRole.DEVELOPER,
+            AccessRole.DESIGNER,
+            AccessRole.REVIEWER,
+            AccessRole.CUSTOMER
+        ))
+        apiRequest(
+            path = "/api/admin/collaborators/${URLEncoder.encode(userId, "UTF-8")}",
+            method = "PATCH",
+            body = JSONObject().put("role", role.name),
+            bearerToken = accessToken
+        )
+    }
+
+    suspend fun revokeCollaborator(accessToken: String, userId: String) {
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        apiRequest(
+            path = "/api/admin/collaborators/${URLEncoder.encode(userId, "UTF-8")}",
+            method = "DELETE",
+            bearerToken = accessToken
+        )
+    }
+
+    suspend fun acceptInvitation(accessToken: String, invitationToken: String): AccessRole {
+        val result = apiRequest(
+            path = "/api/invitations/accept",
+            method = "POST",
+            body = JSONObject().put("invitationToken", invitationToken),
+            bearerToken = accessToken
+        )
+        return runCatching { AccessRole.valueOf(result.optString("role")) }
+            .getOrElse { throw IOException("Máy chủ trả về vai trò không hợp lệ.") }
+    }
+
+    private fun JSONArray?.toCollaborators(): List<CollaboratorRecord> {
+        if (this == null) return emptyList()
+        return buildList {
+            for (index in 0 until length()) {
+                val item = optJSONObject(index) ?: continue
+                val role = runCatching { AccessRole.valueOf(item.optString("role")) }.getOrNull() ?: continue
+                val id = item.optString("id")
+                val email = item.optString("email")
+                if (id.isBlank() || email.isBlank()) continue
+                val name = item.optString("display_name").takeIf { it.isNotBlank() && it != "null" }
+                add(
+                    CollaboratorRecord(
+                        id = id,
+                        email = email,
+                        displayName = name,
+                        role = role,
+                        status = item.optString("status"),
+                        lastLoginAt = item.optLong("last_login_at").takeIf { item.has("last_login_at") && !item.isNull("last_login_at") }
+                    )
+                )
+            }
+        }
+    }
+
+    private fun JSONArray?.toInvitations(): List<PendingInvitation> {
+        if (this == null) return emptyList()
+        return buildList {
+            for (index in 0 until length()) {
+                val item = optJSONObject(index) ?: continue
+                val role = runCatching { AccessRole.valueOf(item.optString("role")) }.getOrNull() ?: continue
+                val id = item.optString("id")
+                val email = item.optString("email")
+                if (id.isBlank() || email.isBlank()) continue
+                add(
+                    PendingInvitation(
+                        id = id,
+                        email = email,
+                        role = role,
+                        createdAt = item.optLong("created_at"),
+                        expiresAt = item.optLong("expires_at")
+                    )
+                )
+            }
         }
     }
 
