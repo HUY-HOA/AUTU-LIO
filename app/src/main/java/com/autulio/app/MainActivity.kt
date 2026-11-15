@@ -236,7 +236,8 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     onCreate = { createDialog = true },
                     onOpen = { name ->
                         editorLauncher.launch(ScriptEditorActivity.intent(context, name))
-                    }
+                    },
+                    onPermissions = { page = "collaborators" }
                 )
                 "customers" -> AdminModulePage(
                     Modifier.padding(padding),
@@ -409,7 +410,13 @@ private fun OverviewScreen(modifier: Modifier, onNavigate: (String) -> Unit, onC
 }
 
 @Composable
-private fun ScriptsScreen(modifier: Modifier, scripts: List<String>, onCreate: () -> Unit, onOpen: (String) -> Unit) {
+private fun ScriptsScreen(
+    modifier: Modifier,
+    scripts: List<String>,
+    onCreate: () -> Unit,
+    onOpen: (String) -> Unit,
+    onPermissions: () -> Unit
+) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
     val filtered = scripts.filter { name ->
@@ -422,11 +429,41 @@ private fun ScriptsScreen(modifier: Modifier, scripts: List<String>, onCreate: (
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         BrandHeader(admin = true)
-        Heading(tr("Kịch bản", "Scripts"), tr("Tạo, quản lý và phát hành kịch bản", "Create, manage and publish scripts"))
-        Button(onClick = onCreate, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Outlined.Add, contentDescription = null)
-            Spacer(Modifier.width(7.dp))
-            Text(tr("Tạo kịch bản mới", "Create new script"))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text("AUTU", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    tr("Quản lý và xây dựng các AUTU của bạn", "Manage and build your AUTUs"),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            OutlinedButton(
+                onClick = onPermissions,
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                modifier = Modifier.height(42.dp)
+            ) {
+                Icon(Icons.Outlined.Security, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Quyền", "Access"), fontSize = 12.sp)
+            }
+            FilledIconButton(
+                onClick = onCreate,
+                modifier = Modifier.size(46.dp)
+            ) {
+                Icon(
+                    Icons.Outlined.Add,
+                    contentDescription = tr("Thêm AUTU", "Add AUTU"),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
         OutlinedTextField(
             value = query,
