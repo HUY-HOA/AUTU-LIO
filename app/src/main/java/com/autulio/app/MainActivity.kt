@@ -528,7 +528,7 @@ private fun MoreScreen(
 ) {
     if (page == "projects") {
         if (!accessToken.isNullOrBlank()) {
-            ProjectsAdminScreen(accessToken, onBack = { onSelect("more") })
+            ProjectsAdminScreen(accessToken, modifier = modifier, onBack = { onSelect("more") })
         } else {
             Column(modifier.fillMaxSize().padding(16.dp)) {
                 TextButton(onClick = { onSelect("more") }) { Text(tr("← Quay lại", "← Back")) }
