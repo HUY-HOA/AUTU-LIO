@@ -128,8 +128,8 @@ internal fun CollaboratorsContent(onBack: () -> Unit) {
                 ) {
                     RadioButton(selected = selected == role, onClick = { selectedRole = role.name })
                     Column(Modifier.weight(1f)) {
-                        Text(role.labelVi(), fontWeight = FontWeight.SemiBold)
-                        Text(role.descriptionVi(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                        Text(role.labelText(), fontWeight = FontWeight.SemiBold)
+                        Text(role.descriptionText(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     }
                 }
             }
@@ -182,7 +182,7 @@ internal fun CollaboratorsContent(onBack: () -> Unit) {
                     ) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(invite.email, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text(invite.role.labelVi(), color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                            Text(invite.role.labelText(), color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
                             Text(tr("Chưa gửi · Chưa cấp quyền", "Not sent · No access granted"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                         }
                         TextButton(onClick = {
@@ -204,18 +204,18 @@ private val collaboratorRoles = listOf(
     AccessRole.REVIEWER
 )
 
-private fun AccessRole.labelVi(): String = when (this) {
-    AccessRole.DEVELOPER -> "Nhà phát triển"
-    AccessRole.DESIGNER -> "Nhà thiết kế"
-    AccessRole.REVIEWER -> "Người kiểm duyệt"
-    AccessRole.OWNER -> "Chủ sở hữu"
-    AccessRole.CUSTOMER -> "Người dùng"
+private fun AccessRole.labelText(): String = when (this) {
+    AccessRole.DEVELOPER -> tr("Nhà phát triển", "Developer")
+    AccessRole.DESIGNER -> tr("Nhà thiết kế", "Designer")
+    AccessRole.REVIEWER -> tr("Người kiểm duyệt", "Reviewer")
+    AccessRole.OWNER -> tr("Chủ sở hữu", "Owner")
+    AccessRole.CUSTOMER -> tr("Người dùng", "Customer")
 }
 
-private fun AccessRole.descriptionVi(): String = when (this) {
-    AccessRole.DEVELOPER -> "Viết, sửa và kiểm thử mã kịch bản; gửi để duyệt"
-    AccessRole.DESIGNER -> "Thiết kế giao diện, tài nguyên và xem trước"
-    AccessRole.REVIEWER -> "Kiểm tra, duyệt hoặc từ chối bản phát hành"
-    AccessRole.OWNER -> "Toàn quyền quản trị ứng dụng"
-    AccessRole.CUSTOMER -> "Chỉ sử dụng kịch bản được cấp phép"
+private fun AccessRole.descriptionText(): String = when (this) {
+    AccessRole.DEVELOPER -> tr("Viết, sửa và kiểm thử mã kịch bản; gửi để duyệt", "Write, edit and test scripts; submit for review")
+    AccessRole.DESIGNER -> tr("Thiết kế giao diện, tài nguyên và xem trước", "Design the interface and assets; preview changes")
+    AccessRole.REVIEWER -> tr("Kiểm tra, duyệt hoặc từ chối bản phát hành", "Test, approve or reject releases")
+    AccessRole.OWNER -> tr("Toàn quyền quản trị ứng dụng", "Full application administration")
+    AccessRole.CUSTOMER -> tr("Chỉ sử dụng kịch bản được cấp phép", "Use licensed published scripts only")
 }
