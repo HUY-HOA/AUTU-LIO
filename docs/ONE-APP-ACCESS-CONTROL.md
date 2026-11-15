@@ -20,7 +20,7 @@ Bộ chọn giao diện trong bản Debug chỉ để kiểm tra bố cục và 
 |---|---|---|
 | Chủ sở hữu | Toàn quyền quản trị, mời/thu hồi cộng tác viên, quản lý khách hàng/giấy phép, duyệt và phát hành | Không chia sẻ khóa ký hoặc bí mật máy chủ |
 | Nhà phát triển | Viết/sửa mã kịch bản, kiểm thử, gửi bản để duyệt | Không quản lý cộng tác viên/giấy phép, không ký hoặc phát hành chính thức |
-| Nhà thiết kế | Thiết kế giao diện và xem trước | Không xem/sửa mã kịch bản, runtime, giấy phép hoặc phát hành |
+| Nhà thiết kế | Thiết kế giao diện, xem trước và gửi bản thiết kế để duyệt | Không xem/sửa mã kịch bản, runtime, giấy phép hoặc phát hành cuối cùng |
 | Người kiểm duyệt | Kiểm thử và duyệt/từ chối bản gửi | Không sửa mã, thay đổi vai trò hoặc phát hành cuối cùng |
 | Người dùng | Xem tài khoản, chạy kịch bản đã phát hành và được cấp phép | Không truy cập IDE, mã nguồn và công cụ quản trị |
 
@@ -73,12 +73,25 @@ Các quyền có tên rõ ràng gồm truy cập khu vực quản trị, quản 
 
 Chủ sở hữu chỉ có thể bật/tắt quyền nằm trong allowlist của vai trò:
 - Nhà phát triển: sửa mã, kiểm thử, gửi duyệt.
-- Nhà thiết kế: sửa UI, xem trước UI.
+- Nhà thiết kế: sửa UI, xem trước UI, gửi bản thiết kế để duyệt.
 - Người kiểm duyệt: kiểm thử, duyệt bản gửi.
 
 Các quyền quản lý cộng tác viên, quản lý giấy phép, ký và phát hành chính thức không thể cấp qua màn hình quyền chi tiết. Mọi cập nhật quyền được ghi vào audit log.
 
-## 7. Ranh giới bảo mật và giới hạn prototype
+## 7. Dự án cộng tác và quy trình duyệt
+
+Mã Worker trên nhánh `feature/shared-project-workspaces` bổ sung API dự án dùng chung:
+
+- Chủ sở hữu tạo dự án và thêm/xóa tài khoản Nhà phát triển, Nhà thiết kế hoặc Người kiểm duyệt.
+- Nhà phát triển lưu bản nháp mã kịch bản vào D1; Nhà thiết kế lưu bản thiết kế UI dạng JSON vào D1.
+- Mỗi bản nháp có số revision. Khi hai người cùng sửa, lần lưu dùng revision cũ sẽ nhận HTTP 409 để tải lại, không âm thầm ghi đè.
+- Người có quyền gửi duyệt tạo submission chứa snapshot bất biến của revision được gửi.
+- Người kiểm duyệt xem hàng chờ và duyệt/từ chối; không được tự duyệt bản gửi của chính mình.
+- Mọi hành động dự án/lưu bản nháp/gửi duyệt được ghi audit log, không ghi nội dung mã nguồn vào audit log.
+
+Quyền trong dự án hiện kết hợp vai trò/quyền tài khoản và tư cách thành viên dự án. Chưa có quyền tùy chỉnh riêng từng dự án, tự động gửi email, so sánh diff trực quan hoặc khôi phục phiên bản mã bất kỳ. Duyệt submission chưa đồng nghĩa với phát hành package; phát hành cuối cùng vẫn là quyền riêng của Chủ sở hữu và pipeline package chưa triển khai.
+
+## 8. Ranh giới bảo mật và giới hạn prototype
 
 - Ẩn nút trong giao diện không phải là bảo vệ quyền; mọi API thay đổi dữ liệu phải kiểm tra session và quyền ở phía Worker.
 - Chỉ Chủ sở hữu được quản lý cộng tác viên, giấy phép, bí mật ký và phát hành cuối cùng.
@@ -89,10 +102,10 @@ Các quyền quản lý cộng tác viên, quản lý giấy phép, ký và phá
 - Accessibility/overlay chỉ xin quyền Android khi chức năng thực tế cần và giải thích rõ.
 - Thu thập tối thiểu dữ liệu tài khoản/thiết bị cần cho bảo mật và giấy phép; không lấy dữ liệu riêng tư không cần thiết.
 
-## 8. Trạng thái triển khai
+## 9. Trạng thái triển khai
 
 Đã hợp nhất vào `main` nền tảng một APK, Google Credential Manager, xác minh session theo role, workspace riêng cho các vai trò và giao diện quản lý cộng tác viên nối API. Đây là mã nguồn đã qua kiểm tra biên dịch Kotlin và kiểm tra Worker ở PR; không phải xác nhận đăng nhập Google thật đã hoạt động.
 
-Các phần quyền chi tiết theo từng cộng tác viên đang được hoàn thiện trên nhánh riêng và chưa được coi là đã phát hành cho `main` cho tới khi kiểm tra CI và hợp nhất.
+Quyền chi tiết theo cộng tác viên đã được hợp nhất vào `main`. API dự án dùng chung và lưu bản nháp từ máy chủ hiện nằm trên nhánh `feature/shared-project-workspaces`, chưa được hợp nhất và chưa triển khai lên Worker.
 
-Chưa có Worker deployed, Google OAuth Client ID/OWNER_EMAIL, đăng nhập thật, gửi email mời tự động, runtime Auto Click, compiler, kho mã đồng bộ, workflow duyệt/phát hành thật hoặc cập nhật package từ xa.
+Chưa có Worker deployed, Google OAuth Client ID/OWNER_EMAIL, đăng nhập thật, gửi email mời tự động, runtime Auto Click, compiler, UI Android kết nối API dự án, so sánh diff/rollback tổng quát, pipeline phát hành package hoặc cập nhật package từ xa.
