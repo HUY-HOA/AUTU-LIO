@@ -62,8 +62,10 @@ From this directory:
 1. Install Wrangler locally as a development dependency using the official current Wrangler release.
 2. Run `npx wrangler types` after reviewing the D1 binding in `wrangler.jsonc`.
 3. Run `npm run check`.
-4. Set the two secrets using `npx wrangler secret put GOOGLE_CLIENT_ID` and `npx wrangler secret put OWNER_EMAIL`.
-5. Deploy only after Google Cloud OAuth configuration and Android package/SHA fingerprints have been prepared and reviewed.
+4. Set GOOGLE_CLIENT_ID and OWNER_EMAIL with npx wrangler secret put after verifying the correct OAuth client and owner account.
+5. Generate a separate 32-byte random package master key and set it with npx wrangler secret put PACKAGE_MASTER_KEY_V1. Do not use a password or reuse the Android signing key.
+6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
+7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
 
 The repository contains Worker source and D1 binding configuration. Check the live database with `wrangler d1 migrations list` and apply any pending migrations, including the customer/device and encrypted-package migrations, before deploying. The Worker has not been deployed and Google OAuth has not been configured, so live sign-in and package delivery are not yet active. Encrypted package publishing/download also fails closed until the versioned `PACKAGE_MASTER_KEY_V1` secret is configured.
 
@@ -139,4 +141,4 @@ The Worker returns a one-time invitation token for the owner to copy and share m
 
 ## Local validation
 
-`npm run check` checks Worker JavaScript syntax, runs 14 Node.js API behavior tests with a mocked D1 binding, and executes every SQL migration against an in-memory SQLite database. The API tests cover health/config reporting, the unconfigured Google challenge gate, unauthenticated access denial, OWNER-only collaborator access, malformed/oversized request bodies and CORS origin rules. Migration validation checks the single-owner constraint, foreign keys, project membership, case-insensitive script/package-name uniqueness, UI draft storage, allowed submission kinds, immutable package versions and encrypted-only package columns. These are source-level tests; they do not deploy the Worker, call the live D1 database or validate a live Google OAuth client.
+`npm run check` checks Worker JavaScript syntax, runs 21 Node.js API behavior tests with a mocked D1 binding, and executes every SQL migration against an in-memory SQLite database. The API tests cover health/config reporting, the unconfigured Google challenge gate, unauthenticated access denial, OWNER-only collaborator access, malformed/oversized request bodies and CORS origin rules. Migration validation checks the single-owner constraint, foreign keys, project membership, case-insensitive script/package-name uniqueness, UI draft storage, allowed submission kinds, immutable package versions and encrypted-only package columns. These are source-level tests; they do not deploy the Worker, call the live D1 database or validate a live Google OAuth client.
