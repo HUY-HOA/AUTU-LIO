@@ -407,3 +407,19 @@ private val collaboratorRoles = listOf(
     AccessRole.DESIGNER,
     AccessRole.REVIEWER
 )
+
+private fun AccessRole.labelText(): String = when (this) {
+    AccessRole.OWNER -> tr("Chủ sở hữu", "Owner")
+    AccessRole.DEVELOPER -> tr("Nhà phát triển", "Developer")
+    AccessRole.DESIGNER -> tr("Nhà thiết kế", "Designer")
+    AccessRole.REVIEWER -> tr("Người kiểm duyệt", "Reviewer")
+    AccessRole.CUSTOMER -> tr("Người dùng", "Customer")
+}
+
+private fun AccessRole.descriptionText(): String = when (this) {
+    AccessRole.DEVELOPER -> tr("Viết, sửa và kiểm thử mã kịch bản; gửi để duyệt", "Write, edit and test scripts; submit for review")
+    AccessRole.DESIGNER -> tr("Thiết kế giao diện, tài nguyên và xem trước", "Design the interface and assets; preview changes")
+    AccessRole.REVIEWER -> tr("Kiểm tra, duyệt hoặc từ chối bản phát hành", "Test, approve or reject releases")
+    AccessRole.OWNER -> tr("Toàn quyền quản trị ứng dụng", "Full application administration")
+    AccessRole.CUSTOMER -> tr("Chỉ sử dụng kịch bản được cấp phép", "Use licensed published scripts only")
+}
