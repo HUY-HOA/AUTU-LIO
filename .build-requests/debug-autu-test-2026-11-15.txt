@@ -1,0 +1,3 @@
+variant=debug
+purpose=Owner preview test for AUTU-LIO script editor and floating runner
+source_commit=6e32f75b63d5b12846708a26287529fb6e5aca4d
