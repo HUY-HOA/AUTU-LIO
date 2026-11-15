@@ -1,6 +1,6 @@
 # AUTU-LIO — Trạng thái dự án
 
-**Cập nhật:** 15/11/2026, 03:01 (Asia/Ho_Chi_Minh)  
+**Cập nhật:** 15/11/2026, 10:06 (Asia/Ho_Chi_Minh)  
 **Nhánh chính:** `main`  
 **Repository:** [HUY-HOA-1/AUTU-LIO](https://github.com/HUY-HOA-1/AUTU-LIO)
 
@@ -12,7 +12,7 @@
 
 Dự án đã chuyển từ tài liệu thiết kế sang **prototype Android Kotlin/Jetpack Compose**. Đã chuyển dự án sang **một APK duy nhất** với application ID `com.autulio.app`. Các giao diện Admin và AutoClick là các khu vực trong cùng ứng dụng, được mở theo vai trò do máy chủ xác minh. Bản Debug hiện có bộ chọn giao diện thử nghiệm để kiểm tra bố cục; bộ chọn này không cấp quyền thật.
 
-Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Mã nguồn workspace cộng tác và Worker API đã có trong `main`; schema D1 cho workspace đã áp dụng. Tuy nhiên Worker chưa deploy và Google OAuth chưa cấu hình, nên đồng bộ thật giữa các tài khoản chưa hoạt động. Engine Auto Click và runtime vẫn chưa có.
+Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Mã nguồn workspace cộng tác và Worker API đã có trong `main`; schema D1 cho workspace đã áp dụng. Bộ test Worker mới gồm 10 ca về health/config, xác thực, quyền OWNER-only, kiểm tra đầu vào và CORS đã chạy thành công trên nhánh PR và sau merge vào `main` (PR #13, commit `9fb9c5db`). Tài khoản Cloudflare đã có D1 nhưng danh sách Worker đang trống; Worker chưa deploy và Google OAuth chưa cấu hình, nên đăng nhập thật và đồng bộ giữa các tài khoản chưa hoạt động. Engine Auto Click và runtime vẫn chưa có.
 
 ## 2. Phần đã có trong mã nguồn
 
@@ -46,6 +46,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Trigger được thiết lập theo `workflow_dispatch` hoặc nhánh `build-requests/**`; push thông thường lên `main` không tự build.
 - PR #12 đã được hợp nhất vào `main` ở commit `941d9dbb`.
 - GitHub Actions đã xác nhận Kotlin compilation và Worker/D1 migration checks thành công trên commit PR trước khi merge; workflow kiểm tra Worker sau merge đang/đã chạy riêng.
+- Bộ kiểm tra Worker sau merge tại [GitHub Actions](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43671159108) đã thành công.
 - **Chưa có lần chạy workflow tạo APK và chưa có APK artifact được xác minh.**
 - Tuân thủ quy tắc: chỉ bắt đầu build khi chủ ứng dụng gửi riêng đúng lệnh `BUILD APK`.
 
