@@ -11,7 +11,7 @@ on:
         options:
           - debug
           - release
-        default: debug
+        default: release
         required: true
   push:
     branches:
@@ -99,10 +99,14 @@ jobs:
           fi
 
           if [[ "$present" -eq 0 ]]; then
+            if [[ "$REQUESTED_BUILD_VARIANT" == "release" ]]; then
+              echo "::error::Release signing secrets are not configured. Refusing to create an unsigned or Debug APK for a production Release request."
+              exit 1
+            fi
             echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "variant=debug" >> "$GITHUB_OUTPUT"
             echo "artifact_name=AUTU-LIO-Debug" >> "$GITHUB_OUTPUT"
-            echo "::warning::Release signing secrets are not configured. This run will create a Debug test APK, not a distributable Release APK."
+            echo "::warning::Debug APK selected explicitly. This artifact is not for customer release or stable updates."
             exit 0
           fi
 

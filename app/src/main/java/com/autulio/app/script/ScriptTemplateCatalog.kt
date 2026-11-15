@@ -15,24 +15,23 @@ object ScriptTemplateCatalog {
             id = "single_tap",
             nameVi = "Chạm một lần",
             nameEn = "Single tap",
-            descriptionVi = "Chạm vào một vị trí. Hãy sửa tọa độ X và Y trước khi chạy.",
-            descriptionEn = "Tap one point. Change X and Y before running.",
+            descriptionVi = "Chạm tại một tọa độ trên màn hình.",
+            descriptionEn = "Tap at a screen coordinate.",
             source = """
-                // Sửa tọa độ X và Y theo màn hình của bạn
-                tap(200, 400)
+                // Thay tọa độ X và Y theo ứng dụng mục tiêu
+                CHẠM(200, 400)
             """.trimIndent()
         ),
         ScriptTemplate(
             id = "tap_sequence",
-            nameVi = "Hai lần chạm có thời gian chờ",
-            nameEn = "Two taps with a delay",
+            nameVi = "Chuỗi chạm có thời gian chờ",
+            nameEn = "Tap sequence with delay",
             descriptionVi = "Chạm vị trí thứ nhất, chờ 500 ms rồi chạm vị trí thứ hai.",
             descriptionEn = "Tap the first point, wait 500 ms, then tap the second point.",
             source = """
-                // Sửa các tọa độ trước khi chạy
-                tap(200, 400)
-                wait(500)
-                tap(500, 400)
+                CHẠM(200, 400)
+                CHỜ(500)
+                CHẠM(500, 400)
             """.trimIndent()
         ),
         ScriptTemplate(
@@ -42,8 +41,7 @@ object ScriptTemplateCatalog {
             descriptionVi = "Nhấn giữ tại một vị trí trong 800 ms.",
             descriptionEn = "Hold one point for 800 ms.",
             source = """
-                // Sửa tọa độ và thời lượng giữ (ms)
-                longPress(200, 400, 800)
+                NHẤN_GIỮ(200, 400, 800)
             """.trimIndent()
         ),
         ScriptTemplate(
@@ -53,35 +51,60 @@ object ScriptTemplateCatalog {
             descriptionVi = "Vuốt từ dưới lên trên trong 450 ms.",
             descriptionEn = "Swipe from lower to upper screen in 450 ms.",
             source = """
-                // Sửa điểm đầu, điểm cuối và thời lượng (ms)
-                swipe(360, 850, 360, 350, 450)
+                VUỐT(360, 850, 360, 350, 450)
             """.trimIndent()
         ),
         ScriptTemplate(
             id = "repeat_tap",
-            nameVi = "Lặp thao tác chạm 3 lần",
-            nameEn = "Repeat a tap three times",
-            descriptionVi = "Lặp thao tác chạm, mỗi lần cách nhau 500 ms.",
-            descriptionEn = "Repeat a tap with a 500 ms delay between taps.",
+            nameVi = "Lặp thao tác chạm",
+            nameEn = "Repeat tap",
+            descriptionVi = "Lặp thao tác chạm theo số lần đã đặt.",
+            descriptionEn = "Repeat a tap for the chosen number of iterations.",
             source = """
-                // Sửa tọa độ, số lần lặp và thời gian chờ
-                repeat(3) {
-                    tap(200, 400)
-                    wait(500)
+                ĐẶT soLan = 3
+                LẶP(soLan) {
+                    CHẠM(200, 400)
+                    CHỜ(500)
                 }
             """.trimIndent()
         ),
         ScriptTemplate(
-            id = "tap_wait_swipe",
-            nameVi = "Chạm, chờ rồi vuốt",
-            nameEn = "Tap, wait, then swipe",
-            descriptionVi = "Một chuỗi gồm chạm, chờ và vuốt.",
-            descriptionEn = "A sequence containing a tap, a wait and a swipe.",
+            id = "if_battery",
+            nameVi = "Kiểm tra pin trước khi chạy",
+            nameEn = "Check battery before running",
+            descriptionVi = "Chỉ tiếp tục thao tác khi pin còn trên 20%.",
+            descriptionEn = "Only continue when the battery is above 20%.",
             source = """
-                // Sửa tọa độ theo ứng dụng mục tiêu
-                tap(200, 400)
-                wait(700)
-                swipe(360, 850, 360, 350, 450)
+                NẾU (PIN() > 20) {
+                    CHẠM(200, 400)
+                } NGƯỢC_LẠI {
+                    CHỜ(1000)
+                }
+            """.trimIndent()
+        ),
+        ScriptTemplate(
+            id = "open_app",
+            nameVi = "Mở ứng dụng",
+            nameEn = "Open an app",
+            descriptionVi = "Mở ứng dụng bằng tên gói Android hợp lệ.",
+            descriptionEn = "Launch an app using its Android package name.",
+            source = """
+                MỞ_ỨNG_DỤNG("com.example.game")
+            """.trimIndent()
+        ),
+        ScriptTemplate(
+            id = "while_loop",
+            nameVi = "Lặp theo điều kiện",
+            nameEn = "Repeat while condition is true",
+            descriptionVi = "Tăng biến đếm và dừng lặp khi đạt điều kiện.",
+            descriptionEn = "Increase a counter and stop when the condition is met.",
+            source = """
+                ĐẶT dem = 0
+                LẶP_KHI (dem < 5) {
+                    dem = dem + 1
+                    CHẠM(200, 400)
+                    CHỜ(300)
+                }
             """.trimIndent()
         )
     )

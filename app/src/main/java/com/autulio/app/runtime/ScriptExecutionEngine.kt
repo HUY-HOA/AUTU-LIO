@@ -1,31 +1,32 @@
 package com.autulio.app.runtime
 
 import com.autulio.app.script.ScriptCompiler
+import com.autulio.app.script.ScriptExpression
 import com.autulio.app.script.ScriptInstruction
 import com.autulio.app.script.ScriptProgram
 import java.io.Closeable
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.round
 
 interface ScriptActionDispatcher {
     fun tap(x: Int, y: Int): Boolean
     fun longPress(x: Int, y: Int, durationMs: Int): Boolean
     fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int): Boolean
+    fun openApp(packageName: String): Boolean = false
+    fun evaluateFunction(name: String, arguments: List<Any?>): Any? =
+        throw UnsupportedOperationException("Hàm '$name' chưa được hỗ trợ trên thiết bị này.")
 }
 
-enum class ScriptExecutionState {
-    IDLE,
-    RUNNING,
-    PAUSED,
-    STOPPING,
-    COMPLETED,
-    CANCELLED,
-    FAILED
-}
+enum class ScriptExecutionState { IDLE, RUNNING, PAUSED, STOPPING, COMPLETED, CANCELLED, FAILED }
 
 data class ScriptExecutionSnapshot(
     val state: ScriptExecutionState,
@@ -64,23 +65,15 @@ class ScriptExecutionEngine(
 
     fun start(program: ScriptProgram): ScriptExecutionStartResult {
         val validationError = validate(program)
-        if (validationError != null) {
-            return ScriptExecutionStartResult.Rejected(validationError.first, validationError.second)
-        }
+        if (validationError != null) return ScriptExecutionStartResult.Rejected(validationError.first, validationError.second)
 
         val runId: Long
         val initial: ScriptExecutionSnapshot
         lock.withLock {
-            if (closed) {
-                return ScriptExecutionStartResult.Rejected("engine_closed", "The script engine is closed.")
-            }
-            if (state == ScriptExecutionState.RUNNING ||
-                state == ScriptExecutionState.PAUSED ||
-                state == ScriptExecutionState.STOPPING
-            ) {
+            if (closed) return ScriptExecutionStartResult.Rejected("engine_closed", "Bộ thực thi đã đóng.")
+            if (state == ScriptExecutionState.RUNNING || state == ScriptExecutionState.PAUSED || state == ScriptExecutionState.STOPPING) {
                 return ScriptExecutionStartResult.AlreadyRunning
             }
-
             activeRunId++
             runId = activeRunId
             cancellationRequested = false
@@ -91,22 +84,16 @@ class ScriptExecutionEngine(
             state = ScriptExecutionState.RUNNING
             initial = snapshotLocked()
         }
-
         publish(initial)
 
         val submitFailure = lock.withLock {
-            if (activeRunId != runId) {
+            if (activeRunId != runId) null else try {
+                worker.submit { execute(runId, program) }
                 null
-            } else {
-                try {
-                    worker.submit { execute(runId, program) }
-                    null
-                } catch (_: RejectedExecutionException) {
-                    "The script worker is not available."
-                }
+            } catch (_: RejectedExecutionException) {
+                "Không thể khởi động luồng thực thi."
             }
         }
-
         if (submitFailure != null) {
             finish(runId, ScriptExecutionState.FAILED, "worker_unavailable", submitFailure)
             return ScriptExecutionStartResult.Rejected("worker_unavailable", submitFailure)
@@ -138,9 +125,7 @@ class ScriptExecutionEngine(
 
     fun stop(): Boolean {
         val update = lock.withLock {
-            if (state != ScriptExecutionState.RUNNING && state != ScriptExecutionState.PAUSED) {
-                return false
-            }
+            if (state != ScriptExecutionState.RUNNING && state != ScriptExecutionState.PAUSED) return false
             cancellationRequested = true
             state = ScriptExecutionState.STOPPING
             changed.signalAll()
@@ -167,87 +152,280 @@ class ScriptExecutionEngine(
 
     private fun execute(runId: Long, program: ScriptProgram) {
         try {
-            executeBlock(runId, program.instructions)
+            executeBlock(runId, program.instructions, mutableMapOf())
             finish(runId, ScriptExecutionState.COMPLETED, null, null)
         } catch (_: StopRequested) {
             finish(runId, ScriptExecutionState.CANCELLED, null, null)
+        } catch (error: ScriptRuntimeFailure) {
+            val cancelled = lock.withLock { cancellationRequested || state == ScriptExecutionState.STOPPING || closed }
+            if (cancelled) finish(runId, ScriptExecutionState.CANCELLED, null, null)
+            else finish(runId, ScriptExecutionState.FAILED, error.code, error.message)
         } catch (error: InterruptedException) {
             Thread.currentThread().interrupt()
-            val wasCancelled = lock.withLock {
-                cancellationRequested || state == ScriptExecutionState.STOPPING || closed
-            }
-            if (wasCancelled) {
-                finish(runId, ScriptExecutionState.CANCELLED, null, null)
-            } else {
-                finish(runId, ScriptExecutionState.FAILED, "interrupted", "Script execution was interrupted.")
-            }
-        } catch (error: DispatchFailure) {
-            val wasCancelled = lock.withLock {
-                cancellationRequested || state == ScriptExecutionState.STOPPING || closed
-            }
-            if (wasCancelled) {
-                finish(runId, ScriptExecutionState.CANCELLED, null, null)
-            } else {
-                finish(runId, ScriptExecutionState.FAILED, "dispatch_failed", error.message)
-            }
+            val cancelled = lock.withLock { cancellationRequested || state == ScriptExecutionState.STOPPING || closed }
+            if (cancelled) finish(runId, ScriptExecutionState.CANCELLED, null, null)
+            else finish(runId, ScriptExecutionState.FAILED, "interrupted", "Kịch bản bị gián đoạn.")
         } catch (error: Exception) {
-            finish(
-                runId,
-                ScriptExecutionState.FAILED,
-                "runtime_error",
-                error.message ?: "An unexpected runtime error occurred."
-            )
+            finish(runId, ScriptExecutionState.FAILED, "runtime_error", error.message ?: "Lỗi thực thi không xác định.")
         }
     }
 
-    private fun executeBlock(runId: Long, instructions: List<ScriptInstruction>) {
+    private fun executeBlock(
+        runId: Long,
+        instructions: List<ScriptInstruction>,
+        variables: MutableMap<String, Any?>
+    ) {
         for (instruction in instructions) {
             checkpoint(runId)
             when (instruction) {
-                is ScriptInstruction.Tap -> {
-                    if (!dispatcher.tap(instruction.x, instruction.y)) {
-                        throw DispatchFailure("The tap action could not be dispatched.")
-                    }
+                is ScriptInstruction.Command -> executeCommand(runId, instruction, variables)
+                is ScriptInstruction.SetVariable -> {
+                    variables[instruction.name] = evaluate(instruction.value, variables)
                     completeInstruction(runId)
                 }
-                is ScriptInstruction.LongPress -> {
-                    if (!dispatcher.longPress(instruction.x, instruction.y, instruction.durationMs)) {
-                        throw DispatchFailure("The long-press action could not be dispatched.")
-                    }
+                is ScriptInstruction.If -> {
+                    val condition = requireBoolean(evaluate(instruction.condition, variables), "Điều kiện NẾU phải trả về ĐÚNG hoặc SAI.")
                     completeInstruction(runId)
-                }
-                is ScriptInstruction.Swipe -> {
-                    if (!dispatcher.swipe(
-                            instruction.startX,
-                            instruction.startY,
-                            instruction.endX,
-                            instruction.endY,
-                            instruction.durationMs
-                        )
-                    ) {
-                        throw DispatchFailure("The swipe action could not be dispatched.")
-                    }
-                    completeInstruction(runId)
-                }
-                is ScriptInstruction.Wait -> {
-                    waitInterruptibly(runId, instruction.durationMs)
-                    completeInstruction(runId)
+                    executeBlock(runId, if (condition) instruction.thenBody else instruction.elseBody, variables)
                 }
                 is ScriptInstruction.Repeat -> {
-                    repeat(instruction.count) {
-                        checkpoint(runId)
-                        executeBlock(runId, instruction.body)
+                    val count = requireInteger(evaluate(instruction.count, variables), "Số lần lặp phải là số nguyên.")
+                    if (count !in 1..ScriptCompiler.MAX_REPEAT_COUNT) {
+                        throw ScriptRuntimeFailure("repeat_range", "Số lần lặp phải từ 1 đến ${ScriptCompiler.MAX_REPEAT_COUNT}.")
                     }
+                    var shouldBreak = false
+                    for (iteration in 0 until count) {
+                        checkpoint(runId)
+                        try {
+                            executeBlock(runId, instruction.body, variables)
+                        } catch (_: ContinueLoop) {
+                            Unit
+                        } catch (_: BreakLoop) {
+                            shouldBreak = true
+                        }
+                        if (shouldBreak) break
+                    }
+                }
+                is ScriptInstruction.While -> {
+                    var terminated = false
+                    var iteration = 0
+                    while (iteration < ScriptCompiler.MAX_WHILE_ITERATIONS) {
+                        checkpoint(runId)
+                        val condition = requireBoolean(evaluate(instruction.condition, variables), "Điều kiện LẶP_KHI phải trả về ĐÚNG hoặc SAI.")
+                        completeInstruction(runId)
+                        if (!condition) {
+                            terminated = true
+                            break
+                        }
+                        try {
+                            executeBlock(runId, instruction.body, variables)
+                        } catch (_: ContinueLoop) {
+                            Unit
+                        } catch (_: BreakLoop) {
+                            terminated = true
+                            break
+                        }
+                        iteration++
+                    }
+                    if (!terminated) {
+                        throw ScriptRuntimeFailure("loop_limit_reached", "Vòng lặp đã chạm giới hạn ${ScriptCompiler.MAX_WHILE_ITERATIONS} lượt để tránh chạy vô hạn.")
+                    }
+                }
+                ScriptInstruction.BreakLoop -> {
+                    completeInstruction(runId)
+                    throw BreakLoop()
+                }
+                ScriptInstruction.ContinueLoop -> {
+                    completeInstruction(runId)
+                    throw ContinueLoop()
                 }
             }
         }
+    }
+
+    private fun executeCommand(
+        runId: Long,
+        instruction: ScriptInstruction.Command,
+        variables: MutableMap<String, Any?>
+    ) {
+        val args = instruction.arguments.map { evaluate(it, variables) }
+        val success = when (instruction.name) {
+            "CHẠM" -> dispatcher.tap(requireCoordinate(args[0]), requireCoordinate(args[1]))
+            "NHẤN_GIỮ" -> dispatcher.longPress(
+                requireCoordinate(args[0]),
+                requireCoordinate(args[1]),
+                requireDuration(args[2], 100, ScriptCompiler.MAX_GESTURE_MS)
+            )
+            "VUỐT" -> dispatcher.swipe(
+                requireCoordinate(args[0]),
+                requireCoordinate(args[1]),
+                requireCoordinate(args[2]),
+                requireCoordinate(args[3]),
+                requireDuration(args[4], 1, ScriptCompiler.MAX_GESTURE_MS)
+            )
+            "CHỜ" -> {
+                waitInterruptibly(runId, requireDuration(args[0], 1, ScriptCompiler.MAX_WAIT_MS))
+                true
+            }
+            "MỞ_ỨNG_DỤNG" -> {
+                val packageName = args[0] as? String
+                    ?: throw ScriptRuntimeFailure("invalid_argument", "MỞ_ỨNG_DỤNG cần tên gói ứng dụng dạng chuỗi.")
+                if (!packageName.matches(Regex("^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+$"))) {
+                    throw ScriptRuntimeFailure("invalid_package_name", "Tên gói ứng dụng không hợp lệ.")
+                }
+                dispatcher.openApp(packageName)
+            }
+            else -> throw ScriptRuntimeFailure("unsupported_command", "Lệnh '${instruction.name}' chưa được hỗ trợ.")
+        }
+        if (!success) throw ScriptRuntimeFailure("dispatch_failed", "Không thực hiện được lệnh '${instruction.name}'. Hãy kiểm tra quyền và trạng thái Android.")
+        completeInstruction(runId)
+    }
+
+    private fun evaluate(expression: ScriptExpression, variables: MutableMap<String, Any?>): Any? = when (expression) {
+        is ScriptExpression.NumberLiteral -> expression.value
+        is ScriptExpression.StringLiteral -> expression.value
+        is ScriptExpression.BooleanLiteral -> expression.value
+        is ScriptExpression.Variable -> {
+            if (!variables.containsKey(expression.name)) throw ScriptRuntimeFailure("unknown_variable", "Chưa khai báo biến '${expression.name}'.")
+            variables[expression.name]
+        }
+        is ScriptExpression.Unary -> {
+            val value = evaluate(expression.operand, variables)
+            when (expression.operator) {
+                "KHÔNG" -> !requireBoolean(value, "Toán tử KHÔNG chỉ dùng với ĐÚNG/SAI.")
+                "-" -> -requireNumber(value, "Dấu trừ chỉ dùng với số.")
+                "+" -> requireNumber(value, "Dấu cộng chỉ dùng với số.")
+                else -> throw ScriptRuntimeFailure("invalid_operator", "Toán tử một ngôi không hợp lệ.")
+            }
+        }
+        is ScriptExpression.Binary -> evaluateBinary(expression, variables)
+        is ScriptExpression.FunctionCall -> {
+            val args = expression.arguments.map { evaluate(it, variables) }
+            evaluateFunction(expression.name, args)
+        }
+    }
+
+    private fun evaluateBinary(
+        expression: ScriptExpression.Binary,
+        variables: MutableMap<String, Any?>
+    ): Any? {
+        val left = evaluate(expression.left, variables)
+        if (expression.operator == "VÀ") {
+            val value = requireBoolean(left, "Vế trái của VÀ phải là ĐÚNG/SAI.")
+            return value && requireBoolean(evaluate(expression.right, variables), "Vế phải của VÀ phải là ĐÚNG/SAI.")
+        }
+        if (expression.operator == "HOẶC") {
+            val value = requireBoolean(left, "Vế trái của HOẶC phải là ĐÚNG/SAI.")
+            return value || requireBoolean(evaluate(expression.right, variables), "Vế phải của HOẶC phải là ĐÚNG/SAI.")
+        }
+        val right = evaluate(expression.right, variables)
+        return when (expression.operator) {
+            "+" -> if (left is String || right is String) left.toString() + right.toString()
+                else requireNumber(left, "Phép cộng cần số hoặc chuỗi.") + requireNumber(right, "Phép cộng cần số hoặc chuỗi.")
+            "-" -> requireNumber(left, "Phép trừ cần số.") - requireNumber(right, "Phép trừ cần số.")
+            "*" -> requireNumber(left, "Phép nhân cần số.") * requireNumber(right, "Phép nhân cần số.")
+            "/" -> {
+                val divisor = requireNumber(right, "Phép chia cần số.")
+                if (divisor == 0.0) throw ScriptRuntimeFailure("division_by_zero", "Không thể chia cho 0.")
+                requireNumber(left, "Phép chia cần số.") / divisor
+            }
+            "%" -> {
+                val divisor = requireNumber(right, "Phép chia dư cần số.")
+                if (divisor == 0.0) throw ScriptRuntimeFailure("division_by_zero", "Không thể chia dư cho 0.")
+                requireNumber(left, "Phép chia dư cần số.") % divisor
+            }
+            "==" -> valuesEqual(left, right)
+            "!=" -> !valuesEqual(left, right)
+            ">" -> compareValues(left, right) > 0
+            ">=" -> compareValues(left, right) >= 0
+            "<" -> compareValues(left, right) < 0
+            "<=" -> compareValues(left, right) <= 0
+            else -> throw ScriptRuntimeFailure("invalid_operator", "Toán tử không được hỗ trợ.")
+        }
+    }
+
+    private fun evaluateFunction(name: String, args: List<Any?>): Any? = when (name.uppercase(Locale.ROOT)) {
+        "SỐ" -> {
+            requireArgs(name, args, 1)
+            when (val value = args[0]) {
+                is Number -> value.toDouble()
+                is String -> value.toDoubleOrNull() ?: throw ScriptRuntimeFailure("invalid_number", "Không đổi được chuỗi thành số.")
+                else -> throw ScriptRuntimeFailure("invalid_argument", "Hàm SỐ cần số hoặc chuỗi số.")
+            }
+        }
+        "CHUỖI" -> {
+            requireArgs(name, args, 1)
+            args[0]?.toString() ?: ""
+        }
+        "LÀM_TRÒN" -> {
+            requireArgs(name, args, 1)
+            round(requireNumber(args[0], "LÀM_TRÒN cần một số."))
+        }
+        "TUYỆT_ĐỐI" -> {
+            requireArgs(name, args, 1)
+            abs(requireNumber(args[0], "TUYỆT_ĐỐI cần một số."))
+        }
+        "ĐỘ_DÀI" -> {
+            requireArgs(name, args, 1)
+            (args[0] as? String)?.length?.toDouble()
+                ?: throw ScriptRuntimeFailure("invalid_argument", "ĐỘ_DÀI cần một chuỗi.")
+        }
+        "NHỎ_NHẤT" -> {
+            requireArgs(name, args, 2)
+            min(requireNumber(args[0], "NHỎ_NHẤT cần hai số."), requireNumber(args[1], "NHỎ_NHẤT cần hai số."))
+        }
+        "LỚN_NHẤT" -> {
+            requireArgs(name, args, 2)
+            max(requireNumber(args[0], "LỚN_NHẤT cần hai số."), requireNumber(args[1], "LỚN_NHẤT cần hai số."))
+        }
+        else -> dispatcher.evaluateFunction(name.uppercase(Locale.ROOT), args)
+    }
+
+    private fun requireArgs(name: String, args: List<Any?>, count: Int) {
+        if (args.size != count) throw ScriptRuntimeFailure("argument_count", "Hàm '$name' cần $count tham số.")
+    }
+
+    private fun valuesEqual(left: Any?, right: Any?): Boolean =
+        if (left is Number && right is Number) left.toDouble() == right.toDouble() else left == right
+
+    private fun compareValues(left: Any?, right: Any?): Int = when {
+        left is Number && right is Number -> left.toDouble().compareTo(right.toDouble())
+        left is String && right is String -> left.compareTo(right)
+        else -> throw ScriptRuntimeFailure("type_mismatch", "Chỉ so sánh được hai số hoặc hai chuỗi cùng kiểu.")
+    }
+
+    private fun requireBoolean(value: Any?, message: String): Boolean =
+        value as? Boolean ?: throw ScriptRuntimeFailure("type_mismatch", message)
+
+    private fun requireNumber(value: Any?, message: String): Double =
+        (value as? Number)?.toDouble()?.takeIf { it.isFinite() }
+            ?: throw ScriptRuntimeFailure("type_mismatch", message)
+
+    private fun requireInteger(value: Any?, message: String): Int {
+        val number = requireNumber(value, message)
+        if (number % 1.0 != 0.0 || number < Int.MIN_VALUE || number > Int.MAX_VALUE) {
+            throw ScriptRuntimeFailure("invalid_integer", message)
+        }
+        return number.toInt()
+    }
+
+    private fun requireCoordinate(value: Any?): Int {
+        val number = requireInteger(value, "Tọa độ phải là số nguyên.")
+        if (number !in 0..ScriptCompiler.MAX_COORDINATE) {
+            throw ScriptRuntimeFailure("coordinate_range", "Tọa độ phải từ 0 đến ${ScriptCompiler.MAX_COORDINATE}.")
+        }
+        return number
+    }
+
+    private fun requireDuration(value: Any?, min: Int, max: Int): Int {
+        val number = requireInteger(value, "Thời lượng phải là số nguyên mili giây.")
+        if (number !in min..max) throw ScriptRuntimeFailure("duration_range", "Thời lượng phải từ $min đến $max ms.")
+        return number
     }
 
     private fun checkpoint(runId: Long) {
         lock.withLock {
-            while (state == ScriptExecutionState.PAUSED && !cancellationRequested) {
-                changed.await()
-            }
+            while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
             ensureActiveLocked(runId)
         }
     }
@@ -256,9 +434,7 @@ class ScriptExecutionEngine(
         var remainingNanos = TimeUnit.MILLISECONDS.toNanos(durationMs.toLong())
         while (remainingNanos > 0L) {
             lock.withLock {
-                while (state == ScriptExecutionState.PAUSED && !cancellationRequested) {
-                    changed.await()
-                }
+                while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
                 ensureActiveLocked(runId)
                 remainingNanos = changed.awaitNanos(remainingNanos)
             }
@@ -267,23 +443,13 @@ class ScriptExecutionEngine(
     }
 
     private fun ensureActiveLocked(runId: Long) {
-        if (runId != activeRunId ||
-            cancellationRequested ||
-            state == ScriptExecutionState.STOPPING ||
-            closed
-        ) {
-            throw StopRequested()
-        }
-        if (state != ScriptExecutionState.RUNNING) {
-            throw IllegalStateException("Invalid script execution state.")
-        }
+        if (runId != activeRunId || cancellationRequested || state == ScriptExecutionState.STOPPING || closed) throw StopRequested()
+        if (state != ScriptExecutionState.RUNNING) throw IllegalStateException("Trạng thái thực thi không hợp lệ.")
     }
 
     private fun completeInstruction(runId: Long) {
         val update = lock.withLock {
-            while (state == ScriptExecutionState.PAUSED && !cancellationRequested) {
-                changed.await()
-            }
+            while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
             ensureActiveLocked(runId)
             completedInstructions++
             snapshotLocked()
@@ -291,12 +457,7 @@ class ScriptExecutionEngine(
         publish(update)
     }
 
-    private fun finish(
-        runId: Long,
-        finalState: ScriptExecutionState,
-        errorCode: String?,
-        message: String?
-    ) {
+    private fun finish(runId: Long, finalState: ScriptExecutionState, errorCode: String?, message: String?) {
         val update = lock.withLock {
             if (runId != activeRunId) return
             state = finalState
@@ -323,103 +484,68 @@ class ScriptExecutionEngine(
 
     private fun validate(program: ScriptProgram): Pair<String, String>? {
         if (program.languageVersion != ScriptCompiler.LANGUAGE_VERSION) {
-            return "unsupported_language_version" to "The script language version is not supported."
+            return "unsupported_language_version" to "Phiên bản ngôn ngữ AUTU không được hỗ trợ."
         }
-        if (program.instructions.isEmpty()) {
-            return "empty_program" to "The script has no instructions."
-        }
-
-        val metrics = inspect(program.instructions, depth = 0)
-            ?: return "invalid_program" to "The script contains an invalid instruction."
-        if (metrics.statements > ScriptCompiler.MAX_STATEMENTS) {
-            return "too_many_statements" to "The script exceeds the source statement limit."
-        }
-        if (metrics.instructions > ScriptCompiler.MAX_EXPANDED_INSTRUCTIONS) {
-            return "instruction_budget_exceeded" to "The expanded instruction limit was exceeded."
-        }
-        if (metrics.durationMs > ScriptCompiler.MAX_TOTAL_DURATION_MS) {
-            return "duration_budget_exceeded" to "The total execution duration limit was exceeded."
-        }
-        if (program.expandedInstructionCount != metrics.instructions ||
-            program.estimatedDurationMs != metrics.durationMs
-        ) {
-            return "program_metadata_mismatch" to "The compiled program metadata does not match its instructions."
+        if (program.instructions.isEmpty()) return "empty_program" to "Kịch bản không có lệnh."
+        if (!validateBlock(program.instructions, 0, 0)) return "invalid_program" to "Kịch bản chứa cấu trúc hoặc lệnh không hợp lệ."
+        val metrics = ScriptCompiler.measureProgram(program.instructions)
+        if (metrics.expandedInstructionCount > ScriptCompiler.MAX_EXPANDED_INSTRUCTIONS) return "instruction_budget_exceeded" to "Kịch bản vượt giới hạn số lệnh."
+        if (metrics.estimatedDurationMs > ScriptCompiler.MAX_TOTAL_DURATION_MS) return "duration_budget_exceeded" to "Kịch bản vượt giới hạn thời lượng."
+        if (program.expandedInstructionCount != metrics.expandedInstructionCount || program.estimatedDurationMs != metrics.estimatedDurationMs) {
+            return "program_metadata_mismatch" to "Thông tin ngân sách không khớp với mã kịch bản."
         }
         return null
     }
 
-    private fun inspect(instructions: List<ScriptInstruction>, depth: Int): Metrics? {
-        var count = 0L
-        var duration = 0L
-        var statements = 0L
-
-        for (instruction in instructions) {
-            statements = cappedAdd(statements, 1L, ScriptCompiler.MAX_STATEMENTS + 1L)
-            val item = when (instruction) {
-                is ScriptInstruction.Tap -> {
-                    if (!validCoordinate(instruction.x) || !validCoordinate(instruction.y)) return null
-                    Metrics(1L, 0L, 0L)
+    private fun validateBlock(instructions: List<ScriptInstruction>, depth: Int, loopDepth: Int): Boolean {
+        if (depth > ScriptCompiler.MAX_NESTING_DEPTH || instructions.isEmpty()) return false
+        return instructions.all { instruction ->
+            when (instruction) {
+                is ScriptInstruction.Command -> {
+                    val arity = when (instruction.name) {
+                        "CHẠM" -> 2
+                        "NHẤN_GIỮ" -> 3
+                        "VUỐT" -> 5
+                        "CHỜ", "MỞ_ỨNG_DỤNG" -> 1
+                        else -> return@all false
+                    }
+                    instruction.arguments.size == arity && instruction.arguments.all { validateExpression(it, 0) }
                 }
-                is ScriptInstruction.LongPress -> {
-                    if (!validCoordinate(instruction.x) ||
-                        !validCoordinate(instruction.y) ||
-                        instruction.durationMs !in 100..10_000
-                    ) return null
-                    Metrics(1L, instruction.durationMs.toLong(), 0L)
-                }
-                is ScriptInstruction.Swipe -> {
-                    if (!validCoordinate(instruction.startX) ||
-                        !validCoordinate(instruction.startY) ||
-                        !validCoordinate(instruction.endX) ||
-                        !validCoordinate(instruction.endY) ||
-                        instruction.durationMs !in 1..10_000
-                    ) return null
-                    Metrics(1L, instruction.durationMs.toLong(), 0L)
-                }
-                is ScriptInstruction.Wait -> {
-                    if (instruction.durationMs !in 1..60_000) return null
-                    Metrics(1L, instruction.durationMs.toLong(), 0L)
-                }
-                is ScriptInstruction.Repeat -> {
-                    if (depth >= ScriptCompiler.MAX_NESTING_DEPTH ||
-                        instruction.count !in 1..ScriptCompiler.MAX_REPEAT_COUNT ||
-                        instruction.body.isEmpty()
-                    ) return null
-                    val nested = inspect(instruction.body, depth + 1) ?: return null
-                    statements = cappedAdd(
-                        statements,
-                        nested.statements,
-                        ScriptCompiler.MAX_STATEMENTS + 1L
-                    )
-                    Metrics(
-                        cappedMultiply(nested.instructions, instruction.count.toLong(), ScriptCompiler.MAX_EXPANDED_INSTRUCTIONS + 1L),
-                        cappedMultiply(nested.durationMs, instruction.count.toLong(), ScriptCompiler.MAX_TOTAL_DURATION_MS + 1L),
-                        nested.statements
-                    )
-                }
+                is ScriptInstruction.SetVariable ->
+                    instruction.name.isNotBlank() && instruction.name.first().let { it.isLetter() || it == '_' } &&
+                        instruction.name.all { it.isLetterOrDigit() || it == '_' } && validateExpression(instruction.value, 0)
+                is ScriptInstruction.If ->
+                    validateExpression(instruction.condition, 0) &&
+                        validateBlock(instruction.thenBody, depth + 1, loopDepth) &&
+                        (instruction.elseBody.isEmpty() || validateBlock(instruction.elseBody, depth + 1, loopDepth))
+                is ScriptInstruction.Repeat ->
+                    loopDepth < ScriptCompiler.MAX_NESTING_DEPTH && validateExpression(instruction.count, 0) &&
+                        validateBlock(instruction.body, depth + 1, loopDepth + 1)
+                is ScriptInstruction.While ->
+                    loopDepth < ScriptCompiler.MAX_NESTING_DEPTH && validateExpression(instruction.condition, 0) &&
+                        validateBlock(instruction.body, depth + 1, loopDepth + 1)
+                ScriptInstruction.BreakLoop, ScriptInstruction.ContinueLoop -> loopDepth > 0
             }
-            count = cappedAdd(count, item.instructions, ScriptCompiler.MAX_EXPANDED_INSTRUCTIONS + 1L)
-            duration = cappedAdd(duration, item.durationMs, ScriptCompiler.MAX_TOTAL_DURATION_MS + 1L)
         }
-        return Metrics(count, duration, statements)
     }
 
-    private fun validCoordinate(value: Int) = value in 0..10_000
-
-    private fun cappedAdd(left: Long, right: Long, cap: Long): Long =
-        if (left >= cap || right >= cap || left > cap - right) cap else left + right
-
-    private fun cappedMultiply(value: Long, multiplier: Long, cap: Long): Long =
-        if (value == 0L || multiplier == 0L) 0L
-        else if (value >= cap || value > cap / multiplier) cap
-        else value * multiplier
-
-    private data class Metrics(
-        val instructions: Long,
-        val durationMs: Long,
-        val statements: Long
-    )
+    private fun validateExpression(expression: ScriptExpression, depth: Int): Boolean {
+        if (depth > 32) return false
+        return when (expression) {
+            is ScriptExpression.NumberLiteral -> expression.value.isFinite()
+            is ScriptExpression.StringLiteral -> expression.value.length <= 4_096
+            is ScriptExpression.BooleanLiteral -> true
+            is ScriptExpression.Variable -> expression.name.isNotBlank()
+            is ScriptExpression.Unary -> expression.operator in setOf("KHÔNG", "+", "-") && validateExpression(expression.operand, depth + 1)
+            is ScriptExpression.Binary -> expression.operator in setOf("VÀ", "HOẶC", "==", "!=", ">", ">=", "<", "<=", "+", "-", "*", "/", "%") &&
+                validateExpression(expression.left, depth + 1) && validateExpression(expression.right, depth + 1)
+            is ScriptExpression.FunctionCall -> expression.name.isNotBlank() && expression.arguments.size <= 16 &&
+                expression.arguments.all { validateExpression(it, depth + 1) }
+        }
+    }
 
     private class StopRequested : RuntimeException()
-    private class DispatchFailure(message: String) : RuntimeException(message)
+    private class BreakLoop : RuntimeException()
+    private class ContinueLoop : RuntimeException()
+    private class ScriptRuntimeFailure(val code: String, message: String) : RuntimeException(message)
 }
