@@ -1326,7 +1326,7 @@ class ScriptEditorActivity : ComponentActivity() {
                                 } else {
                                     scope.launch {
                                         host.showSnackbar(
-                                            tr("Đang có kịch bản chạy. Hãy dừng kịch bản hiện tại trước.", "A script is already running. Stop it before preparing another.")
+                                            tr("Không mở được cửa sổ chạy. Hãy kiểm tra quyền Trợ năng hoặc dừng kịch bản đang chạy.", "The runner window could not be opened. Check Accessibility access or stop the current script.")
                                         )
                                     }
                                 }
