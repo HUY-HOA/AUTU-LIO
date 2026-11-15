@@ -1,6 +1,6 @@
 # AUTU-LIO — Trạng thái dự án
 
-**Cập nhật:** 15/11/2026, 10:20 (Asia/Ho_Chi_Minh)  
+**Cập nhật:** 15/11/2026, 18:10 (Asia/Ho_Chi_Minh)  
 **Nhánh chính:** `main`  
 **Repository:** [HUY-HOA-1/AUTU-LIO](https://github.com/HUY-HOA-1/AUTU-LIO)
 
@@ -12,7 +12,7 @@
 
 Dự án đã chuyển từ tài liệu thiết kế sang **prototype Android Kotlin/Jetpack Compose**. Đã chuyển dự án sang **một APK duy nhất** với application ID `com.autulio.app`. Các giao diện Admin và AutoClick là các khu vực trong cùng ứng dụng, được mở theo vai trò do máy chủ xác minh. Bản Debug hiện có bộ chọn giao diện thử nghiệm để kiểm tra bố cục; bộ chọn này không cấp quyền thật.
 
-Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Mã nguồn workspace cộng tác và Worker API đã có trong `main`; schema D1 cho workspace đã áp dụng. Bộ test Worker mới gồm 10 ca về health/config, xác thực, quyền OWNER-only, kiểm tra đầu vào và CORS đã chạy thành công trên nhánh PR và sau merge vào `main` (PR #13, commit `9fb9c5db`). Tài khoản Cloudflare đã có D1 nhưng danh sách Worker đang trống; Worker chưa deploy và Google OAuth chưa cấu hình, nên đăng nhập thật và đồng bộ giữa các tài khoản chưa hoạt động. PR #14 đã đưa AUTU-LIO Script 0.1 vào `main` ở commit `51460f66`: parser Kotlin tạo AST, chẩn đoán lỗi dòng/cột, giới hạn vòng lặp/số lệnh/thời lượng và nút Kiểm tra mã trong editor. GitHub Actions chạy `:app:testDebugUnitTest` thành công (12 test); đây là kiểm thử mã nguồn, không tạo APK. PR runtime core đang bổ sung interpreter tuần tự cho AST, trạng thái chạy/tạm dừng/tiếp tục/dừng và kiểm tra lại ngân sách runtime; phần này chưa tự thực hiện thao tác màn hình vì AccessibilityService dispatcher và kết nối giao diện chưa tích hợp.
+Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Mã nguồn workspace cộng tác và Worker API đã có trong `main`; schema D1 cho workspace đã áp dụng. Bộ test Worker mới gồm 10 ca về health/config, xác thực, quyền OWNER-only, kiểm tra đầu vào và CORS đã chạy thành công trên nhánh PR và sau merge vào `main` (PR #13, commit `9fb9c5db`). Tài khoản Cloudflare đã có D1 nhưng danh sách Worker đang trống; Worker chưa deploy và Google OAuth chưa cấu hình, nên đăng nhập thật và đồng bộ giữa các tài khoản chưa hoạt động. PR #14 đã đưa AUTU-LIO Script 0.1 vào `main` ở commit `51460f66`: parser Kotlin tạo AST, chẩn đoán lỗi dòng/cột, giới hạn vòng lặp/số lệnh/thời lượng và nút Kiểm tra mã trong editor. GitHub Actions chạy `:app:testDebugUnitTest` thành công (12 test); đây là kiểm thử mã nguồn, không tạo APK. PR #17 đã hợp nhất vào main tại commit e1ee7cbe: interpreter tuần tự cho AST, trạng thái chạy/tạm dừng/tiếp tục/dừng, xác thực lại ngân sách runtime và 7 test cho engine. CI source checks run 43708433043 đã thành công. PR #18 đang phát triển AccessibilityService gesture dispatcher, cửa sổ điều khiển nổi và Activity trình soạn thảo riêng; chưa hợp nhất, chưa thử thiết bị thật và chưa tạo APK mới.
 
 ## 2. Bảo mật và ký APK
 
@@ -28,8 +28,8 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 ### Admin Studio
 - Trang tổng quan.
 - Danh sách kịch bản, tìm kiếm và lọc Bản nháp / Đã phát hành.
-- Tạo kịch bản, lưu tên và nội dung bản nháp vào vùng lưu trữ riêng của ứng dụng trên thiết bị; nội dung được khôi phục sau khi đóng/mở lại app.
-- Bản nháp chưa đồng bộ máy chủ và chưa được mã hóa riêng ở tầng ứng dụng.
+- Tạo kịch bản, lưu tên và nội dung bản nháp trong vùng lưu trữ riêng; mã hóa AES-GCM bằng Android Keystore qua SecureScriptDraftStore.
+- Bản nháp chưa đồng bộ máy chủ.
 - Trang Khách hàng và Thiết bị.
 - Trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
 - Trang Quản lý cộng tác viên được nối API cho bản Release: tải danh sách, tạo lời mời, hiển thị mã một lần để sao chép/chia sẻ, đổi vai trò, thu hồi cộng tác viên và hủy lời mời đang chờ. Debug preview vẫn dùng bản nháp cục bộ.
@@ -45,7 +45,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Màn hình đăng nhập prototype và chế độ xem trước.
 - Trang chủ.
 - Danh sách và chi tiết một kịch bản mẫu được ghi rõ là dữ liệu xem trước.
-- Các nút Chạy / Tạm dừng / Dừng mẫu chỉ hiển thị thông báo; không thao tác trên màn hình.
+- Các nút chạy mẫu của tài khoản khách hàng hiện vẫn chỉ là giao diện preview; không thao tác trên màn hình.
 - Trang Thiết bị / Giấy phép và Cài đặt.
 
 ## 4. Build

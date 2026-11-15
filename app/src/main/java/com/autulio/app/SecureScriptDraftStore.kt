@@ -17,23 +17,39 @@ data class ScriptDraftSnapshot(
     val contents: Map<String, String>
 )
 
-class SecureScriptDraftStore(context: Context) {
+class SecureScriptDraftStore(context: Context, private val namespace: String = "admin") {
+    private val isAdminNamespace = namespace == "admin"
     private val preferences = context.applicationContext.getSharedPreferences(
-        ENCRYPTED_PREFERENCES,
+        if (isAdminNamespace) ENCRYPTED_PREFERENCES else "autulio_encrypted_${namespace}_drafts",
         Context.MODE_PRIVATE
     )
     private val legacyPreferences = context.applicationContext.getSharedPreferences(
-        LEGACY_PREFERENCES,
+        if (isAdminNamespace) LEGACY_PREFERENCES else "autulio_${namespace}_drafts",
         Context.MODE_PRIVATE
     )
+    private val dataKey = if (isAdminNamespace) DATA_KEY else "encrypted_payload_v1"
+    private val legacyNamesKey = if (isAdminNamespace) LEGACY_NAMES_KEY else "scripts"
+    private val legacyDraftPrefix = if (isAdminNamespace) LEGACY_DRAFT_PREFIX else "draft:"
+    private val keyAlias = if (isAdminNamespace) KEY_ALIAS else "autulio_script_drafts_${namespace}_aes_gcm_v1"
+    private val associatedData = if (isAdminNamespace) {
+        "AUTU-LIO|script-drafts|v1".toByteArray(Charsets.UTF_8)
+    } else {
+        "AUTU-LIO|script-drafts|${namespace}|v1".toByteArray(Charsets.UTF_8)
+    }
+
+    init {
+        require(namespace == "admin" || namespace == "developer") {
+            "Unsupported script draft namespace."
+        }
+    }
 
     fun load(): ScriptDraftSnapshot {
-        preferences.getString(DATA_KEY, null)?.let { encrypted ->
+        preferences.getString(dataKey, null)?.let { encrypted ->
             return decryptSnapshot(encrypted)
         }
 
         val namesJson = runCatching {
-            JSONArray(legacyPreferences.getString(LEGACY_NAMES_KEY, "[]") ?: "[]")
+            JSONArray(legacyPreferences.getString(legacyNamesKey, "[]") ?: "[]")
         }.getOrNull()
         val names = buildList<String> {
             if (namesJson != null) {
@@ -44,11 +60,19 @@ class SecureScriptDraftStore(context: Context) {
                     }
                 }
             }
-        }
+        }.toMutableList()
         val contents = linkedMapOf<String, String>()
         legacyPreferences.all.forEach { (key, value) ->
-            if (key.startsWith(LEGACY_DRAFT_PREFIX) && value is String) {
-                contents[key.removePrefix(LEGACY_DRAFT_PREFIX)] = value
+            if (key.startsWith(legacyDraftPrefix) && value is String) {
+                contents[key.removePrefix(legacyDraftPrefix)] = value
+            }
+        }
+        if (!isAdminNamespace) {
+            val legacyName = legacyPreferences.getString("draft_name", "").orEmpty().trim()
+            val legacyCode = legacyPreferences.getString("draft_code", "").orEmpty()
+            if (legacyName.isNotEmpty()) {
+                if (names.none { it.equals(legacyName, ignoreCase = true) }) names.add(legacyName)
+                contents[legacyName] = legacyCode
             }
         }
         val snapshot = ScriptDraftSnapshot(names, contents)
@@ -73,7 +97,7 @@ class SecureScriptDraftStore(context: Context) {
 
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
-        cipher.updateAAD(ASSOCIATED_DATA)
+        cipher.updateAAD(associatedData)
         val encrypted = cipher.doFinal(root.toString().toByteArray(Charsets.UTF_8))
         val iv = cipher.iv
         require(iv.size == GCM_IV_LENGTH_BYTES)
@@ -82,7 +106,7 @@ class SecureScriptDraftStore(context: Context) {
         System.arraycopy(iv, 0, payload, 0, iv.size)
         System.arraycopy(encrypted, 0, payload, iv.size, encrypted.size)
         val encoded = Base64.encodeToString(payload, Base64.NO_WRAP)
-        val editor = preferences.edit().putString(DATA_KEY, encoded)
+        val editor = preferences.edit().putString(dataKey, encoded)
         if (synchronous) {
             check(editor.commit()) { "Unable to persist encrypted script drafts." }
         } else {
@@ -102,7 +126,7 @@ class SecureScriptDraftStore(context: Context) {
             getOrCreateKey(),
             GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv)
         )
-        cipher.updateAAD(ASSOCIATED_DATA)
+        cipher.updateAAD(associatedData)
         val root = JSONObject(cipher.doFinal(ciphertext).toString(Charsets.UTF_8))
 
         val namesJson = root.optJSONArray("names") ?: JSONArray()
@@ -126,12 +150,12 @@ class SecureScriptDraftStore(context: Context) {
 
     private fun getOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
-        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        (keyStore.getKey(keyAlias, null) as? SecretKey)?.let { return it }
 
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
         generator.init(
             KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
+                keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -150,7 +174,6 @@ class SecureScriptDraftStore(context: Context) {
         const val GCM_TAG_LENGTH_BITS = 128
         const val GCM_TAG_LENGTH_BYTES = GCM_TAG_LENGTH_BITS / 8
         const val GCM_IV_LENGTH_BYTES = 12
-        val ASSOCIATED_DATA = "AUTU-LIO|script-drafts|v1".toByteArray(Charsets.UTF_8)
         const val ENCRYPTED_PREFERENCES = "autulio_encrypted_admin_drafts"
         const val LEGACY_PREFERENCES = "autulio_admin_drafts"
         const val DATA_KEY = "encrypted_payload_v1"

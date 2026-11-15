@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AUTU-LIO</string>
+    <string name="accessibility_service_label">AUTU-LIO Auto Click</string>
+    <string name="accessibility_service_description">Performs tap, long-press and swipe actions only for a script you explicitly choose to run. The service does not read screen content or collect text, and you can stop it at any time.</string>
+</resources>
