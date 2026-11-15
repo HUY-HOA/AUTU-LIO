@@ -70,13 +70,6 @@ internal fun CollaboratorsContent(onBack: () -> Unit) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextButton(onClick = onBack) {
-            Text(tr("← Quay lại", "← Back"))
-        }
-        Heading(
-            tr("Quản lý cộng tác viên", "Collaborator management"),
-            tr("Chuẩn bị lời mời và chọn quyền cho từng Gmail", "Prepare invitations and choose a role for each Google account")
-        )
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
