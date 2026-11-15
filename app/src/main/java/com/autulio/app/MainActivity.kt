@@ -240,17 +240,9 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     },
                     onPermissions = { page = "collaborators" }
                 )
-                "customers" -> AdminModulePage(
+                "customers" -> OwnerAutuLicensesScreen(
                     Modifier.padding(padding),
-                    title = tr("Khách hàng", "Customers"),
-                    subtitle = tr("Quản lý tài khoản và trạng thái khách hàng", "Manage customer accounts and status"),
-                    icon = Icons.Outlined.Group,
-                    details = listOf(
-                        tr("Hồ sơ và email tài khoản", "Customer profiles and account email"),
-                        tr("Số thiết bị đã liên kết", "Number of linked devices"),
-                        tr("Loại giấy phép và ngày hết hạn", "License type and expiry date"),
-                        tr("Lần hoạt động gần nhất", "Last active time")
-                    ),
+                    accessToken = accessToken,
                     onBack = { page = "overview" }
                 )
                 "devices" -> AdminModulePage(
@@ -900,6 +892,224 @@ private fun AdminModulePage(
             }
         }
         EmptyState(icon, tr("Chưa có dữ liệu", "No data yet"), tr("Dữ liệu thật sẽ hiển thị sau khi tích hợp xác thực và máy chủ.", "Live data will appear after authentication and server integration."))
+    }
+}
+
+@Composable
+private fun OwnerAutuLicensesScreen(
+    modifier: Modifier,
+    accessToken: String?,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val repository = remember(context) { AuthRepository(context) }
+    val scope = rememberCoroutineScope()
+    var autus by remember { mutableStateOf<List<com.autulio.app.auth.OwnerAutuProduct>>(emptyList()) }
+    var customers by remember { mutableStateOf<List<com.autulio.app.auth.AutuCustomer>>(emptyList()) }
+    var selectedAutuId by rememberSaveable { mutableStateOf("") }
+    var selectedCustomerId by rememberSaveable { mutableStateOf("") }
+    var durationDays by rememberSaveable { mutableStateOf("30") }
+    var maxDevices by rememberSaveable { mutableStateOf("1") }
+    var autuMenu by remember { mutableStateOf(false) }
+    var customerMenu by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("") }
+    var isError by remember { mutableStateOf(false) }
+
+    suspend fun refresh() {
+        if (accessToken.isNullOrBlank()) {
+            autus = emptyList()
+            customers = emptyList()
+            return
+        }
+        loading = true
+        try {
+            autus = repository.listOwnerAutus(accessToken)
+            customers = repository.listAutuCustomers(accessToken)
+            if (autus.none { it.id == selectedAutuId }) selectedAutuId = autus.firstOrNull()?.id.orEmpty()
+            if (customers.none { it.id == selectedCustomerId }) selectedCustomerId = customers.firstOrNull()?.id.orEmpty()
+            message = ""
+            isError = false
+        } catch (error: Exception) {
+            message = error.message ?: tr("Không tải được dữ liệu quản lý giấy phép.", "Could not load license management data.")
+            isError = true
+        } finally {
+            loading = false
+        }
+    }
+
+    LaunchedEffect(accessToken) { refresh() }
+
+    val selectedAutu = autus.firstOrNull { it.id == selectedAutuId }
+    val selectedCustomer = customers.firstOrNull { it.id == selectedCustomerId }
+    val days = durationDays.trim().toIntOrNull()
+    val devices = maxDevices.trim().toIntOrNull()
+    val canSave = !accessToken.isNullOrBlank() && selectedAutu != null && selectedCustomer != null &&
+        !saving && (durationDays.isBlank() || days in 1..36_500) && devices in 1..10
+
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
+            Spacer(Modifier.weight(1f))
+            if (loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            IconButton(onClick = { scope.launch { refresh() } }, enabled = !loading && !accessToken.isNullOrBlank()) {
+                Icon(Icons.Outlined.Refresh, contentDescription = tr("Tải lại dữ liệu", "Refresh data"))
+            }
+        }
+        Heading(tr("Cấp giấy phép AUTU", "AUTU licenses"), tr("Phát hành gói, gán khách hàng và kiểm soát thiết bị", "Publish packages, assign customers and control devices"))
+
+        if (accessToken.isNullOrBlank()) {
+            EmptyState(
+                Icons.Outlined.Lock,
+                tr("Cần phiên chủ sở hữu thật", "Owner sign-in required"),
+                tr("Chế độ xem trước không thể phát hành gói hoặc cấp giấy phép máy chủ.", "Preview mode cannot publish packages or grant server licenses.")
+            )
+        } else {
+            CardBox {
+                Text(tr("Kho AUTU đã phát hành", "Published AUTU catalog"), fontWeight = FontWeight.SemiBold)
+                if (autus.isEmpty() && !loading) {
+                    Text(
+                        tr("Chưa có gói nào. Mở AUTU, soạn mã Script 0.2 rồi chọn “Phát hành AUTU cho khách hàng”.", "No packages yet. Open AUTU, write a Script 0.2 source, then choose “Publish AUTU for customers”."),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                autus.forEach { autu ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(autu.name, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                tr("Phiên bản ${autu.version ?: "—"} · ${autu.activeLicenses} giấy phép đang hoạt động", "Version ${autu.version ?: "—"} · ${autu.activeLicenses} active licenses"),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (autu.id == selectedAutuId) {
+                            Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    if (autu.id != autus.lastOrNull()?.id) Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+
+            CardBox {
+                Text(tr("Gán hoặc gia hạn giấy phép", "Assign or renew a license"), fontWeight = FontWeight.SemiBold)
+                Box {
+                    OutlinedButton(onClick = { autuMenu = true }, modifier = Modifier.fillMaxWidth(), enabled = autus.isNotEmpty()) {
+                        Text(selectedAutu?.name ?: tr("Chọn AUTU đã phát hành", "Select a published AUTU"), modifier = Modifier.weight(1f))
+                        Icon(Icons.Outlined.ArrowDropDown, null)
+                    }
+                    DropdownMenu(expanded = autuMenu, onDismissRequest = { autuMenu = false }) {
+                        autus.forEach { autu ->
+                            DropdownMenuItem(
+                                text = { Text(autu.name + " · " + (autu.version ?: "—")) },
+                                onClick = { selectedAutuId = autu.id; autuMenu = false }
+                            )
+                        }
+                    }
+                }
+                Box {
+                    OutlinedButton(onClick = { customerMenu = true }, modifier = Modifier.fillMaxWidth(), enabled = customers.isNotEmpty()) {
+                        Text(selectedCustomer?.email ?: tr("Chọn tài khoản khách hàng", "Select a customer account"), modifier = Modifier.weight(1f))
+                        Icon(Icons.Outlined.ArrowDropDown, null)
+                    }
+                    DropdownMenu(expanded = customerMenu, onDismissRequest = { customerMenu = false }) {
+                        customers.forEach { customer ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(customer.email)
+                                        Text(customer.displayName.orEmpty(), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                },
+                                onClick = { selectedCustomerId = customer.id; customerMenu = false }
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = durationDays,
+                    onValueChange = { durationDays = it.filter(Char::isDigit).take(5) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text(tr("Thời hạn (ngày)", "Duration (days)")) },
+                    supportingText = { Text(tr("Để trống nếu giấy phép không có ngày hết hạn.", "Leave blank for a license without an expiry date.")) }
+                )
+                OutlinedTextField(
+                    value = maxDevices,
+                    onValueChange = { maxDevices = it.filter(Char::isDigit).take(2) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text(tr("Số thiết bị tối đa (1–10)", "Maximum devices (1–10)")) }
+                )
+                Button(
+                    onClick = {
+                        val token = accessToken ?: return@Button
+                        val autu = selectedAutu ?: return@Button
+                        val customer = selectedCustomer ?: return@Button
+                        saving = true
+                        scope.launch {
+                            try {
+                                val expiresAt = days?.let { System.currentTimeMillis() / 1000 + it.toLong() * 86_400L }
+                                repository.setAutuLicense(token, autu.id, customer.id, "ACTIVE", expiresAt, devices ?: 1)
+                                message = tr("Đã cấp hoặc gia hạn giấy phép cho ${customer.email}.", "License granted or renewed for ${customer.email}.")
+                                isError = false
+                                refresh()
+                            } catch (error: Exception) {
+                                message = error.message ?: tr("Không cấp được giấy phép.", "Could not grant the license.")
+                                isError = true
+                            } finally {
+                                saving = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = canSave
+                ) {
+                    if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.Outlined.VerifiedUser, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Cấp / gia hạn giấy phép", "Grant / renew license"))
+                }
+                OutlinedButton(
+                    onClick = {
+                        val token = accessToken ?: return@OutlinedButton
+                        val autu = selectedAutu ?: return@OutlinedButton
+                        val customer = selectedCustomer ?: return@OutlinedButton
+                        saving = true
+                        scope.launch {
+                            try {
+                                repository.setAutuLicense(token, autu.id, customer.id, "REVOKED", null, devices ?: 1)
+                                message = tr("Đã thu hồi giấy phép của ${customer.email} và vô hiệu hóa thiết bị liên kết.", "License for ${customer.email} was revoked and linked devices disabled.")
+                                isError = false
+                                refresh()
+                            } catch (error: Exception) {
+                                message = error.message ?: tr("Không thu hồi được giấy phép.", "Could not revoke the license.")
+                                isError = true
+                            } finally {
+                                saving = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !saving && selectedAutu != null && selectedCustomer != null && !accessToken.isNullOrBlank()
+                ) {
+                    Icon(Icons.Outlined.Block, null, tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.width(7.dp))
+                    Text(tr("Thu hồi giấy phép đã chọn", "Revoke selected license"))
+                }
+            }
+        }
+        if (message.isNotBlank()) {
+            Text(message, color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+        }
     }
 }
 
