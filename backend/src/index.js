@@ -953,6 +953,312 @@ async function reviewProjectSubmission(request, env, session, projectId, submiss
   return response(request, { reviewed: true, submissionId, status, reviewedAt: now }, 200, env);
 }
 
+
+const AUTU_SOURCE_LIMIT = 32_768;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function packageMasterKey(env) {
+  if (typeof env.AUTU_PACKAGE_MASTER_KEY !== "string" || !env.AUTU_PACKAGE_MASTER_KEY.trim()) {
+    throw new HttpError(503, "package_encryption_not_configured", "AUTU package encryption is not configured.");
+  }
+  let raw;
+  try {
+    raw = base64UrlDecode(env.AUTU_PACKAGE_MASTER_KEY.trim());
+  } catch {
+    throw new HttpError(503, "package_encryption_key_invalid", "AUTU package encryption key is invalid.");
+  }
+  if (raw.byteLength !== 32) {
+    throw new HttpError(503, "package_encryption_key_invalid", "AUTU package encryption key must contain exactly 32 bytes.");
+  }
+  return crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+function autuPackageAad(autuId, version, purpose) {
+  return encoder.encode("AUTU-LIO|AUTU-package|v1|" + autuId + "|" + version + "|" + purpose);
+}
+
+async function encryptAutuSource(source, autuId, version, env) {
+  const masterKey = await packageMasterKey(env);
+  const rawDataKey = crypto.getRandomValues(new Uint8Array(32));
+  const dataKey = await crypto.subtle.importKey("raw", rawDataKey, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+  const sourceIv = crypto.getRandomValues(new Uint8Array(12));
+  const wrappedKeyIv = crypto.getRandomValues(new Uint8Array(12));
+  const sourceCiphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: sourceIv, additionalData: autuPackageAad(autuId, version, "source"), tagLength: 128 },
+    dataKey,
+    encoder.encode(source)
+  );
+  const wrappedDataKey = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: wrappedKeyIv, additionalData: autuPackageAad(autuId, version, "data-key"), tagLength: 128 },
+    masterKey,
+    rawDataKey
+  );
+  rawDataKey.fill(0);
+  return {
+    sourceCiphertext: base64UrlEncode(new Uint8Array(sourceCiphertext)),
+    sourceIv: base64UrlEncode(sourceIv),
+    wrappedDataKey: base64UrlEncode(new Uint8Array(wrappedDataKey)),
+    wrappedKeyIv: base64UrlEncode(wrappedKeyIv),
+    sourceSha256: await sha256(source)
+  };
+}
+
+async function decryptAutuSource(release, env) {
+  const masterKey = await packageMasterKey(env);
+  try {
+    const wrappedKey = await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: base64UrlDecode(release.wrapped_key_iv),
+        additionalData: autuPackageAad(release.autu_id, release.version, "data-key"),
+        tagLength: 128
+      },
+      masterKey,
+      base64UrlDecode(release.wrapped_data_key)
+    );
+    const dataKey = await crypto.subtle.importKey("raw", wrappedKey, { name: "AES-GCM" }, false, ["decrypt"]);
+    const plaintext = await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: base64UrlDecode(release.source_iv),
+        additionalData: autuPackageAad(release.autu_id, release.version, "source"),
+        tagLength: 128
+      },
+      dataKey,
+      base64UrlDecode(release.source_ciphertext)
+    );
+    const source = new TextDecoder("utf-8", { fatal: true }).decode(plaintext);
+    if (source.length > AUTU_SOURCE_LIMIT || (await sha256(source)) !== release.source_sha256) {
+      throw new Error("Package integrity check failed.");
+    }
+    return source;
+  } catch {
+    throw new HttpError(500, "package_integrity_error", "The encrypted AUTU package could not be verified.");
+  }
+}
+
+async function publishAutuProduct(request, env, session) {
+  await requireRole(session, ["OWNER"]);
+  const body = await readBody(request, 56_000);
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  const source = typeof body.source === "string" ? body.source : "";
+  const version = typeof body.version === "string" ? body.version.trim() : "1.0.0";
+  const languageVersion = typeof body.languageVersion === "string" ? body.languageVersion.trim() : "0.2";
+
+  if (name.length < 1 || name.length > 100) throw new HttpError(400, "invalid_autu_name", "AUTU name must contain 1 to 100 characters.");
+  if (description.length > 500) throw new HttpError(400, "invalid_autu_description", "AUTU description must not exceed 500 characters.");
+  if (!source.trim() || source.length > AUTU_SOURCE_LIMIT) throw new HttpError(413, "invalid_autu_source", "AUTU source is empty or exceeds the 32,768-character limit.");
+  if (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(version)) throw new HttpError(400, "invalid_autu_version", "AUTU version must use MAJOR.MINOR.PATCH format.");
+  if (!/^0\.2$/.test(languageVersion)) throw new HttpError(400, "unsupported_language_version", "Only AUTU language version 0.2 can be published.");
+  const now = Math.floor(Date.now() / 1000);
+  const autuId = crypto.randomUUID();
+  const releaseId = crypto.randomUUID();
+  const encrypted = await encryptAutuSource(source, autuId, version, env);
+
+  try {
+    await env.DB.batch([
+      env.DB.prepare(
+        "INSERT INTO autu_products (id, name, description, status, created_by, created_at, updated_at) VALUES (?, ?, ?, 'PUBLISHED', ?, ?, ?)"
+      ).bind(autuId, name, description, session.user_id, now, now),
+      env.DB.prepare(
+        "INSERT INTO autu_releases (id, autu_id, version, language_version, source_ciphertext, source_iv, wrapped_data_key, wrapped_key_iv, source_sha256, status, created_by, created_at) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)"
+      ).bind(
+        releaseId, autuId, version, languageVersion,
+        encrypted.sourceCiphertext, encrypted.sourceIv, encrypted.wrappedDataKey,
+        encrypted.wrappedKeyIv, encrypted.sourceSha256, session.user_id, now
+      )
+    ]);
+  } catch (error) {
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "autu_name_exists", "An AUTU with this name already exists.");
+    }
+    throw error;
+  }
+  await audit(env, session.user_id, "autu.product_published", "autu_product", autuId, {
+    releaseId, version, languageVersion, sourceSha256: encrypted.sourceSha256
+  });
+  return response(request, {
+    published: true,
+    product: { id: autuId, name, description, status: "PUBLISHED" },
+    release: { id: releaseId, version, languageVersion, sourceSha256: encrypted.sourceSha256, createdAt: now }
+  }, 201, env);
+}
+
+async function publishAutuRelease(request, env, session, autuId) {
+  await requireRole(session, ["OWNER"]);
+  if (!UUID_PATTERN.test(autuId)) throw new HttpError(400, "invalid_autu_id", "AUTU ID is invalid.");
+  const product = await env.DB.prepare(
+    "SELECT id, name, status FROM autu_products WHERE id = ?"
+  ).bind(autuId).first();
+  if (!product || product.status !== "PUBLISHED") throw new HttpError(404, "autu_not_found", "Published AUTU was not found.");
+
+  const body = await readBody(request, 56_000);
+  const source = typeof body.source === "string" ? body.source : "";
+  const version = typeof body.version === "string" ? body.version.trim() : "";
+  const languageVersion = typeof body.languageVersion === "string" ? body.languageVersion.trim() : "0.2";
+  if (!source.trim() || source.length > AUTU_SOURCE_LIMIT) throw new HttpError(413, "invalid_autu_source", "AUTU source is empty or exceeds the 32,768-character limit.");
+  if (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(version)) throw new HttpError(400, "invalid_autu_version", "AUTU version must use MAJOR.MINOR.PATCH format.");
+  if (languageVersion !== "0.2") throw new HttpError(400, "unsupported_language_version", "Only AUTU language version 0.2 can be published.");
+  const now = Math.floor(Date.now() / 1000);
+  const releaseId = crypto.randomUUID();
+  const encrypted = await encryptAutuSource(source, autuId, version, env);
+  try {
+    await env.DB.prepare(
+      "INSERT INTO autu_releases (id, autu_id, version, language_version, source_ciphertext, source_iv, wrapped_data_key, wrapped_key_iv, source_sha256, status, created_by, created_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)"
+    ).bind(
+      releaseId, autuId, version, languageVersion,
+      encrypted.sourceCiphertext, encrypted.sourceIv, encrypted.wrappedDataKey,
+      encrypted.wrappedKeyIv, encrypted.sourceSha256, session.user_id, now
+    ).run();
+  } catch (error) {
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "autu_version_exists", "This AUTU version already exists.");
+    }
+    throw error;
+  }
+  await env.DB.prepare("UPDATE autu_products SET updated_at = ? WHERE id = ?").bind(now, autuId).run();
+  await audit(env, session.user_id, "autu.release_published", "autu_release", releaseId, {
+    autuId, version, sourceSha256: encrypted.sourceSha256
+  });
+  return response(request, {
+    published: true,
+    release: { id: releaseId, autuId, version, languageVersion, sourceSha256: encrypted.sourceSha256, createdAt: now }
+  }, 201, env);
+}
+
+async function setAutuLicense(request, env, session, autuId, userId) {
+  await requireRole(session, ["OWNER"]);
+  if (!UUID_PATTERN.test(autuId) || !UUID_PATTERN.test(userId)) {
+    throw new HttpError(400, "invalid_license_target", "AUTU or customer ID is invalid.");
+  }
+  const body = await readBody(request);
+  const status = String(body.status || "ACTIVE").toUpperCase();
+  const expiresAt = body.expiresAt == null ? null : Number(body.expiresAt);
+  const maxDevices = Number(body.maxDevices ?? 1);
+  if (!["ACTIVE", "SUSPENDED", "REVOKED"].includes(status)) {
+    throw new HttpError(400, "invalid_license_status", "License status is invalid.");
+  }
+  if (expiresAt !== null && (!Number.isInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000))) {
+    throw new HttpError(400, "invalid_license_expiry", "License expiry must be a future Unix timestamp or null.");
+  }
+  if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 10) {
+    throw new HttpError(400, "invalid_device_limit", "Maximum linked devices must be from 1 to 10.");
+  }
+  const [product, customer] = await Promise.all([
+    env.DB.prepare("SELECT id FROM autu_products WHERE id = ? AND status = 'PUBLISHED'").bind(autuId).first(),
+    env.DB.prepare("SELECT id, role, status FROM users WHERE id = ?").bind(userId).first()
+  ]);
+  if (!product) throw new HttpError(404, "autu_not_found", "Published AUTU was not found.");
+  if (!customer || customer.role !== "CUSTOMER" || customer.status !== "ACTIVE") {
+    throw new HttpError(404, "customer_not_found", "An active customer account was not found.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const existing = await env.DB.prepare(
+    "SELECT id FROM autu_licenses WHERE autu_id = ? AND user_id = ?"
+  ).bind(autuId, userId).first();
+  const licenseId = existing?.id || crypto.randomUUID();
+  if (existing) {
+    await env.DB.prepare(
+      "UPDATE autu_licenses SET status = ?, starts_at = ?, expires_at = ?, max_devices = ?, updated_by = ?, updated_at = ? WHERE id = ?"
+    ).bind(status, now, expiresAt, maxDevices, session.user_id, now, licenseId).run();
+  } else {
+    await env.DB.prepare(
+      "INSERT INTO autu_licenses (id, autu_id, user_id, status, starts_at, expires_at, max_devices, created_by, updated_by, created_at, updated_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(licenseId, autuId, userId, status, now, expiresAt, maxDevices, session.user_id, session.user_id, now, now).run();
+  }
+  if (status !== "ACTIVE") {
+    await env.DB.prepare("UPDATE autu_license_devices SET status = 'REVOKED' WHERE license_id = ?").bind(licenseId).run();
+  }
+  await audit(env, session.user_id, "autu.license_updated", "autu_license", licenseId, {
+    autuId, userId, status, expiresAt, maxDevices
+  });
+  return response(request, { updated: true, licenseId, autuId, userId, status, expiresAt, maxDevices }, 200, env);
+}
+
+async function listLicensedAutus(request, env, session) {
+  await requirePermission(env, session, "RUN_PUBLISHED_SCRIPTS");
+  const now = Math.floor(Date.now() / 1000);
+  const result = await env.DB.prepare(
+    "SELECT p.id, p.name, p.description, r.id AS release_id, r.version, r.language_version, r.source_sha256, r.created_at AS release_created_at, " +
+    "l.id AS license_id, l.expires_at, l.max_devices " +
+    "FROM autu_licenses l JOIN autu_products p ON p.id = l.autu_id " +
+    "JOIN autu_releases r ON r.id = (SELECT r2.id FROM autu_releases r2 WHERE r2.autu_id = p.id AND r2.status = 'PUBLISHED' ORDER BY r2.created_at DESC LIMIT 1) " +
+    "WHERE l.user_id = ? AND l.status = 'ACTIVE' AND l.starts_at <= ? AND (l.expires_at IS NULL OR l.expires_at > ?) " +
+    "AND p.status = 'PUBLISHED' ORDER BY p.name COLLATE NOCASE"
+  ).bind(session.user_id, now, now).all();
+  return response(request, { autus: result.results || [] }, 200, env);
+}
+
+async function downloadLicensedAutu(request, env, session, autuId) {
+  await requirePermission(env, session, "RUN_PUBLISHED_SCRIPTS");
+  if (!UUID_PATTERN.test(autuId)) throw new HttpError(400, "invalid_autu_id", "AUTU ID is invalid.");
+  const now = Math.floor(Date.now() / 1000);
+  const license = await env.DB.prepare(
+    "SELECT l.id AS license_id, l.max_devices, p.id AS autu_id, p.name, p.description, r.id AS release_id, r.version, r.language_version, " +
+    "r.source_ciphertext, r.source_iv, r.wrapped_data_key, r.wrapped_key_iv, r.source_sha256, r.created_at " +
+    "FROM autu_licenses l JOIN autu_products p ON p.id = l.autu_id " +
+    "JOIN autu_releases r ON r.id = (SELECT r2.id FROM autu_releases r2 WHERE r2.autu_id = p.id AND r2.status = 'PUBLISHED' ORDER BY r2.created_at DESC LIMIT 1) " +
+    "WHERE l.user_id = ? AND l.autu_id = ? AND l.status = 'ACTIVE' AND l.starts_at <= ? AND (l.expires_at IS NULL OR l.expires_at > ?) AND p.status = 'PUBLISHED'"
+  ).bind(session.user_id, autuId, now, now).first();
+  if (!license) throw new HttpError(403, "autu_license_required", "An active license is required to run this AUTU.");
+
+  const url = new URL(request.url);
+  const installId = url.searchParams.get("installId") || "";
+  const deviceLabel = (url.searchParams.get("deviceLabel") || "").trim().slice(0, 100);
+  const appVersion = (url.searchParams.get("appVersion") || "").trim().slice(0, 30);
+  if (!UUID_PATTERN.test(installId)) throw new HttpError(400, "invalid_device_id", "A valid installation ID is required.");
+  const existingDevice = await env.DB.prepare(
+    "SELECT id, status FROM autu_license_devices WHERE license_id = ? AND install_id = ?"
+  ).bind(license.license_id, installId).first();
+  if (existingDevice?.status === "REVOKED") {
+    throw new HttpError(403, "device_revoked", "This device has been removed from the license.");
+  }
+  if (existingDevice) {
+    await env.DB.prepare(
+      "UPDATE autu_license_devices SET last_seen_at = ?, device_label = ?, app_version = ? WHERE id = ? AND status = 'ACTIVE'"
+    ).bind(now, deviceLabel, appVersion, existingDevice.id).run();
+  } else {
+    const count = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM autu_license_devices WHERE license_id = ? AND status = 'ACTIVE'"
+    ).bind(license.license_id).first();
+    if (Number(count?.count || 0) >= license.max_devices) {
+      throw new HttpError(403, "device_limit_reached", "The license has reached its linked-device limit.");
+    }
+    await env.DB.prepare(
+      "INSERT INTO autu_license_devices (id, license_id, install_id, device_label, app_version, status, registered_at, last_seen_at) " +
+      "VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?)"
+    ).bind(crypto.randomUUID(), license.license_id, installId, deviceLabel, appVersion, now, now).run();
+  }
+
+  const source = await decryptAutuSource(license, env);
+  await audit(env, session.user_id, "autu.package_downloaded", "autu_release", license.release_id, {
+    autuId, version: license.version
+  });
+  return response(request, {
+    package: {
+      id: license.autu_id,
+      name: license.name,
+      description: license.description,
+      releaseId: license.release_id,
+      version: license.version,
+      languageVersion: license.language_version,
+      source,
+      sourceSha256: license.source_sha256,
+      createdAt: license.created_at
+    },
+    license: {
+      id: license.license_id,
+      expiresAt: license.expires_at,
+      maxDevices: license.max_devices
+    },
+    downloadedAt: now
+  }, 200, env);
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
