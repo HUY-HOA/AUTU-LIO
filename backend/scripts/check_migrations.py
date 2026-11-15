@@ -27,6 +27,7 @@ required_tables = {
     "change_submissions",
     "licenses",
     "devices",
+    "device_enrollment_challenges",
 }
 actual_tables = {
     row[0]
