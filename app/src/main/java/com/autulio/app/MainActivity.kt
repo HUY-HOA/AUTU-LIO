@@ -54,7 +54,7 @@ private fun AutuLioAppEntry() {
         val role = runCatching { AccessRole.valueOf(previewRole.orEmpty()) }
             .getOrDefault(AccessRole.CUSTOMER)
         when (role) {
-            AccessRole.OWNER -> AdminApp(onLogout = { previewRole = null })
+            AccessRole.OWNER -> AdminApp(accessToken = null, onLogout = { previewRole = null })
             AccessRole.CUSTOMER -> CustomerApp(email = tr("Tài khoản xem thử", "Preview account"), onLogout = { previewRole = null })
             AccessRole.DEVELOPER,
             AccessRole.DESIGNER,
@@ -163,7 +163,7 @@ private val customerTabs = listOf(
 )
 
 @Composable
-internal fun AdminApp(onLogout: () -> Unit) {
+internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
     val context = LocalContext.current
     val preferences = remember(context) {
         context.getSharedPreferences("autulio_admin_drafts", Context.MODE_PRIVATE)
@@ -280,7 +280,8 @@ internal fun AdminApp(onLogout: () -> Unit) {
                     onSelect = { page = it },
                     onTheme = { dark = !dark },
                     onMessage = { scope.launch { host.showSnackbar(it) } },
-                    onLogout = onLogout
+                    onLogout = onLogout,
+                    accessToken = accessToken
                 )
             }
         }
@@ -496,7 +497,8 @@ private fun MoreScreen(
     onSelect: (String) -> Unit,
     onTheme: () -> Unit,
     onMessage: (String) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    accessToken: String?
 ) {
     val items = listOf(
         Triple("collaborators", tr("Cộng tác viên", "Collaborators"), Icons.Outlined.PersonAdd),
@@ -549,7 +551,7 @@ private fun MoreScreen(
                 }
             )
             when (page) {
-                "collaborators" -> CollaboratorsContent(onBack = { onSelect("more") })
+                "collaborators" -> CollaboratorsContent(accessToken = accessToken, onBack = { onSelect("more") })
                 "licenses" -> {
                     CardBox {
                         Text(tr("Thông tin giấy phép", "License information"), fontWeight = FontWeight.SemiBold)
