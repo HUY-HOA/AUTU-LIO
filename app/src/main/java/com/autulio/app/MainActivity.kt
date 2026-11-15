@@ -240,7 +240,8 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     onOpen = { name ->
                         editorLauncher.launch(ScriptEditorActivity.intent(context, name))
                     },
-                    onPermissions = { page = "collaborators" }
+                    onPermissions = { page = "collaborators" },
+                    onPackages = { page = "packages" }
                 )
                 "customers" -> CustomersAdminScreen(
                     accessToken = accessToken,
@@ -476,7 +477,8 @@ private fun ScriptsScreen(
     scripts: List<String>,
     onCreate: () -> Unit,
     onOpen: (String) -> Unit,
-    onPermissions: () -> Unit
+    onPermissions: () -> Unit,
+    onPackages: () -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
@@ -505,6 +507,12 @@ private fun ScriptsScreen(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            IconButton(
+                onClick = onPackages,
+                modifier = Modifier.size(42.dp)
+            ) {
+                Icon(Icons.Outlined.CloudUpload, contentDescription = tr("Mở gói AUTU", "Open AUTU packages"))
             }
             OutlinedButton(
                 onClick = onPermissions,
@@ -535,16 +543,16 @@ private fun ScriptsScreen(
             placeholder = { Text(tr("Tìm kiếm kịch bản", "Search scripts")) }
         )
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("all" to tr("Tất cả", "All"), "draft" to tr("Bản nháp", "Draft"), "published" to tr("Đã phát hành", "Published")).forEach {
+            listOf("all" to tr("Tất cả", "All"), "draft" to tr("Bản nháp", "Draft")).forEach {
                 FilterChip(filter == it.first, onClick = { filter = it.first }, label = { Text(it.second) })
             }
         }
-        Text(tr("Bản nháp được lưu trên thiết bị này; chưa đồng bộ máy chủ.", "Drafts are saved on this device and are not synced to a server."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tr("Bản nháp được mã hóa và lưu trên thiết bị. Dùng mục Gói AUTU để phát hành hoặc quản lý phiên bản.", "Drafts are encrypted on this device. Use AUTU packages to publish or manage versions."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (filtered.isEmpty()) {
             EmptyState(
                 Icons.Outlined.ListAlt,
-                if (filter == "published") tr("Chưa có kịch bản phát hành", "No published scripts") else tr("Chưa có kịch bản nào", "No scripts yet"),
-                if (filter == "published") tr("Các kịch bản đã phát hành sẽ xuất hiện tại đây sau khi được kết nối.", "Published scripts will appear here after the service is connected.") else tr("Tạo kịch bản đầu tiên để bắt đầu.", "Create your first script to get started.")
+                tr("Chưa có bản nháp nào", "No drafts yet"),
+                tr("Tạo AUTU đầu tiên để bắt đầu xây dựng và phát hành.", "Create your first AUTU to start building and publishing.")
             )
         } else filtered.forEach { name ->
             Card(
@@ -557,7 +565,7 @@ private fun ScriptsScreen(
                         Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                         Text(tr("Bản nháp", "Draft"), color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
                     }
-                    Text(tr("Chạm để mở trình soạn thảo prototype.", "Tap to open the editor prototype."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    Text(tr("Chạm để mở trình soạn thảo AUTU và chỉnh sửa mã nguồn.", "Tap to open the AUTU editor and modify its source."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
             }
         }
@@ -573,7 +581,7 @@ private fun EditorScreen(
     onBack: () -> Unit,
     onMessage: (String) -> Unit,
     onSaveDraft: () -> Unit,
-    allowTest: Boolean,
+    allowRun: Boolean,
     onPrepareRun: (String) -> Unit
 ) {
     var validationText by rememberSaveable { mutableStateOf("") }
@@ -586,8 +594,8 @@ private fun EditorScreen(
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(
             tr(
-                "Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. AUTU-LIO Script 0.1 hỗ trợ tap, longPress, swipe, wait và repeat.",
-                "Choose a built-in template, or write and edit your own source below. AUTU-LIO Script 0.1 supports tap, longPress, swipe, wait and repeat."
+                "Chọn mẫu có sẵn hoặc tự viết mã AUTU. Phiên bản ngôn ngữ hiện tại: ${ScriptCompiler.LANGUAGE_VERSION}. Có thể dùng thao tác, biến, biểu thức, điều kiện, vòng lặp và lệnh hệ thống Android được hỗ trợ.",
+                "Choose a built-in template or write AUTU source. Current language version: ${ScriptCompiler.LANGUAGE_VERSION}. Supported features include gestures, variables, expressions, conditions, loops and Android system actions."
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
@@ -654,7 +662,7 @@ private fun EditorScreen(
                 },
                 modifier = Modifier.weight(1f)
             ) { Text(tr("Kiểm tra mã", "Check code")) }
-            if (allowTest) {
+            if (allowRun) {
                 Button(
                     onClick = { onPrepareRun(code) },
                     modifier = Modifier.weight(1f)
@@ -763,6 +771,10 @@ private fun EditorScreen(
                     Text("LẶP_ĐẾN_KHI (ten >= 10) { ... }  ·  " + tr("Lặp đến khi điều kiện đúng", "Repeat until a condition is true"))
                     Text("CHỜ_ĐẾN_KHI(điều_kiện, thời_hạn_ms, chu_kỳ_ms)")
                     Text("PIN(), ĐANG_SẠC(), CÓ_MẠNG(), MÀN_HÌNH_SÁNG()")
+                    Text("ỨNG_DỤNG_ĐÃ_CÀI(\"com.example.app\"), ỨNG_DỤNG_ĐANG_MỞ(\"com.example.app\")")
+                    Text("QUAY_LẠI(), VỀ_MÀN_HÌNH_CHÍNH(), ỨNG_DỤNG_GẦN_ĐÂY()")
+                    Text("MỞ_THÔNG_BÁO(), MỞ_CÀI_ĐẶT_NHANH(), HIỆN_MENU_NGUỒN()")
+                    Text("KHÓA_MÀN_HÌNH(), CHIA_MÀN_HÌNH()")
                     Text(
                         tr("3. Nhấn Kiểm tra mã để tìm lỗi cú pháp. Chỉ khi mã hợp lệ mới chuẩn bị được cửa sổ chạy.", "3. Tap Check code to find syntax errors. Only valid code can be prepared for running.")
                     )
@@ -773,7 +785,7 @@ private fun EditorScreen(
                         tr("5. Khi cửa sổ chạy xuất hiện, chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi. Có thể Tạm dừng, Tiếp tục, Dừng hoặc thu nhỏ bất cứ lúc nào.", "5. When the runner appears, switch to the target app and press Run on the floating window. You can pause, resume, stop or collapse it.")
                     )
                     Text(
-                        tr("Biến, phép tính, điều kiện, vòng lặp và các hàm trạng thái thiết bị đang được hỗ trợ. Quét ảnh/OCR và các hàm Android nâng cao chỉ hiển thị khi đã được tích hợp và cấp quyền phù hợp. Luôn kiểm tra tọa độ và tên gói trước khi chạy.", "Variables, expressions, conditions, loops and device-state functions are supported. Image/OCR and advanced Android functions are only available when integrated and properly authorized. Verify coordinates and package names before running.")
+                        tr("Các lệnh hệ thống cần quyền Trợ năng do bạn tự cấp trong Android. Khóa màn hình chỉ hỗ trợ Android 9 trở lên; chia màn hình chỉ chạy khi hệ thống công bố thao tác này. Quét ảnh và OCR chưa được tích hợp trong bản hiện tại.", "System actions require Accessibility access that you grant in Android. Lock screen requires Android 9 or later; split screen runs only when the system exposes that action. Image scanning and OCR are not integrated in this build.")
                     )
                 }
             },
@@ -1407,19 +1419,19 @@ class ScriptEditorActivity : ComponentActivity() {
             context: Context,
             scriptName: String,
             namespace: String = "admin",
-            allowTest: Boolean = true
+            allowRun: Boolean = true
         ): Intent =
             Intent(context, ScriptEditorActivity::class.java)
                 .putExtra(EXTRA_SCRIPT_NAME, scriptName)
                 .putExtra(EXTRA_NAMESPACE, namespace)
-                .putExtra(EXTRA_ALLOW_TEST, allowTest)
+                .putExtra(EXTRA_ALLOW_TEST, allowRun)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val scriptName = intent.getStringExtra(EXTRA_SCRIPT_NAME)?.trim().orEmpty()
         val namespace = intent.getStringExtra(EXTRA_NAMESPACE) ?: "admin"
-        val allowTest = intent.getBooleanExtra(EXTRA_ALLOW_TEST, false)
+        val allowRun = intent.getBooleanExtra(EXTRA_ALLOW_TEST, false)
         if (scriptName.isBlank() || namespace !in setOf("admin", "developer")) {
             finish()
             return
@@ -1464,9 +1476,9 @@ class ScriptEditorActivity : ComponentActivity() {
                                 )
                             }
                         },
-                        allowTest = allowTest,
+                        allowRun = allowRun,
                         onPrepareRun = { source ->
-                            if (!allowTest) return@EditorScreen
+                            if (!allowRun) return@EditorScreen
                             store.save(initialNames, initial.contents + (scriptName to source))
                             setResult(Activity.RESULT_OK)
                             val compilation = ScriptCompiler.compile(source)
