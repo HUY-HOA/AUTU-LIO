@@ -136,6 +136,31 @@ object ScriptCompiler {
         return count to duration
     }
 
+    private fun constantNumber(expression: ScriptExpression): Double? = when (expression) {
+        is ScriptExpression.NumberLiteral -> expression.value
+        is ScriptExpression.Unary -> {
+            val value = constantNumber(expression.operand) ?: return null
+            when (expression.operator) {
+                "-" -> -value
+                "+" -> value
+                else -> null
+            }
+        }
+        is ScriptExpression.Binary -> {
+            val left = constantNumber(expression.left) ?: return null
+            val right = constantNumber(expression.right) ?: return null
+            when (expression.operator) {
+                "+" -> left + right
+                "-" -> left - right
+                "*" -> left * right
+                "/" -> if (right == 0.0) null else left / right
+                "%" -> if (right == 0.0) null else left % right
+                else -> null
+            }?.takeIf { it.isFinite() }
+        }
+        else -> null
+    }
+
     private fun expressionUpperBound(expression: ScriptExpression?, fallback: Long): Long =
         (expression as? ScriptExpression.NumberLiteral)?.value?.takeIf { it.isFinite() && it >= 0.0 }?.toLong() ?: fallback
 
@@ -386,14 +411,14 @@ object ScriptCompiler {
                 else -> emptySet()
             }
             for (index in coordinateIndexes) {
-                val value = (args[index] as? ScriptExpression.NumberLiteral)?.value ?: continue
+                val value = constantNumber(args[index]) ?: continue
                 if (!value.isFinite() || value < 0.0 || value > MAX_COORDINATE) {
                     fail(name.line, name.column, "coordinate_range", "Tọa độ phải từ 0 đến $MAX_COORDINATE.", "Coordinates must be between 0 and $MAX_COORDINATE.")
                 }
             }
             val durationIndex = if (command in setOf("CHỜ", "NHẤN_GIỮ", "VUỐT")) args.lastIndex else -1
             if (durationIndex >= 0) {
-                val value = (args[durationIndex] as? ScriptExpression.NumberLiteral)?.value ?: return
+                val value = constantNumber(args[durationIndex]) ?: return
                 val min = if (command == "NHẤN_GIỮ") 100.0 else 1.0
                 val max = if (command == "CHỜ") MAX_WAIT_MS.toDouble() else MAX_GESTURE_MS.toDouble()
                 if (!value.isFinite() || value < min || value > max) {
