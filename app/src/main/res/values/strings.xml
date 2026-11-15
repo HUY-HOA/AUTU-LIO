@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AUTU-LIO</string>
+    <string name="accessibility_service_label">AUTU-LIO Auto Click</string>
+    <string name="accessibility_service_description">Chỉ thực hiện thao tác chạm, nhấn giữ và vuốt trong kịch bản mà bạn chủ động chọn chạy. Dịch vụ không đọc nội dung màn hình, không thu thập văn bản và có thể dừng bất cứ lúc nào.</string>
 </resources>
