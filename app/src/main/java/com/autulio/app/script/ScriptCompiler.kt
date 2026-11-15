@@ -136,29 +136,31 @@ object ScriptCompiler {
         return count to duration
     }
 
-    private fun constantNumber(expression: ScriptExpression): Double? = when (expression) {
-        is ScriptExpression.NumberLiteral -> expression.value
-        is ScriptExpression.Unary -> {
-            val value = constantNumber(expression.operand) ?: return null
-            when (expression.operator) {
-                "-" -> -value
-                "+" -> value
-                else -> null
+    private fun constantNumber(expression: ScriptExpression): Double? {
+        return when (expression) {
+            is ScriptExpression.NumberLiteral -> expression.value
+            is ScriptExpression.Unary -> {
+                val value = constantNumber(expression.operand) ?: return null
+                when (expression.operator) {
+                    "-" -> -value
+                    "+" -> value
+                    else -> null
+                }
             }
+            is ScriptExpression.Binary -> {
+                val left = constantNumber(expression.left) ?: return null
+                val right = constantNumber(expression.right) ?: return null
+                when (expression.operator) {
+                    "+" -> left + right
+                    "-" -> left - right
+                    "*" -> left * right
+                    "/" -> if (right == 0.0) null else left / right
+                    "%" -> if (right == 0.0) null else left % right
+                    else -> null
+                }?.takeIf { it.isFinite() }
+            }
+            else -> null
         }
-        is ScriptExpression.Binary -> {
-            val left = constantNumber(expression.left) ?: return null
-            val right = constantNumber(expression.right) ?: return null
-            when (expression.operator) {
-                "+" -> left + right
-                "-" -> left - right
-                "*" -> left * right
-                "/" -> if (right == 0.0) null else left / right
-                "%" -> if (right == 0.0) null else left % right
-                else -> null
-            }?.takeIf { it.isFinite() }
-        }
-        else -> null
     }
 
     private fun expressionUpperBound(expression: ScriptExpression?, fallback: Long): Long =
