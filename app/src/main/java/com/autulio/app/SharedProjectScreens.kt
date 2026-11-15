@@ -297,7 +297,7 @@ internal fun CollaboratorProjectsWorkspace(
         selectedDesignId = null
         designRevision = 0
         screenKey = "home"
-        designJson = "{\\n  \\"layout\\": \\"column\\",\\n  \\"accent\\": \\"#4F8CFF\\",\\n  \\"components\\": []\\n}"
+        designJson = defaultSharedDesignJson()
         reviewNote = ""
         val projectId = selectedProject?.id ?: return@LaunchedEffect
         loading = true
@@ -707,3 +707,12 @@ private fun AccessRole.sharedRoleLabel(): String = when (this) {
 
 private fun sharedTr(vi: String, en: String): String =
     if (Locale.getDefault().language == "vi") vi else en
+
+
+private fun defaultSharedDesignJson(): String = """
+{
+  "layout": "column",
+  "accent": "#4F8CFF",
+  "components": []
+}
+""".trimIndent()
