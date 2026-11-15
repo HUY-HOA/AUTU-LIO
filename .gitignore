@@ -1,0 +1,17 @@
+/.gradle/
+/**/build/
+local.properties
+
+# Android signing material and local credentials must never enter Git.
+*.jks
+*.keystore
+*.p12
+*.pfx
+key.properties
+secrets.properties
+.env
+.env.*
+
+# Build outputs are distributed through GitHub Actions artifacts.
+*.apk
+*.aab
