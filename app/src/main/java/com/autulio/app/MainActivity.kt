@@ -66,6 +66,7 @@ private fun AutuLioAppEntry() {
             AccessRole.DEVELOPER,
             AccessRole.DESIGNER,
             AccessRole.REVIEWER -> CollaboratorWorkspace(
+                accessToken = "",
                 role = role,
                 permissions = role.defaultPermissions(),
                 email = tr("Tài khoản xem thử", "Preview account"),
