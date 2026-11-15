@@ -182,7 +182,14 @@ class ScriptExecutionEngine(
                 finish(runId, ScriptExecutionState.FAILED, "interrupted", "Script execution was interrupted.")
             }
         } catch (error: DispatchFailure) {
-            finish(runId, ScriptExecutionState.FAILED, "dispatch_failed", error.message)
+            val wasCancelled = lock.withLock {
+                cancellationRequested || state == ScriptExecutionState.STOPPING || closed
+            }
+            if (wasCancelled) {
+                finish(runId, ScriptExecutionState.CANCELLED, null, null)
+            } else {
+                finish(runId, ScriptExecutionState.FAILED, "dispatch_failed", error.message)
+            }
         } catch (error: Exception) {
             finish(
                 runId,
@@ -274,6 +281,9 @@ class ScriptExecutionEngine(
 
     private fun completeInstruction(runId: Long) {
         val update = lock.withLock {
+            while (state == ScriptExecutionState.PAUSED && !cancellationRequested) {
+                changed.await()
+            }
             ensureActiveLocked(runId)
             completedInstructions++
             snapshotLocked()
