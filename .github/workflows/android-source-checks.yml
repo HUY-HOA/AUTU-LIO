@@ -9,6 +9,7 @@ on:
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - ".github/workflows/android-source-checks.yml"
+      - ".github/workflows/build-apks.yml"
 
 permissions:
   contents: read
@@ -64,4 +65,4 @@ jobs:
           done
 
       - name: Compile sources and run script compiler unit tests without APK packaging
-        run: gradle --no-daemon --info :app:testDebugUnitTest
+        run: gradle --no-daemon --info :app:testDebugUnitTest :app:lintRelease
