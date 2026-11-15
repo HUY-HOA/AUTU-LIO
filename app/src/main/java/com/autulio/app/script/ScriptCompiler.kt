@@ -68,7 +68,9 @@ object ScriptCompiler {
         "NHẤN_GIỮ" to "NHẤN_GIỮ", "LONGPRESS" to "NHẤN_GIỮ",
         "VUỐT" to "VUỐT", "SWIPE" to "VUỐT",
         "CHỜ" to "CHỜ", "WAIT" to "CHỜ",
-        "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG", "OPENAPP" to "MỞ_ỨNG_DỤNG"
+        "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG", "OPENAPP" to "MỞ_ỨNG_DỤNG",
+        "QUAY_LẠI" to "QUAY_LẠI", "BACK" to "QUAY_LẠI",
+        "VỀ_MÀN_HÌNH_CHÍNH" to "VỀ_MÀN_HÌNH_CHÍNH", "HOME" to "VỀ_MÀN_HÌNH_CHÍNH"
     )
 
     fun compile(source: String): ScriptCompileResult {
@@ -459,6 +461,7 @@ object ScriptCompiler {
                 "NHẤN_GIỮ" -> 3
                 "VUỐT" -> 5
                 "CHỜ", "MỞ_ỨNG_DỤNG" -> 1
+                "QUAY_LẠI", "VỀ_MÀN_HÌNH_CHÍNH" -> 0
                 else -> 0
             }
             if (args.size != expected) fail(name.line, name.column, "argument_count", "Lệnh '$command' cần đúng $expected tham số.", "'$command' requires exactly $expected arguments.")
