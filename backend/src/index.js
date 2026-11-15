@@ -1192,6 +1192,7 @@ async function registerCustomerDevice(request, env, session) {
   const challengeId = typeof body.challengeId === "string" ? body.challengeId.trim() : "";
   const nonce = typeof body.nonce === "string" ? body.nonce : "";
   const signatureText = typeof body.signature === "string" ? body.signature.trim() : "";
+  const oaepHash = body.oaepHash === "SHA-256" ? "SHA-256" : "SHA-1";
   if (publicKeySpki.length < 300 || publicKeySpki.length > 8192 ||
       !/^[A-Za-z0-9+/=_-]+$/.test(publicKeySpki)) {
     throw new HttpError(400, "invalid_device_public_key", "A valid Android Keystore public key is required.");
@@ -1272,9 +1273,9 @@ async function registerCustomerDevice(request, env, session) {
 
   if (existing) {
     await env.DB.prepare(
-      "UPDATE devices SET label = ?, manufacturer = ?, model = ?, android_version = ?, app_version = ?, last_seen_at = ? " +
+      "UPDATE devices SET label = ?, manufacturer = ?, model = ?, android_version = ?, app_version = ?, oaep_hash = ?, last_seen_at = ? " +
       "WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
-    ).bind(metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion, now, existing.id, session.user_id).run();
+    ).bind(metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion, oaepHash, now, existing.id, session.user_id).run();
     return response(request, {
       registered: true,
       alreadyRegistered: true,
@@ -1285,12 +1286,12 @@ async function registerCustomerDevice(request, env, session) {
   const id = crypto.randomUUID();
   try {
     const inserted = await env.DB.prepare(
-      "INSERT INTO devices (id, user_id, public_key_spki, public_key_fingerprint, label, manufacturer, model, android_version, app_version, status, registered_at, last_seen_at) " +
-      "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ? " +
+      "INSERT INTO devices (id, user_id, public_key_spki, public_key_fingerprint, label, manufacturer, model, android_version, app_version, oaep_hash, status, registered_at, last_seen_at) " +
+      "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ? " +
       "WHERE (SELECT COUNT(*) FROM devices WHERE user_id = ? AND status = 'ACTIVE') < ?"
     ).bind(
       id, session.user_id, publicKeyCanonical, fingerprint,
-      metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion, now, now,
+      metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion, oaepHash, now, now,
       session.user_id, license.max_devices
     ).run();
     if (inserted.meta?.changes !== 1) {
