@@ -523,6 +523,7 @@ internal fun CustomerDeviceLicenseScreen(
                                     challengeId = challenge.challengeId,
                                     nonce = challenge.nonce,
                                     signature = signature,
+                                    oaepHash = identity.oaepHash,
                                     label = listOf(Build.MANUFACTURER, Build.MODEL).filter { it.isNotBlank() }.joinToString(" ").take(100),
                                     manufacturer = Build.MANUFACTURER.orEmpty(),
                                     model = Build.MODEL.orEmpty(),
