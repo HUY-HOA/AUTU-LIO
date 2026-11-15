@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.Locale
 import com.autulio.app.access.AccessRole
+import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
 
 class MainActivity : ComponentActivity() {
@@ -55,7 +56,12 @@ private fun AutuLioAppEntry() {
             .getOrDefault(AccessRole.CUSTOMER)
         when (role) {
             AccessRole.OWNER -> AdminApp(accessToken = null, onLogout = { previewRole = null })
-            AccessRole.CUSTOMER -> CustomerApp(email = tr("Tài khoản xem thử", "Preview account"), onLogout = { previewRole = null })
+            AccessRole.CUSTOMER -> CustomerApp(
+                accessToken = null,
+                email = tr("Tài khoản xem thử", "Preview account"),
+                onLogout = { previewRole = null },
+                onRoleUpdated = {}
+            )
             AccessRole.DEVELOPER,
             AccessRole.DESIGNER,
             AccessRole.REVIEWER -> CollaboratorWorkspace(
@@ -314,6 +320,8 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
     var scriptDetail by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val authRepository = remember(context) { AuthRepository(context) }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -364,7 +372,7 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                         } else {
                             scope.launch {
                                 try {
-                                    AuthRepository(LocalContext.current).acceptInvitation(accessToken, invitationToken)
+                                    authRepository.acceptInvitation(accessToken, invitationToken)
                                     host.showSnackbar(tr("Đã chấp nhận lời mời. Đang cập nhật quyền tài khoản…", "Invitation accepted. Refreshing account access…"))
                                     onRoleUpdated()
                                 } catch (error: Exception) {
