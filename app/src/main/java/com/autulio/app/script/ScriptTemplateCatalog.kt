@@ -106,8 +106,7 @@ object ScriptTemplateCatalog {
                     CHỜ(300)
                 }
             """.trimIndent()
-        )
-,
+        ),
         ScriptTemplate(
             id = "wait_until_condition",
             nameVi = "Chờ ứng dụng hoặc điều kiện sẵn sàng",
