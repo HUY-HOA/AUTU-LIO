@@ -254,6 +254,12 @@ async function googleLogin(request, env) {
     if (otherUser) throw new HttpError(409, "google_identity_conflict", "This email is already linked to a different Google identity.");
     const userId = crypto.randomUUID();
     const isConfiguredOwner = env.OWNER_EMAIL && identity.email === normalizeEmail(env.OWNER_EMAIL);
+    const existingOwner = isConfiguredOwner
+      ? await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' LIMIT 1").first()
+      : null;
+    if (isConfiguredOwner && existingOwner) {
+      throw new HttpError(409, "owner_already_provisioned", "The owner account has already been configured.");
+    }
     const role = isConfiguredOwner ? "OWNER" : "CUSTOMER";
     await env.DB.prepare(
       "INSERT INTO users (id, google_sub, email, email_verified, display_name, role, status, created_at, updated_at, last_login_at) " +
