@@ -76,6 +76,22 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     fun prepareProgram(program: ScriptProgram): Boolean {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            val finished = CountDownLatch(1)
+            val result = AtomicBoolean(false)
+            if (!mainHandler.post {
+                    result.set(prepareProgram(program))
+                    finished.countDown()
+                }
+            ) return false
+            return try {
+                finished.await(2, TimeUnit.SECONDS) && result.get()
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                false
+            }
+        }
+
         if (executionEngine == null) return false
         val state = executionEngine?.snapshot()?.state
         if (state == ScriptExecutionState.RUNNING ||
@@ -84,10 +100,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         ) return false
 
         pendingProgram = program
-        mainHandler.post {
-            showFloatingWindow()
-            renderSnapshot(executionEngine?.snapshot())
+        if (!showFloatingWindow()) {
+            pendingProgram = null
+            return false
         }
+        renderSnapshot(executionEngine?.snapshot())
         return true
     }
 
@@ -193,9 +210,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     }
 
-    private fun showFloatingWindow() {
-        if (floatingWindow != null) return
-        val manager = windowManager ?: return
+    private fun showFloatingWindow(): Boolean {
+        if (floatingWindow != null) return true
+        val manager = windowManager ?: return false
 
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
@@ -326,12 +343,14 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             stopButton = stop
             actionRow = controls
             renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
+            return true
         } catch (_: RuntimeException) {
             floatingWindow = null
             statusLabel = null
             primaryButton = null
             stopButton = null
             actionRow = null
+            return false
         }
     }
 
