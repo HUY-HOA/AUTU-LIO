@@ -54,9 +54,9 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 ## 4. Phần chưa triển khai
 
 - Google Credential Manager / Google Sign-In và hệ thống tài khoản thực.
-- Cloudflare Workers / D1 / R2 và API.
-- Xác minh Google ID token phía máy chủ, session và phân quyền vai trò.
-- Quản lý lời mời, cộng tác viên và lịch sử thay đổi quyền.
+- Cloudflare D1 database `autu_lio_auth` đã được tạo ở APAC; bảng tài khoản, nonce, session, lời mời, quyền ghi đè, nhật ký và cấu hình đã được khởi tạo. Worker source và cấu hình binding đã được thêm vào repository nhưng chưa deploy.
+- Google OAuth Client ID và OWNER_EMAIL chưa được cấu hình; Worker chưa deploy nên đăng nhập thật và xác minh vai trò vẫn chưa hoạt động.
+- API tạo/nhận lời mời, liệt kê/đổi quyền/thu hồi cộng tác viên đã có trong Worker source; chưa hoạt động với app do Worker chưa deploy và chưa có OAuth secrets.
 - Đồng bộ tài khoản, thiết bị, giấy phép và dữ liệu khách hàng.
 - Trình biên dịch, parser, bytecode và runtime của ngôn ngữ AUTU-LIO.
 - Engine thực hiện Auto Click, Accessibility Service, overlay và điều khiển vòng đời tác vụ.
@@ -66,9 +66,9 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 ## 5. Việc tiếp theo
 
-1. Khi có lệnh build hợp lệ, chạy workflow để kiểm tra khả năng biên dịch và lấy một APK debug.
-2. Sửa các lỗi lint / build phát hiện được trước khi phát hành APK thử nghiệm.
-3. Thử một APK AUTU-LIO trên điện thoại, thu thập lỗi giao diện và điều chỉnh.
+1. Hoàn thiện cấu hình Google OAuth, xác nhận chính xác Gmail chủ sở hữu, đặt Worker secrets rồi deploy API.
+2. Kết nối Android Credential Manager với API, lưu bearer session an toàn và mở màn hình theo vai trò máy chủ.
+3. Bổ sung test API/role, giới hạn tần suất đăng nhập, kiểm thử lời mời dùng một lần và thu hồi phiên.
 4. Thiết kế đặc tả ngôn ngữ AUTU-LIO trước khi viết parser/compiler/runtime.
 5. Triển khai engine tự động hóa có giới hạn quyền và xin quyền Android minh bạch.
 6. Tích hợp backend, đăng nhập, giấy phép và cập nhật package sau khi kiến trúc runtime đã ổn định.
