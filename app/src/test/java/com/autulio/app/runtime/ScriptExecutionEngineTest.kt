@@ -99,7 +99,7 @@ class ScriptExecutionEngineTest {
         try {
             assertEquals(
                 ScriptExecutionStartResult.Started,
-                engine.start(compile("tap(1, 1)\\ntap(2, 2)"))
+                engine.start(compile("tap(1, 1)\ntap(2, 2)"))
             )
             assertTrue(actionStarted.await(2, TimeUnit.SECONDS))
             assertTrue(engine.pause())
