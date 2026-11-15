@@ -161,6 +161,31 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }.getOrDefault(false)
     }
 
+    override fun goBack(): Boolean = dispatchGlobalAction(GLOBAL_ACTION_BACK)
+
+    override fun goHome(): Boolean = dispatchGlobalAction(GLOBAL_ACTION_HOME)
+
+    private fun dispatchGlobalAction(action: Int): Boolean {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return runCatching { performGlobalAction(action) }.getOrDefault(false)
+        }
+
+        val finished = CountDownLatch(1)
+        val succeeded = AtomicBoolean(false)
+        val posted = mainHandler.post {
+            succeeded.set(runCatching { performGlobalAction(action) }.getOrDefault(false))
+            finished.countDown()
+        }
+        if (!posted) return false
+
+        return try {
+            finished.await(5, TimeUnit.SECONDS) && succeeded.get()
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
+        }
+    }
+
     override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
         return when (name) {
             "PIN", "PHẦN_TRĂM_PIN" -> batteryPercent()
