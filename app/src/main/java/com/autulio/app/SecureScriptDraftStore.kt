@@ -60,7 +60,7 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
                     }
                 }
             }
-        }
+        }.toMutableList()
         val contents = linkedMapOf<String, String>()
         legacyPreferences.all.forEach { (key, value) ->
             if (key.startsWith(legacyDraftPrefix) && value is String) {
