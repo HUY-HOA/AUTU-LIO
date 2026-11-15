@@ -108,4 +108,4 @@ The Worker returns a one-time invitation token for the owner to copy and share m
 
 ## Local validation
 
-`npm run check` checks JavaScript syntax and executes every SQL migration against an in-memory SQLite database. It verifies the single-owner constraint, foreign keys, project membership, case-insensitive script-name uniqueness, UI draft storage and allowed submission kinds. It does not deploy the Worker or validate a live Google OAuth client.
+`npm run check` checks Worker JavaScript syntax, runs 10 Node.js API behavior tests with a mocked D1 binding, and executes every SQL migration against an in-memory SQLite database. The API tests cover health/config reporting, the unconfigured Google challenge gate, unauthenticated access denial, OWNER-only collaborator access, malformed/oversized request bodies and CORS origin rules. Migration validation checks the single-owner constraint, foreign keys, project membership, case-insensitive script-name uniqueness, UI draft storage and allowed submission kinds. These are source-level tests; they do not deploy the Worker, call the live D1 database or validate a live Google OAuth client.
