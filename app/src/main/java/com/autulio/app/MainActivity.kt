@@ -919,7 +919,7 @@ private fun SettingsScreen(
         BrandHeader(admin = false)
         Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
         SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
-        SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO 0.1.0 · Prototype")
+        SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
         SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
         CardBox {
             Text(tr("Bạn có mã lời mời cộng tác viên?", "Have a collaborator invitation token?"), fontWeight = FontWeight.SemiBold)
@@ -983,9 +983,13 @@ private fun BrandHeader(admin: Boolean) {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)) {
                 Icon(Icons.Outlined.Code, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(10.dp).size(22.dp))
             }
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("AUTU-LIO", fontWeight = FontWeight.Bold, fontSize = 17.sp, letterSpacing = 0.5.sp)
-                Text(if (admin) "ADMIN STUDIO" else "AUTOCLICK", fontSize = 10.sp, letterSpacing = 1.1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(if (admin) "ADMIN STUDIO" else "AUTOCLICK", fontSize = 10.sp, letterSpacing = 1.1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("·", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("v${BuildConfig.VERSION_NAME}", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
