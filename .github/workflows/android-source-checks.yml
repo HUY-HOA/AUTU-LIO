@@ -63,5 +63,5 @@ jobs:
             curl --fail --silent --show-error --location --output /dev/null --write-out "%{http_code} %{url_effective}\n" "$url"
           done
 
-      - name: Compile Kotlin sources only
-        run: gradle --no-daemon --info :app:compileDebugKotlin
+      - name: Compile sources and run script compiler unit tests without APK packaging
+        run: gradle --no-daemon --info :app:testDebugUnitTest
