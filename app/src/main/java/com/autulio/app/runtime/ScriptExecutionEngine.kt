@@ -206,6 +206,7 @@ class ScriptExecutionEngine(
                         if (shouldBreak) break
                     }
                 }
+                is ScriptInstruction.WaitUntil -> executeWaitUntil(runId, instruction, variables)
                 is ScriptInstruction.While -> {
                     var terminated = false
                     var iteration = 0
@@ -240,6 +241,42 @@ class ScriptExecutionEngine(
                     throw ContinueLoop()
                 }
             }
+        }
+    }
+
+    private fun executeWaitUntil(
+        runId: Long,
+        instruction: ScriptInstruction.WaitUntil,
+        variables: MutableMap<String, Any?>
+    ) {
+        val timeoutMs = requireDuration(
+            evaluate(instruction.timeoutMs, variables),
+            1,
+            ScriptCompiler.MAX_WAIT_MS
+        )
+        val intervalMs = requireDuration(evaluate(instruction.intervalMs, variables), 50, 5_000)
+        val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs.toLong())
+
+        while (true) {
+            checkpoint(runId)
+            val ready = requireBoolean(
+                evaluate(instruction.condition, variables),
+                "Điều kiện CHỜ_ĐẾN_KHI phải trả về ĐÚNG hoặc SAI."
+            )
+            if (ready) {
+                completeInstruction(runId)
+                return
+            }
+
+            val remainingNanos = deadlineNanos - System.nanoTime()
+            if (remainingNanos <= 0L) {
+                throw ScriptRuntimeFailure(
+                    "wait_until_timeout",
+                    "Đã hết thời hạn chờ điều kiện trở thành ĐÚNG."
+                )
+            }
+            val remainingMs = TimeUnit.NANOSECONDS.toMillis(remainingNanos).coerceAtLeast(1L)
+            waitInterruptibly(runId, minOf(intervalMs.toLong(), remainingMs).toInt())
         }
     }
 
@@ -524,6 +561,10 @@ class ScriptExecutionEngine(
                 is ScriptInstruction.While ->
                     loopDepth < ScriptCompiler.MAX_NESTING_DEPTH && validateExpression(instruction.condition, 0) &&
                         validateBlock(instruction.body, depth + 1, loopDepth + 1)
+                is ScriptInstruction.WaitUntil ->
+                    validateExpression(instruction.condition, 0) &&
+                        validateExpression(instruction.timeoutMs, 0) &&
+                        validateExpression(instruction.intervalMs, 0)
                 ScriptInstruction.BreakLoop, ScriptInstruction.ContinueLoop -> loopDepth > 0
             }
         }
