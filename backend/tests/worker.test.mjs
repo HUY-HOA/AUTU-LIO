@@ -456,7 +456,7 @@ test("package publishing stores AES-GCM ciphertext and master-key version, not p
   let statements = [];
   env.DB.batch = async batch => {
     statements = batch;
-    return [];
+    return batch.map(() => ({ meta: { changes: 1 } }));
   };
   const source = "ĐẶT soLan = 3\nLẶP(soLan) { CHẠM(10, 20) }";
   const response = await worker.fetch(
@@ -495,7 +495,7 @@ test("customer package download decrypts the server envelope and wraps the data 
   let statements = [];
   ownerEnv.DB.batch = async batch => {
     statements = batch;
-    return [];
+    return batch.map(() => ({ meta: { changes: 1 } }));
   };
   const source = "CHỜ_ĐẾN_KHI(CÓ_MẠNG(), 5000, 250)\nCHẠM(5, 6)";
   const published = await worker.fetch(
