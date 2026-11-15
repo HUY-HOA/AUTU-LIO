@@ -49,7 +49,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - **Chưa có lần chạy workflow tạo APK và chưa có APK artifact được xác minh.**
 - Tuân thủ quy tắc: chỉ bắt đầu build khi chủ ứng dụng gửi riêng đúng lệnh `BUILD APK`.
 
-### Cấu hình build đã được đồng bộ tĩnh (chưa chạy thử)
+### Cấu hình build và kiểm tra nguồn
 
 - Android Gradle Plugin: `9.3.1`.
 - Kotlin Gradle Plugin và Compose Compiler plugin: `2.4.21`.
@@ -80,12 +80,12 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 
 ## 5. Việc tiếp theo
 
-1. Hoàn thiện cấu hình Google OAuth, xác nhận chính xác Gmail chủ sở hữu, đặt Worker secrets rồi deploy API.
-2. Kết nối Android Credential Manager với API, lưu bearer session an toàn và mở màn hình theo vai trò máy chủ.
-3. Hoàn tất CI cho nhánh quyền chi tiết; sau đó bổ sung test API/role, giới hạn tần suất đăng nhập, kiểm thử lời mời dùng một lần và thu hồi phiên.
-4. Thiết kế đặc tả ngôn ngữ AUTU-LIO trước khi viết parser/compiler/runtime.
-5. Triển khai engine tự động hóa có giới hạn quyền và xin quyền Android minh bạch.
-6. Tích hợp backend, đăng nhập, giấy phép và cập nhật package sau khi kiến trúc runtime đã ổn định.
+1. Xác nhận Gmail Google chính xác của chủ sở hữu và tạo OAuth Web Client ID + Android Client ID trong Google Cloud.
+2. Cấu hình Worker secrets `GOOGLE_CLIENT_ID`, `OWNER_EMAIL`, `GOOGLE_ALLOWED_AZP`; deploy Worker và kiểm tra `/health`.
+3. Đặt `AUTU_LIO_AUTH_API_BASE_URL` và `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID` trong môi trường Gradle; thử đăng nhập chủ sở hữu, mời cộng tác viên và kiểm tra workspace trên điện thoại.
+4. Bổ sung test API/role, giới hạn tần suất đăng nhập, kiểm thử lời mời dùng một lần, thu hồi phiên và kiểm thử xung đột revision.
+5. Thiết kế đặc tả ngôn ngữ AUTU-LIO, triển khai parser/compiler/runtime rồi engine Auto Click và xin quyền Android minh bạch.
+6. Hoàn thiện giấy phép, ký/mã hóa package, cập nhật từ xa và kiểm thử phát hành.
 
 ## 6. Quy tắc báo cáo
 
