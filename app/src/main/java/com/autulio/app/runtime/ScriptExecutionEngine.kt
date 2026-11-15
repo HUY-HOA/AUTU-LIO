@@ -193,35 +193,39 @@ class ScriptExecutionEngine(
                     if (count !in 1..ScriptCompiler.MAX_REPEAT_COUNT) {
                         throw ScriptRuntimeFailure("repeat_range", "Số lần lặp phải từ 1 đến ${ScriptCompiler.MAX_REPEAT_COUNT}.")
                     }
-                    repeat(count) {
+                    var shouldBreak = false
+                    for (iteration in 0 until count) {
                         checkpoint(runId)
                         try {
                             executeBlock(runId, instruction.body, variables)
                         } catch (_: ContinueLoop) {
-                            return@repeat
+                            Unit
                         } catch (_: BreakLoop) {
-                            return@repeat
+                            shouldBreak = true
                         }
+                        if (shouldBreak) break
                     }
                 }
                 is ScriptInstruction.While -> {
                     var terminated = false
-                    repeat(ScriptCompiler.MAX_WHILE_ITERATIONS) {
+                    var iteration = 0
+                    while (iteration < ScriptCompiler.MAX_WHILE_ITERATIONS) {
                         checkpoint(runId)
                         val condition = requireBoolean(evaluate(instruction.condition, variables), "Điều kiện LẶP_KHI phải trả về ĐÚNG hoặc SAI.")
                         completeInstruction(runId)
                         if (!condition) {
                             terminated = true
-                            return@repeat
+                            break
                         }
                         try {
                             executeBlock(runId, instruction.body, variables)
                         } catch (_: ContinueLoop) {
-                            return@repeat
+                            Unit
                         } catch (_: BreakLoop) {
                             terminated = true
-                            return@repeat
+                            break
                         }
+                        iteration++
                     }
                     if (!terminated) {
                         throw ScriptRuntimeFailure("loop_limit_reached", "Vòng lặp đã chạm giới hạn ${ScriptCompiler.MAX_WHILE_ITERATIONS} lượt để tránh chạy vô hạn.")
