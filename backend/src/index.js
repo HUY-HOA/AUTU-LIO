@@ -1470,6 +1470,43 @@ function validatePackageMetadata(body) {
   return { name, description, source, languageVersion };
 }
 
+async function listAdminAuditLogs(request, env, session) {
+  await requireRole(session, ["OWNER"]);
+  const url = new URL(request.url);
+  const requestedLimit = url.searchParams.has("limit") ? Number(url.searchParams.get("limit")) : 50;
+  if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 100) {
+    throw new HttpError(400, "invalid_audit_limit", "Audit log limit must be an integer from 1 to 100.");
+  }
+  const result = await env.DB.prepare(
+    "SELECT l.id, l.action, l.target_type, l.target_id, l.metadata_json, l.created_at, " +
+    "u.email AS actor_email, u.display_name AS actor_display_name " +
+    "FROM audit_logs l LEFT JOIN users u ON u.id = l.actor_user_id " +
+    "ORDER BY l.created_at DESC, l.id DESC LIMIT ?"
+  ).bind(requestedLimit).all();
+
+  const logs = (result.results || []).map(row => {
+    let metadata = {};
+    try {
+      const parsed = JSON.parse(row.metadata_json || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = parsed;
+    } catch {
+      metadata = {};
+    }
+    return {
+      id: String(row.id || ""),
+      action: String(row.action || ""),
+      targetType: row.target_type || null,
+      targetId: row.target_id || null,
+      actorEmail: row.actor_email || "",
+      actorDisplayName: row.actor_display_name || null,
+      metadata,
+      createdAt: Number(row.created_at) || 0
+    };
+  }).filter(item => item.id && item.action);
+
+  return response(request, { logs, limit: requestedLimit }, 200, env);
+}
+
 async function listAdminPackages(request, env, session) {
   await requireRole(session, ["OWNER"]);
   const result = await env.DB.prepare(
@@ -1713,6 +1750,7 @@ async function route(request, env) {
     return await removeOwnDevice(request, env, session, ownDeviceMatch[1]);
   }
 
+  if (method === "GET" && path === "/api/admin/audit-logs") return await listAdminAuditLogs(request, env, session);
   if (method === "GET" && path === "/api/admin/packages") return await listAdminPackages(request, env, session);
   if (method === "POST" && path === "/api/admin/packages") return await createAdminPackage(request, env, session);
   const adminPackageVersionMatch = path.match(/^\/api\/admin\/packages\/([0-9a-f-]{36})\/versions$/i);
