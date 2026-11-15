@@ -57,6 +57,8 @@ class ScriptExecutionEngine(
     private var totalInstructions = 0L
     private var cancellationRequested = false
     private var closed = false
+    private var lastErrorCode: String? = null
+    private var lastMessage: String? = null
 
     fun snapshot(): ScriptExecutionSnapshot = lock.withLock { snapshotLocked() }
 
@@ -82,6 +84,8 @@ class ScriptExecutionEngine(
             activeRunId++
             runId = activeRunId
             cancellationRequested = false
+            lastErrorCode = null
+            lastMessage = null
             completedInstructions = 0L
             totalInstructions = program.expandedInstructionCount
             state = ScriptExecutionState.RUNNING
@@ -287,8 +291,10 @@ class ScriptExecutionEngine(
             if (runId != activeRunId) return
             state = finalState
             cancellationRequested = false
+            lastErrorCode = errorCode
+            lastMessage = message
             changed.signalAll()
-            snapshotLocked().copy(errorCode = errorCode, message = message)
+            snapshotLocked()
         }
         publish(update)
     }
@@ -296,7 +302,9 @@ class ScriptExecutionEngine(
     private fun snapshotLocked() = ScriptExecutionSnapshot(
         state = state,
         completedInstructions = completedInstructions,
-        totalInstructions = totalInstructions
+        totalInstructions = totalInstructions,
+        errorCode = lastErrorCode,
+        message = lastMessage
     )
 
     private fun publish(snapshot: ScriptExecutionSnapshot) {
