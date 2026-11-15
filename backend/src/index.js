@@ -53,7 +53,7 @@ function response(request, data, status = 200, env = {}) {
   if (originAllowed) {
     headers["Access-Control-Allow-Origin"] = allowed.includes("*") ? "*" : origin || "null";
     headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
-    headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS";
+    headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
     headers["Access-Control-Max-Age"] = "600";
   }
   return new Response(JSON.stringify(data), { status, headers });
