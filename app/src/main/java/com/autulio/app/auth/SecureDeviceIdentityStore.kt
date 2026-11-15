@@ -130,31 +130,39 @@ class SecureDeviceIdentityStore(@Suppress("UNUSED_PARAMETER") context: Context) 
         val rsaCipher = Cipher.getInstance("RSA/ECB/OAEPPadding")
         rsaCipher.init(Cipher.DECRYPT_MODE, privateKey, oaepParameters)
         val rawContentKey = rsaCipher.doFinal(wrappedContentKey)
-        if (rawContentKey.size != 32) {
-            throw IllegalStateException("Khóa giải mã gói AUTU không hợp lệ.")
-        }
+        try {
+            if (rawContentKey.size != 32) {
+                throw IllegalStateException("Khóa giải mã gói AUTU không hợp lệ.")
+            }
 
-        val aad = "AUTU-LIO-PACKAGE|$packageId|$versionId|$languageVersion|$expectedSourceSha256"
-            .toByteArray(Charsets.UTF_8)
-        val aesCipher = Cipher.getInstance("AES/GCM/NoPadding")
-        aesCipher.init(
-            Cipher.DECRYPT_MODE,
-            SecretKeySpec(rawContentKey, "AES"),
-            GCMParameterSpec(GCM_TAG_LENGTH_BITS, contentNonce)
-        )
-        aesCipher.updateAAD(aad)
-        val plaintext = aesCipher.doFinal(encryptedPayload)
-        val actualHash = MessageDigest.getInstance("SHA-256")
-            .digest(plaintext)
-            .joinToString("") { byte -> "%02x".format(byte) }
-        if (!MessageDigest.isEqual(
-                actualHash.lowercase().toByteArray(Charsets.US_ASCII),
-                expectedSourceSha256.lowercase().toByteArray(Charsets.US_ASCII)
+            val aad = "AUTU-LIO-PACKAGE|$packageId|$versionId|$languageVersion|$expectedSourceSha256"
+                .toByteArray(Charsets.UTF_8)
+            val aesCipher = Cipher.getInstance("AES/GCM/NoPadding")
+            aesCipher.init(
+                Cipher.DECRYPT_MODE,
+                SecretKeySpec(rawContentKey, "AES"),
+                GCMParameterSpec(GCM_TAG_LENGTH_BITS, contentNonce)
             )
-        ) {
-            throw IllegalStateException("Mã SHA-256 của gói AUTU không khớp.")
+            aesCipher.updateAAD(aad)
+            val plaintext = aesCipher.doFinal(encryptedPayload)
+            try {
+                val actualHash = MessageDigest.getInstance("SHA-256")
+                    .digest(plaintext)
+                    .joinToString("") { byte -> "%02x".format(byte) }
+                if (!MessageDigest.isEqual(
+                        actualHash.lowercase().toByteArray(Charsets.US_ASCII),
+                        expectedSourceSha256.lowercase().toByteArray(Charsets.US_ASCII)
+                    )
+                ) {
+                    throw IllegalStateException("Mã SHA-256 của gói AUTU không khớp.")
+                }
+                return plaintext.toString(Charsets.UTF_8)
+            } finally {
+                plaintext.fill(0)
+            }
+        } finally {
+            rawContentKey.fill(0)
         }
-        return plaintext.toString(Charsets.UTF_8)
     }
 
     @Synchronized
