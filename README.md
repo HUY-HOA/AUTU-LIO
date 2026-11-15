@@ -25,6 +25,7 @@
 - [Ứng dụng khách hàng](docs/05-customer-app.md)
 - [Quản lý khách hàng, thiết bị và giấy phép](docs/06-admin-customers-devices-license.md)
 - [Một ứng dụng và phân quyền](docs/ONE-APP-ACCESS-CONTROL.md)
+- [Cấu hình đăng nhập Google và Cloudflare](docs/GOOGLE-SIGNIN-SETUP.md)
 - [Quy trình GitHub](docs/GITHUB-WORKFLOW.md)
 - [Hướng dẫn kiểm thử prototype Android](docs/ANDROID-PROTOTYPE.md)
 
