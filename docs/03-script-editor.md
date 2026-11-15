@@ -1,113 +1,88 @@
-# AUTU-LIO — Thiết kế màn hình 03: Trình soạn thảo ngôn ngữ riêng
+# AUTU-LIO — Trình soạn thảo và ngôn ngữ kịch bản
 
-**Trạng thái:** Đặc tả giao diện để duyệt.  
-**Đối tượng:** Chủ ứng dụng / quản trị viên.  
-**Nền tảng:** Admin Studio trên Android.
+**Phiên bản ngôn ngữ đầu tiên:** AUTU-LIO Script 0.1  
+**Trạng thái:** Bộ phân tích cú pháp Kotlin và nút Kiểm tra mã đã được triển khai trên nhánh phát triển; đang chờ CI. Runtime Android chưa có.
 
 ## 1. Mục tiêu
-Tạo môi trường để chủ ứng dụng viết, tổ chức, kiểm tra và chạy thử kịch bản bằng ngôn ngữ lập trình riêng của AUTU-LIO. Đây là công cụ phát triển dành riêng cho Admin, không xuất hiện trong APK khách hàng.
 
-Giao diện cần tối ưu cho màn hình điện thoại, hạn chế phải cuộn ngang và cho phép mở rộng không gian soạn thảo.
+Trình soạn thảo và ngôn ngữ kịch bản chỉ xuất hiện trong không gian Chủ sở hữu/Nhà phát triển phù hợp quyền. Người dùng cuối chỉ nhận và chạy package đã được phát hành; không được mở IDE hoặc xem mã nguồn.
 
-## 2. Bố cục chính
-### A. Thanh công cụ trên
-- Nút quay lại danh sách kịch bản.
-- Tên kịch bản và trạng thái lưu: Đã lưu / Có thay đổi chưa lưu.
-- Nút lưu bản nháp.
-- Nút menu thao tác bổ sung.
-- Không cho nút phát hành nằm sát nút lưu để tránh thao tác nhầm.
+Quy trình tách rõ:
+1. Viết và lưu bản nháp.
+2. Kiểm tra cú pháp và giới hạn an toàn.
+3. Kiểm thử sau khi runtime được hoàn thiện.
+4. Gửi duyệt theo quy trình dự án.
+5. Chủ sở hữu kiểm tra và phát hành chính thức.
 
-### B. Khu vực soạn thảo
-- Ô nhập mã có font monospace, đánh số dòng và hỗ trợ thụt lề.
-- Tô màu cú pháp theo token của ngôn ngữ AUTU-LIO.
-- Hiển thị lỗi theo dòng và vị trí khi bộ phân tích cú pháp trả về.
-- Tự động lưu bản nháp có kiểm soát; luôn có trạng thái lưu rõ ràng.
-- Hỗ trợ hoàn tác, làm lại, chọn tất cả, sao chép và dán.
-- Trên màn hình nhỏ, bảng hàm và biến có thể mở bằng bottom sheet để dành diện tích cho mã.
-- Không tự chèn hoặc thay đổi mã người dùng mà không có thao tác xác nhận.
+## 2. Cú pháp AUTU-LIO Script 0.1
 
-### C. Thanh công cụ soạn thảo
-- Hoàn tác / Làm lại.
-- Tìm kiếm trong mã.
-- Chuyển đến dòng.
-- Thụt lề / bỏ thụt lề.
-- Chèn mẫu lệnh đã chọn.
-- Phím tắt phù hợp với bàn phím vật lý nếu được kết nối.
+Mỗi lệnh nằm trên một dòng hoặc kết thúc bằng dấu chấm phẩy. Có thể thêm chú thích một dòng bằng `//`.
 
-### D. Bảng Hàm và Thư viện
-- Nhóm hàm theo danh mục.
-- Tìm kiếm tên hàm và mô tả.
-- Mỗi hàm có tên, cú pháp, tham số, kiểu dữ liệu, giá trị trả về và ví dụ.
-- Chạm một hàm mở chi tiết; nút chèn chỉ đưa mẫu vào vị trí con trỏ khi Admin xác nhận.
-- Phân biệt hàm hệ thống, hàm thư viện và hàm tự định nghĩa.
+```text
+// Chạm vào tọa độ 120, 480
+tap(120, 480)
 
-### E. Bảng Biến
-- Tên biến.
-- Kiểu dữ liệu.
-- Phạm vi.
-- Giá trị hiện tại trong phiên chạy thử nếu runtime cung cấp.
-- Không hiển thị giá trị nhạy cảm hoặc token bí mật.
-- Khi chưa chạy thử, hiển thị trạng thái chưa có dữ liệu runtime.
+wait(500)
+longPress(300, 700, 800)
+swipe(500, 900, 500, 300, 450)
 
-### F. Khu vực Kiểm tra và Chạy thử
-Có thể thu gọn/mở rộng ở cạnh dưới:
-- Tab **Lỗi**: lỗi cú pháp, lỗi kiểu dữ liệu, lỗi tham số.
-- Tab **Nhật ký**: thông tin chạy thử.
-- Tab **Kết quả**: trạng thái hoàn thành/thất bại.
-- Nút **Kiểm tra mã** chỉ phân tích, không thực thi.
-- Nút **Chạy thử** thực thi trong môi trường thử nghiệm được giới hạn.
-- Nút **Dừng** ngắt phiên chạy thử.
-- Hiển thị rõ khi runtime chưa được tích hợp để không làm người dùng hiểu nhầm rằng mã đã chạy.
+repeat(3) {
+    tap(120, 480)
+    wait(250)
+}
+```
 
-## 3. Luồng làm việc
-1. Mở một kịch bản hoặc tạo bản nháp mới.
-2. Nhập/chỉnh sửa mã.
-3. Lưu bản nháp.
-4. Chọn **Kiểm tra mã** để nhận kết quả phân tích.
-5. Xem lỗi và chạm lỗi để chuyển đến dòng tương ứng.
-6. Chạy thử trong môi trường được phép.
-7. Lưu lại bản nháp sau khi sửa.
-8. Chuyển sang màn hình phát hành riêng khi đã đạt điều kiện.
+### Lệnh được hỗ trợ
 
-## 4. Ngôn ngữ lập trình riêng
-- Tên hàm, cú pháp, kiểu dữ liệu và thông báo lỗi do AUTU-LIO định nghĩa.
-- Hỗ trợ tiếng Việt có dấu trong định danh nếu ngôn ngữ và bộ mã hóa cho phép.
-- Bộ gợi ý phải lấy từ danh mục hàm thực tế của runtime, không viết cứng danh sách khác với engine.
-- Đặc tả cú pháp và ngữ nghĩa sẽ được chốt riêng trước khi triển khai trình biên dịch/runtime.
-- Không thực thi mã tùy ý bằng JavaScript, reflection hoặc lệnh hệ thống không giới hạn.
-- Runtime cần sandbox và danh sách quyền được phép cho từng API tự động hóa.
+| Lệnh | Tham số | Ý nghĩa |
+|---|---|---|
+| `tap(x, y)` | Hai số nguyên | Chạm một lần |
+| `longPress(x, y, durationMs)` | Tọa độ và thời lượng | Nhấn giữ |
+| `swipe(startX, startY, endX, endY, durationMs)` | Điểm đầu, điểm cuối và thời lượng | Vuốt theo đường thẳng |
+| `wait(durationMs)` | Thời lượng | Chờ trước lệnh tiếp theo |
+| `repeat(count) { ... }` | Số lần lặp và khối lệnh | Lặp nhóm lệnh |
 
-## 5. Trạng thái giao diện
-- Đang tải kịch bản.
-- Kịch bản trống.
-- Đã lưu / chưa lưu.
-- Đang phân tích.
-- Phân tích thành công.
-- Có lỗi theo dòng.
-- Đang chạy thử.
-- Chạy thử hoàn tất.
-- Chạy thử thất bại.
-- Runtime chưa sẵn sàng.
-- Mất kết nối nhưng vẫn có thể chỉnh sửa bản nháp cục bộ nếu dữ liệu đã được lưu an toàn.
+Tên lệnh phân biệt chữ hoa/chữ thường. Tham số ở phiên bản 0.1 là số nguyên không âm; biến, biểu thức số học và hàm tự định nghĩa chưa được hỗ trợ.
 
-## 6. Bảo vệ dữ liệu và quyền
-- Chỉ vai trò Admin được mở trình soạn thảo.
-- APK khách hàng không chứa màn hình editor hoặc API sửa mã.
-- Không đưa khóa ký, khóa mã hóa gốc hay secret vào nội dung editor.
-- Có lưu phiên bản nháp và lịch sử thay đổi.
-- Các thao tác xóa hoặc khôi phục phiên bản cần xác nhận.
+## 3. Giới hạn an toàn khi phân tích
 
-## 7. Tiêu chí duyệt
-- Vùng mã là phần lớn nhất của màn hình.
-- Các bảng phụ thu gọn/mở rộng được.
-- Dòng lỗi có thể chạm để định vị.
-- Phân biệt rõ lưu, kiểm tra, chạy thử và phát hành.
-- Giao diện dùng được ở chiều dọc trên điện thoại và có thể mở rộng ở màn hình lớn.
-- Không hiển thị tính năng editor trong bản khách hàng.
+- Kích thước mã tối đa: 32.768 ký tự.
+- Tối đa 1.000 câu lệnh khai báo.
+- Tọa độ nằm trong khoảng 0–10.000 pixel; runtime vẫn phải kiểm tra lại theo kích thước màn hình thật trước khi thao tác.
+- `wait`: 1–60.000 ms.
+- `longPress`: 100–10.000 ms.
+- `swipe`: 1–10.000 ms.
+- `repeat`: 1–100 lần, tối đa 8 cấp lồng nhau.
+- Sau khi mở rộng vòng lặp: tối đa 5.000 lượt thực thi lệnh.
+- Tổng thời lượng chờ và thao tác tĩnh: tối đa 600.000 ms (10 phút).
 
-## 8. Phạm vi chưa triển khai
-- Chưa chốt grammar hoặc bộ hàm chính thức.
-- Chưa xây compiler, interpreter hoặc runtime.
-- Chưa tích hợp thực thi thao tác Android.
-- Chưa có code Kotlin / Jetpack Compose.
-- Chưa build APK.
+Bộ phân tích tạo cây lệnh có cấu trúc (AST), đếm số lệnh sau khi mở rộng vòng lặp và ước tính thời lượng. Nó không dùng JavaScript `eval`, reflection, shell hay thực thi mã tùy ý. Các giới hạn này chỉ là bước kiểm tra tĩnh; runtime phải áp dụng lại ngân sách khi chạy thực tế và có cơ chế Dừng.
+
+## 4. Hành vi trình soạn thảo
+
+- Ô mã lưu bản nháp theo luồng hiện có.
+- Nút **Kiểm tra mã** gọi ScriptCompiler 0.1 và hiển thị lỗi theo dòng/cột hoặc số lệnh/thời lượng tĩnh.
+- Sửa mã sẽ xóa kết quả kiểm tra cũ để tránh dùng nhầm kết quả không còn khớp nội dung.
+- Nút **Chạy thử** chưa thực thi; giao diện phải thông báo runtime chưa sẵn sàng.
+- Kiểm tra mã không yêu cầu quyền Trợ năng và không tạo thao tác trên màn hình.
+
+## 5. Quyền và an toàn khi thực thi sau này
+
+- Chỉ tài khoản có quyền sửa/kiểm thử kịch bản mới được mở công cụ tương ứng.
+- Người dùng phải tự bật quyền Trợ năng trong phần Cài đặt Android; ứng dụng giải thích rõ mục đích và cung cấp nút Dừng.
+- Mỗi lần chạy có giới hạn số lệnh, thời lượng, vòng lặp và có thể hủy.
+- Không tự động cấp quyền Android, không thao tác ẩn, không gửi thao tác khi chưa có lệnh chạy rõ ràng.
+- Tọa độ ngoài vùng màn hình, lệnh không hỗ trợ, timeout hoặc mất dịch vụ phải dừng an toàn.
+- Không đưa token, khóa ký hoặc bí mật máy chủ vào mã kịch bản.
+
+## 6. Kiểm thử tự động
+
+Bộ JUnit của ScriptCompiler kiểm tra lệnh hợp lệ, vòng lặp, chú thích, số tham số, lệnh không biết, số âm, giới hạn tọa độ, giới hạn repeat, ngân sách số lệnh/thời lượng và mã quá dài. GitHub Actions chạy unit test cùng bước kiểm tra Kotlin, không tạo APK phát hành.
+
+## 7. Phạm vi chưa hoàn tất
+
+- Biến, kiểu dữ liệu, biểu thức, điều kiện, hàm tự định nghĩa và thư viện.
+- Gợi ý mã/tô màu cú pháp/nút chuyển tới lỗi.
+- Interpreter/runtime và bộ thực thi lệnh Android.
+- AccessibilityService, cấp quyền minh bạch, hủy phiên chạy và kiểm thử trên nhiều kích thước màn hình.
+- Kiểm thử thiết bị thật, package có chữ ký và phát hành.
