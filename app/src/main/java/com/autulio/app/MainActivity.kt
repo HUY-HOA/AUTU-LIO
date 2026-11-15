@@ -896,13 +896,7 @@ private fun MoreScreen(
                     }
                     EmptyState(Icons.Outlined.PlayArrow, tr("Chưa có bản phát hành", "No releases yet"), tr("Chỉ phát hành khi gói đã được kiểm tra và ký xác thực.", "A package can only be released after validation and signing."))
                 }
-                "logs" -> {
-                    CardBox {
-                        Text(tr("Nhật ký hệ thống", "System logs"), fontWeight = FontWeight.SemiBold)
-                        Text(tr("Thời gian · Loại sự kiện · Mức độ · Thiết bị · Kết quả", "Time · Event type · Severity · Device · Result"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                    }
-                    EmptyState(Icons.Outlined.Info, tr("Chưa có nhật ký", "No logs yet"), tr("Nhật ký chỉ xuất hiện sau khi các thành phần thực tế được kết nối.", "Logs will appear after live components are connected."))
-                }
+                "logs" -> AdminAuditLogsScreen(accessToken = accessToken)
                 "settings" -> {
                     SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · 0.1.0")
@@ -910,7 +904,7 @@ private fun MoreScreen(
                     SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
                 }
             }
-            if (page != "packages") {
+            if (page !in setOf("packages", "logs")) {
                 OutlinedButton(
                     onClick = { onMessage(tr("Máy chủ chưa được kết nối. Thao tác chưa thể lưu dữ liệu thật.", "The server is not connected. This action cannot save live data yet.")) },
                     modifier = Modifier.fillMaxWidth()
