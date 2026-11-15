@@ -162,6 +162,12 @@ data class DeviceRecord(
     val revokedAt: Long?
 )
 
+data class DeviceEnrollmentChallenge(
+    val challengeId: String,
+    val nonce: String,
+    val expiresInSeconds: Int
+)
+
 data class CustomerAccountOverview(
     val userId: String,
     val email: String,
@@ -888,9 +894,31 @@ class AuthRepository(context: Context) {
         )
     }
 
+    suspend fun createCustomerDeviceChallenge(accessToken: String): DeviceEnrollmentChallenge {
+        val result = apiRequest(
+            "/api/customer/devices/challenge",
+            "POST",
+            JSONObject(),
+            accessToken
+        )
+        val challengeId = result.optString("challengeId")
+        val nonce = result.optString("nonce")
+        if (challengeId.isBlank() || nonce.isBlank()) {
+            throw IOException("Máy chủ không trả về thử thách đăng ký thiết bị hợp lệ.")
+        }
+        return DeviceEnrollmentChallenge(
+            challengeId = challengeId,
+            nonce = nonce,
+            expiresInSeconds = result.optInt("expiresInSeconds", 300)
+        )
+    }
+
     suspend fun registerCustomerDevice(
         accessToken: String,
         publicKeySpki: String,
+        challengeId: String,
+        nonce: String,
+        signature: String,
         label: String,
         manufacturer: String,
         model: String,
@@ -902,6 +930,9 @@ class AuthRepository(context: Context) {
             "POST",
             JSONObject()
                 .put("publicKeySpki", publicKeySpki)
+                .put("challengeId", challengeId)
+                .put("nonce", nonce)
+                .put("signature", signature)
                 .put("label", label)
                 .put("manufacturer", manufacturer)
                 .put("model", model)
