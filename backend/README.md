@@ -60,8 +60,9 @@ This repository currently contains the Worker source and D1 binding configuratio
 - `POST /api/admin/invitations` — OWNER
 - `PATCH /api/admin/collaborators/:userId` — OWNER
 - `DELETE /api/admin/collaborators/:userId` — OWNER
+- `DELETE /api/admin/invitations/:invitationId` — OWNER
 
-The Worker currently returns an invitation token for the owner to copy and share manually. It does not send email. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
+The Worker returns a one-time invitation token for the owner to copy and share manually. The owner can list and revoke pending invitations; the Worker does not send email. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
 
 ## Local validation
 
