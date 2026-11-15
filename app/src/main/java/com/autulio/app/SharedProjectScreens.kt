@@ -290,6 +290,15 @@ internal fun CollaboratorProjectsWorkspace(
     LaunchedEffect(accessToken) { refreshProjects() }
 
     LaunchedEffect(selectedProject?.id, role) {
+        selectedScriptId = null
+        scriptRevision = 0
+        scriptName = ""
+        scriptSource = ""
+        selectedDesignId = null
+        designRevision = 0
+        screenKey = "home"
+        designJson = "{\\n  \\"layout\\": \\"column\\",\\n  \\"accent\\": \\"#4F8CFF\\",\\n  \\"components\\": []\\n}"
+        reviewNote = ""
         val projectId = selectedProject?.id ?: return@LaunchedEffect
         loading = true
         try {
@@ -470,7 +479,11 @@ internal fun CollaboratorProjectsWorkspace(
                             if (AccessPermission.EDIT_UI_DESIGN in permissions) {
                                 OutlinedTextField(
                                     value = screenKey,
-                                    onValueChange = { screenKey = it },
+                                    onValueChange = {
+                                        screenKey = it
+                                        selectedDesignId = null
+                                        designRevision = 0
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
                                     label = { Text(sharedTr("Mã màn hình", "Screen key")) }
