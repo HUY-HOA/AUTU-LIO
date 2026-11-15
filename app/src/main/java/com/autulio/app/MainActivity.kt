@@ -307,23 +307,18 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
             }
         ) { padding ->
             when (page) {
-                "home" -> CustomerHome(Modifier.padding(padding), email = email, onScripts = { page = "scripts" })
-                "scripts" -> if (scriptDetail) {
-                    CustomerScriptDetail(
-                        Modifier.padding(padding),
-                        onBack = { scriptDetail = false },
-                        onPreviewAction = {
-                            scope.launch {
-                                host.showSnackbar(tr("Runtime AutoClick chưa được tích hợp. Chưa có thao tác nào được thực hiện.", "AutoClick runtime is not integrated. No screen action was performed."))
-                            }
-                        }
-                    )
-                } else {
-                    CustomerScriptsScreen(
-                        Modifier.padding(padding),
-                        onOpen = { scriptDetail = true }
-                    )
-                }
+                "home" -> CustomerHome(
+                    modifier = Modifier.padding(padding),
+                    email = email,
+                    accessToken = accessToken,
+                    onScripts = { page = "scripts" },
+                    onDevices = { page = "device" }
+                )
+                "scripts" -> CustomerPackagesScreen(
+                    accessToken = accessToken,
+                    modifier = Modifier.padding(padding),
+                    onOpenDevices = { page = "device" }
+                )
                 "device" -> CustomerDeviceLicenseScreen(
                     accessToken = accessToken,
                     modifier = Modifier.padding(padding)
@@ -724,6 +719,10 @@ private fun MoreScreen(
         LicensesAdminScreen(accessToken = accessToken, modifier = modifier)
         return
     }
+    if (page == "packages") {
+        AdminPackagesScreen(accessToken = accessToken, modifier = modifier, onBack = { onSelect("more") })
+        return
+    }
     if (page == "projects") {
         if (!accessToken.isNullOrBlank()) {
             ProjectsAdminScreen(accessToken, modifier = modifier, onBack = { onSelect("more") })
@@ -740,6 +739,7 @@ private fun MoreScreen(
         Triple("projects", tr("Dự án cộng tác", "Shared projects"), Icons.Outlined.FolderOpen),
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện", "Libraries"), Icons.Outlined.ListAlt),
+        Triple("packages", tr("Gói AUTU", "AUTU packages"), Icons.Outlined.Code),
         Triple("release", tr("Phát hành", "Releases"), Icons.Outlined.PlayArrow),
         Triple("logs", tr("Nhật ký", "Logs"), Icons.Outlined.Info),
         Triple("settings", tr("Cài đặt", "Settings"), Icons.Outlined.Settings)
@@ -781,6 +781,7 @@ private fun MoreScreen(
                     "collaborators" -> tr("Mời và phân quyền nhà phát triển, nhà thiết kế, người kiểm duyệt", "Invite and assign developers, designers and reviewers")
                     "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
                     "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
+                    "packages" -> tr("Mã hóa, phát hành phiên bản và phân phối AUTU cho khách hàng", "Encrypt, publish and distribute AUTU versions to customers")
                     "release" -> tr("Quản lý phiên bản và phân phối", "Manage versions and distribution")
                     "logs" -> tr("Theo dõi sự kiện và lỗi hệ thống", "Review system events and errors")
                     else -> tr("Tùy chỉnh ứng dụng quản trị", "Customize the admin application")
@@ -795,6 +796,11 @@ private fun MoreScreen(
                     }
                     EmptyState(Icons.Outlined.VerifiedUser, tr("Chưa có giấy phép", "No licenses yet"), tr("Dữ liệu giấy phép sẽ xuất hiện sau khi kết nối máy chủ.", "License data will appear after the server is connected."))
                 }
+                "packages" -> AdminPackagesScreen(
+                    accessToken = accessToken,
+                    modifier = Modifier.fillMaxSize(),
+                    onBack = { onSelect("more") }
+                )
                 "library" -> {
                     CardBox {
                         Text(tr("Thư viện dùng chung", "Shared libraries"), fontWeight = FontWeight.SemiBold)
@@ -823,11 +829,13 @@ private fun MoreScreen(
                     SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
                 }
             }
-            OutlinedButton(
-                onClick = { onMessage(tr("Máy chủ chưa được kết nối. Thao tác chưa thể lưu dữ liệu thật.", "The server is not connected. This action cannot save live data yet.")) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(tr("Kiểm tra kết nối máy chủ", "Check server connection"))
+            if (page != "packages") {
+                OutlinedButton(
+                    onClick = { onMessage(tr("Máy chủ chưa được kết nối. Thao tác chưa thể lưu dữ liệu thật.", "The server is not connected. This action cannot save live data yet.")) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(tr("Kiểm tra kết nối máy chủ", "Check server connection"))
+                }
             }
         }
     }
@@ -876,22 +884,77 @@ private fun AdminModulePage(
 }
 
 @Composable
-private fun CustomerHome(modifier: Modifier, email: String, onScripts: () -> Unit) {
+private fun CustomerHome(
+    modifier: Modifier,
+    email: String,
+    accessToken: String?,
+    onScripts: () -> Unit,
+    onDevices: () -> Unit
+) {
+    val context = LocalContext.current
+    val repository = remember(context) { AuthRepository(context) }
+    var account by remember { mutableStateOf<com.autulio.app.auth.CustomerAccountOverview?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf("") }
+
+    LaunchedEffect(accessToken) {
+        if (!accessToken.isNullOrBlank()) {
+            loading = true
+            error = ""
+            try {
+                account = repository.customerAccount(accessToken)
+            } catch (exception: Exception) {
+                error = exception.message ?: tr("Không tải được trạng thái tài khoản.", "Could not load account status.")
+            } finally {
+                loading = false
+            }
+        } else {
+            loading = false
+        }
+    }
+
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
         BrandHeader(admin = false)
-        Heading(tr("Xin chào!", "Welcome!"), tr("Sẵn sàng sử dụng AUTU-LIO", "Ready to use AUTU-LIO"))
+        Heading(tr("Xin chào!", "Welcome!"), tr("Trung tâm sử dụng AUTU-LIO", "AUTU-LIO customer center"))
         CardBox {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Icon(Icons.Outlined.VerifiedUser, null, tint = MaterialTheme.colorScheme.primary)
                 Column {
-                    Text(tr("Giấy phép chưa kết nối", "License not connected"), fontWeight = FontWeight.SemiBold)
-                    Text(tr("Đăng nhập để xác minh khi dịch vụ được tích hợp.", "Sign in to verify after the service is integrated."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(tr("Trạng thái giấy phép", "License status"), fontWeight = FontWeight.SemiBold)
+                    when {
+                        loading -> Text(tr("Đang kiểm tra với máy chủ…", "Checking with the server…"), fontSize = 12.sp)
+                        account?.license == null -> Text(tr("Chưa được cấp giấy phép.", "No license has been issued."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        else -> {
+                            Text(
+                                "${account?.license?.planCode} · ${account?.license?.effectiveStatus}",
+                                color = if (account?.canRun == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                tr(
+                                    "Thiết bị đã đăng ký: ${account?.activeDeviceCount}/${account?.license?.maxDevices}",
+                                    "Registered devices: ${account?.activeDeviceCount}/${account?.license?.maxDevices}"
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                    if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                 }
             }
         }
-        Text(tr("Kịch bản của bạn", "Your scripts"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-        EmptyState(Icons.Outlined.ListAlt, tr("Chưa có kịch bản", "No scripts available"), tr("Kịch bản được chủ ứng dụng phát hành sẽ xuất hiện tại đây.", "Scripts published by the app owner will appear here."))
-        Button(onClick = onScripts, modifier = Modifier.fillMaxWidth()) { Text(tr("Xem kịch bản", "View scripts")) }
+        Text(tr("Gói AUTU của bạn", "Your AUTU packages"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+        Text(
+            tr("Chỉ các gói đã phát hành, có giấy phép hợp lệ và được cấp cho thiết bị này mới có thể tải và chạy.",
+                "Only published packages allowed by your active license and registered device can be downloaded and run."),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            lineHeight = 18.sp
+        )
+        Button(onClick = onScripts, modifier = Modifier.fillMaxWidth()) { Text(tr("Mở kho AUTU", "Open AUTU library")) }
+        OutlinedButton(onClick = onDevices, modifier = Modifier.fillMaxWidth()) { Text(tr("Thiết bị và giấy phép", "Devices and license")) }
         Text(email, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -1140,7 +1203,7 @@ private fun EmptyPage(modifier: Modifier, title: String, subtitle: String, icon:
 }
 
 @Composable
-private fun BrandHeader(admin: Boolean) {
+internal fun BrandHeader(admin: Boolean) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)) {

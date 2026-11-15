@@ -30,6 +30,8 @@ function createEnv({ session = null, allowedOrigins = "*" } = {}) {
     prepare(sql) {
       queries.push(sql);
       const statement = {
+        sql,
+        values: [],
         bind(...values) {
           this.values = values;
           return this;
@@ -401,3 +403,275 @@ test("CORS preflight allows an explicitly configured origin", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://trusted.example");
 });
+
+test("customers cannot publish owner script packages", async () => {
+  const { env } = createEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/packages", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "K".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: "Restricted package",
+        description: "",
+        languageVersion: "0.3",
+        source: "CHẠM(10, 20)"
+      })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "insufficient_permissions");
+});
+
+test("package publishing fails closed when the versioned master encryption key is absent", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/packages", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "L".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: "Secure package",
+        description: "Encrypted package",
+        languageVersion: "0.3",
+        source: "CHẠM(10, 20)"
+      })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 503);
+  assert.equal((await json(response)).error, "package_encryption_not_configured");
+});
+
+test("package publishing stores AES-GCM ciphertext and master-key version, not plain source", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  env.PACKAGE_MASTER_KEY_V1 = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
+  let statements = [];
+  env.DB.batch = async batch => {
+    statements = batch;
+    return batch.map(() => ({ meta: { changes: 1 } }));
+  };
+  const source = "ĐẶT soLan = 3\nLẶP(soLan) { CHẠM(10, 20) }";
+  const response = await worker.fetch(
+    makeRequest("/api/admin/packages", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "M".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: "Encrypted package",
+        description: "Package test",
+        languageVersion: "0.3",
+        source
+      })
+    }),
+    env
+  );
+  const body = await json(response);
+  const versionInsert = statements.find(statement => statement.sql.includes("INSERT INTO script_package_versions"));
+
+  assert.equal(response.status, 201);
+  assert.equal(body.published, true);
+  assert.ok(versionInsert);
+  assert.notEqual(versionInsert.values[4], source);
+  assert.ok(versionInsert.values[4].length > source.length);
+  assert.equal(versionInsert.values[8], "V1");
+  assert.equal(versionInsert.values.includes(source), false);
+});
+
+test("customer package download decrypts the server envelope and wraps the data key to the registered RSA device", async () => {
+  const masterBytes = crypto.getRandomValues(new Uint8Array(32));
+  const masterKey = Buffer.from(masterBytes).toString("base64url");
+  const { env: ownerEnv } = createEnv({ session: ownerSession });
+  ownerEnv.PACKAGE_MASTER_KEY_V1 = masterKey;
+  let statements = [];
+  ownerEnv.DB.batch = async batch => {
+    statements = batch;
+    return batch.map(() => ({ meta: { changes: 1 } }));
+  };
+  const source = "CHỜ_ĐẾN_KHI(CÓ_MẠNG(), 5000, 250)\nCHẠM(5, 6)";
+  const published = await worker.fetch(
+    makeRequest("/api/admin/packages", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "N".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: "Download test",
+        description: "Round-trip",
+        languageVersion: "0.3",
+        source
+      })
+    }),
+    ownerEnv
+  );
+  assert.equal(published.status, 201);
+  const packageInfo = (await json(published)).package;
+  const versionInsert = statements.find(statement => statement.sql.includes("INSERT INTO script_package_versions"));
+  const values = versionInsert.values;
+  const deviceKeys = await crypto.subtle.generateKey(
+    {
+      name: "RSA-OAEP",
+      modulusLength: 3072,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-1"
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
+  const publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey("spki", deviceKeys.publicKey));
+  const publicKeySpki = Buffer.from(publicKeyBytes).toString("base64url");
+  const fingerprint = Buffer.from(await crypto.subtle.digest("SHA-256", publicKeyBytes)).toString("hex");
+  const packageRow = {
+    id: packageInfo.id,
+    name: packageInfo.name,
+    description: packageInfo.description,
+    status: "ACTIVE",
+    version: values[2],
+    language_version: values[3],
+    ciphertext: values[4],
+    content_iv: values[5],
+    encrypted_data_key: values[6],
+    key_iv: values[7],
+    key_version: values[8],
+    source_sha256: values[9]
+  };
+  const now = Math.floor(Date.now() / 1000);
+  const license = {
+    id: "license-1",
+    user_id: customerSession.user_id,
+    plan_code: "MONTHLY",
+    status: "ACTIVE",
+    starts_at: now - 60,
+    expires_at: now + 86400,
+    max_devices: 1
+  };
+  const queries = [];
+  const customerEnv = {
+    PACKAGE_MASTER_KEY_V1: masterKey,
+    DB: {
+      prepare(sql) {
+        queries.push(sql);
+        return {
+          values: [],
+          bind(...bound) {
+            this.values = bound;
+            return this;
+          },
+          async first() {
+            if (sql.includes("FROM sessions s JOIN users u")) return customerSession;
+            if (sql.includes("FROM licenses WHERE user_id = ? AND status = 'ACTIVE'")) return license;
+            if (sql.includes("FROM devices WHERE user_id = ? AND public_key_fingerprint = ?")) {
+              return { id: "device-1", public_key_spki: publicKeySpki };
+            }
+            if (sql.includes("FROM script_packages p JOIN script_package_versions")) return packageRow;
+            return null;
+          },
+          async all() { return { results: [] }; },
+          async run() { return { meta: { changes: 1 } }; }
+        };
+      },
+      async batch() { return []; }
+    }
+  };
+  const downloaded = await worker.fetch(
+    makeRequest("/api/customer/packages/" + packageInfo.id + "/download?deviceFingerprint=" + fingerprint, {
+      headers: { Authorization: "Bearer " + "O".repeat(48) }
+    }),
+    customerEnv
+  );
+  const downloadBody = await json(downloaded);
+  assert.equal(downloaded.status, 200);
+
+  const packageEnvelope = downloadBody.package;
+  const wrappedBytes = Buffer.from(packageEnvelope.wrappedKey, "base64url");
+  const dataKeyBytes = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, deviceKeys.privateKey, wrappedBytes);
+  const dataKey = await crypto.subtle.importKey("raw", dataKeyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+  const context = new TextEncoder().encode("AUTU-LIO|PACKAGE|" + packageInfo.id + "|v1");
+  const plainBytes = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: Buffer.from(packageEnvelope.contentIv, "base64url"),
+      additionalData: context,
+      tagLength: 128
+    },
+    dataKey,
+    Buffer.from(packageEnvelope.ciphertext, "base64url")
+  );
+  const decryptedSource = new TextDecoder().decode(plainBytes);
+  const digest = Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(decryptedSource))).toString("hex");
+
+  assert.equal(decryptedSource, source);
+  assert.equal(digest, packageEnvelope.sourceSha256);
+  assert.equal(packageEnvelope.version, 1);
+  assert.equal(queries.some(sql => sql.includes("public_key_spki")), true);
+});
+
+
+test("customer without an active license cannot list published AUTUs", async () => {
+  const { env, queries } = createEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/customer/packages?deviceFingerprint=" + "a".repeat(64), {
+      headers: { Authorization: "Bearer " + "P".repeat(48) }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "active_license_required");
+  assert.equal(queries.some(sql => sql.includes("FROM script_packages")), false);
+});
+
+test("customer without an active registered device cannot download a published AUTU", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const license = {
+    id: "license-1",
+    user_id: customerSession.user_id,
+    plan_code: "MONTHLY",
+    status: "ACTIVE",
+    starts_at: now - 60,
+    expires_at: now + 86400,
+    max_devices: 1
+  };
+  const queries = [];
+  const env = {
+    DB: {
+      prepare(sql) {
+        queries.push(sql);
+        return {
+          bind() { return this; },
+          async first() {
+            if (sql.includes("FROM sessions s JOIN users u")) return customerSession;
+            if (sql.includes("FROM licenses WHERE user_id = ? AND status = 'ACTIVE'")) return license;
+            if (sql.includes("FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'")) return null;
+            return null;
+          },
+          async all() { return { results: [] }; },
+          async run() { return { meta: { changes: 1 } }; }
+        };
+      },
+      async batch() { return []; }
+    }
+  };
+  const packageId = "123e4567-e89b-42d3-a456-426614174000";
+  const response = await worker.fetch(
+    makeRequest("/api/customer/packages/" + packageId + "/download?deviceFingerprint=" + "b".repeat(64), {
+      headers: { Authorization: "Bearer " + "Q".repeat(48) }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "active_device_required");
+  assert.equal(queries.some(sql => sql.includes("FROM script_packages")), false);
+});
+
