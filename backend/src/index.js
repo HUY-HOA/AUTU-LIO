@@ -250,6 +250,8 @@ async function googleLogin(request, env) {
   ).bind(identity.sub).first();
 
   if (!user) {
+    const otherUser = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(identity.email).first();
+    if (otherUser) throw new HttpError(409, "google_identity_conflict", "This email is already linked to a different Google identity.");
     const userId = crypto.randomUUID();
     const isConfiguredOwner = env.OWNER_EMAIL && identity.email === normalizeEmail(env.OWNER_EMAIL);
     const role = isConfiguredOwner ? "OWNER" : "CUSTOMER";
@@ -260,6 +262,13 @@ async function googleLogin(request, env) {
     user = { id: userId, email: identity.email, display_name: identity.name, role, status: "ACTIVE", email_verified: 1 };
   } else {
     if (user.status !== "ACTIVE") throw new HttpError(403, "account_inactive", "This account has been disabled.");
+    if (env.OWNER_EMAIL && identity.email === normalizeEmail(env.OWNER_EMAIL) && user.role !== "OWNER") {
+      const existingOwner = await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' LIMIT 1").first();
+      if (!existingOwner) {
+        await env.DB.prepare("UPDATE users SET role = 'OWNER' WHERE id = ?").bind(user.id).run();
+        user.role = "OWNER";
+      }
+    }
     await env.DB.prepare(
       "UPDATE users SET email = ?, email_verified = 1, display_name = ?, updated_at = ?, last_login_at = ? WHERE id = ?"
     ).bind(identity.email, identity.name, now, now, user.id).run();
@@ -348,20 +357,21 @@ async function acceptInvitation(request, env, session) {
   if (normalizeEmail(invite.email) !== normalizeEmail(session.email)) {
     throw new HttpError(403, "invitation_email_mismatch", "Sign in with the Google account that received this invitation.");
   }
-  await env.DB.batch([
+  const accepted = await env.DB.batch([
     env.DB.prepare(
-      "UPDATE invitations SET accepted_at = ?, accepted_by = ? WHERE id = ? AND accepted_at IS NULL AND revoked_at IS NULL"
-    ).bind(now, session.user_id, invite.id),
+      "UPDATE invitations SET accepted_at = ?, accepted_by = ? WHERE id = ? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?"
+    ).bind(now, session.user_id, invite.id, now),
     env.DB.prepare(
-      "UPDATE users SET role = ?, updated_at = ? WHERE id = ? AND role <> 'OWNER' AND status = 'ACTIVE'"
-    ).bind(invite.role, now, session.user_id)
+      "UPDATE users SET role = ?, updated_at = ? WHERE id = ? AND role <> 'OWNER' AND status = 'ACTIVE' " +
+      "AND lower(email) = ? AND EXISTS (SELECT 1 FROM invitations WHERE id = ? AND accepted_by = ? AND accepted_at = ?)"
+    ).bind(invite.role, now, session.user_id, normalizeEmail(session.email), invite.id, session.user_id, now)
   ]);
+  if (accepted[0]?.meta?.changes !== 1 || accepted[1]?.meta?.changes !== 1) {
+    throw new HttpError(409, "invitation_acceptance_conflict", "Invitation could not be accepted.");
+  }
   const updated = await env.DB.prepare(
     "SELECT role FROM users WHERE id = ?"
   ).bind(session.user_id).first();
-  if (!updated || updated.role !== invite.role) {
-    throw new HttpError(409, "invitation_acceptance_conflict", "Invitation could not be accepted.");
-  }
   await audit(env, session.user_id, "collaborator.invite_accepted", "invitation", invite.id, { role: invite.role });
   return response(request, { accepted: true, role: updated.role }, 200, env);
 }
@@ -403,7 +413,7 @@ async function route(request, env) {
     if (origin && !allowed.includes("*") && !allowed.includes(origin)) {
       return response(request, { error: "origin_not_allowed" }, 403, env);
     }
-    return response(request, { ok: true }, 204, env);
+    return response(request, { ok: true }, 200, env);
   }
 
   if (method === "GET" && path === "/health") {
