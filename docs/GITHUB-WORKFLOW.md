@@ -22,13 +22,12 @@
 - Báo cáo rõ file nào được thêm/sửa, commit nào được tạo và đường dẫn GitHub để người dùng kiểm tra.
 
 ## 4. Quy tắc build APK và GitHub Actions
-- Chỉ bắt đầu quy trình build khi chủ ứng dụng gửi đúng nội dung lệnh: `BUILD APK` (viết hoa, đúng cụm từ).
-- Các tin nhắn hỏi tiến độ, yêu cầu kiểm tra, sửa lỗi, hoặc nhắc đến cụm từ BUILD APK nhưng không phải lệnh độc lập không tự động cho phép bắt đầu build.
-- Không tự kích hoạt, dispatch, rerun hoặc khởi chạy workflow build APK khi chưa có lệnh `BUILD APK` độc lập.
-- Khi có lệnh hợp lệ `BUILD APK`, kiểm tra mã nguồn và workflow trước; chỉ kích hoạt quy trình build nếu repository đã có cấu hình build phù hợp và thao tác đó được kết nối hỗ trợ.
-- Nếu chưa có mã nguồn, chưa có workflow hoặc không thể kích hoạt build qua kết nối hiện có, phải nói rõ tình trạng; không giả vờ build.
+- Chỉ cần tin nhắn của chủ ứng dụng có chứa cụm viết hoa `BUILD APK` là cho phép bắt đầu quy trình build; không bắt buộc cụm từ phải đứng riêng một dòng.
+- Tin nhắn chỉ hỏi trạng thái hoặc nhắc đến build nhưng không có đúng cụm viết hoa `BUILD APK` không tự động cho phép bắt đầu.
+- Khi có cụm `BUILD APK`, kiểm tra mã nguồn và workflow trước; chỉ kích hoạt quy trình build nếu repository có cấu hình phù hợp và thao tác đó được kết nối hỗ trợ.
+- Nếu không thể kích hoạt build qua kết nối hiện có, phải nói rõ tình trạng; không giả vờ build.
 - Workflow hiện tại là `.github/workflows/build-apks.yml`: có `workflow_dispatch` và chỉ nhận push từ nhánh `build-requests/**` khi có file trong `.build-requests/**`. Push thông thường lên `main` không chạy build.
-- Workflow tạo một artifact debug duy nhất: `AUTU-LIO-Debug`.
+- Khi đủ bốn GitHub Actions secrets ký APK, workflow tạo một APK Release đã ký bằng khóa cố định, bật R8 và shrink resources. Khi chưa cấu hình khóa, workflow chỉ tạo một APK Debug thử nghiệm; không dùng Debug làm bản phát hành hoặc để cập nhật đè ổn định.
 - Nếu kết nối GitHub không hỗ trợ dispatch trực tiếp, sau lệnh độc lập `BUILD APK`, tạo nhánh `build-requests/<mã-yêu-cầu>` từ `main` và thêm đúng một file marker trong `.build-requests/` để kích hoạt workflow. Không tạo nhánh/file marker trước khi nhận đúng lệnh.
 - Nếu trigger bằng nhánh không xuất hiện run, chủ ứng dụng mở GitHub Actions → AUTU-LIO Android APK → Run workflow. Không được báo đã bắt đầu cho đến khi nhìn thấy một workflow run thực tế.
 - Chỉ kiểm tra trạng thái, log và artifact của lần chạy khi chủ ứng dụng yêu cầu theo dõi hoặc cung cấp lần chạy cần kiểm tra.
@@ -40,7 +39,7 @@
 ## 5. Bộ công cụ build hiện tại
 
 - Ứng dụng chỉ có một application ID `com.autulio.app`; không sử dụng product flavor Admin/Client.
-- GitHub Actions chạy `:app:lintDebug` và `:app:assembleDebug`, sau đó tải artifact `AUTU-LIO-Debug`.
+- GitHub Actions chạy lint/build cho một variant duy nhất: Release có ký khi đủ secrets; nếu chưa có secrets thì Debug để kiểm thử. Artifact được đặt tên tương ứng `AUTU-LIO-Release` hoặc `AUTU-LIO-Debug`.
 
 - AGP `9.3.1`, Kotlin Gradle Plugin `2.4.21`, Compose Compiler plugin `2.4.21`.
 - GitHub Actions dùng JDK `21`, Gradle `9.6.0`, Android SDK API `37` và Build Tools `36.0.0`.
@@ -63,5 +62,5 @@
 - Repository có prototype Android Kotlin/Jetpack Compose trong một APK duy nhất, có giao diện theo vai trò.
 - Đã tích hợp mã nguồn Google Credential Manager, Cloudflare Worker API, phân quyền cộng tác viên, workspace dự án dùng chung và kiểm duyệt; các kiểm tra Kotlin compilation và Worker/D1 đã đạt trên PR.
 - D1 migrations `0001`–`0003` đã áp dụng; Worker chưa deploy và Google OAuth chưa cấu hình nên đăng nhập/API thật chưa hoạt động.
-- Chưa có lần chạy workflow đóng gói APK hoặc APK artifact được xác minh; chỉ build sau lệnh độc lập `BUILD APK`.
+- Không lưu keystore, mật khẩu hoặc khóa riêng trong repository. Release signing chỉ sử dụng GitHub Actions secrets có tên quy định trong `docs/SECURITY-AND-SIGNING.md`.
 - Chưa có giấy phép thật, compiler/runtime AUTU-LIO hoặc engine Auto Click.
