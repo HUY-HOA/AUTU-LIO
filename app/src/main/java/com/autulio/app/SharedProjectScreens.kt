@@ -593,7 +593,12 @@ private fun SharedProjectCard(project: SharedProject, selected: Boolean, onClick
         Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(project.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                Text(project.accessRole.sharedRoleLabel(), fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    runCatching { AccessRole.valueOf(project.accessRole).sharedRoleLabel() }
+                        .getOrDefault(project.accessRole),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
             if (project.description.isNotBlank()) Text(project.description, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
