@@ -1282,21 +1282,27 @@ async function registerCustomerDevice(request, env, session) {
     }, 200, env);
   }
 
-  const count = await env.DB.prepare(
-    "SELECT COUNT(*) AS active_count FROM devices WHERE user_id = ? AND status = 'ACTIVE'"
-  ).bind(session.user_id).first();
-  if ((count?.active_count || 0) >= license.max_devices) {
-    throw new HttpError(409, "device_limit_reached", "The license has reached its active device limit.");
-  }
-
   const id = crypto.randomUUID();
-  await env.DB.prepare(
-    "INSERT INTO devices (id, user_id, public_key_spki, public_key_fingerprint, label, manufacturer, model, android_version, app_version, status, registered_at, last_seen_at) " +
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)"
-  ).bind(
-    id, session.user_id, publicKeyCanonical, fingerprint,
-    metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion, now, now
-  ).run();
+  try {
+    const inserted = await env.DB.prepare(
+      "INSERT INTO devices (id, user_id, public_key_spki, public_key_fingerprint, label, manufacturer, model, android_version, app_version, status, registered_at, last_seen_at) " +
+      "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ? " +
+      "WHERE (SELECT COUNT(*) FROM devices WHERE user_id = ? AND status = 'ACTIVE') < ?"
+    ).bind(
+      id, session.user_id, publicKeyCanonical, fingerprint,
+      metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion, now, now,
+      session.user_id, license.max_devices
+    ).run();
+    if (inserted.meta?.changes !== 1) {
+      throw new HttpError(409, "device_limit_reached", "The license has reached its active device limit.");
+    }
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "device_key_already_registered", "This device key is already registered to another account.");
+    }
+    throw error;
+  }
   await audit(env, session.user_id, "device.registered", "device", id, { fingerprint });
   return response(request, {
     registered: true,
