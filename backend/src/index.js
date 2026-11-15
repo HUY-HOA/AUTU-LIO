@@ -1023,6 +1023,11 @@ async function createCustomerLicense(request, env, session) {
     throw new HttpError(409, "customer_inactive", "A license cannot be issued to an inactive account.");
   }
 
+  await env.DB.prepare(
+    "UPDATE licenses SET status = 'PAUSED', updated_at = ? " +
+    "WHERE user_id = ? AND status = 'ACTIVE' AND expires_at <= ?"
+  ).bind(now, userId, now).run();
+
   const id = crypto.randomUUID();
   try {
     await env.DB.prepare(
@@ -1185,7 +1190,8 @@ async function registerCustomerDevice(request, env, session) {
     throw new HttpError(400, "invalid_device_public_key", "A valid Android Keystore public key is required.");
   }
   if (!PROJECT_ID_PATTERN.test(challengeId) || nonce.length < 32 || nonce.length > 128 ||
-      !/^[A-Za-z0-9_-]{40,100}$/.test(signatureText)) {
+      signatureText.length < 300 || signatureText.length > 600 ||
+      !/^[A-Za-z0-9_+\\/=-]+$/.test(signatureText)) {
     throw new HttpError(400, "invalid_device_proof", "A valid one-time device enrollment proof is required.");
   }
 
