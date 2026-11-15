@@ -10,9 +10,13 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Server-side role lookup on every protected request.
 - One-owner bootstrap by an exact, verified Google email configured as a Worker secret.
 - Owner-only invitation creation, invitation preview and single-use acceptance tied to the signed-in Google email.
-- Owner-only collaborator listing, role changes and access revocation (including active sessions).
+- Owner-only collaborator listing, role changes and access revocation, including active sessions.
+- Role-based permission defaults plus owner-managed permission overrides for Developer, Designer and Reviewer.
+- Permission changes are audited; changing a collaborator role resets overrides to that role's defaults.
 - Minimal audit records for authentication and collaborator changes.
 - D1 schema migrations and local migration validation.
+
+Permission overrides are restricted to each role's allowed set. Owner-only controls, such as managing collaborators and licenses or final publishing, cannot be granted to collaborators.
 
 ## D1
 
@@ -51,18 +55,30 @@ This repository currently contains the Worker source and D1 binding configuratio
 
 ## API
 
+### Authentication
+
 - `GET /health`
 - `POST /api/auth/challenge`
 - `POST /api/auth/google`
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
+
+### Invitations and collaborators
+
 - `GET /api/invitations/preview?token=...`
 - `POST /api/invitations/accept`
 - `GET /api/admin/collaborators` — OWNER
 - `POST /api/admin/invitations` — OWNER
+- `DELETE /api/admin/invitations/:invitationId` — OWNER
 - `PATCH /api/admin/collaborators/:userId` — OWNER
 - `DELETE /api/admin/collaborators/:userId` — OWNER
-- `DELETE /api/admin/invitations/:invitationId` — OWNER
+
+### Granular permissions
+
+- `GET /api/admin/collaborators/:userId/permissions` — OWNER
+- `PUT /api/admin/collaborators/:userId/permissions` — OWNER
+
+The permission API returns only permissions configurable for the selected role. The Worker rejects permissions outside that role's allowlist. A role change clears previous overrides to avoid carrying permissions into an incompatible role.
 
 The Worker returns a one-time invitation token for the owner to copy and share manually. The owner can list and revoke pending invitations; the Worker does not send email. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
 

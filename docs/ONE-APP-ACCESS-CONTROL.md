@@ -2,9 +2,9 @@
 
 ## 1. Quyết định kiến trúc
 
-AUTU-LIO chỉ phát hành **một ứng dụng Android và một APK**. Không còn hai product flavor Admin/Client và không tạo hai application ID.
+AUTU-LIO chỉ phát hành **một ứng dụng Android và một APK** với application ID `com.autulio.app`. Không dùng hai product flavor Admin/Client và không tạo hai application ID.
 
-Cùng một ứng dụng hiển thị các khu vực khác nhau sau khi tài khoản Google được xác thực và máy chủ trả về vai trò hợp lệ:
+Cùng một ứng dụng hiển thị các khu vực khác nhau sau khi Google xác thực tài khoản và máy chủ trả về vai trò hợp lệ:
 
 - Chủ sở hữu
 - Nhà phát triển
@@ -12,84 +12,87 @@ Cùng một ứng dụng hiển thị các khu vực khác nhau sau khi tài kho
 - Người kiểm duyệt
 - Người dùng
 
-Bộ chọn giao diện trong bản Debug chỉ để kiểm tra bố cục. Nó không đăng nhập và không cấp quyền. Bản Release không được cung cấp bộ chọn vai trò cục bộ.
+Bộ chọn giao diện trong bản Debug chỉ để kiểm tra bố cục và vai trò mẫu. Nó không đăng nhập, không cấp quyền và không tồn tại trong Release. Bản Release chỉ mở màn hình theo quyền do Worker xác minh.
 
-## 2. Ma trận quyền
+## 2. Vai trò và quyền
 
-| Vai trò | Quyền chính | Không được tự ý |
+| Vai trò | Quyền mặc định | Ranh giới |
 |---|---|---|
-| Chủ sở hữu | Toàn quyền; mời/thu hồi cộng tác viên; quản lý khách hàng, giấy phép; duyệt và phát hành | Chia sẻ khóa ký hoặc bí mật máy chủ |
-| Nhà phát triển | Viết/sửa mã kịch bản, kiểm thử, gửi bản phát hành để duyệt | Quản lý chủ sở hữu, cấp quyền Admin, phát hành chính thức |
-| Nhà thiết kế | Thiết kế giao diện, tài nguyên và xem trước | Sửa mã kịch bản/runtime, quản lý giấy phép, phát hành |
-| Người kiểm duyệt | Kiểm thử và duyệt/từ chối bản phát hành | Sửa quyền tài khoản hoặc tự phát hành bản chính thức |
-| Người dùng | Xem tài khoản của mình, tải và chạy kịch bản đã được cấp | Truy cập IDE, thư viện nội bộ, mã nguồn và công cụ quản trị |
+| Chủ sở hữu | Toàn quyền quản trị, mời/thu hồi cộng tác viên, quản lý khách hàng/giấy phép, duyệt và phát hành | Không chia sẻ khóa ký hoặc bí mật máy chủ |
+| Nhà phát triển | Viết/sửa mã kịch bản, kiểm thử, gửi bản để duyệt | Không quản lý cộng tác viên/giấy phép, không ký hoặc phát hành chính thức |
+| Nhà thiết kế | Thiết kế giao diện và xem trước | Không xem/sửa mã kịch bản, runtime, giấy phép hoặc phát hành |
+| Người kiểm duyệt | Kiểm thử và duyệt/từ chối bản gửi | Không sửa mã, thay đổi vai trò hoặc phát hành cuối cùng |
+| Người dùng | Xem tài khoản, chạy kịch bản đã phát hành và được cấp phép | Không truy cập IDE, mã nguồn và công cụ quản trị |
 
-Mỗi tài khoản cộng tác viên được gán vai trò bởi chủ sở hữu. Có thể đổi hoặc thu hồi quyền từ trang Quản lý cộng tác viên.
+Chủ sở hữu có thể tùy chỉnh từng quyền trong phạm vi cho phép của vai trò Nhà phát triển, Nhà thiết kế hoặc Người kiểm duyệt. Không thể cấp quyền độc quyền của Chủ sở hữu cho cộng tác viên. Khi đổi vai trò, các quyền tùy chỉnh cũ được xóa và vai trò mới trở về quyền mặc định.
+
+Các quyền chi tiết được lưu ở D1, trả về từ API và được dùng để điều khiển giao diện cộng tác viên. Các API thực thi mã, phát hành package và dữ liệu khách hàng sẽ phải kiểm tra quyền tương ứng ở phía Worker trước khi những chức năng đó được triển khai.
 
 ## 3. Google Sign-In không cần Firebase
 
-Luồng xác thực dự kiến:
+Luồng xác thực trong mã Android/Worker:
 
 1. Android dùng Credential Manager để hiển thị giao diện đăng nhập Google.
-2. Ứng dụng nhận Google ID token và gửi token qua HTTPS đến Cloudflare Worker.
-3. Worker xác minh chữ ký, issuer, audience và thời hạn token với Google.
-4. Worker dùng định danh Google `sub` đã xác minh để tìm tài khoản và vai trò trong D1.
-5. Ứng dụng chỉ mở màn hình tương ứng với vai trò do máy chủ trả về.
+2. Ứng dụng lấy nonce ngắn hạn từ Auth API, yêu cầu Google cấp ID token có nonce đó.
+3. Ứng dụng gửi ID token tới Cloudflare Worker qua HTTPS.
+4. Worker xác minh chữ ký Google, issuer, audience, thời hạn, email đã xác minh và nonce.
+5. Worker tra cứu định danh Google `sub`, vai trò và quyền từ D1, sau đó tạo bearer session.
+6. Android mã hóa session bằng AES-GCM với khóa trong Android Keystore; Google ID token không được lưu.
+7. Khi mở ứng dụng, Android gọi `/api/auth/me`; giao diện chỉ mở sau khi session được máy chủ xác minh.
 
-Không được tin vào email hoặc vai trò do ứng dụng tự gửi lên. Không hardcode địa chỉ Gmail quản trị, không đặt client secret hoặc khóa máy chủ trong APK. Email có thể thay đổi; định danh Google `sub` là khóa liên kết ổn định phù hợp hơn.
+Không tin vào email hoặc vai trò do ứng dụng tự gửi lên. Không hardcode email quản trị, không đặt client secret hoặc khóa máy chủ trong APK. Email có thể đổi; định danh Google `sub` là khóa liên kết tài khoản.
 
-Google ID token chỉ dùng để xác thực danh tính ban đầu. Các API quản lý cộng tác viên, giấy phép, package và phát hành phải tiếp tục kiểm tra session và quyền trên máy chủ.
+**Tình trạng:** mã đăng nhập Android và Worker đã được thêm vào repository, nhưng Google OAuth chưa cấu hình và Worker chưa deploy. Do đó đăng nhập Google thật vẫn chưa được bật.
 
 ## 4. Dịch vụ máy chủ, không dùng Firebase
 
-Kiến trúc dự kiến:
-
 - **Cloudflare Workers:** API xác thực, session, phân quyền, mời cộng tác viên và quản lý dữ liệu.
-- **Cloudflare D1:** tài khoản, vai trò, lời mời, thiết bị, giấy phép, phiên bản và nhật ký tối thiểu.
-- **Cloudflare R2:** package kịch bản đã biên dịch/mã hóa và tài nguyên phát hành; bucket riêng tư.
+- **Cloudflare D1:** tài khoản, vai trò, nonce, session, lời mời, quyền ghi đè và nhật ký.
+- **Cloudflare R2:** dự kiến dùng cho package kịch bản được ký/mã hóa và tài nguyên phát hành ở giai đoạn sau.
 
 Không sử dụng Firebase Authentication, Firestore, Realtime Database hay Firebase Storage.
 
-Cloudflare vẫn cần được cấu hình và triển khai riêng. Tài liệu này chưa có nghĩa là Worker hoặc D1 đã hoạt động.
+D1 `autu_lio_auth` đã tồn tại trong tài khoản Cloudflare kết nối. Worker source có trong repo nhưng chưa deploy. Không tuyên bố backend đang hoạt động cho tới khi triển khai và kiểm tra endpoint thật.
 
 ## 5. Lời mời cộng tác viên
 
-Quy trình dự kiến:
+Luồng API đã được viết:
 
-1. Chủ sở hữu nhập Gmail của người cần mời.
-2. Chọn một vai trò: Nhà phát triển, Nhà thiết kế hoặc Người kiểm duyệt.
-3. Máy chủ tạo lời mời có mã ngẫu nhiên, thời hạn và trạng thái chưa sử dụng.
-4. Người được mời đăng nhập Google; Worker xác minh danh tính và email phù hợp với lời mời.
-5. Sau khi chấp nhận, Worker gắn vai trò vào tài khoản; mã mời không được dùng lại.
-6. Chủ sở hữu có thể đổi vai trò, thu hồi lời mời hoặc thu hồi cộng tác viên.
+1. Chủ sở hữu nhập Gmail và chọn Nhà phát triển, Nhà thiết kế hoặc Người kiểm duyệt.
+2. Worker tạo lời mời có mã ngẫu nhiên, thời hạn và trạng thái chưa sử dụng.
+3. Chủ sở hữu sao chép mã hiển thị một lần và tự chia sẻ riêng cho người được mời.
+4. Người nhận đăng nhập đúng tài khoản Google tương ứng rồi nhập mã trong AUTU-LIO.
+5. Worker so khớp email, đánh dấu mã đã dùng, gán vai trò và ghi nhật ký.
+6. Chủ sở hữu có thể xem danh sách, đổi vai trò, tùy chỉnh quyền, thu hồi cộng tác viên hoặc hủy lời mời đang chờ.
 
-Không tự động cấp quyền chỉ vì một người biết hoặc nhập được địa chỉ Gmail. Không gửi lời mời hoặc cấp quyền cho tới khi chủ sở hữu xác nhận thao tác.
+Hiện chưa có gửi email tự động. Mã lời mời và session được lưu dạng SHA-256 hash trong D1; mã lời mời chỉ trả về một lần cho chủ sở hữu sao chép. Thu hồi cộng tác viên cũng thu hồi các phiên hiện tại của tài khoản đó.
 
-## 6. Ranh giới bảo mật
+## 6. Quyền chi tiết
 
-- Ẩn nút trong giao diện không phải là bảo vệ quyền; API phải kiểm tra quyền trên từng hành động.
-- Chỉ chủ sở hữu được mời/thu hồi cộng tác viên, thay đổi giấy phép và phát hành chính thức.
-- Nhà phát triển gửi bản build/kịch bản để duyệt; người kiểm duyệt phản hồi; chủ sở hữu quyết định phát hành.
-- Kịch bản phát hành cần có phiên bản, chữ ký và kiểm tra tính toàn vẹn. Có thể biên dịch/mã hóa package để hạn chế đọc mã nguồn, nhưng không tuyên bố chống sao chép tuyệt đối.
-- Quyền Android như Accessibility chỉ được yêu cầu khi tính năng thật cần, có giải thích rõ và người dùng tự cấp theo cơ chế hệ điều hành.
-- Thu thập tối thiểu dữ liệu tài khoản/thiết bị cần cho giấy phép và bảo mật; không thu thập nội dung riêng tư không cần thiết.
+Các quyền có tên rõ ràng gồm truy cập khu vực quản trị, quản lý cộng tác viên, quản lý khách hàng/giấy phép, sửa mã kịch bản, kiểm thử, sửa UI, xem trước, gửi duyệt, duyệt, phát hành, chạy kịch bản đã phát hành và xem tài khoản cá nhân.
 
-## 7. Prototype quản lý cộng tác viên
+Chủ sở hữu chỉ có thể bật/tắt quyền nằm trong allowlist của vai trò:
+- Nhà phát triển: sửa mã, kiểm thử, gửi duyệt.
+- Nhà thiết kế: sửa UI, xem trước UI.
+- Người kiểm duyệt: kiểm thử, duyệt bản gửi.
 
-Màn hình Admin có mục Quản lý cộng tác viên, cho phép nhập Gmail, chọn vai trò Nhà phát triển / Nhà thiết kế / Người kiểm duyệt, lưu và xóa bản nháp lời mời trên thiết bị. Dữ liệu prototype được lưu trong vùng riêng của ứng dụng; không gửi lên máy chủ và không cấp quyền thực tế. Không được dùng danh sách cục bộ này làm nguồn phân quyền.
+Các quyền quản lý cộng tác viên, quản lý giấy phép, ký và phát hành chính thức không thể cấp qua màn hình quyền chi tiết. Mọi cập nhật quyền được ghi vào audit log.
 
-Khi backend hoạt động, cần thay phần lưu cục bộ bằng API có xác thực session. Worker phải kiểm tra vai trò OWNER, xác thực email/Google identity, mã lời mời dùng một lần có thời hạn, chống gửi lặp và ghi nhật ký thay đổi. Người được mời chỉ có quyền sau khi chấp nhận và máy chủ gán role thành công.
+## 7. Ranh giới bảo mật và giới hạn prototype
 
-## 8. Backend D1 và API
+- Ẩn nút trong giao diện không phải là bảo vệ quyền; mọi API thay đổi dữ liệu phải kiểm tra session và quyền ở phía Worker.
+- Chỉ Chủ sở hữu được quản lý cộng tác viên, giấy phép, bí mật ký và phát hành cuối cùng.
+- Nhà phát triển hiện lưu bản nháp cục bộ; chưa đồng bộ mã lên máy chủ, chưa có compiler/runtime và chưa có thao tác gửi duyệt thật.
+- Nhà thiết kế hiện thay đổi màu/bố cục ở màn hình preview cục bộ; chưa ghi thay đổi UI vào kho thiết kế trung tâm.
+- Người kiểm duyệt hiện có workspace preview; hàng đợi duyệt và quyết định duyệt chưa kết nối backend.
+- Kịch bản phát hành sau này cần phiên bản, chữ ký và kiểm tra tính toàn vẹn. Không tuyên bố chống sao chép tuyệt đối.
+- Accessibility/overlay chỉ xin quyền Android khi chức năng thực tế cần và giải thích rõ.
+- Thu thập tối thiểu dữ liệu tài khoản/thiết bị cần cho bảo mật và giấy phép; không lấy dữ liệu riêng tư không cần thiết.
 
-Cloudflare D1 database `autu_lio_auth` đã được tạo trong tài khoản Cloudflare kết nối, vị trí chính APAC. Các bảng tài khoản, thử thách nonce, session, lời mời, quyền ghi đè, nhật ký kiểm toán và cấu hình đã được tạo. Có chỉ mục duy nhất bảo đảm tối đa một tài khoản OWNER.
+## 8. Trạng thái triển khai
 
-Mã Worker nằm trong `backend/src/index.js`, có các endpoint xác minh Google ID token (RS256/JWKS, issuer, audience, expiry, verified email và nonce), tạo/thu hồi session, tạo lời mời, xem trước/chấp nhận lời mời, liệt kê cộng tác viên, đổi vai trò và thu hồi quyền. Lời mời yêu cầu tài khoản Google đã đăng nhập phải trùng email nhận lời mời. Token lời mời và session chỉ lưu dạng SHA-256 hash trong D1.
+Đã hợp nhất vào `main` nền tảng một APK, Google Credential Manager, xác minh session theo role, workspace riêng cho các vai trò và giao diện quản lý cộng tác viên nối API. Đây là mã nguồn đã qua kiểm tra biên dịch Kotlin và kiểm tra Worker ở PR; không phải xác nhận đăng nhập Google thật đã hoạt động.
 
-Worker source hiện mới ở repository; **chưa deploy**. Màn hình Android đã gọi các endpoint quản lý cộng tác viên; chức năng trực tuyến chỉ có hiệu lực sau khi deploy Worker. Cần cấu hình Cloudflare secrets `GOOGLE_CLIENT_ID` và `OWNER_EMAIL` trước. Chưa có email tự động; API trả token lời mời để chủ ứng dụng sao chép/chia sẻ thủ công. Android Credential Manager cũng chưa được kết nối với API.
+Các phần quyền chi tiết theo từng cộng tác viên đang được hoàn thiện trên nhánh riêng và chưa được coi là đã phát hành cho `main` cho tới khi kiểm tra CI và hợp nhất.
 
-## 9. Trạng thái triển khai
-
-Đã cập nhật cấu hình dự án để tạo một APK duy nhất và thêm mô hình vai trò/quyền phía Android. Bộ chọn Admin/khách hàng hiện tại chỉ chạy trong bản Debug để kiểm tra giao diện.
-
-Chưa tích hợp Credential Manager, Google OAuth client ID, Cloudflare Worker/D1/R2, session thật, lời mời cộng tác viên, kiểm tra quyền máy chủ hoặc chạy Auto Click thực tế. Không coi mô hình quyền Kotlin phía client là lớp bảo mật cuối cùng.
+Chưa có Worker deployed, Google OAuth Client ID/OWNER_EMAIL, đăng nhập thật, gửi email mời tự động, runtime Auto Click, compiler, kho mã đồng bộ, workflow duyệt/phát hành thật hoặc cập nhật package từ xa.

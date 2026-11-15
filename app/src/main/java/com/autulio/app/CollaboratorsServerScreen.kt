@@ -21,11 +21,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.autulio.app.access.AccessPermission
 import com.autulio.app.access.AccessRole
+import com.autulio.app.access.labelText as permissionLabelText
 import com.autulio.app.auth.AuthApiException
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.CollaboratorDirectory
 import com.autulio.app.auth.CollaboratorRecord
+import com.autulio.app.auth.CollaboratorPermissionSettings
 import com.autulio.app.auth.CreatedInvitation
 import com.autulio.app.auth.PendingInvitation
 import kotlinx.coroutines.launch
@@ -47,6 +50,9 @@ internal fun CollaboratorsServerContent(
     var revokeUser by remember { mutableStateOf<CollaboratorRecord?>(null) }
     var revokeInvite by remember { mutableStateOf<PendingInvitation?>(null) }
     var roleMenuUserId by remember { mutableStateOf<String?>(null) }
+    var permissionTarget by remember { mutableStateOf<CollaboratorRecord?>(null) }
+    var permissionOptions by remember { mutableStateOf<Set<AccessPermission>>(emptySet()) }
+    var permissionDraft by remember { mutableStateOf<Set<AccessPermission>>(emptySet()) }
     var loading by remember { mutableStateOf(false) }
     var submitting by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("") }
@@ -260,6 +266,23 @@ internal fun CollaboratorsServerContent(
                             }
                         }
                     },
+                    onEditPermissions = {
+                        scope.launch {
+                            submitting = true
+                            try {
+                                val settings = repository.getCollaboratorPermissions(accessToken, collaborator.id)
+                                permissionOptions = settings.configurablePermissions
+                                permissionDraft = settings.permissions
+                                permissionTarget = collaborator
+                                isError = false
+                            } catch (error: Exception) {
+                                feedback = error.message ?: tr("Không tải được quyền chi tiết.", "Could not load detailed permissions.")
+                                isError = true
+                            } finally {
+                                submitting = false
+                            }
+                        }
+                    },
                     onRevoke = { revokeUser = collaborator }
                 )
             }
@@ -277,6 +300,73 @@ internal fun CollaboratorsServerContent(
                 PendingInvitationCard(invitation, onRevoke = { revokeInvite = invitation })
             }
         }
+    }
+
+    permissionTarget?.let { collaborator ->
+        AlertDialog(
+            onDismissRequest = { permissionTarget = null },
+            title = { Text(tr("Quyền chi tiết", "Detailed permissions")) },
+            text = {
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Text(collaborator.email, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    Text(
+                        tr("Chọn các quyền được phép trong vai trò ${collaborator.role.labelText()}. Quyền quản trị chủ sở hữu không thể cấp tại đây.",
+                            "Choose the permissions allowed within the ${collaborator.role.labelText()} role. Owner-only administration rights cannot be granted here."),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                    permissionOptions.sortedBy { it.ordinal }.forEach { permission ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = permission in permissionDraft,
+                                onCheckedChange = { checked ->
+                                    permissionDraft = if (checked) permissionDraft + permission
+                                    else permissionDraft - permission
+                                }
+                            )
+                            Text(permission.permissionLabel(), fontSize = 12.sp)
+                        }
+                    }
+                    if (permissionOptions.isEmpty()) {
+                        Text(
+                            tr("Vai trò này không có quyền quản trị bổ sung để tùy chỉnh.", "This role has no additional administrative permissions to customize."),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = permissionOptions.isNotEmpty() && !submitting,
+                    onClick = {
+                        val selectedUser = collaborator
+                        val selectedPermissions = permissionDraft
+                        scope.launch {
+                            submitting = true
+                            try {
+                                repository.updateCollaboratorPermissions(accessToken, selectedUser.id, selectedPermissions)
+                                permissionTarget = null
+                                refresh()
+                                feedback = tr("Đã lưu quyền chi tiết.", "Detailed permissions saved.")
+                                isError = false
+                            } catch (error: Exception) {
+                                feedback = error.message ?: tr("Không lưu được quyền.", "Could not save permissions.")
+                                isError = true
+                            } finally {
+                                submitting = false
+                            }
+                        }
+                    }
+                ) { Text(tr("Lưu quyền", "Save permissions")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { permissionTarget = null }) { Text(tr("Đóng", "Close")) }
+            }
+        )
     }
 
     revokeUser?.let { collaborator ->
@@ -343,6 +433,7 @@ private fun CollaboratorServerCard(
     onRoleMenu: () -> Unit,
     onRoleMenuDismiss: () -> Unit,
     onSelectRole: (AccessRole) -> Unit,
+    onEditPermissions: () -> Unit,
     onRevoke: () -> Unit
 ) {
     Card(
@@ -369,6 +460,9 @@ private fun CollaboratorServerCard(
                             )
                         }
                     }
+                }
+                if (collaborator.role != AccessRole.CUSTOMER) {
+                    TextButton(onClick = onEditPermissions) { Text(tr("Quyền chi tiết", "Permissions")) }
                 }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onRevoke) { Text(tr("Thu hồi quyền", "Revoke access"), color = MaterialTheme.colorScheme.error) }
@@ -401,6 +495,16 @@ private fun PendingInvitationCard(invitation: PendingInvitation, onRevoke: () ->
 
 private fun formatDate(epochSeconds: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(epochSeconds * 1000))
+
+private fun AccessPermission.permissionLabel(): String = when (this) {
+    AccessPermission.EDIT_SCRIPTS -> tr("Viết và sửa mã", "Write and edit scripts")
+    AccessPermission.TEST_SCRIPTS -> tr("Kiểm thử", "Test scripts")
+    AccessPermission.SUBMIT_RELEASE -> tr("Gửi để duyệt", "Submit for review")
+    AccessPermission.EDIT_UI_DESIGN -> tr("Chỉnh sửa giao diện", "Edit interface")
+    AccessPermission.PREVIEW_UI -> tr("Xem trước giao diện", "Preview interface")
+    AccessPermission.REVIEW_RELEASE -> tr("Duyệt hoặc từ chối bản gửi", "Review or reject submissions")
+    else -> permissionLabelText()
+}
 
 private val collaboratorRoles = listOf(
     AccessRole.DEVELOPER,

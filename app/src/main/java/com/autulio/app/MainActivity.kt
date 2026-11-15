@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.Locale
 import com.autulio.app.access.AccessRole
+import com.autulio.app.access.defaultPermissions
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
 
@@ -66,6 +67,7 @@ private fun AutuLioAppEntry() {
             AccessRole.DESIGNER,
             AccessRole.REVIEWER -> CollaboratorWorkspace(
                 role = role,
+                permissions = role.defaultPermissions(),
                 email = tr("Tài khoản xem thử", "Preview account"),
                 onLogout = { previewRole = null }
             )
@@ -951,7 +953,7 @@ internal fun Heading(title: String, subtitle: String) {
 }
 
 @Composable
-private fun CardBox(content: @Composable ColumnScope.() -> Unit) {
+internal fun CardBox(content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),

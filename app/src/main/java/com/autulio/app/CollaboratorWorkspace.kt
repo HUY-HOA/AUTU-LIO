@@ -22,23 +22,32 @@ import androidx.compose.ui.unit.sp
 import com.autulio.app.access.AccessPermission
 import com.autulio.app.access.AccessRole
 import com.autulio.app.access.allows
+import com.autulio.app.access.labelText
 
 @Composable
 internal fun CollaboratorWorkspace(
     role: AccessRole,
+    permissions: Set<AccessPermission>,
     email: String,
     onLogout: () -> Unit
 ) {
     when (role) {
-        AccessRole.DEVELOPER -> DeveloperWorkspace(email, onLogout)
-        AccessRole.DESIGNER -> DesignerWorkspace(email, onLogout)
-        AccessRole.REVIEWER -> ReviewerWorkspace(email, onLogout)
+        AccessRole.DEVELOPER -> DeveloperWorkspace(email, permissions, onLogout)
+        AccessRole.DESIGNER -> DesignerWorkspace(email, permissions, onLogout)
+        AccessRole.REVIEWER -> ReviewerWorkspace(email, permissions, onLogout)
         else -> CustomerAccessFallback(email, onLogout)
     }
 }
 
 @Composable
-private fun DeveloperWorkspace(email: String, onLogout: () -> Unit) {
+private fun DeveloperWorkspace(
+    email: String,
+    permissions: Set<AccessPermission>,
+    onLogout: () -> Unit
+) {
+    val canEditScripts = AccessPermission.EDIT_SCRIPTS in permissions
+    val canTestScripts = AccessPermission.TEST_SCRIPTS in permissions
+    val canSubmitRelease = AccessPermission.SUBMIT_RELEASE in permissions
     val context = LocalContext.current
     val preferences = remember(context) {
         context.getSharedPreferences("autulio_developer_drafts", Context.MODE_PRIVATE)
@@ -76,14 +85,16 @@ private fun DeveloperWorkspace(email: String, onLogout: () -> Unit) {
                     onValueChange = { name = it; message = "" },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text(tr("Tên kịch bản", "Script name")) }
+                    label = { Text(tr("Tên kịch bản", "Script name")) },
+                    enabled = canEditScripts
                 )
                 OutlinedTextField(
                     value = code,
                     onValueChange = { code = it; message = "" },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp),
                     label = { Text(tr("Mã kịch bản AUTU-LIO", "AUTU-LIO script source")) },
-                    placeholder = { Text(tr("Nhập mã kịch bản tại đây…", "Write the script here…")) }
+                    placeholder = { Text(tr("Nhập mã kịch bản tại đây…", "Write the script here…")) },
+                    enabled = canEditScripts
                 )
                 Button(
                     onClick = {
@@ -97,7 +108,7 @@ private fun DeveloperWorkspace(email: String, onLogout: () -> Unit) {
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = name.isNotBlank() && code.isNotBlank()
+                    enabled = canEditScripts && name.isNotBlank() && code.isNotBlank()
                 ) {
                     Icon(Icons.Outlined.Save, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
@@ -110,13 +121,42 @@ private fun DeveloperWorkspace(email: String, onLogout: () -> Unit) {
                         "Developer access does not include collaborator management, licenses, signing keys or final publishing. Drafts are currently local only."
                     )
                 )
+                CardBox {
+                    Text(tr("Quyền đã cấp", "Granted permissions"), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        permissions.filter { it in setOf(AccessPermission.EDIT_SCRIPTS, AccessPermission.TEST_SCRIPTS, AccessPermission.SUBMIT_RELEASE) }
+                            .joinToString(" · ") { it.labelText() }
+                            .ifBlank { tr("Chưa được cấp quyền thao tác kịch bản.", "No script permissions have been granted.") },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    if (!canEditScripts) {
+                        Text(tr("Bạn chỉ có thể xem màn hình; quyền sửa mã hiện đã bị tắt.", "You can only view this screen; script editing is disabled."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    }
+                    if (canTestScripts || canSubmitRelease) {
+                        Text(
+                            listOfNotNull(
+                                if (canTestScripts) tr("Có quyền kiểm thử", "Testing allowed") else null,
+                                if (canSubmitRelease) tr("Có quyền gửi duyệt", "Submission allowed") else null
+                            ).joinToString(" · "),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DesignerWorkspace(email: String, onLogout: () -> Unit) {
+private fun DesignerWorkspace(
+    email: String,
+    permissions: Set<AccessPermission>,
+    onLogout: () -> Unit
+) {
+    val canEditUi = AccessPermission.EDIT_UI_DESIGN in permissions
+    val canPreviewUi = AccessPermission.PREVIEW_UI in permissions
     var accentIndex by rememberSaveable { mutableIntStateOf(0) }
     val accents = listOf(
         Color(0xFF4F8CFF),
@@ -187,6 +227,7 @@ private fun DesignerWorkspace(email: String, onLogout: () -> Unit) {
                         FilterChip(
                             selected = accentIndex == index,
                             onClick = { accentIndex = index },
+                            enabled = canEditUi,
                             label = { Text(listOf("Blue", "Green", "Violet")[index]) },
                             leadingIcon = { Surface(Modifier.size(12.dp), color = color, shape = RoundedCornerShape(50)) {} }
                         )
@@ -198,13 +239,31 @@ private fun DesignerWorkspace(email: String, onLogout: () -> Unit) {
                         "Changes are local previews only. Designer access cannot view or edit script source, licenses or releases."
                     )
                 )
+                CardBox {
+                    Text(tr("Quyền đã cấp", "Granted permissions"), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        permissions.filter { it in setOf(AccessPermission.EDIT_UI_DESIGN, AccessPermission.PREVIEW_UI) }
+                            .joinToString(" · ") { it.labelText() }
+                            .ifBlank { tr("Chưa được cấp quyền thiết kế hoặc xem trước.", "No design or preview permissions have been granted.") },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    if (!canEditUi) Text(tr("Quyền chỉnh sửa giao diện đã bị tắt.", "Interface editing is disabled."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    if (!canPreviewUi) Text(tr("Quyền xem trước giao diện đã bị tắt.", "Interface preview is disabled."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ReviewerWorkspace(email: String, onLogout: () -> Unit) {
+private fun ReviewerWorkspace(
+    email: String,
+    permissions: Set<AccessPermission>,
+    onLogout: () -> Unit
+) {
+    val canTest = AccessPermission.TEST_SCRIPTS in permissions
+    val canReview = AccessPermission.REVIEW_RELEASE in permissions
     AppTheme(dark = true) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -240,6 +299,18 @@ private fun ReviewerWorkspace(email: String, onLogout: () -> Unit) {
                         Text(tr("Xem mã được giao · Chạy kiểm thử · Duyệt hoặc từ chối đề xuất", "View assigned code · Run tests · Approve or reject proposals"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(tr("Không có quyền phát hành cuối cùng hoặc quản lý tài khoản.", "No final publishing or account administration rights."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+                CardBox {
+                    Text(tr("Quyền đã cấp", "Granted permissions"), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        permissions.filter { it in setOf(AccessPermission.TEST_SCRIPTS, AccessPermission.REVIEW_RELEASE) }
+                            .joinToString(" · ") { it.labelText() }
+                            .ifBlank { tr("Chưa được cấp quyền kiểm thử hoặc duyệt.", "No testing or review permissions have been granted.") },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    if (!canTest) Text(tr("Quyền kiểm thử đã bị tắt.", "Testing is disabled."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    if (!canReview) Text(tr("Quyền duyệt bản gửi đã bị tắt.", "Review permission is disabled."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                 }
             }
         }
