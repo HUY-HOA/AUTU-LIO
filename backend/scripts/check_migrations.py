@@ -220,5 +220,5 @@ if foreign_key_errors:
 
 print(
     f"OK: {len(required_tables)} required tables, {len(migrations)} migrations, "
-    "single-owner, project membership, draft uniqueness, submissions, single active license, device limits and unique device keys"
+    "single-owner, project membership, draft uniqueness, submissions, licenses, device limits, unique device keys, encrypted package schema and immutable versions"
 )
