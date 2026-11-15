@@ -102,6 +102,7 @@ jobs:
           {
             echo "## AUTU-LIO APK build"
             echo "- Source branch: `$GITHUB_REF_NAME`"
+            echo "- App version: AUTU-LIO v0.1.$GITHUB_RUN_NUMBER"
             if [[ "$APK_VARIANT" == "release" ]]; then
               echo "- Output: R8-minified, resource-shrunk, release-signed APK"
             else
@@ -135,6 +136,21 @@ jobs:
       - name: Build Debug test APK
         if: steps.signing.outputs.configured != 'true'
         run: gradle --no-daemon :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+
+      - name: Name AUTU-LIO APK with version
+        env:
+          APK_VARIANT: ${{ steps.signing.outputs.variant }}
+        run: |
+          set -euo pipefail
+          APK_DIR="app/build/outputs/apk/$APK_VARIANT"
+          VERSION_NAME="0.1.$GITHUB_RUN_NUMBER"
+          shopt -s nullglob
+          apks=("$APK_DIR"/*.apk)
+          if [[ "${#apks[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one APK to rename, found ${#apks[@]}."
+            exit 1
+          fi
+          mv "${apks[0]}" "$APK_DIR/AUTU-LIO-v$VERSION_NAME.apk"
 
       - name: Verify APK signature and output
         env:
