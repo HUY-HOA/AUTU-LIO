@@ -26,15 +26,27 @@ import com.autulio.app.access.labelText
 
 @Composable
 internal fun CollaboratorWorkspace(
+    accessToken: String,
     role: AccessRole,
     permissions: Set<AccessPermission>,
     email: String,
     onLogout: () -> Unit
 ) {
+    var showSharedProjects by rememberSaveable { mutableStateOf(false) }
+    if (showSharedProjects) {
+        CollaboratorProjectsWorkspace(
+            accessToken = accessToken,
+            role = role,
+            permissions = permissions,
+            email = email,
+            onBack = { showSharedProjects = false }
+        )
+        return
+    }
     when (role) {
-        AccessRole.DEVELOPER -> DeveloperWorkspace(email, permissions, onLogout)
-        AccessRole.DESIGNER -> DesignerWorkspace(email, permissions, onLogout)
-        AccessRole.REVIEWER -> ReviewerWorkspace(email, permissions, onLogout)
+        AccessRole.DEVELOPER -> DeveloperWorkspace(email, permissions, onLogout) { showSharedProjects = true }
+        AccessRole.DESIGNER -> DesignerWorkspace(email, permissions, onLogout) { showSharedProjects = true }
+        AccessRole.REVIEWER -> ReviewerWorkspace(email, permissions, onLogout) { showSharedProjects = true }
         else -> CustomerAccessFallback(email, onLogout)
     }
 }
@@ -43,7 +55,8 @@ internal fun CollaboratorWorkspace(
 private fun DeveloperWorkspace(
     email: String,
     permissions: Set<AccessPermission>,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onOpenProjects: () -> Unit
 ) {
     val canEditScripts = AccessPermission.EDIT_SCRIPTS in permissions
     val canTestScripts = AccessPermission.TEST_SCRIPTS in permissions
@@ -80,6 +93,11 @@ private fun DeveloperWorkspace(
                     tr("Trình soạn thảo kịch bản", "Script editor"),
                     tr("Bạn có thể viết và kiểm thử bản nháp trong phạm vi được giao.", "Write and test drafts within your assigned scope.")
                 )
+                OutlinedButton(onClick = onOpenProjects, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.FolderOpen, null)
+                    Spacer(Modifier.width(7.dp))
+                    Text(tr("Mở dự án cộng tác", "Open shared projects"))
+                }
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it; message = "" },
@@ -153,7 +171,8 @@ private fun DeveloperWorkspace(
 private fun DesignerWorkspace(
     email: String,
     permissions: Set<AccessPermission>,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onOpenProjects: () -> Unit
 ) {
     val canEditUi = AccessPermission.EDIT_UI_DESIGN in permissions
     val canPreviewUi = AccessPermission.PREVIEW_UI in permissions
@@ -185,6 +204,11 @@ private fun DesignerWorkspace(
                     tr("Bản xem trước giao diện", "Interface preview"),
                     tr("Thiết kế bố cục và màu sắc trong khu vực được giao.", "Preview layout and color choices within your assigned scope.")
                 )
+                OutlinedButton(onClick = onOpenProjects, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.FolderOpen, null)
+                    Spacer(Modifier.width(7.dp))
+                    Text(tr("Mở dự án thiết kế", "Open design projects"))
+                }
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -242,7 +266,7 @@ private fun DesignerWorkspace(
                 CardBox {
                     Text(tr("Quyền đã cấp", "Granted permissions"), fontWeight = FontWeight.SemiBold)
                     Text(
-                        permissions.filter { it in setOf(AccessPermission.EDIT_UI_DESIGN, AccessPermission.PREVIEW_UI) }
+                        permissions.filter { it in setOf(AccessPermission.EDIT_UI_DESIGN, AccessPermission.PREVIEW_UI, AccessPermission.SUBMIT_RELEASE) }
                             .joinToString(" · ") { it.labelText() }
                             .ifBlank { tr("Chưa được cấp quyền thiết kế hoặc xem trước.", "No design or preview permissions have been granted.") },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -260,7 +284,8 @@ private fun DesignerWorkspace(
 private fun ReviewerWorkspace(
     email: String,
     permissions: Set<AccessPermission>,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onOpenProjects: () -> Unit
 ) {
     val canTest = AccessPermission.TEST_SCRIPTS in permissions
     val canReview = AccessPermission.REVIEW_RELEASE in permissions
@@ -284,6 +309,11 @@ private fun ReviewerWorkspace(
                     tr("Kiểm tra bản gửi duyệt", "Review submissions"),
                     tr("Bạn chỉ xem và đánh giá các bản được gửi vào hàng chờ.", "Review and evaluate submissions assigned to the review queue.")
                 )
+                OutlinedButton(onClick = onOpenProjects, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.FolderOpen, null)
+                    Spacer(Modifier.width(7.dp))
+                    Text(tr("Mở hàng đợi dự án", "Open project review queue"))
+                }
                 WorkspaceNotice(
                     tr(
                         "Hiện chưa có bản phát hành nào được gửi duyệt. Khi kết nối máy chủ, các bản gửi duyệt sẽ xuất hiện ở đây.",

@@ -71,6 +71,53 @@ data class CollaboratorPermissionSettings(
     val configurablePermissions: Set<AccessPermission>
 )
 
+
+data class SharedProject(
+    val id: String,
+    val name: String,
+    val description: String,
+    val status: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val accessRole: String
+)
+
+data class ProjectMember(
+    val id: String,
+    val email: String,
+    val displayName: String?,
+    val role: AccessRole,
+    val status: String,
+    val addedAt: Long
+)
+
+data class SharedScriptDraft(
+    val id: String,
+    val name: String,
+    val source: String?,
+    val languageVersion: String,
+    val revision: Int
+)
+
+data class SharedUiDraft(
+    val id: String,
+    val screenKey: String,
+    val designJson: String,
+    val revision: Int
+)
+
+data class SharedSubmission(
+    val id: String,
+    val kind: String,
+    val itemId: String,
+    val revision: Int,
+    val snapshot: String,
+    val submitterEmail: String,
+    val status: String,
+    val reviewNote: String,
+    val createdAt: Long
+)
+
 class AuthRepository(context: Context) {
     private val appContext = context.applicationContext
     private val credentialManager = CredentialManager.create(appContext)
@@ -267,6 +314,298 @@ class AuthRepository(context: Context) {
         )
         return runCatching { AccessRole.valueOf(result.optString("role")) }
             .getOrElse { throw IOException("Máy chủ trả về vai trò không hợp lệ.") }
+    }
+
+
+    suspend fun listProjects(accessToken: String): List<SharedProject> {
+        val result = apiRequest("/api/projects", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("projects") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val name = item.optString("name")
+                if (id.isBlank() || name.isBlank()) continue
+                add(
+                    SharedProject(
+                        id = id,
+                        name = name,
+                        description = item.optString("description"),
+                        status = item.optString("status"),
+                        createdAt = item.optLong("created_at"),
+                        updatedAt = item.optLong("updated_at"),
+                        accessRole = item.optString("access_role")
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun createProject(accessToken: String, name: String, description: String): SharedProject {
+        val result = apiRequest(
+            "/api/admin/projects",
+            "POST",
+            JSONObject().put("name", name.trim()).put("description", description.trim()),
+            accessToken
+        )
+        val item = result.optJSONObject("project") ?: throw IOException("Máy chủ không trả về dự án vừa tạo.")
+        val id = item.optString("id")
+        if (id.isBlank()) throw IOException("Mã dự án không hợp lệ.")
+        return SharedProject(
+            id = id,
+            name = item.optString("name"),
+            description = item.optString("description"),
+            status = item.optString("status"),
+            createdAt = 0,
+            updatedAt = 0,
+            accessRole = "OWNER"
+        )
+    }
+
+    suspend fun listProjectMembers(accessToken: String, projectId: String): List<ProjectMember> {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/admin/projects/$projectId/members",
+            "GET",
+            bearerToken = accessToken
+        )
+        val items = result.optJSONArray("members") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val role = runCatching { AccessRole.valueOf(item.optString("role")) }.getOrNull() ?: continue
+                val id = item.optString("id")
+                val email = item.optString("email")
+                if (id.isBlank() || email.isBlank()) continue
+                add(
+                    ProjectMember(
+                        id = id,
+                        email = email,
+                        displayName = item.optString("display_name").takeIf { it.isNotBlank() && it != "null" },
+                        role = role,
+                        status = item.optString("status"),
+                        addedAt = item.optLong("added_at")
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun addProjectMember(accessToken: String, projectId: String, userId: String) {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        apiRequest(
+            "/api/admin/projects/$projectId/members",
+            "POST",
+            JSONObject().put("userId", userId),
+            accessToken
+        )
+    }
+
+    suspend fun removeProjectMember(accessToken: String, projectId: String, userId: String) {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        apiRequest(
+            "/api/admin/projects/$projectId/members/$userId",
+            "DELETE",
+            bearerToken = accessToken
+        )
+    }
+
+    suspend fun listProjectScripts(accessToken: String, projectId: String): List<SharedScriptDraft> {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/projects/$projectId/scripts",
+            "GET",
+            bearerToken = accessToken
+        )
+        val items = result.optJSONArray("scripts") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val name = item.optString("name")
+                if (id.isBlank() || name.isBlank()) continue
+                add(
+                    SharedScriptDraft(
+                        id = id,
+                        name = name,
+                        source = if (item.has("source") && !item.isNull("source")) item.optString("source") else null,
+                        languageVersion = item.optString("language_version", "0.1"),
+                        revision = item.optInt("revision", 1)
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun createProjectScript(
+        accessToken: String,
+        projectId: String,
+        name: String,
+        source: String,
+        languageVersion: String = "0.1"
+    ): SharedScriptDraft {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/projects/$projectId/scripts",
+            "POST",
+            JSONObject()
+                .put("name", name.trim())
+                .put("source", source)
+                .put("languageVersion", languageVersion),
+            accessToken
+        )
+        val item = result.optJSONObject("script") ?: throw IOException("Máy chủ không trả về bản nháp vừa tạo.")
+        return SharedScriptDraft(
+            id = item.optString("id"),
+            name = item.optString("name"),
+            source = item.optString("source"),
+            languageVersion = item.optString("languageVersion", "0.1"),
+            revision = item.optInt("revision", 1)
+        )
+    }
+
+    suspend fun updateProjectScript(
+        accessToken: String,
+        projectId: String,
+        scriptId: String,
+        name: String,
+        source: String,
+        expectedRevision: Int,
+        languageVersion: String = "0.1"
+    ): Int {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(scriptId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/projects/$projectId/scripts/$scriptId",
+            "PUT",
+            JSONObject()
+                .put("name", name.trim())
+                .put("source", source)
+                .put("languageVersion", languageVersion)
+                .put("expectedRevision", expectedRevision),
+            accessToken
+        )
+        if (!result.optBoolean("updated")) throw IOException("Máy chủ không xác nhận đã lưu bản nháp.")
+        return result.optInt("revision", expectedRevision + 1)
+    }
+
+    suspend fun listProjectUiDrafts(accessToken: String, projectId: String): List<SharedUiDraft> {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/projects/$projectId/ui-drafts",
+            "GET",
+            bearerToken = accessToken
+        )
+        val items = result.optJSONArray("designs") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val screenKey = item.optString("screen_key")
+                if (id.isBlank() || screenKey.isBlank()) continue
+                add(
+                    SharedUiDraft(
+                        id = id,
+                        screenKey = screenKey,
+                        designJson = item.optString("design_json", "{}"),
+                        revision = item.optInt("revision", 1)
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun saveProjectUiDraft(
+        accessToken: String,
+        projectId: String,
+        screenKey: String,
+        designJson: String,
+        expectedRevision: Int
+    ): Int {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(screenKey.matches(Regex("^[A-Za-z0-9._-]{1,80}$")))
+        val design = runCatching { JSONObject(designJson) }
+            .getOrElse { throw IOException("Thiết kế UI phải là JSON object hợp lệ.", it) }
+        val result = apiRequest(
+            "/api/projects/$projectId/ui-drafts/$screenKey",
+            "PUT",
+            JSONObject()
+                .put("design", design)
+                .put("expectedRevision", expectedRevision),
+            accessToken
+        )
+        if (!result.optBoolean("saved")) throw IOException("Máy chủ không xác nhận đã lưu thiết kế.")
+        return result.optInt("revision", expectedRevision + 1)
+    }
+
+    suspend fun createProjectSubmission(
+        accessToken: String,
+        projectId: String,
+        kind: String,
+        itemId: String,
+        revision: Int
+    ) {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(kind == "SCRIPT" || kind == "UI")
+        apiRequest(
+            "/api/projects/$projectId/submissions",
+            "POST",
+            JSONObject()
+                .put("kind", kind)
+                .put("itemId", itemId)
+                .put("revision", revision),
+            accessToken
+        )
+    }
+
+    suspend fun listProjectSubmissions(accessToken: String, projectId: String): List<SharedSubmission> {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/projects/$projectId/submissions",
+            "GET",
+            bearerToken = accessToken
+        )
+        val items = result.optJSONArray("submissions") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                if (id.isBlank()) continue
+                add(
+                    SharedSubmission(
+                        id = id,
+                        kind = item.optString("kind"),
+                        itemId = item.optString("item_id"),
+                        revision = item.optInt("revision"),
+                        snapshot = item.optJSONObject("snapshot")?.toString() ?: "{}",
+                        submitterEmail = item.optString("submitter_email"),
+                        status = item.optString("status"),
+                        reviewNote = item.optString("review_note"),
+                        createdAt = item.optLong("created_at")
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun reviewProjectSubmission(
+        accessToken: String,
+        projectId: String,
+        submissionId: String,
+        status: String,
+        note: String = ""
+    ) {
+        require(projectId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(submissionId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(status == "APPROVED" || status == "REJECTED")
+        apiRequest(
+            "/api/projects/$projectId/submissions/$submissionId",
+            "PATCH",
+            JSONObject().put("status", status).put("note", note.trim()),
+            accessToken
+        )
     }
 
     private fun JSONArray?.toAccessPermissions(): Set<AccessPermission> {

@@ -34,7 +34,8 @@ fun AccessRole.defaultPermissions(): Set<AccessPermission> = when (this) {
     AccessRole.DESIGNER -> setOf(
         AccessPermission.VIEW_ADMIN_WORKSPACE,
         AccessPermission.EDIT_UI_DESIGN,
-        AccessPermission.PREVIEW_UI
+        AccessPermission.PREVIEW_UI,
+        AccessPermission.SUBMIT_RELEASE
     )
     AccessRole.REVIEWER -> setOf(
         AccessPermission.VIEW_ADMIN_WORKSPACE,
@@ -55,7 +56,8 @@ fun AccessRole.configurablePermissions(): Set<AccessPermission> = when (this) {
     )
     AccessRole.DESIGNER -> setOf(
         AccessPermission.EDIT_UI_DESIGN,
-        AccessPermission.PREVIEW_UI
+        AccessPermission.PREVIEW_UI,
+        AccessPermission.SUBMIT_RELEASE
     )
     AccessRole.REVIEWER -> setOf(
         AccessPermission.TEST_SCRIPTS,

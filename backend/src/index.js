@@ -4,7 +4,7 @@ const ASSIGNABLE_ROLES = new Set(["CUSTOMER", ...OWNER_ROLES]);
 const ROLE_PERMISSIONS = {
   OWNER: ["*"],
   DEVELOPER: ["VIEW_ADMIN_WORKSPACE", "EDIT_SCRIPTS", "TEST_SCRIPTS", "SUBMIT_RELEASE"],
-  DESIGNER: ["VIEW_ADMIN_WORKSPACE", "EDIT_UI_DESIGN", "PREVIEW_UI"],
+  DESIGNER: ["VIEW_ADMIN_WORKSPACE", "EDIT_UI_DESIGN", "PREVIEW_UI", "SUBMIT_RELEASE"],
   REVIEWER: ["VIEW_ADMIN_WORKSPACE", "TEST_SCRIPTS", "REVIEW_RELEASE"],
   CUSTOMER: ["RUN_PUBLISHED_SCRIPTS", "VIEW_OWN_ACCOUNT"]
 };
@@ -26,7 +26,7 @@ const ALL_PERMISSION_NAMES = [
 
 const ROLE_CONFIGURABLE_PERMISSIONS = {
   DEVELOPER: ["EDIT_SCRIPTS", "TEST_SCRIPTS", "SUBMIT_RELEASE"],
-  DESIGNER: ["EDIT_UI_DESIGN", "PREVIEW_UI"],
+  DESIGNER: ["EDIT_UI_DESIGN", "PREVIEW_UI", "SUBMIT_RELEASE"],
   REVIEWER: ["TEST_SCRIPTS", "REVIEW_RELEASE"],
   CUSTOMER: []
 };
@@ -91,9 +91,9 @@ function parseJson(value) {
   }
 }
 
-async function readBody(request) {
+async function readBody(request, maxChars = 24_000) {
   const text = await request.text();
-  if (text.length > 24_000) throw new HttpError(413, "body_too_large", "Request body is too large.");
+  if (text.length > maxChars) throw new HttpError(413, "body_too_large", "Request body is too large.");
   return text ? parseJson(text) : {};
 }
 
@@ -543,6 +543,416 @@ async function revokeCollaborator(request, env, session, userId) {
   return response(request, { revoked: true, userId }, 200, env);
 }
 
+
+const PROJECT_ID_PATTERN = /^[0-9a-fA-F-]{36}$/;
+const MAX_PROJECT_BODY_CHARS = 90_000;
+const MAX_DRAFT_SOURCE_CHARS = 64_000;
+const MAX_UI_DESIGN_CHARS = 64_000;
+
+async function requireProjectAccess(env, session, projectId) {
+  if (session.role !== "OWNER" && !["DEVELOPER", "DESIGNER", "REVIEWER"].includes(session.role)) {
+    throw new HttpError(404, "project_not_found", "Project was not found.");
+  }
+  if (!PROJECT_ID_PATTERN.test(projectId)) {
+    throw new HttpError(400, "invalid_project_id", "Project ID is invalid.");
+  }
+  const project = await env.DB.prepare(
+    "SELECT id, name, description, status, created_by, created_at, updated_at FROM projects WHERE id = ?"
+  ).bind(projectId).first();
+  if (!project || project.status !== "ACTIVE") {
+    throw new HttpError(404, "project_not_found", "Project was not found.");
+  }
+  if (session.role !== "OWNER") {
+    const membership = await env.DB.prepare(
+      "SELECT 1 AS allowed FROM project_memberships WHERE project_id = ? AND user_id = ?"
+    ).bind(projectId, session.user_id).first();
+    if (!membership) throw new HttpError(404, "project_not_found", "Project was not found.");
+  }
+  return project;
+}
+
+async function listProjects(request, env, session) {
+  const query = session.role === "OWNER"
+    ? env.DB.prepare(
+      "SELECT p.id, p.name, p.description, p.status, p.created_at, p.updated_at, 'OWNER' AS access_role " +
+      "FROM projects p WHERE p.status = 'ACTIVE' ORDER BY p.updated_at DESC"
+    )
+    : env.DB.prepare(
+      "SELECT p.id, p.name, p.description, p.status, p.created_at, p.updated_at, u.role AS access_role " +
+      "FROM projects p JOIN project_memberships m ON m.project_id = p.id " +
+      "JOIN users u ON u.id = m.user_id WHERE m.user_id = ? AND p.status = 'ACTIVE' " +
+      "AND u.role IN ('DEVELOPER','DESIGNER','REVIEWER') ORDER BY p.updated_at DESC"
+    ).bind(session.user_id);
+  const result = await query.all();
+  return response(request, { projects: result.results || [] }, 200, env);
+}
+
+async function createProject(request, env, session) {
+  await requireRole(session, ["OWNER"]);
+  const body = await readBody(request);
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  if (name.length < 2 || name.length > 80) {
+    throw new HttpError(400, "invalid_project_name", "Project name must contain 2 to 80 characters.");
+  }
+  if (description.length > 500) {
+    throw new HttpError(400, "invalid_project_description", "Project description is too long.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const projectId = crypto.randomUUID();
+  await env.DB.prepare(
+    "INSERT INTO projects (id, name, description, status, created_by, created_at, updated_at) " +
+    "VALUES (?, ?, ?, 'ACTIVE', ?, ?, ?)"
+  ).bind(projectId, name, description, session.user_id, now, now).run();
+  await audit(env, session.user_id, "project.created", "project", projectId, { name });
+  return response(request, { created: true, project: { id: projectId, name, description, status: "ACTIVE" } }, 201, env);
+}
+
+async function listProjectMembers(request, env, session, projectId) {
+  await requireRole(session, ["OWNER"]);
+  await requireProjectAccess(env, session, projectId);
+  const result = await env.DB.prepare(
+    "SELECT u.id, u.email, u.display_name, u.role, u.status, m.created_at AS added_at " +
+    "FROM project_memberships m JOIN users u ON u.id = m.user_id " +
+    "WHERE m.project_id = ? ORDER BY m.created_at ASC"
+  ).bind(projectId).all();
+  return response(request, { members: result.results || [] }, 200, env);
+}
+
+async function addProjectMember(request, env, session, projectId) {
+  await requireRole(session, ["OWNER"]);
+  await requireProjectAccess(env, session, projectId);
+  const body = await readBody(request);
+  const userId = typeof body.userId === "string" ? body.userId : "";
+  if (!PROJECT_ID_PATTERN.test(userId)) {
+    throw new HttpError(400, "invalid_user_id", "User ID is invalid.");
+  }
+  const target = await env.DB.prepare(
+    "SELECT id, email, role, status FROM users WHERE id = ?"
+  ).bind(userId).first();
+  if (!target || target.status !== "ACTIVE" || !["DEVELOPER", "DESIGNER", "REVIEWER"].includes(target.role)) {
+    throw new HttpError(400, "invalid_project_member", "Only active Developer, Designer or Reviewer accounts can join a project.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  try {
+    await env.DB.prepare(
+      "INSERT INTO project_memberships (project_id, user_id, added_by, created_at) VALUES (?, ?, ?, ?)"
+    ).bind(projectId, userId, session.user_id, now).run();
+  } catch (error) {
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "project_member_exists", "This collaborator is already in the project.");
+    }
+    throw error;
+  }
+  await audit(env, session.user_id, "project.member_added", "project", projectId, { userId, role: target.role });
+  return response(request, { added: true, projectId, userId, email: target.email, role: target.role }, 201, env);
+}
+
+async function removeProjectMember(request, env, session, projectId, userId) {
+  await requireRole(session, ["OWNER"]);
+  await requireProjectAccess(env, session, projectId);
+  if (!PROJECT_ID_PATTERN.test(userId)) {
+    throw new HttpError(400, "invalid_user_id", "User ID is invalid.");
+  }
+  const result = await env.DB.prepare(
+    "DELETE FROM project_memberships WHERE project_id = ? AND user_id = ?"
+  ).bind(projectId, userId).run();
+  if (result.meta?.changes !== 1) {
+    throw new HttpError(404, "project_member_not_found", "Project member was not found.");
+  }
+  await audit(env, session.user_id, "project.member_removed", "project", projectId, { userId });
+  return response(request, { removed: true, projectId, userId }, 200, env);
+}
+
+async function requireProjectPermission(env, session, projectId, permission) {
+  const project = await requireProjectAccess(env, session, projectId);
+  await requirePermission(env, session, permission);
+  return project;
+}
+
+async function listProjectScripts(request, env, session, projectId) {
+  await requireProjectAccess(env, session, projectId);
+  const canEdit = await hasPermission(env, session, "EDIT_SCRIPTS");
+  const canReview = await hasPermission(env, session, "REVIEW_RELEASE");
+  if (!canEdit && !canReview) {
+    throw new HttpError(403, "insufficient_permissions", "This account cannot view script drafts.");
+  }
+  const result = await env.DB.prepare(
+    "SELECT id, name, language_version, revision, created_by, updated_by, created_at, updated_at" +
+    (canEdit ? ", source" : "") +
+    " FROM script_drafts WHERE project_id = ? ORDER BY updated_at DESC"
+  ).bind(projectId).all();
+  return response(request, { scripts: result.results || [] }, 200, env);
+}
+
+async function createProjectScript(request, env, session, projectId) {
+  await requireProjectPermission(env, session, projectId, "EDIT_SCRIPTS");
+  const body = await readBody(request, MAX_PROJECT_BODY_CHARS);
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const source = typeof body.source === "string" ? body.source : "";
+  const languageVersion = typeof body.languageVersion === "string" ? body.languageVersion.trim() : "0.1";
+  if (name.length < 1 || name.length > 100) {
+    throw new HttpError(400, "invalid_script_name", "Script name must contain 1 to 100 characters.");
+  }
+  if (source.length > MAX_DRAFT_SOURCE_CHARS || languageVersion.length > 30) {
+    throw new HttpError(413, "script_draft_too_large", "Script draft exceeds the allowed size.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const scriptId = crypto.randomUUID();
+  try {
+    await env.DB.prepare(
+      "INSERT INTO script_drafts (id, project_id, name, source, language_version, revision, created_by, updated_by, created_at, updated_at) " +
+      "VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)"
+    ).bind(scriptId, projectId, name, source, languageVersion || "0.1", session.user_id, session.user_id, now, now).run();
+  } catch (error) {
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "script_name_exists", "A script with this name already exists in the project.");
+    }
+    throw error;
+  }
+  await env.DB.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").bind(now, projectId).run();
+  await audit(env, session.user_id, "project.script_created", "script_draft", scriptId, { projectId, revision: 1 });
+  return response(request, {
+    created: true,
+    script: { id: scriptId, name, source, languageVersion: languageVersion || "0.1", revision: 1, updatedAt: now }
+  }, 201, env);
+}
+
+async function updateProjectScript(request, env, session, projectId, scriptId) {
+  await requireProjectPermission(env, session, projectId, "EDIT_SCRIPTS");
+  if (!PROJECT_ID_PATTERN.test(scriptId)) {
+    throw new HttpError(400, "invalid_script_id", "Script ID is invalid.");
+  }
+  const body = await readBody(request, MAX_PROJECT_BODY_CHARS);
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const source = typeof body.source === "string" ? body.source : "";
+  const languageVersion = typeof body.languageVersion === "string" ? body.languageVersion.trim() : "0.1";
+  const expectedRevision = Number(body.expectedRevision);
+  if (name.length < 1 || name.length > 100) {
+    throw new HttpError(400, "invalid_script_name", "Script name must contain 1 to 100 characters.");
+  }
+  if (source.length > MAX_DRAFT_SOURCE_CHARS || languageVersion.length > 30) {
+    throw new HttpError(413, "script_draft_too_large", "Script draft exceeds the allowed size.");
+  }
+  if (!Number.isInteger(expectedRevision) || expectedRevision < 1) {
+    throw new HttpError(400, "invalid_revision", "A valid expected revision is required.");
+  }
+  const current = await env.DB.prepare(
+    "SELECT id, revision FROM script_drafts WHERE id = ? AND project_id = ?"
+  ).bind(scriptId, projectId).first();
+  if (!current) throw new HttpError(404, "script_not_found", "Script draft was not found.");
+  if (current.revision !== expectedRevision) {
+    throw new HttpError(409, "revision_conflict", "This draft was changed by another collaborator. Reload before saving.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  try {
+    const result = await env.DB.prepare(
+      "UPDATE script_drafts SET name = ?, source = ?, language_version = ?, revision = revision + 1, updated_by = ?, updated_at = ? " +
+      "WHERE id = ? AND project_id = ? AND revision = ?"
+    ).bind(name, source, languageVersion || "0.1", session.user_id, now, scriptId, projectId, expectedRevision).run();
+    if (result.meta?.changes !== 1) {
+      throw new HttpError(409, "revision_conflict", "This draft was changed by another collaborator. Reload before saving.");
+    }
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "script_name_exists", "A script with this name already exists in the project.");
+    }
+    throw error;
+  }
+  await env.DB.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").bind(now, projectId).run();
+  await audit(env, session.user_id, "project.script_updated", "script_draft", scriptId, {
+    projectId, fromRevision: expectedRevision, toRevision: expectedRevision + 1
+  });
+  return response(request, {
+    updated: true,
+    scriptId,
+    revision: expectedRevision + 1,
+    updatedAt: now
+  }, 200, env);
+}
+
+async function deleteProjectScript(request, env, session, projectId, scriptId) {
+  await requireProjectPermission(env, session, projectId, "EDIT_SCRIPTS");
+  if (!PROJECT_ID_PATTERN.test(scriptId)) throw new HttpError(400, "invalid_script_id", "Script ID is invalid.");
+  const result = await env.DB.prepare(
+    "DELETE FROM script_drafts WHERE id = ? AND project_id = ?"
+  ).bind(scriptId, projectId).run();
+  if (result.meta?.changes !== 1) throw new HttpError(404, "script_not_found", "Script draft was not found.");
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").bind(now, projectId).run();
+  await audit(env, session.user_id, "project.script_deleted", "script_draft", scriptId, { projectId });
+  return response(request, { deleted: true, scriptId }, 200, env);
+}
+
+async function listProjectUiDrafts(request, env, session, projectId) {
+  await requireProjectAccess(env, session, projectId);
+  const canEdit = await hasPermission(env, session, "EDIT_UI_DESIGN");
+  const canPreview = await hasPermission(env, session, "PREVIEW_UI");
+  if (!canEdit && !canPreview) {
+    throw new HttpError(403, "insufficient_permissions", "This account cannot view UI drafts.");
+  }
+  const result = await env.DB.prepare(
+    "SELECT id, screen_key, design_json, revision, created_by, updated_by, created_at, updated_at " +
+    "FROM ui_drafts WHERE project_id = ? ORDER BY updated_at DESC"
+  ).bind(projectId).all();
+  return response(request, { designs: result.results || [] }, 200, env);
+}
+
+async function saveProjectUiDraft(request, env, session, projectId, screenKey) {
+  await requireProjectPermission(env, session, projectId, "EDIT_UI_DESIGN");
+  if (!/^[A-Za-z0-9._-]{1,80}$/.test(screenKey)) {
+    throw new HttpError(400, "invalid_screen_key", "Screen key may contain only letters, numbers, dot, underscore and hyphen.");
+  }
+  const body = await readBody(request, MAX_PROJECT_BODY_CHARS);
+  if (!body.design || typeof body.design !== "object" || Array.isArray(body.design)) {
+    throw new HttpError(400, "invalid_ui_design", "A JSON object is required for the UI design.");
+  }
+  const designJson = JSON.stringify(body.design);
+  if (designJson.length > MAX_UI_DESIGN_CHARS) {
+    throw new HttpError(413, "ui_design_too_large", "UI design exceeds the allowed size.");
+  }
+  const expectedRevision = body.expectedRevision == null ? 0 : Number(body.expectedRevision);
+  if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
+    throw new HttpError(400, "invalid_revision", "Expected revision must be zero or a positive integer.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const current = await env.DB.prepare(
+    "SELECT id, revision FROM ui_drafts WHERE project_id = ? AND screen_key = ?"
+  ).bind(projectId, screenKey).first();
+  let designId;
+  let revision;
+  if (!current) {
+    if (expectedRevision !== 0) {
+      throw new HttpError(409, "revision_conflict", "This UI draft does not exist at the expected revision.");
+    }
+    designId = crypto.randomUUID();
+    revision = 1;
+    try {
+      await env.DB.prepare(
+        "INSERT INTO ui_drafts (id, project_id, screen_key, design_json, revision, created_by, updated_by, created_at, updated_at) " +
+        "VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)"
+      ).bind(designId, projectId, screenKey, designJson, session.user_id, session.user_id, now, now).run();
+    } catch (error) {
+      if (String(error?.message || "").toLowerCase().includes("unique")) {
+        throw new HttpError(409, "revision_conflict", "This UI draft was created by another collaborator. Reload before saving.");
+      }
+      throw error;
+    }
+  } else {
+    if (current.revision !== expectedRevision) {
+      throw new HttpError(409, "revision_conflict", "This UI draft was changed by another collaborator. Reload before saving.");
+    }
+    designId = current.id;
+    revision = expectedRevision + 1;
+    const result = await env.DB.prepare(
+      "UPDATE ui_drafts SET design_json = ?, revision = revision + 1, updated_by = ?, updated_at = ? " +
+      "WHERE id = ? AND project_id = ? AND revision = ?"
+    ).bind(designJson, session.user_id, now, designId, projectId, expectedRevision).run();
+    if (result.meta?.changes !== 1) {
+      throw new HttpError(409, "revision_conflict", "This UI draft was changed by another collaborator. Reload before saving.");
+    }
+  }
+  await env.DB.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").bind(now, projectId).run();
+  await audit(env, session.user_id, "project.ui_draft_saved", "ui_draft", designId, {
+    projectId, screenKey, revision
+  });
+  return response(request, { saved: true, designId, screenKey, revision, updatedAt: now }, current ? 200 : 201, env);
+}
+
+async function createProjectSubmission(request, env, session, projectId) {
+  await requireProjectPermission(env, session, projectId, "SUBMIT_RELEASE");
+  const body = await readBody(request, MAX_PROJECT_BODY_CHARS);
+  const kind = typeof body.kind === "string" ? body.kind.toUpperCase() : "";
+  const itemId = typeof body.itemId === "string" ? body.itemId : "";
+  const revision = Number(body.revision);
+  if (!["SCRIPT", "UI"].includes(kind) || !Number.isInteger(revision) || revision < 1) {
+    throw new HttpError(400, "invalid_submission", "A valid submission kind and revision are required.");
+  }
+  await requirePermission(env, session, kind === "SCRIPT" ? "EDIT_SCRIPTS" : "EDIT_UI_DESIGN");
+  let snapshot;
+  if (kind === "SCRIPT") {
+    if (!PROJECT_ID_PATTERN.test(itemId)) throw new HttpError(400, "invalid_item_id", "Script ID is invalid.");
+    snapshot = await env.DB.prepare(
+      "SELECT id, name, source, language_version AS languageVersion, revision FROM script_drafts WHERE id = ? AND project_id = ?"
+    ).bind(itemId, projectId).first();
+  } else {
+    snapshot = await env.DB.prepare(
+      "SELECT id, screen_key AS screenKey, design_json AS designJson, revision FROM ui_drafts WHERE id = ? AND project_id = ?"
+    ).bind(itemId, projectId).first();
+  }
+  if (!snapshot) throw new HttpError(404, "draft_not_found", "The draft to submit was not found.");
+  if (snapshot.revision !== revision) {
+    throw new HttpError(409, "revision_conflict", "The draft changed before it could be submitted. Reload and submit the latest revision.");
+  }
+  if (kind === "UI") {
+    snapshot.design = JSON.parse(snapshot.designJson);
+    delete snapshot.designJson;
+  }
+  const submissionId = crypto.randomUUID();
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.prepare(
+    "INSERT INTO change_submissions (id, project_id, kind, item_id, revision, submitted_snapshot, submitted_by, status, created_at) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)"
+  ).bind(submissionId, projectId, kind, itemId, revision, JSON.stringify(snapshot), session.user_id, now).run();
+  await audit(env, session.user_id, "project.change_submitted", "submission", submissionId, {
+    projectId, kind, itemId, revision
+  });
+  return response(request, { submitted: true, submissionId, kind, itemId, revision, status: "PENDING" }, 201, env);
+}
+
+async function listProjectSubmissions(request, env, session, projectId) {
+  await requireProjectAccess(env, session, projectId);
+  await requirePermission(env, session, "REVIEW_RELEASE");
+  const result = await env.DB.prepare(
+    "SELECT s.id, s.kind, s.item_id, s.revision, s.submitted_snapshot, s.submitted_by, " +
+    "u.email AS submitter_email, s.status, s.review_note, s.reviewed_by, s.created_at, s.reviewed_at " +
+    "FROM change_submissions s JOIN users u ON u.id = s.submitted_by " +
+    "WHERE s.project_id = ? ORDER BY CASE s.status WHEN 'PENDING' THEN 0 ELSE 1 END, s.created_at DESC"
+  ).bind(projectId).all();
+  const submissions = (result.results || []).map(item => ({
+    ...item,
+    snapshot: JSON.parse(item.submitted_snapshot)
+  }));
+  for (const item of submissions) delete item.submitted_snapshot;
+  return response(request, { submissions }, 200, env);
+}
+
+async function reviewProjectSubmission(request, env, session, projectId, submissionId) {
+  await requireProjectPermission(env, session, projectId, "REVIEW_RELEASE");
+  if (!PROJECT_ID_PATTERN.test(submissionId)) {
+    throw new HttpError(400, "invalid_submission_id", "Submission ID is invalid.");
+  }
+  const body = await readBody(request);
+  const status = typeof body.status === "string" ? body.status.toUpperCase() : "";
+  const note = typeof body.note === "string" ? body.note.trim() : "";
+  if (!["APPROVED", "REJECTED"].includes(status) || note.length > 1000) {
+    throw new HttpError(400, "invalid_review", "Review status or note is invalid.");
+  }
+  const submission = await env.DB.prepare(
+    "SELECT id, submitted_by, status FROM change_submissions WHERE id = ? AND project_id = ?"
+  ).bind(submissionId, projectId).first();
+  if (!submission) throw new HttpError(404, "submission_not_found", "Submission was not found.");
+  if (submission.status !== "PENDING") {
+    throw new HttpError(409, "submission_already_reviewed", "This submission has already been reviewed.");
+  }
+  if (submission.submitted_by === session.user_id) {
+    throw new HttpError(403, "self_review_not_allowed", "A collaborator cannot review their own submission.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const result = await env.DB.prepare(
+    "UPDATE change_submissions SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = ? " +
+    "WHERE id = ? AND project_id = ? AND status = 'PENDING'"
+  ).bind(status, note, session.user_id, now, submissionId, projectId).run();
+  if (result.meta?.changes !== 1) {
+    throw new HttpError(409, "submission_already_reviewed", "This submission has already been reviewed.");
+  }
+  await audit(env, session.user_id, "project.submission_reviewed", "submission", submissionId, {
+    projectId, status
+  });
+  return response(request, { reviewed: true, submissionId, status, reviewedAt: now }, 200, env);
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -592,6 +1002,64 @@ async function route(request, env) {
     await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL").bind(now, session.session_id).run();
     await audit(env, session.user_id, "auth.logout", "session", session.session_id);
     return response(request, { loggedOut: true }, 200, env);
+  }
+
+
+  if (method === "GET" && path === "/api/projects") return await listProjects(request, env, session);
+  if (method === "POST" && path === "/api/admin/projects") return await createProject(request, env, session);
+
+  const projectMemberMatch = path.match(/^\/api\/admin\/projects\/([0-9a-f-]{36})\/members$/i);
+  if (projectMemberMatch && method === "GET") {
+    return await listProjectMembers(request, env, session, projectMemberMatch[1]);
+  }
+  if (projectMemberMatch && method === "POST") {
+    return await addProjectMember(request, env, session, projectMemberMatch[1]);
+  }
+  const projectMemberDeleteMatch = path.match(/^\/api\/admin\/projects\/([0-9a-f-]{36})\/members\/([0-9a-f-]{36})$/i);
+  if (projectMemberDeleteMatch && method === "DELETE") {
+    return await removeProjectMember(request, env, session, projectMemberDeleteMatch[1], projectMemberDeleteMatch[2]);
+  }
+
+  const projectScriptsMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/scripts$/i);
+  if (projectScriptsMatch && method === "GET") {
+    return await listProjectScripts(request, env, session, projectScriptsMatch[1]);
+  }
+  if (projectScriptsMatch && method === "POST") {
+    return await createProjectScript(request, env, session, projectScriptsMatch[1]);
+  }
+  const projectScriptMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/scripts\/([0-9a-f-]{36})$/i);
+  if (projectScriptMatch && method === "PUT") {
+    return await updateProjectScript(request, env, session, projectScriptMatch[1], projectScriptMatch[2]);
+  }
+  if (projectScriptMatch && method === "DELETE") {
+    return await deleteProjectScript(request, env, session, projectScriptMatch[1], projectScriptMatch[2]);
+  }
+
+  const projectUiDraftsMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/ui-drafts$/i);
+  if (projectUiDraftsMatch && method === "GET") {
+    return await listProjectUiDrafts(request, env, session, projectUiDraftsMatch[1]);
+  }
+  const projectUiDraftMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/ui-drafts\/([A-Za-z0-9._-]{1,80})$/i);
+  if (projectUiDraftMatch && method === "PUT") {
+    return await saveProjectUiDraft(request, env, session, projectUiDraftMatch[1], projectUiDraftMatch[2]);
+  }
+
+  const projectSubmissionsMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/submissions$/i);
+  if (projectSubmissionsMatch && method === "GET") {
+    return await listProjectSubmissions(request, env, session, projectSubmissionsMatch[1]);
+  }
+  if (projectSubmissionsMatch && method === "POST") {
+    return await createProjectSubmission(request, env, session, projectSubmissionsMatch[1]);
+  }
+  const projectSubmissionMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/submissions\/([0-9a-f-]{36})$/i);
+  if (projectSubmissionMatch && method === "PATCH") {
+    return await reviewProjectSubmission(request, env, session, projectSubmissionMatch[1], projectSubmissionMatch[2]);
+  }
+
+  const projectMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})$/i);
+  if (projectMatch && method === "GET") {
+    const project = await requireProjectAccess(env, session, projectMatch[1]);
+    return response(request, { project }, 200, env);
   }
 
   if (method === "POST" && path === "/api/invitations/accept") return await acceptInvitation(request, env, session);

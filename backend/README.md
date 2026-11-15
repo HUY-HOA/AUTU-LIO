@@ -13,7 +13,9 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Owner-only collaborator listing, role changes and access revocation, including active sessions.
 - Role-based permission defaults plus owner-managed permission overrides for Developer, Designer and Reviewer.
 - Permission changes are audited; changing a collaborator role resets overrides to that role's defaults.
-- Minimal audit records for authentication and collaborator changes.
+- Project creation and explicit membership management, with project data isolated by membership checks.
+- Server-backed script drafts and UI design drafts with revision checks to prevent silent overwrites.
+- Immutable snapshots for review submissions, review decisions and audit records.
 - D1 schema migrations and local migration validation.
 
 Permission overrides are restricted to each role's allowed set. Owner-only controls, such as managing collaborators and licenses or final publishing, cannot be granted to collaborators.
@@ -26,7 +28,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-The initial schema is already applied to the connected Cloudflare account. Keep the SQL migration files in source control as the schema history. Apply future migrations with Wrangler after reviewing the SQL.
+Migrations `0001` and `0002` have been applied to the connected D1 database and recorded in its migration ledger. Migration `0003_shared_project_workspaces.sql` is currently on the feature branch and must pass CI before it is applied to the live database. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
@@ -78,10 +80,30 @@ This repository currently contains the Worker source and D1 binding configuratio
 - `GET /api/admin/collaborators/:userId/permissions` — OWNER
 - `PUT /api/admin/collaborators/:userId/permissions` — OWNER
 
+### Shared projects and workspaces
+
+- `GET /api/projects` — list active projects available to the signed-in account
+- `POST /api/admin/projects` — OWNER creates a project
+- `GET /api/projects/:projectId` — project member or OWNER
+- `GET /api/admin/projects/:projectId/members` — OWNER lists project members
+- `POST /api/admin/projects/:projectId/members` — OWNER adds an active Developer, Designer or Reviewer
+- `DELETE /api/admin/projects/:projectId/members/:userId` — OWNER removes a member
+- `GET /api/projects/:projectId/scripts` — script editor or reviewer access
+- `POST /api/projects/:projectId/scripts` — create a shared script draft; requires `EDIT_SCRIPTS`
+- `PUT /api/projects/:projectId/scripts/:scriptId` — revision-checked script update; requires `EDIT_SCRIPTS`
+- `DELETE /api/projects/:projectId/scripts/:scriptId` — delete a draft; requires `EDIT_SCRIPTS`
+- `GET /api/projects/:projectId/ui-drafts` — UI designer or preview access
+- `PUT /api/projects/:projectId/ui-drafts/:screenKey` — revision-checked UI design save; requires `EDIT_UI_DESIGN`
+- `POST /api/projects/:projectId/submissions` — submit a current script/UI revision for review; requires `SUBMIT_RELEASE`
+- `GET /api/projects/:projectId/submissions` — list submissions; requires `REVIEW_RELEASE`
+- `PATCH /api/projects/:projectId/submissions/:submissionId` — approve/reject a pending submission; requires `REVIEW_RELEASE` and forbids self-review
+
+Script source and UI JSON are size-limited. Every project API checks project membership and the relevant account permission. Script and UI updates use expected revisions, returning HTTP 409 when another collaborator has saved a newer revision. Submission records keep the submitted snapshot even if the draft is edited later.
+
 The permission API returns only permissions configurable for the selected role. The Worker rejects permissions outside that role's allowlist. A role change clears previous overrides to avoid carrying permissions into an incompatible role.
 
 The Worker returns a one-time invitation token for the owner to copy and share manually. The owner can list and revoke pending invitations; the Worker does not send email. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
 
 ## Local validation
 
-`npm run check` checks JavaScript syntax and executes every SQL migration against an in-memory SQLite database, including the single-owner constraint. It does not deploy the Worker or validate a live Google OAuth client.
+`npm run check` checks JavaScript syntax and executes every SQL migration against an in-memory SQLite database. It verifies the single-owner constraint, foreign keys, project membership, case-insensitive script-name uniqueness, UI draft storage and allowed submission kinds. It does not deploy the Worker or validate a live Google OAuth client.

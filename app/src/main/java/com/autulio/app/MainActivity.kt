@@ -66,6 +66,7 @@ private fun AutuLioAppEntry() {
             AccessRole.DEVELOPER,
             AccessRole.DESIGNER,
             AccessRole.REVIEWER -> CollaboratorWorkspace(
+                accessToken = "",
                 role = role,
                 permissions = role.defaultPermissions(),
                 email = tr("Tài khoản xem thử", "Preview account"),
@@ -526,8 +527,20 @@ private fun MoreScreen(
     onLogout: () -> Unit,
     accessToken: String?
 ) {
+    if (page == "projects") {
+        if (!accessToken.isNullOrBlank()) {
+            ProjectsAdminScreen(accessToken, modifier = modifier, onBack = { onSelect("more") })
+        } else {
+            Column(modifier.fillMaxSize().padding(16.dp)) {
+                TextButton(onClick = { onSelect("more") }) { Text(tr("← Quay lại", "← Back")) }
+                EmptyState(Icons.Outlined.CloudOff, tr("Chưa có phiên đăng nhập", "No signed-in session"), tr("Đăng nhập lại để quản lý dự án.", "Sign in again to manage projects."))
+            }
+        }
+        return
+    }
     val items = listOf(
         Triple("collaborators", tr("Cộng tác viên", "Collaborators"), Icons.Outlined.PersonAdd),
+        Triple("projects", tr("Dự án cộng tác", "Shared projects"), Icons.Outlined.FolderOpen),
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện", "Libraries"), Icons.Outlined.ListAlt),
         Triple("release", tr("Phát hành", "Releases"), Icons.Outlined.PlayArrow),
