@@ -126,7 +126,7 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
             getOrCreateKey(),
             GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv)
         )
-        cipher.updateAAD(ASSOCIATED_DATA)
+        cipher.updateAAD(associatedData)
         val root = JSONObject(cipher.doFinal(ciphertext).toString(Charsets.UTF_8))
 
         val namesJson = root.optJSONArray("names") ?: JSONArray()
