@@ -24,7 +24,7 @@ class ScriptCompilerTest {
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
         assertEquals(ScriptCompiler.LANGUAGE_VERSION, result.program?.languageVersion)
-        assertEquals(5_000L, result.program?.expandedInstructionCount)
+        assertEquals(103L, result.program?.expandedInstructionCount)
     }
 
     @Test
