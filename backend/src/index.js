@@ -953,6 +953,376 @@ async function reviewProjectSubmission(request, env, session, projectId, submiss
   return response(request, { reviewed: true, submissionId, status, reviewedAt: now }, 200, env);
 }
 
+
+function cleanDeviceText(value, maxLength) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+async function getActiveLicense(env, userId, now = Math.floor(Date.now() / 1000)) {
+  return env.DB.prepare(
+    "SELECT id, user_id, plan_code, status, starts_at, expires_at, max_devices " +
+    "FROM licenses WHERE user_id = ? AND status = 'ACTIVE' AND starts_at <= ? AND expires_at > ? " +
+    "ORDER BY created_at DESC LIMIT 1"
+  ).bind(userId, now, now).first();
+}
+
+async function listAdminCustomers(request, env, session) {
+  await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
+  const now = Math.floor(Date.now() / 1000);
+  const result = await env.DB.prepare(
+    "SELECT u.id, u.email, u.display_name, u.status, u.created_at, u.last_login_at, " +
+    "l.id AS license_id, l.plan_code, l.status AS license_status, l.starts_at, l.expires_at, l.max_devices, " +
+    "CASE WHEN l.id IS NULL THEN NULL WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_license_status, " +
+    "(SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE') AS active_device_count " +
+    "FROM users u LEFT JOIN licenses l ON l.user_id = u.id AND l.status = 'ACTIVE' " +
+    "WHERE u.role = 'CUSTOMER' ORDER BY u.created_at DESC"
+  ).bind(now, now).all();
+  return response(request, { customers: result.results || [] }, 200, env);
+}
+
+async function listAdminLicenses(request, env, session) {
+  await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
+  const now = Math.floor(Date.now() / 1000);
+  const result = await env.DB.prepare(
+    "SELECT l.id, l.user_id, u.email, u.display_name, l.plan_code, l.status, " +
+    "CASE WHEN l.status <> 'ACTIVE' THEN l.status WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_status, " +
+    "l.starts_at, l.expires_at, l.max_devices, l.created_at, l.updated_at, " +
+    "(SELECT COUNT(*) FROM devices d WHERE d.user_id = l.user_id AND d.status = 'ACTIVE') AS active_device_count " +
+    "FROM licenses l JOIN users u ON u.id = l.user_id ORDER BY l.created_at DESC"
+  ).bind(now, now).all();
+  return response(request, { licenses: result.results || [] }, 200, env);
+}
+
+async function createCustomerLicense(request, env, session) {
+  await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
+  const body = await readBody(request);
+  const userId = typeof body.userId === "string" ? body.userId.trim() : "";
+  const planCode = typeof body.planCode === "string" ? body.planCode.trim().toUpperCase() : "";
+  const now = Math.floor(Date.now() / 1000);
+  const startsAt = body.startsAt == null ? now : Number(body.startsAt);
+  const expiresAt = Number(body.expiresAt);
+  const maxDevices = Number(body.maxDevices ?? 1);
+
+  if (!PROJECT_ID_PATTERN.test(userId)) {
+    throw new HttpError(400, "invalid_customer_id", "A valid customer ID is required.");
+  }
+  if (!/^[A-Z0-9_-]{2,32}$/.test(planCode)) {
+    throw new HttpError(400, "invalid_plan_code", "Plan code must contain 2 to 32 letters, numbers, underscores or hyphens.");
+  }
+  if (!Number.isSafeInteger(startsAt) || !Number.isSafeInteger(expiresAt) ||
+      startsAt < now - 300 || expiresAt <= startsAt || expiresAt > now + 10 * 366 * 86400) {
+    throw new HttpError(400, "invalid_license_period", "The license start and expiry times are invalid.");
+  }
+  if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 20) {
+    throw new HttpError(400, "invalid_device_limit", "The device limit must be from 1 to 20.");
+  }
+
+  const customer = await env.DB.prepare(
+    "SELECT id, email, role, status FROM users WHERE id = ?"
+  ).bind(userId).first();
+  if (!customer || customer.role !== "CUSTOMER") {
+    throw new HttpError(404, "customer_not_found", "The customer account was not found.");
+  }
+  if (customer.status !== "ACTIVE") {
+    throw new HttpError(409, "customer_inactive", "A license cannot be issued to an inactive account.");
+  }
+
+  await env.DB.prepare(
+    "UPDATE licenses SET status = 'PAUSED', updated_at = ? " +
+    "WHERE user_id = ? AND status = 'ACTIVE' AND expires_at <= ?"
+  ).bind(now, userId, now).run();
+
+  const id = crypto.randomUUID();
+  try {
+    await env.DB.prepare(
+      "INSERT INTO licenses (id, user_id, plan_code, status, starts_at, expires_at, max_devices, created_by, created_at, updated_at) " +
+      "VALUES (?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?)"
+    ).bind(id, userId, planCode, startsAt, expiresAt, maxDevices, session.user_id, now, now).run();
+  } catch (error) {
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "active_license_exists", "This customer already has an active license. Update or revoke it before issuing another.");
+    }
+    throw error;
+  }
+
+  await audit(env, session.user_id, "license.created", "license", id, {
+    customerId: userId, planCode, startsAt, expiresAt, maxDevices
+  });
+  return response(request, {
+    created: true,
+    license: { id, user_id: userId, email: customer.email, plan_code: planCode, status: "ACTIVE", starts_at: startsAt, expires_at: expiresAt, max_devices: maxDevices }
+  }, 201, env);
+}
+
+async function updateCustomerLicense(request, env, session, licenseId) {
+  await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
+  if (!PROJECT_ID_PATTERN.test(licenseId)) throw new HttpError(400, "invalid_license_id", "License ID is invalid.");
+  const body = await readBody(request);
+  const current = await env.DB.prepare(
+    "SELECT id, user_id, plan_code, status, starts_at, expires_at, max_devices FROM licenses WHERE id = ?"
+  ).bind(licenseId).first();
+  if (!current) throw new HttpError(404, "license_not_found", "License was not found.");
+
+  const status = body.status == null ? current.status : String(body.status).toUpperCase();
+  const planCode = body.planCode == null ? current.plan_code : String(body.planCode).trim().toUpperCase();
+  const startsAt = body.startsAt == null ? current.starts_at : Number(body.startsAt);
+  const expiresAt = body.expiresAt == null ? current.expires_at : Number(body.expiresAt);
+  const maxDevices = body.maxDevices == null ? current.max_devices : Number(body.maxDevices);
+  const now = Math.floor(Date.now() / 1000);
+
+  if (!["ACTIVE", "PAUSED", "REVOKED"].includes(status)) {
+    throw new HttpError(400, "invalid_license_status", "License status must be ACTIVE, PAUSED or REVOKED.");
+  }
+  if (!/^[A-Z0-9_-]{2,32}$/.test(planCode)) {
+    throw new HttpError(400, "invalid_plan_code", "Plan code is invalid.");
+  }
+  if (!Number.isSafeInteger(startsAt) || !Number.isSafeInteger(expiresAt) ||
+      startsAt < 0 || expiresAt <= startsAt || expiresAt > now + 10 * 366 * 86400) {
+    throw new HttpError(400, "invalid_license_period", "The license start and expiry times are invalid.");
+  }
+  if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 20) {
+    throw new HttpError(400, "invalid_device_limit", "The device limit must be from 1 to 20.");
+  }
+  if (status === "ACTIVE" && (startsAt > now || expiresAt <= now)) {
+    throw new HttpError(400, "license_not_current", "An active license must have a start time in the past and an expiry time in the future.");
+  }
+
+  try {
+    const result = await env.DB.prepare(
+      "UPDATE licenses SET plan_code = ?, status = ?, starts_at = ?, expires_at = ?, max_devices = ?, updated_at = ? WHERE id = ?"
+    ).bind(planCode, status, startsAt, expiresAt, maxDevices, now, licenseId).run();
+    if (result.meta?.changes !== 1) throw new HttpError(409, "license_update_conflict", "License was changed before this update completed.");
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "active_license_exists", "The customer already has another active license.");
+    }
+    throw error;
+  }
+
+  if (status === "REVOKED") {
+    await env.DB.prepare(
+      "UPDATE devices SET status = 'REVOKED', revoked_at = ? WHERE user_id = ? AND status = 'ACTIVE'"
+    ).bind(now, current.user_id).run();
+  }
+
+  await audit(env, session.user_id, "license.updated", "license", licenseId, {
+    status, planCode, startsAt, expiresAt, maxDevices
+  });
+  return response(request, { updated: true, licenseId, status }, 200, env);
+}
+
+async function listAdminDevices(request, env, session) {
+  await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
+  const result = await env.DB.prepare(
+    "SELECT d.id, d.user_id, u.email, u.display_name, d.label, d.manufacturer, d.model, " +
+    "d.android_version, d.app_version, d.status, d.registered_at, d.last_seen_at, d.revoked_at " +
+    "FROM devices d JOIN users u ON u.id = d.user_id ORDER BY d.last_seen_at DESC"
+  ).all();
+  return response(request, { devices: result.results || [] }, 200, env);
+}
+
+async function revokeCustomerDevice(request, env, session, deviceId) {
+  await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
+  if (!PROJECT_ID_PATTERN.test(deviceId)) throw new HttpError(400, "invalid_device_id", "Device ID is invalid.");
+  const device = await env.DB.prepare(
+    "SELECT id, user_id, status FROM devices WHERE id = ?"
+  ).bind(deviceId).first();
+  if (!device) throw new HttpError(404, "device_not_found", "Device was not found.");
+  if (device.status === "REVOKED") return response(request, { revoked: true, deviceId }, 200, env);
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.prepare(
+    "UPDATE devices SET status = 'REVOKED', revoked_at = ? WHERE id = ? AND status = 'ACTIVE'"
+  ).bind(now, deviceId).run();
+  await audit(env, session.user_id, "device.revoked_by_owner", "device", deviceId, { customerId: device.user_id });
+  return response(request, { revoked: true, deviceId }, 200, env);
+}
+
+async function getCustomerAccount(request, env, session) {
+  await requireRole(session, ["CUSTOMER"]);
+  const now = Math.floor(Date.now() / 1000);
+  const license = await env.DB.prepare(
+    "SELECT id, plan_code, status, starts_at, expires_at, max_devices FROM licenses " +
+    "WHERE user_id = ? ORDER BY created_at DESC LIMIT 1"
+  ).bind(session.user_id).first();
+  const result = await env.DB.prepare(
+    "SELECT id, label, manufacturer, model, android_version, app_version, status, registered_at, last_seen_at, revoked_at " +
+    "FROM devices WHERE user_id = ? ORDER BY registered_at DESC"
+  ).bind(session.user_id).all();
+
+  let licenseState = null;
+  if (license) {
+    licenseState = license.status;
+    if (license.status === "ACTIVE" && license.starts_at > now) licenseState = "NOT_STARTED";
+    else if (license.status === "ACTIVE" && license.expires_at <= now) licenseState = "EXPIRED";
+  }
+  const activeDeviceCount = (result.results || []).filter(device => device.status === "ACTIVE").length;
+  return response(request, {
+    account: { id: session.user_id, email: session.email, displayName: session.display_name },
+    license: license ? { ...license, effective_status: licenseState } : null,
+    devices: result.results || [],
+    activeDeviceCount,
+    canRegisterDevice: licenseState === "ACTIVE" && activeDeviceCount < (license?.max_devices || 0),
+    canRun: licenseState === "ACTIVE"
+  }, 200, env);
+}
+
+async function createCustomerDeviceChallenge(request, env, session) {
+  await requireRole(session, ["CUSTOMER"]);
+  const now = Math.floor(Date.now() / 1000);
+  const license = await getActiveLicense(env, session.user_id, now);
+  if (!license) {
+    throw new HttpError(403, "active_license_required", "An active license is required to register this device.");
+  }
+  const id = crypto.randomUUID();
+  const nonce = randomToken(32);
+  await env.DB.prepare(
+    "INSERT INTO device_enrollment_challenges (id, user_id, nonce_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)"
+  ).bind(id, session.user_id, await sha256(nonce), now + 300, now).run();
+  await env.DB.prepare(
+    "DELETE FROM device_enrollment_challenges WHERE expires_at <= ? OR consumed_at IS NOT NULL"
+  ).bind(now - 300).run();
+  return response(request, { challengeId: id, nonce, expiresInSeconds: 300 }, 200, env);
+}
+
+async function registerCustomerDevice(request, env, session) {
+  await requireRole(session, ["CUSTOMER"]);
+  const body = await readBody(request, 12_000);
+  const publicKeySpki = typeof body.publicKeySpki === "string" ? body.publicKeySpki.trim() : "";
+  const challengeId = typeof body.challengeId === "string" ? body.challengeId.trim() : "";
+  const nonce = typeof body.nonce === "string" ? body.nonce : "";
+  const signatureText = typeof body.signature === "string" ? body.signature.trim() : "";
+  if (publicKeySpki.length < 300 || publicKeySpki.length > 8192 ||
+      !/^[A-Za-z0-9+/=_-]+$/.test(publicKeySpki)) {
+    throw new HttpError(400, "invalid_device_public_key", "A valid Android Keystore public key is required.");
+  }
+  if (!PROJECT_ID_PATTERN.test(challengeId) || nonce.length < 32 || nonce.length > 128 ||
+      signatureText.length < 300 || signatureText.length > 600 ||
+      !/^[A-Za-z0-9_+\\/=-]+$/.test(signatureText)) {
+    throw new HttpError(400, "invalid_device_proof", "A valid one-time device enrollment proof is required.");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const challenge = await env.DB.prepare(
+    "SELECT id, nonce_hash, expires_at, consumed_at FROM device_enrollment_challenges " +
+    "WHERE id = ? AND user_id = ?"
+  ).bind(challengeId, session.user_id).first();
+  if (!challenge || challenge.consumed_at || challenge.expires_at <= now ||
+      (await sha256(nonce)) !== challenge.nonce_hash) {
+    throw new HttpError(401, "invalid_device_challenge", "Device enrollment challenge is invalid, expired or already used.");
+  }
+
+  const license = await getActiveLicense(env, session.user_id, now);
+  if (!license) throw new HttpError(403, "active_license_required", "An active license is required to register this device.");
+
+  let publicKeyBytes;
+  let publicKey;
+  let signature;
+  try {
+    publicKeyBytes = base64UrlDecode(publicKeySpki);
+    publicKey = await crypto.subtle.importKey(
+      "spki",
+      publicKeyBytes,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+    signature = base64UrlDecode(signatureText);
+  } catch {
+    throw new HttpError(400, "invalid_device_public_key", "The device key or signature format is invalid.");
+  }
+  const modulusLength = publicKey.algorithm?.modulusLength;
+  if (!Number.isInteger(modulusLength) || modulusLength < 3072 || modulusLength > 4096) {
+    throw new HttpError(400, "weak_device_public_key", "The device key must use RSA 3072 to 4096 bits.");
+  }
+  const proofMessage = encoder.encode(challengeId + "." + nonce);
+  const proofValid = await crypto.subtle.verify(
+    { name: "RSASSA-PKCS1-v1_5" },
+    publicKey,
+    signature,
+    proofMessage
+  );
+  if (!proofValid) throw new HttpError(401, "invalid_device_signature", "The device did not prove ownership of its private key.");
+
+  const consumed = await env.DB.prepare(
+    "UPDATE device_enrollment_challenges SET consumed_at = ? " +
+    "WHERE id = ? AND user_id = ? AND nonce_hash = ? AND consumed_at IS NULL AND expires_at > ?"
+  ).bind(now, challengeId, session.user_id, challenge.nonce_hash, now).run();
+  if (consumed.meta?.changes !== 1) {
+    throw new HttpError(409, "device_challenge_already_used", "This device enrollment challenge has already been used.");
+  }
+
+  const publicKeyCanonical = base64UrlEncode(publicKeyBytes);
+  const digest = await crypto.subtle.digest("SHA-256", publicKeyBytes);
+  const fingerprint = Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, "0")).join("");
+  const existing = await env.DB.prepare(
+    "SELECT id, status FROM devices WHERE user_id = ? AND public_key_fingerprint = ?"
+  ).bind(session.user_id, fingerprint).first();
+  if (existing?.status === "REVOKED") {
+    throw new HttpError(403, "device_revoked", "This device was revoked by the application owner.");
+  }
+
+  const metadata = {
+    label: cleanDeviceText(body.label, 100),
+    manufacturer: cleanDeviceText(body.manufacturer, 80),
+    model: cleanDeviceText(body.model, 100),
+    androidVersion: cleanDeviceText(body.androidVersion, 40),
+    appVersion: cleanDeviceText(body.appVersion, 40)
+  };
+
+  if (existing) {
+    await env.DB.prepare(
+      "UPDATE devices SET label = ?, manufacturer = ?, model = ?, android_version = ?, app_version = ?, last_seen_at = ? " +
+      "WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
+    ).bind(metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion, now, existing.id, session.user_id).run();
+    return response(request, {
+      registered: true,
+      alreadyRegistered: true,
+      device: { id: existing.id, ...metadata, status: "ACTIVE", lastSeenAt: now }
+    }, 200, env);
+  }
+
+  const id = crypto.randomUUID();
+  try {
+    const inserted = await env.DB.prepare(
+      "INSERT INTO devices (id, user_id, public_key_spki, public_key_fingerprint, label, manufacturer, model, android_version, app_version, status, registered_at, last_seen_at) " +
+      "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ? " +
+      "WHERE (SELECT COUNT(*) FROM devices WHERE user_id = ? AND status = 'ACTIVE') < ?"
+    ).bind(
+      id, session.user_id, publicKeyCanonical, fingerprint,
+      metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion, now, now,
+      session.user_id, license.max_devices
+    ).run();
+    if (inserted.meta?.changes !== 1) {
+      throw new HttpError(409, "device_limit_reached", "The license has reached its active device limit.");
+    }
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "device_key_already_registered", "This device key is already registered to another account.");
+    }
+    throw error;
+  }
+  await audit(env, session.user_id, "device.registered", "device", id, { fingerprint });
+  return response(request, {
+    registered: true,
+    alreadyRegistered: false,
+    device: { id, ...metadata, status: "ACTIVE", registeredAt: now, lastSeenAt: now }
+  }, 201, env);
+}
+
+async function removeOwnDevice(request, env, session, deviceId) {
+  await requireRole(session, ["CUSTOMER"]);
+  if (!PROJECT_ID_PATTERN.test(deviceId)) throw new HttpError(400, "invalid_device_id", "Device ID is invalid.");
+  const now = Math.floor(Date.now() / 1000);
+  const result = await env.DB.prepare(
+    "UPDATE devices SET status = 'REVOKED', revoked_at = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
+  ).bind(now, deviceId, session.user_id).run();
+  if (result.meta?.changes !== 1) throw new HttpError(404, "device_not_found", "Active device was not found on this account.");
+  await audit(env, session.user_id, "device.removed_by_customer", "device", deviceId);
+  return response(request, { removed: true, deviceId }, 200, env);
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -996,6 +1366,30 @@ async function route(request, env) {
       session: { expiresAt: session.expires_at }
     }, 200, env);
   }
+
+
+  if (method === "GET" && path === "/api/customer/account") {
+    return await getCustomerAccount(request, env, session);
+  }
+  if (method === "POST" && path === "/api/customer/devices/challenge") {
+    return await createCustomerDeviceChallenge(request, env, session);
+  }
+  if (method === "POST" && path === "/api/customer/devices") {
+    return await registerCustomerDevice(request, env, session);
+  }
+  const ownDeviceMatch = path.match(/^\/api\/customer\/devices\/([0-9a-f-]{36})$/i);
+  if (ownDeviceMatch && method === "DELETE") {
+    return await removeOwnDevice(request, env, session, ownDeviceMatch[1]);
+  }
+
+  if (method === "GET" && path === "/api/admin/customers") return await listAdminCustomers(request, env, session);
+  if (method === "GET" && path === "/api/admin/licenses") return await listAdminLicenses(request, env, session);
+  if (method === "POST" && path === "/api/admin/licenses") return await createCustomerLicense(request, env, session);
+  const licenseMatch = path.match(/^\/api\/admin\/licenses\/([0-9a-f-]{36})$/i);
+  if (licenseMatch && method === "PATCH") return await updateCustomerLicense(request, env, session, licenseMatch[1]);
+  if (method === "GET" && path === "/api/admin/devices") return await listAdminDevices(request, env, session);
+  const deviceMatch = path.match(/^\/api\/admin\/devices\/([0-9a-f-]{36})$/i);
+  if (deviceMatch && method === "PATCH") return await revokeCustomerDevice(request, env, session, deviceMatch[1]);
 
   if (method === "POST" && path === "/api/auth/logout") {
     const now = Math.floor(Date.now() / 1000);

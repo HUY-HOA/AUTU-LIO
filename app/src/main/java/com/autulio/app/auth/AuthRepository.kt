@@ -22,6 +22,7 @@ import java.net.URLEncoder
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 
 data class AuthenticatedUser(
     val id: String,
@@ -116,6 +117,90 @@ data class SharedSubmission(
     val status: String,
     val reviewNote: String,
     val createdAt: Long
+)
+
+
+data class CustomerRecord(
+    val userId: String,
+    val email: String,
+    val displayName: String?,
+    val status: String,
+    val createdAt: Long,
+    val lastLoginAt: Long?,
+    val licenseId: String?,
+    val planCode: String?,
+    val licenseStatus: String?,
+    val licenseStartsAt: Long?,
+    val licenseExpiresAt: Long?,
+    val maxDevices: Int?,
+    val activeDeviceCount: Int
+)
+
+data class LicenseRecord(
+    val id: String,
+    val userId: String,
+    val email: String,
+    val planCode: String,
+    val status: String,
+    val startsAt: Long,
+    val expiresAt: Long,
+    val maxDevices: Int,
+    val activeDeviceCount: Int
+)
+
+data class DeviceRecord(
+    val id: String,
+    val userId: String,
+    val email: String,
+    val label: String,
+    val manufacturer: String,
+    val model: String,
+    val androidVersion: String,
+    val appVersion: String,
+    val status: String,
+    val registeredAt: Long,
+    val lastSeenAt: Long,
+    val revokedAt: Long?
+)
+
+data class DeviceEnrollmentChallenge(
+    val challengeId: String,
+    val nonce: String,
+    val expiresInSeconds: Int
+)
+
+data class CustomerAccountOverview(
+    val userId: String,
+    val email: String,
+    val displayName: String?,
+    val license: CustomerLicenseInfo?,
+    val devices: List<CustomerDeviceInfo>,
+    val activeDeviceCount: Int,
+    val canRegisterDevice: Boolean,
+    val canRun: Boolean
+)
+
+data class CustomerLicenseInfo(
+    val id: String,
+    val planCode: String,
+    val status: String,
+    val effectiveStatus: String,
+    val startsAt: Long,
+    val expiresAt: Long,
+    val maxDevices: Int
+)
+
+data class CustomerDeviceInfo(
+    val id: String,
+    val label: String,
+    val manufacturer: String,
+    val model: String,
+    val androidVersion: String,
+    val appVersion: String,
+    val status: String,
+    val registeredAt: Long,
+    val lastSeenAt: Long,
+    val revokedAt: Long?
 )
 
 class AuthRepository(context: Context) {
@@ -605,6 +690,270 @@ class AuthRepository(context: Context) {
             "PATCH",
             JSONObject().put("status", status).put("note", note.trim()),
             accessToken
+        )
+    }
+
+
+    suspend fun listAdminCustomers(accessToken: String): List<CustomerRecord> {
+        val result = apiRequest("/api/admin/customers", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("customers") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val userId = item.optString("id")
+                val email = item.optString("email")
+                if (userId.isBlank() || email.isBlank()) continue
+                add(
+                    CustomerRecord(
+                        userId = userId,
+                        email = email,
+                        displayName = item.optString("display_name").takeIf { it.isNotBlank() && it != "null" },
+                        status = item.optString("status"),
+                        createdAt = item.optLong("created_at"),
+                        lastLoginAt = item.optLong("last_login_at").takeIf { item.has("last_login_at") && !item.isNull("last_login_at") },
+                        licenseId = item.optString("license_id").takeIf { it.isNotBlank() && it != "null" },
+                        planCode = item.optString("plan_code").takeIf { it.isNotBlank() && it != "null" },
+                        licenseStatus = item.optString("effective_license_status").takeIf { it.isNotBlank() && it != "null" },
+                        licenseStartsAt = item.optLong("starts_at").takeIf { item.has("starts_at") && !item.isNull("starts_at") },
+                        licenseExpiresAt = item.optLong("expires_at").takeIf { item.has("expires_at") && !item.isNull("expires_at") },
+                        maxDevices = item.optInt("max_devices").takeIf { item.has("max_devices") && !item.isNull("max_devices") },
+                        activeDeviceCount = item.optInt("active_device_count")
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun listAdminLicenses(accessToken: String): List<LicenseRecord> {
+        val result = apiRequest("/api/admin/licenses", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("licenses") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                if (id.isBlank()) continue
+                add(
+                    LicenseRecord(
+                        id = id,
+                        userId = item.optString("user_id"),
+                        email = item.optString("email"),
+                        planCode = item.optString("plan_code"),
+                        status = item.optString("effective_status").ifBlank { item.optString("status") },
+                        startsAt = item.optLong("starts_at"),
+                        expiresAt = item.optLong("expires_at"),
+                        maxDevices = item.optInt("max_devices", 1),
+                        activeDeviceCount = item.optInt("active_device_count")
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun createCustomerLicense(
+        accessToken: String,
+        userId: String,
+        planCode: String,
+        expiresAt: Long,
+        maxDevices: Int = 1
+    ): LicenseRecord {
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(planCode.matches(Regex("^[A-Za-z0-9_-]{2,32}$")))
+        require(maxDevices in 1..20)
+        val result = apiRequest(
+            "/api/admin/licenses",
+            "POST",
+            JSONObject()
+                .put("userId", userId)
+                .put("planCode", planCode.trim().uppercase(Locale.ROOT))
+                .put("expiresAt", expiresAt)
+                .put("maxDevices", maxDevices),
+            accessToken
+        )
+        val item = result.optJSONObject("license") ?: throw IOException("Máy chủ không trả về giấy phép vừa tạo.")
+        val id = item.optString("id")
+        if (id.isBlank()) throw IOException("Mã giấy phép không hợp lệ.")
+        return LicenseRecord(
+            id = id,
+            userId = item.optString("user_id"),
+            email = item.optString("email"),
+            planCode = item.optString("plan_code"),
+            status = item.optString("status"),
+            startsAt = item.optLong("starts_at"),
+            expiresAt = item.optLong("expires_at"),
+            maxDevices = item.optInt("max_devices", maxDevices),
+            activeDeviceCount = 0
+        )
+    }
+
+    suspend fun updateCustomerLicense(
+        accessToken: String,
+        licenseId: String,
+        status: String,
+        expiresAt: Long,
+        maxDevices: Int
+    ) {
+        require(licenseId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(status in setOf("ACTIVE", "PAUSED", "REVOKED"))
+        require(maxDevices in 1..20)
+        apiRequest(
+            "/api/admin/licenses/$licenseId",
+            "PATCH",
+            JSONObject()
+                .put("status", status)
+                .put("expiresAt", expiresAt)
+                .put("maxDevices", maxDevices),
+            accessToken
+        )
+    }
+
+    suspend fun listAdminDevices(accessToken: String): List<DeviceRecord> {
+        val result = apiRequest("/api/admin/devices", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("devices") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                if (id.isBlank()) continue
+                add(
+                    DeviceRecord(
+                        id = id,
+                        userId = item.optString("user_id"),
+                        email = item.optString("email"),
+                        label = item.optString("label"),
+                        manufacturer = item.optString("manufacturer"),
+                        model = item.optString("model"),
+                        androidVersion = item.optString("android_version"),
+                        appVersion = item.optString("app_version"),
+                        status = item.optString("status"),
+                        registeredAt = item.optLong("registered_at"),
+                        lastSeenAt = item.optLong("last_seen_at"),
+                        revokedAt = item.optLong("revoked_at").takeIf { item.has("revoked_at") && !item.isNull("revoked_at") }
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun revokeCustomerDevice(accessToken: String, deviceId: String) {
+        require(deviceId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        apiRequest(
+            "/api/admin/devices/$deviceId",
+            "PATCH",
+            JSONObject().put("status", "REVOKED"),
+            accessToken
+        )
+    }
+
+    suspend fun customerAccount(accessToken: String): CustomerAccountOverview {
+        val result = apiRequest("/api/customer/account", "GET", bearerToken = accessToken)
+        val account = result.optJSONObject("account") ?: throw IOException("Máy chủ không trả về thông tin tài khoản.")
+        val rawLicense = result.optJSONObject("license")
+        val license = rawLicense?.let {
+            CustomerLicenseInfo(
+                id = it.optString("id"),
+                planCode = it.optString("plan_code"),
+                status = it.optString("status"),
+                effectiveStatus = it.optString("effective_status"),
+                startsAt = it.optLong("starts_at"),
+                expiresAt = it.optLong("expires_at"),
+                maxDevices = it.optInt("max_devices", 1)
+            )
+        }
+        val items = result.optJSONArray("devices")
+        val devices = buildList {
+            if (items != null) {
+                for (index in 0 until items.length()) {
+                    val item = items.optJSONObject(index) ?: continue
+                    val id = item.optString("id")
+                    if (id.isBlank()) continue
+                    add(
+                        CustomerDeviceInfo(
+                            id = id,
+                            label = item.optString("label"),
+                            manufacturer = item.optString("manufacturer"),
+                            model = item.optString("model"),
+                            androidVersion = item.optString("android_version"),
+                            appVersion = item.optString("app_version"),
+                            status = item.optString("status"),
+                            registeredAt = item.optLong("registered_at"),
+                            lastSeenAt = item.optLong("last_seen_at"),
+                            revokedAt = item.optLong("revoked_at").takeIf { item.has("revoked_at") && !item.isNull("revoked_at") }
+                        )
+                    )
+                }
+            }
+        }
+        return CustomerAccountOverview(
+            userId = account.optString("id"),
+            email = account.optString("email"),
+            displayName = account.optString("displayName").takeIf { it.isNotBlank() && it != "null" },
+            license = license,
+            devices = devices,
+            activeDeviceCount = result.optInt("activeDeviceCount"),
+            canRegisterDevice = result.optBoolean("canRegisterDevice"),
+            canRun = result.optBoolean("canRun")
+        )
+    }
+
+    suspend fun createCustomerDeviceChallenge(accessToken: String): DeviceEnrollmentChallenge {
+        val result = apiRequest(
+            "/api/customer/devices/challenge",
+            "POST",
+            JSONObject(),
+            accessToken
+        )
+        val challengeId = result.optString("challengeId")
+        val nonce = result.optString("nonce")
+        if (challengeId.isBlank() || nonce.isBlank()) {
+            throw IOException("Máy chủ không trả về thử thách đăng ký thiết bị hợp lệ.")
+        }
+        return DeviceEnrollmentChallenge(
+            challengeId = challengeId,
+            nonce = nonce,
+            expiresInSeconds = result.optInt("expiresInSeconds", 300)
+        )
+    }
+
+    suspend fun registerCustomerDevice(
+        accessToken: String,
+        publicKeySpki: String,
+        challengeId: String,
+        nonce: String,
+        signature: String,
+        label: String,
+        manufacturer: String,
+        model: String,
+        androidVersion: String,
+        appVersion: String
+    ): String {
+        val result = apiRequest(
+            "/api/customer/devices",
+            "POST",
+            JSONObject()
+                .put("publicKeySpki", publicKeySpki)
+                .put("challengeId", challengeId)
+                .put("nonce", nonce)
+                .put("signature", signature)
+                .put("label", label)
+                .put("manufacturer", manufacturer)
+                .put("model", model)
+                .put("androidVersion", androidVersion)
+                .put("appVersion", appVersion),
+            accessToken
+        )
+        val deviceId = result.optJSONObject("device")?.optString("id").orEmpty()
+        if (!result.optBoolean("registered") || deviceId.isBlank()) {
+            throw IOException("Máy chủ không xác nhận đăng ký thiết bị.")
+        }
+        return deviceId
+    }
+
+    suspend fun removeOwnDevice(accessToken: String, deviceId: String) {
+        require(deviceId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        apiRequest(
+            "/api/customer/devices/$deviceId",
+            "DELETE",
+            bearerToken = accessToken
         )
     }
 

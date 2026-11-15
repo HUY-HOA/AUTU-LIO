@@ -25,6 +25,9 @@ required_tables = {
     "script_drafts",
     "ui_drafts",
     "change_submissions",
+    "licenses",
+    "devices",
+    "device_enrollment_challenges",
 }
 actual_tables = {
     row[0]
@@ -122,11 +125,54 @@ except sqlite3.IntegrityError:
 else:
     raise SystemExit("Submission accepted an unsupported change kind")
 
+database.execute(
+    "INSERT INTO licenses "
+    "(id, user_id, plan_code, status, starts_at, expires_at, max_devices, created_by, created_at, updated_at) "
+    "VALUES ('license-1', 'owner-1', 'PRO', 'ACTIVE', 100, 200, 2, 'owner-1', 100, 100)"
+)
+try:
+    database.execute(
+        "INSERT INTO licenses "
+        "(id, user_id, plan_code, status, starts_at, expires_at, max_devices, created_by, created_at, updated_at) "
+        "VALUES ('license-2', 'owner-1', 'PRO', 'ACTIVE', 100, 300, 2, 'owner-1', 100, 100)"
+    )
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise SystemExit("Database accepted more than one active license for a user")
+
+try:
+    database.execute(
+        "INSERT INTO licenses "
+        "(id, user_id, plan_code, status, starts_at, expires_at, max_devices, created_by, created_at, updated_at) "
+        "VALUES ('license-invalid', 'developer-1', 'PRO', 'ACTIVE', 100, 200, 21, 'owner-1', 100, 100)"
+    )
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise SystemExit("Database accepted a license device limit outside 1..20")
+
+database.execute(
+    "INSERT INTO devices "
+    "(id, user_id, public_key_spki, public_key_fingerprint, label, status, registered_at, last_seen_at) "
+    "VALUES ('device-1', 'owner-1', 'public-key', 'fingerprint-1', 'Test device', 'ACTIVE', 100, 100)"
+)
+try:
+    database.execute(
+        "INSERT INTO devices "
+        "(id, user_id, public_key_spki, public_key_fingerprint, label, status, registered_at, last_seen_at) "
+        "VALUES ('device-2', 'developer-1', 'public-key', 'fingerprint-1', 'Duplicate key', 'ACTIVE', 100, 100)"
+    )
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise SystemExit("Database accepted a duplicate device public-key fingerprint")
+
 foreign_key_errors = database.execute("PRAGMA foreign_key_check").fetchall()
 if foreign_key_errors:
     raise SystemExit(f"Foreign key violations: {foreign_key_errors}")
 
 print(
     f"OK: {len(required_tables)} required tables, {len(migrations)} migrations, "
-    "single-owner, project membership, draft uniqueness and submission constraints"
+    "single-owner, project membership, draft uniqueness, submissions, single active license, device limits and unique device keys"
 )

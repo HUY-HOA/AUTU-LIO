@@ -239,31 +239,13 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     },
                     onPermissions = { page = "collaborators" }
                 )
-                "customers" -> AdminModulePage(
-                    Modifier.padding(padding),
-                    title = tr("Khách hàng", "Customers"),
-                    subtitle = tr("Quản lý tài khoản và trạng thái khách hàng", "Manage customer accounts and status"),
-                    icon = Icons.Outlined.Group,
-                    details = listOf(
-                        tr("Hồ sơ và email tài khoản", "Customer profiles and account email"),
-                        tr("Số thiết bị đã liên kết", "Number of linked devices"),
-                        tr("Loại giấy phép và ngày hết hạn", "License type and expiry date"),
-                        tr("Lần hoạt động gần nhất", "Last active time")
-                    ),
-                    onBack = { page = "overview" }
+                "customers" -> CustomersAdminScreen(
+                    accessToken = accessToken,
+                    modifier = Modifier.padding(padding)
                 )
-                "devices" -> AdminModulePage(
-                    Modifier.padding(padding),
-                    title = tr("Thiết bị", "Devices"),
-                    subtitle = tr("Theo dõi thiết bị đã đăng ký", "Review registered devices"),
-                    icon = Icons.Outlined.Smartphone,
-                    details = listOf(
-                        tr("Hãng và model thiết bị", "Device manufacturer and model"),
-                        tr("Phiên bản Android và AUTU-LIO", "Android and AUTU-LIO versions"),
-                        tr("Tài khoản sở hữu thiết bị", "Device owner account"),
-                        tr("Ngày đăng ký và hoạt động gần nhất", "Registration and last active time")
-                    ),
-                    onBack = { page = "overview" }
+                "devices" -> DevicesAdminScreen(
+                    accessToken = accessToken,
+                    modifier = Modifier.padding(padding)
                 )
                 else -> MoreScreen(
                     Modifier.padding(padding),
@@ -342,7 +324,10 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                         onOpen = { scriptDetail = true }
                     )
                 }
-                "device" -> CustomerDeviceLicensePage(Modifier.padding(padding))
+                "device" -> CustomerDeviceLicenseScreen(
+                    accessToken = accessToken,
+                    modifier = Modifier.padding(padding)
+                )
                 else -> SettingsScreen(
                     Modifier.padding(padding),
                     accessToken = accessToken,
@@ -733,6 +718,10 @@ private fun MoreScreen(
     onLogout: () -> Unit,
     accessToken: String?
 ) {
+    if (page == "licenses") {
+        LicensesAdminScreen(accessToken = accessToken, modifier = modifier)
+        return
+    }
     if (page == "projects") {
         if (!accessToken.isNullOrBlank()) {
             ProjectsAdminScreen(accessToken, modifier = modifier, onBack = { onSelect("more") })
