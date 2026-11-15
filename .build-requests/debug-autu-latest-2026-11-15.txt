@@ -1,0 +1,3 @@
+variant=debug
+purpose=User requested BUILD APK after PR #19, #20 and #21 were merged
+source_commit=58d07a80bbd8e63149a5db4487e3de1735c0de24
