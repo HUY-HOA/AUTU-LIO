@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.AutuPackageRecord
 import com.autulio.app.auth.EncryptedAutuPackageDecryptor
 import com.autulio.app.auth.CustomerAccountOverview
 import com.autulio.app.auth.CustomerRecord
@@ -548,6 +549,239 @@ internal fun CustomerDeviceLicenseScreen(
             },
             dismissButton = { TextButton(onClick = { showRegistrationConsent = false }, enabled = !registering) { Text(tr("Hủy", "Cancel")) } }
         )
+    }
+}
+
+@Composable
+internal fun AdminPackagesScreen(
+    accessToken: String?,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val repository = remember(context) { AuthRepository(context) }
+    val draftStore = remember(context) { SecureScriptDraftStore(context) }
+    val scope = rememberCoroutineScope()
+    var drafts by remember { mutableStateOf(draftStore.load()) }
+    var packages by remember { mutableStateOf<List<AutuPackageRecord>>(emptyList()) }
+    var selectedDraft by remember { mutableStateOf<String?>(null) }
+    var description by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var publishing by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    var notice by remember { mutableStateOf("") }
+
+    suspend fun refresh() {
+        drafts = draftStore.load()
+        if (accessToken.isNullOrBlank()) return
+        loading = true
+        error = ""
+        try {
+            packages = repository.listAdminPackages(accessToken)
+        } catch (exception: Exception) {
+            error = exception.message ?: tr("Không tải được danh sách gói.", "Could not load packages.")
+        } finally {
+            loading = false
+        }
+    }
+
+    LaunchedEffect(accessToken) { refresh() }
+
+    val selectedCode = selectedDraft?.let { drafts.contents[it] }.orEmpty()
+    val matchingPackage = selectedDraft?.let { name ->
+        packages.firstOrNull { it.name.equals(name, ignoreCase = true) }
+    }
+    val actionLabel = if (matchingPackage == null) {
+        tr("Phát hành gói AUTU", "Publish AUTU package")
+    } else {
+        tr("Phát hành phiên bản mới", "Publish new version")
+    }
+
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Heading(
+                    tr("Phát hành gói AUTU", "Publish AUTU packages"),
+                    tr("Chỉ chủ ứng dụng được phát hành. Mã nguồn được mã hóa trước khi lưu trên máy chủ.", "Only the app owner can publish. Source is encrypted before it is stored on the server.")
+                )
+            }
+            IconButton(onClick = { scope.launch { refresh() } }, enabled = !loading && !publishing) {
+                Icon(Icons.Outlined.Refresh, contentDescription = tr("Làm mới", "Refresh"))
+            }
+        }
+        if (accessToken.isNullOrBlank()) {
+            LiveManagementUnavailable()
+        } else {
+            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+            if (notice.isNotBlank()) Text(notice, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+            Text(tr("Bản nháp đã lưu trên thiết bị", "Saved drafts on this device"), fontWeight = FontWeight.SemiBold)
+            if (drafts.names.isEmpty()) {
+                EmptyState(
+                    Icons.Outlined.Code,
+                    tr("Chưa có bản nháp", "No saved drafts"),
+                    tr("Tạo AUTU trong Trình soạn thảo, lưu bản nháp rồi quay lại đây để phát hành.", "Create an AUTU in the editor, save the draft, then return here to publish it.")
+                )
+            } else {
+                drafts.names.forEach { name ->
+                    val selected = selectedDraft == name
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            selectedDraft = name
+                            description = ""
+                            error = ""
+                            notice = ""
+                        },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(13.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(name, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    tr("${drafts.contents[name]?.length ?: 0} ký tự mã nguồn", "${drafts.contents[name]?.length ?: 0} source characters"),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            if (selected) Icon(Icons.Outlined.VerifiedUser, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+            if (selectedDraft != null) {
+                CardBox {
+                    Text(
+                        if (matchingPackage == null) tr("Gói mới: $selectedDraft", "New package: $selectedDraft")
+                        else tr("Cập nhật: $selectedDraft · phiên bản ${matchingPackage.latestVersion + 1}", "Update: $selectedDraft · version ${matchingPackage.latestVersion + 1}"),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it.take(1_000) },
+                        label = { Text(tr("Mô tả gói", "Package description")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4
+                    )
+                    Button(
+                        onClick = {
+                            val token = accessToken ?: return@Button
+                            val name = selectedDraft ?: return@Button
+                            val source = selectedCode
+                            scope.launch {
+                                publishing = true
+                                error = ""
+                                notice = ""
+                                try {
+                                    val compilation = ScriptCompiler.compile(source)
+                                    if (!compilation.isSuccess || compilation.program == null) {
+                                        val details = compilation.diagnostics.joinToString("; ") {
+                                            "Dòng ${it.line}: ${it.messageVi}"
+                                        }
+                                        throw IllegalStateException(tr("Mã AUTU chưa hợp lệ: $details", "AUTU source is invalid: $details"))
+                                    }
+                                    val result = if (matchingPackage == null) {
+                                        repository.publishAdminPackage(
+                                            token,
+                                            name,
+                                            description,
+                                            compilation.program.languageVersion,
+                                            source
+                                        )
+                                    } else {
+                                        repository.publishAdminPackageVersion(
+                                            token,
+                                            matchingPackage.id,
+                                            name,
+                                            description.ifBlank { matchingPackage.description },
+                                            compilation.program.languageVersion,
+                                            source
+                                        )
+                                    }
+                                    notice = tr(
+                                        "Đã phát hành $name phiên bản ${result.latestVersion}.",
+                                        "Published $name version ${result.latestVersion}."
+                                    )
+                                    selectedDraft = null
+                                    refresh()
+                                } catch (exception: Exception) {
+                                    error = exception.message ?: tr("Không phát hành được gói AUTU.", "Could not publish this AUTU package.")
+                                } finally {
+                                    publishing = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !publishing && selectedDraft != null && selectedCode.isNotBlank()
+                    ) {
+                        if (publishing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else Icon(Icons.Outlined.PlayArrow, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(actionLabel)
+                    }
+                    Text(
+                        tr(
+                            "Máy chủ dùng AES-256-GCM cho nội dung, khóa dữ liệu riêng cho từng phiên bản và lưu khóa bọc dưới khóa máy chủ có phiên bản.",
+                            "The server uses AES-256-GCM for source, a unique data key per version and a versioned server key to protect that data key."
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+            Divider()
+            Text(tr("Các gói đã phát hành", "Published packages"), fontWeight = FontWeight.SemiBold)
+            if (loading && packages.isEmpty()) {
+                Box(Modifier.fillMaxWidth().padding(18.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (packages.isEmpty()) {
+                Text(tr("Chưa có gói nào được phát hành.", "No packages have been published."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            } else {
+                packages.forEach { item ->
+                    CardBox {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(item.name, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "v${item.latestVersion} · AUTU Script ${item.languageVersion} · ${item.status}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            TextButton(
+                                onClick = {
+                                    val token = accessToken ?: return@TextButton
+                                    scope.launch {
+                                        try {
+                                            val newStatus = if (item.status == "ACTIVE") "ARCHIVED" else "ACTIVE"
+                                            repository.setAdminPackageStatus(token, item.id, newStatus)
+                                            notice = tr("Đã cập nhật trạng thái gói.", "Package status updated.")
+                                            refresh()
+                                        } catch (exception: Exception) {
+                                            error = exception.message.orEmpty()
+                                        }
+                                    }
+                                }
+                            ) {
+                                Text(if (item.status == "ACTIVE") tr("Lưu trữ", "Archive") else tr("Khôi phục", "Restore"))
+                            }
+                        }
+                        if (item.description.isNotBlank()) Text(item.description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
     }
 }
 
