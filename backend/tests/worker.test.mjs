@@ -54,6 +54,40 @@ function createEnv({ session = null, allowedOrigins = "*" } = {}) {
   return { env: { DB, ALLOWED_ORIGINS: allowedOrigins }, queries };
 }
 
+function createDeviceRegistrationEnv({ challenge, license, session = customerSession }) {
+  const queries = [];
+  const DB = {
+    prepare(sql) {
+      queries.push(sql);
+      return {
+        values: [],
+        bind(...values) {
+          this.values = values;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM sessions s JOIN users u")) return session;
+          if (sql.includes("FROM device_enrollment_challenges")) return challenge;
+          if (sql.includes("FROM licenses")) return license;
+          if (sql.includes("SELECT id, status FROM devices")) return null;
+          if (sql.includes("SELECT COUNT(*) AS active_count FROM devices")) return { active_count: 0 };
+          return null;
+        },
+        async all() {
+          return { results: [] };
+        },
+        async run() {
+          return { meta: { changes: 1 } };
+        }
+      };
+    },
+    async batch() {
+      return [];
+    }
+  };
+  return { env: { DB }, queries };
+}
+
 function makeRequest(path, options = {}) {
   return new Request(`https://autu-lio.test${path}`, options);
 }
@@ -224,6 +258,68 @@ test("device registration rejects unsigned or missing one-time proof", async () 
   assert.equal((await json(response)).error, "invalid_device_proof");
 });
 
+
+test("device enrollment accepts a valid RSA-3072 proof of private-key ownership", async () => {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 3072,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256"
+    },
+    true,
+    ["sign", "verify"]
+  );
+  const publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey("spki", keyPair.publicKey));
+  const publicKeySpki = btoa(String.fromCharCode(...publicKeyBytes));
+  const challengeId = crypto.randomUUID();
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(32));
+  const nonce = btoa(String.fromCharCode(...nonceBytes)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const nonceDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(nonce));
+  const nonceHash = Array.from(new Uint8Array(nonceDigest), value => value.toString(16).padStart(2, "0")).join("");
+  const signatureBytes = new Uint8Array(
+    await crypto.subtle.sign(
+      { name: "RSASSA-PKCS1-v1_5" },
+      keyPair.privateKey,
+      new TextEncoder().encode(challengeId + "." + nonce)
+    )
+  );
+  const signature = btoa(String.fromCharCode(...signatureBytes));
+  const now = Math.floor(Date.now() / 1000);
+  const { env } = createDeviceRegistrationEnv({
+    challenge: { id: challengeId, nonce_hash: nonceHash, expires_at: now + 300, consumed_at: null },
+    license: { id: "license-1", user_id: customerSession.user_id, max_devices: 2, status: "ACTIVE", starts_at: now - 60, expires_at: now + 86400 }
+  });
+
+  const response = await worker.fetch(
+    makeRequest("/api/customer/devices", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${"J".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        publicKeySpki,
+        challengeId,
+        nonce,
+        signature,
+        label: "My Android",
+        manufacturer: "Test",
+        model: "Phone",
+        androidVersion: "16",
+        appVersion: "0.1.0"
+      })
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 201);
+  assert.equal(body.registered, true);
+  assert.equal(body.device.status, "ACTIVE");
+  assert.equal(body.device.label, "My Android");
+  assert.equal(JSON.stringify(body).includes("privateKey"), false);
+});
 
 test("owner cannot create a license for an invalid customer identifier", async () => {
   const { env } = createEnv({ session: ownerSession });
