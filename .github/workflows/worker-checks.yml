@@ -1,0 +1,40 @@
+name: AUTU-LIO Worker checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/worker-checks.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/worker-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-worker:
+    name: Validate Worker source and D1 migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check Worker JavaScript syntax
+        run: node --check backend/src/index.js
+
+      - name: Validate D1 SQL migrations
+        run: python backend/scripts/check_migrations.py

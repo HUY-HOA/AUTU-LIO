@@ -80,7 +80,15 @@ Màn hình Admin có mục Quản lý cộng tác viên, cho phép nhập Gmail,
 
 Khi backend hoạt động, cần thay phần lưu cục bộ bằng API có xác thực session. Worker phải kiểm tra vai trò OWNER, xác thực email/Google identity, mã lời mời dùng một lần có thời hạn, chống gửi lặp và ghi nhật ký thay đổi. Người được mời chỉ có quyền sau khi chấp nhận và máy chủ gán role thành công.
 
-## 8. Trạng thái triển khai
+## 8. Backend D1 và API
+
+Cloudflare D1 database `autu_lio_auth` đã được tạo trong tài khoản Cloudflare kết nối, vị trí chính APAC. Các bảng tài khoản, thử thách nonce, session, lời mời, quyền ghi đè, nhật ký kiểm toán và cấu hình đã được tạo. Có chỉ mục duy nhất bảo đảm tối đa một tài khoản OWNER.
+
+Mã Worker nằm trong `backend/src/index.js`, có các endpoint xác minh Google ID token (RS256/JWKS, issuer, audience, expiry, verified email và nonce), tạo/thu hồi session, tạo lời mời, xem trước/chấp nhận lời mời, liệt kê cộng tác viên, đổi vai trò và thu hồi quyền. Lời mời yêu cầu tài khoản Google đã đăng nhập phải trùng email nhận lời mời. Token lời mời và session chỉ lưu dạng SHA-256 hash trong D1.
+
+Worker source hiện mới ở repository; **chưa deploy**. Cần cấu hình Cloudflare secrets `GOOGLE_CLIENT_ID` và `OWNER_EMAIL` trước. Chưa có email tự động; API trả token lời mời để chủ ứng dụng sao chép/chia sẻ thủ công. Android Credential Manager cũng chưa được kết nối với API.
+
+## 9. Trạng thái triển khai
 
 Đã cập nhật cấu hình dự án để tạo một APK duy nhất và thêm mô hình vai trò/quyền phía Android. Bộ chọn Admin/khách hàng hiện tại chỉ chạy trong bản Debug để kiểm tra giao diện.
 

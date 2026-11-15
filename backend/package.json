@@ -1,0 +1,9 @@
+{
+  "name": "autu-lio-auth-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/index.js && python3 scripts/check_migrations.py"
+  }
+}

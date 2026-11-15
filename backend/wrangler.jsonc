@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "autu-lio-auth-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-15",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.05
+    }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "autu_lio_auth",
+      "database_id": "ade35e39-c894-4389-b6c9-31d9f35ec6a2",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "SESSION_TTL_SECONDS": "604800"
+  }
+}
