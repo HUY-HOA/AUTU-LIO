@@ -28,6 +28,8 @@ required_tables = {
     "licenses",
     "devices",
     "device_enrollment_challenges",
+    "autu_packages",
+    "autu_package_versions",
 }
 actual_tables = {
     row[0]
@@ -168,11 +170,43 @@ except sqlite3.IntegrityError:
 else:
     raise SystemExit("Database accepted a duplicate device public-key fingerprint")
 
+database.execute(
+    "INSERT INTO autu_packages "
+    "(id, name, description, status, current_version_id, created_by, created_at, updated_at) "
+    "VALUES ('package-1', 'Auto Login', '', 'ACTIVE', NULL, 'owner-1', 100, 100)"
+)
+database.execute(
+    "INSERT INTO autu_package_versions "
+    "(id, package_id, version_code, version_name, language_version, object_key, content_nonce, encrypted_content_key, content_key_nonce, source_sha256, plaintext_size, status, created_by, created_at) "
+    "VALUES ('package-version-1', 'package-1', 1, '0.2.1', '0.2', 'packages/package-1/version-1.bin', 'nonce', 'wrapped-key', 'key-nonce', 'abc123', 24, 'PUBLISHED', 'owner-1', 100)"
+)
+try:
+    database.execute(
+        "INSERT INTO autu_packages "
+        "(id, name, description, status, current_version_id, created_by, created_at, updated_at) "
+        "VALUES ('package-2', 'auto login', '', 'ACTIVE', NULL, 'owner-1', 100, 100)"
+    )
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise SystemExit("Package names are not unique (case-insensitive)")
+
+try:
+    database.execute(
+        "INSERT INTO autu_package_versions "
+        "(id, package_id, version_code, version_name, language_version, object_key, content_nonce, encrypted_content_key, content_key_nonce, source_sha256, plaintext_size, status, created_by, created_at) "
+        "VALUES ('package-version-2', 'package-1', 1, '0.2.1', '0.2', 'packages/package-1/version-2.bin', 'nonce', 'wrapped-key', 'key-nonce', 'abc123', 24, 'PUBLISHED', 'owner-1', 101)"
+    )
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise SystemExit("Package version codes are not unique")
+
 foreign_key_errors = database.execute("PRAGMA foreign_key_check").fetchall()
 if foreign_key_errors:
     raise SystemExit(f"Foreign key violations: {foreign_key_errors}")
 
 print(
     f"OK: {len(required_tables)} required tables, {len(migrations)} migrations, "
-    "single-owner, project membership, draft uniqueness, submissions, single active license, device limits and unique device keys"
+    "single-owner, project membership, draft uniqueness, submissions, single active license, device limits, unique device keys and immutable published package versions"
 )
