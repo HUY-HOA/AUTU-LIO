@@ -53,6 +53,8 @@ internal fun CollaboratorsServerContent(
     var permissionTarget by remember { mutableStateOf<CollaboratorRecord?>(null) }
     var permissionOptions by remember { mutableStateOf<Set<AccessPermission>>(emptySet()) }
     var permissionDraft by remember { mutableStateOf<Set<AccessPermission>>(emptySet()) }
+    var showInviteForm by rememberSaveable { mutableStateOf(false) }
+    var showPermissionGuide by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var submitting by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("") }
@@ -85,10 +87,26 @@ internal fun CollaboratorsServerContent(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(tr("Quản lý cộng tác viên", "Collaborator management"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                Text(tr("Dữ liệu lấy trực tiếp từ máy chủ", "Live data from the server"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(tr("Cộng tác viên", "Collaborators"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(
+                    tr("Mời người cùng tạo AUTU và quản lý quyền", "Invite AUTU design collaborators and manage access"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
+                )
+            }
+            IconButton(onClick = { showPermissionGuide = true }) {
+                Icon(Icons.Outlined.Security, contentDescription = tr("Xem hướng dẫn cấp quyền", "View access guide"))
+            }
+            IconButton(onClick = { showInviteForm = !showInviteForm }) {
+                Icon(
+                    if (showInviteForm) Icons.Outlined.Close else Icons.Outlined.PersonAdd,
+                    contentDescription = if (showInviteForm) tr("Đóng biểu mẫu mời", "Close invitation form") else tr("Thêm cộng tác viên", "Add collaborator")
+                )
             }
             IconButton(onClick = { scope.launch { refresh() } }, enabled = !loading) {
                 Icon(Icons.Outlined.Refresh, contentDescription = tr("Làm mới", "Refresh"))
@@ -118,6 +136,7 @@ internal fun CollaboratorsServerContent(
             }
         }
 
+        if (showInviteForm) {
         OutlinedTextField(
             value = email,
             onValueChange = { email = it; feedback = "" },
@@ -166,6 +185,7 @@ internal fun CollaboratorsServerContent(
                             expiresInDays = 7
                         )
                         email = ""
+                        showInviteForm = false
                         refresh()
                         feedback = tr("Đã tạo lời mời trên máy chủ. Hãy sao chép mã và gửi cho người được mời.", "Invitation created on the server. Copy the token and share it with the invitee.")
                         isError = false
@@ -187,6 +207,8 @@ internal fun CollaboratorsServerContent(
             }
             Spacer(Modifier.width(8.dp))
             Text(tr("Tạo lời mời trên máy chủ", "Create server invitation"))
+        }
+
         }
 
         if (feedback.isNotBlank()) {
@@ -300,6 +322,37 @@ internal fun CollaboratorsServerContent(
                 PendingInvitationCard(invitation, onRevoke = { revokeInvite = invitation })
             }
         }
+    }
+
+    if (showPermissionGuide) {
+        AlertDialog(
+            onDismissRequest = { showPermissionGuide = false },
+            title = { Text(tr("Quản lý quyền cộng tác", "Collaborator access")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        tr(
+                            "Chọn tài khoản trong danh sách, sau đó nhấn “Cấp / xem quyền” để kiểm tra hoặc bật tắt những quyền được phép.",
+                            "Choose an account from the list, then tap “Access” to review or enable and disable its allowed permissions."
+                        ),
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        tr(
+                            "Chủ sở hữu luôn giữ quyền quản trị cao nhất. Cộng tác viên không thể tự cấp quyền cho mình.",
+                            "The owner always retains the highest administrative access. Collaborators cannot grant permissions to themselves."
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPermissionGuide = false }) {
+                    Text(tr("Đã hiểu", "Got it"))
+                }
+            }
+        )
     }
 
     permissionTarget?.let { collaborator ->
@@ -462,7 +515,15 @@ private fun CollaboratorServerCard(
                     }
                 }
                 if (collaborator.role != AccessRole.CUSTOMER) {
-                    TextButton(onClick = onEditPermissions) { Text(tr("Quyền chi tiết", "Permissions")) }
+                    OutlinedButton(
+                        onClick = onEditPermissions,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Icon(Icons.Outlined.Security, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(tr("Cấp / xem quyền", "Access"), fontSize = 11.sp)
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onRevoke) { Text(tr("Thu hồi quyền", "Revoke access"), color = MaterialTheme.colorScheme.error) }
