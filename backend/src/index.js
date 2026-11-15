@@ -1243,16 +1243,17 @@ async function downloadLicensedAutu(request, env, session, autuId) {
       "UPDATE autu_license_devices SET last_seen_at = ?, device_label = ?, app_version = ? WHERE id = ? AND status = 'ACTIVE'"
     ).bind(now, deviceLabel, appVersion, existingDevice.id).run();
   } else {
-    const count = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM autu_license_devices WHERE license_id = ? AND status = 'ACTIVE'"
-    ).bind(license.license_id).first();
-    if (Number(count?.count || 0) >= license.max_devices) {
+    const registered = await env.DB.prepare(
+      "INSERT INTO autu_license_devices (id, license_id, install_id, device_label, app_version, status, registered_at, last_seen_at) " +
+      "SELECT ?, ?, ?, ?, ?, 'ACTIVE', ?, ? WHERE " +
+      "(SELECT COUNT(*) FROM autu_license_devices WHERE license_id = ? AND status = 'ACTIVE') < ?"
+    ).bind(
+      crypto.randomUUID(), license.license_id, installId, deviceLabel, appVersion, now, now,
+      license.license_id, license.max_devices
+    ).run();
+    if (registered.meta?.changes !== 1) {
       throw new HttpError(403, "device_limit_reached", "The license has reached its linked-device limit.");
     }
-    await env.DB.prepare(
-      "INSERT INTO autu_license_devices (id, license_id, install_id, device_label, app_version, status, registered_at, last_seen_at) " +
-      "VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?)"
-    ).bind(crypto.randomUUID(), license.license_id, installId, deviceLabel, appVersion, now, now).run();
   }
 
   const source = await decryptAutuSource(license, env);
