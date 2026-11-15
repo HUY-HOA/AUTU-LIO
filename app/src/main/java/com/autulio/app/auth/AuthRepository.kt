@@ -174,7 +174,8 @@ data class PublishedAutuPackage(
     val sourceSha256: String,
     val plaintextSize: Int,
     val publishedAt: Long,
-    val versionCount: Int = 1
+    val versionCount: Int = 1,
+    val status: String = "ACTIVE"
 )
 
 data class EncryptedAutuPackage(
@@ -1022,7 +1023,8 @@ class AuthRepository(context: Context) {
             languageVersion = item.optString("languageVersion"),
             sourceSha256 = item.optString("sourceSha256"),
             plaintextSize = item.optInt("plaintextSize"),
-            publishedAt = item.optLong("publishedAt")
+            publishedAt = item.optLong("publishedAt"),
+            status = item.optString("status", "ACTIVE")
         )
     }
 
@@ -1116,7 +1118,8 @@ class AuthRepository(context: Context) {
                         sourceSha256 = item.optString("source_sha256", item.optString("sourceSha256")),
                         plaintextSize = item.optInt("plaintext_size", item.optInt("plaintextSize")),
                         publishedAt = item.optLong("published_at", item.optLong("publishedAt")),
-                        versionCount = item.optInt("version_count", 1)
+                        versionCount = item.optInt("version_count", 1),
+                        status = item.optString("status", "ACTIVE")
                     )
                 )
             }
