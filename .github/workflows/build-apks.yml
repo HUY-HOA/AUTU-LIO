@@ -71,7 +71,7 @@ jobs:
           AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF_NAME" == build-requests/debug-* ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == refs/heads/build-requests/debug-* ]]; then
             REQUESTED_BUILD_VARIANT="debug"
           fi
           values=(
