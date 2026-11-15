@@ -13,7 +13,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.autulio.app.runtime.ScriptActionDispatcher
@@ -42,8 +41,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var windowManager: WindowManager? = null
     private var floatingWindow: LinearLayout? = null
     private var statusLabel: TextView? = null
-    private var primaryButton: Button? = null
-    private var stopButton: Button? = null
+    private var primaryButton: TextView? = null
+    private var stopButton: TextView? = null
+    private var collapseButton: TextView? = null
+    private var moveHandle: TextView? = null
     private var actionRow: LinearLayout? = null
     private var collapsed = false
     private var pendingProgram: ScriptProgram? = null
@@ -219,83 +220,80 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(10))
+            setPadding(dp(5), dp(4), dp(5), dp(4))
             background = GradientDrawable().apply {
-                setColor(0xF0182233.toInt())
-                cornerRadius = dp(16).toFloat()
-                setStroke(dp(1), 0xFF4F8CFF.toInt())
+                setColor(0xE8172233.toInt())
+                cornerRadius = dp(13).toFloat()
+                setStroke(dp(1), 0x665F789B)
             }
         }
-
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val title = TextView(this).apply {
-            text = "AUTU-LIO"
-            textSize = 14f
-            setTextColor(0xFFFFFFFF.toInt())
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-            layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f)
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val collapseButton = TextView(this).apply {
-            text = "—"
-            textSize = 22f
-            setTextColor(0xFFFFFFFF.toInt())
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
-            setOnClickListener { setCollapsed(!collapsed) }
-        }
-        val closeButton = TextView(this).apply {
-            text = "×"
-            textSize = 22f
-            setTextColor(0xFFFFFFFF.toInt())
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
-            setOnClickListener {
-                executionEngine?.stop()
-                pendingProgram = null
-                removeFloatingWindow()
-            }
-        }
-        header.addView(title)
-        header.addView(collapseButton)
-        header.addView(closeButton)
 
         val status = TextView(this).apply {
-            textSize = 12f
+            textSize = 11f
             setTextColor(0xFFE2E8F0.toInt())
-            setPadding(0, dp(5), 0, dp(9))
+            maxLines = 2
+            setPadding(dp(4), dp(1), dp(4), dp(4))
+            layoutParams = LinearLayout.LayoutParams(dp(224), WindowManager.LayoutParams.WRAP_CONTENT)
         }
+
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val primary = Button(this).apply {
-            isAllCaps = false
-            setOnClickListener { onPrimaryAction() }
-        }
-        val stop = Button(this).apply {
-            text = "Dừng"
-            isAllCaps = false
-            setOnClickListener { executionEngine?.stop() }
-        }
-        controls.addView(
-            primary,
-            LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(5) }
-        )
-        controls.addView(
-            stop,
-            LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(5) }
-        )
 
-        root.addView(header)
+        fun controlButton(
+            symbol: String,
+            description: String,
+            accent: Int,
+            onClick: () -> Unit
+        ): TextView = TextView(this).apply {
+            text = symbol
+            textSize = 18f
+            setTextColor(accent)
+            gravity = Gravity.CENTER
+            isClickable = true
+            isFocusable = true
+            contentDescription = description
+            background = GradientDrawable().apply {
+                setColor(0xF0212D40.toInt())
+                cornerRadius = dp(9).toFloat()
+                setStroke(dp(1), 0x805C708C.toInt())
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply {
+                marginStart = dp(3)
+                marginEnd = dp(3)
+            }
+            setOnClickListener { onClick() }
+        }
+
+        val move = controlButton("⠿", "Giữ và kéo để di chuyển cửa sổ", 0xFFE2E8F0.toInt()) {
+            statusLabel?.text = "Giữ nút di chuyển để kéo cửa sổ"
+        }
+        val primary = controlButton("▶", "Chạy kịch bản", 0xFF69A7FF.toInt()) {
+            onPrimaryAction()
+        }
+        val stop = controlButton("■", "Dừng kịch bản", 0xFFFF7777.toInt()) {
+            executionEngine?.stop()
+        }
+        val collapse = controlButton("▾", "Thu gọn cửa sổ", 0xFFE2E8F0.toInt()) {
+            setCollapsed(!collapsed)
+        }
+        val close = controlButton("×", "Đóng cửa sổ và dừng kịch bản", 0xFFFFAAAA.toInt()) {
+            executionEngine?.stop()
+            pendingProgram = null
+            removeFloatingWindow()
+        }
+
+        controls.addView(move)
+        controls.addView(primary)
+        controls.addView(stop)
+        controls.addView(collapse)
+        controls.addView(close)
         root.addView(status)
         root.addView(controls)
 
         val params = WindowManager.LayoutParams(
-            dp(270),
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -303,15 +301,16 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dp(14)
+            x = dp(8)
             y = dp(100)
         }
 
-        header.setOnTouchListener(object : View.OnTouchListener {
+        move.setOnTouchListener(object : View.OnTouchListener {
             private var startRawX = 0f
             private var startRawY = 0f
             private var startX = 0
             private var startY = 0
+            private var moved = false
 
             override fun onTouch(view: View, event: MotionEvent): Boolean {
                 when (event.action) {
@@ -320,15 +319,26 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         startRawY = event.rawY
                         startX = params.x
                         startY = params.y
+                        moved = false
                         return true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        params.x = startX + (event.rawX - startRawX).toInt()
-                        params.y = startY + (event.rawY - startRawY).toInt()
+                        val dx = (event.rawX - startRawX).toInt()
+                        val dy = (event.rawY - startRawY).toInt()
+                        if (kotlin.math.abs(dx) > dp(2) || kotlin.math.abs(dy) > dp(2)) {
+                            moved = true
+                        }
+                        val screenWidth = resources.displayMetrics.widthPixels
+                        val screenHeight = resources.displayMetrics.heightPixels
+                        params.x = (startX + dx).coerceIn(0, (screenWidth - root.width).coerceAtLeast(0))
+                        params.y = (startY + dy).coerceIn(0, (screenHeight - root.height).coerceAtLeast(0))
                         runCatching { manager.updateViewLayout(root, params) }
                         return true
                     }
-                    MotionEvent.ACTION_UP,
+                    MotionEvent.ACTION_UP -> {
+                        if (!moved) view.performClick()
+                        return true
+                    }
                     MotionEvent.ACTION_CANCEL -> return true
                 }
                 return false
@@ -341,7 +351,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             statusLabel = status
             primaryButton = primary
             stopButton = stop
+            collapseButton = collapse
+            moveHandle = move
             actionRow = controls
+            collapsed = false
             renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
             return true
         } catch (_: RuntimeException) {
@@ -349,6 +362,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             statusLabel = null
             primaryButton = null
             stopButton = null
+            collapseButton = null
+            moveHandle = null
             actionRow = null
             return false
         }
@@ -375,16 +390,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val status = statusLabel ?: return
         val primary = primaryButton ?: return
         val stop = stopButton ?: return
+        val collapse = collapseButton ?: return
         val current = snapshot ?: latestSnapshot
         val state = current?.state ?: ScriptExecutionState.IDLE
 
         status.text = when (state) {
             ScriptExecutionState.IDLE ->
-                "Sẵn sàng · Mở ứng dụng mục tiêu rồi nhấn Chạy"
+                "Sẵn sàng · Chuyển sang ứng dụng cần thao tác rồi nhấn Chạy"
             ScriptExecutionState.RUNNING ->
-                "Đang chạy · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0} lệnh"
+                "Đang chạy · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0}"
             ScriptExecutionState.PAUSED ->
-                "Đã tạm dừng · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0} lệnh"
+                "Đã tạm dừng · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0}"
             ScriptExecutionState.STOPPING -> "Đang dừng…"
             ScriptExecutionState.COMPLETED -> "Hoàn tất · Có thể chạy lại"
             ScriptExecutionState.CANCELLED -> "Đã dừng · Có thể chạy lại"
@@ -395,21 +411,24 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val running = state == ScriptExecutionState.RUNNING
         val paused = state == ScriptExecutionState.PAUSED
         val stopping = state == ScriptExecutionState.STOPPING
-        primary.text = when {
-            running -> "Tạm dừng"
-            paused -> "Tiếp tục"
-            else -> "Chạy"
+        primary.text = if (running) "Ⅱ" else "▶"
+        primary.contentDescription = when {
+            running -> "Tạm dừng kịch bản"
+            paused -> "Tiếp tục kịch bản"
+            else -> "Chạy kịch bản"
         }
         primary.isEnabled = pendingProgram != null && !stopping
-        stop.visibility = if (running || paused || stopping) View.VISIBLE else View.GONE
-        actionRow?.visibility = if (collapsed) View.GONE else View.VISIBLE
+        primary.alpha = if (primary.isEnabled) 1f else 0.45f
+        stop.visibility = if (!collapsed && (running || paused || stopping)) View.VISIBLE else View.GONE
+        primary.visibility = if (collapsed) View.GONE else View.VISIBLE
         status.visibility = if (collapsed) View.GONE else View.VISIBLE
+        collapse.text = if (collapsed) "▴" else "▾"
+        collapse.contentDescription = if (collapsed) "Mở rộng cửa sổ" else "Thu gọn cửa sổ"
     }
 
     private fun setCollapsed(value: Boolean) {
         collapsed = value
-        statusLabel?.visibility = if (value) View.GONE else View.VISIBLE
-        actionRow?.visibility = if (value) View.GONE else View.VISIBLE
+        renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
     }
 
     private fun removeFloatingWindow() {
@@ -420,6 +439,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         statusLabel = null
         primaryButton = null
         stopButton = null
+        collapseButton = null
+        moveHandle = null
         actionRow = null
         collapsed = false
     }
