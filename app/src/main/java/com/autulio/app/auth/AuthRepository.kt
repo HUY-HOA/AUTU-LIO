@@ -120,6 +120,17 @@ data class SharedSubmission(
 )
 
 
+data class AuditLogRecord(
+    val id: String,
+    val action: String,
+    val actorEmail: String,
+    val actorDisplayName: String?,
+    val targetType: String?,
+    val targetId: String?,
+    val metadataJson: String,
+    val createdAt: Long
+)
+
 data class CustomerRecord(
     val userId: String,
     val email: String,
@@ -869,6 +880,32 @@ class AuthRepository(context: Context) {
             JSONObject().put("status", "REVOKED"),
             accessToken
         )
+    }
+
+    suspend fun listAdminAuditLogs(accessToken: String, limit: Int = 50): List<AuditLogRecord> {
+        require(limit in 1..100)
+        val result = apiRequest("/api/admin/audit-logs?limit=$limit", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("logs") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val action = item.optString("action")
+                if (id.isBlank() || action.isBlank()) continue
+                add(
+                    AuditLogRecord(
+                        id = id,
+                        action = action,
+                        actorEmail = item.optString("actorEmail"),
+                        actorDisplayName = item.optString("actorDisplayName").takeIf { it.isNotBlank() && it != "null" },
+                        targetType = item.optString("targetType").takeIf { it.isNotBlank() && it != "null" },
+                        targetId = item.optString("targetId").takeIf { it.isNotBlank() && it != "null" },
+                        metadataJson = item.optJSONObject("metadata")?.toString() ?: "{}",
+                        createdAt = item.optLong("createdAt")
+                    )
+                )
+            }
+        }
     }
 
     suspend fun listCustomerPackages(accessToken: String, deviceFingerprint: String): CustomerAutuPackageCatalog {

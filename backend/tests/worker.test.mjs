@@ -24,7 +24,7 @@ const ownerSession = {
   email_verified: 1
 };
 
-function createEnv({ session = null, allowedOrigins = "*" } = {}) {
+function createEnv({ session = null, allowedOrigins = "*", auditRows = [] } = {}) {
   const queries = [];
   const DB = {
     prepare(sql) {
@@ -41,6 +41,7 @@ function createEnv({ session = null, allowedOrigins = "*" } = {}) {
           return null;
         },
         async all() {
+          if (sql.includes("FROM audit_logs")) return { results: auditRows };
           return { results: [] };
         },
         async run() {
@@ -675,3 +676,61 @@ test("customer without an active registered device cannot download a published A
   assert.equal(queries.some(sql => sql.includes("FROM script_packages")), false);
 });
 
+
+
+test("owner can read newest audit logs with parsed metadata and actor details", async () => {
+  const auditRows = [{
+    id: "audit-1",
+    action: "license.created",
+    target_type: "license",
+    target_id: "license-1",
+    metadata_json: JSON.stringify({ planCode: "MONTHLY", maxDevices: 1 }),
+    created_at: 1794770000,
+    actor_email: "owner@example.com",
+    actor_display_name: "Owner"
+  }];
+  const { env, queries } = createEnv({ session: ownerSession, auditRows });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/audit-logs?limit=25", {
+      headers: { Authorization: "Bearer " + "R".repeat(48) }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.limit, 25);
+  assert.equal(body.logs.length, 1);
+  assert.equal(body.logs[0].action, "license.created");
+  assert.equal(body.logs[0].actorEmail, "owner@example.com");
+  assert.deepEqual(body.logs[0].metadata, { planCode: "MONTHLY", maxDevices: 1 });
+  assert.equal(queries.some(sql => sql.includes("FROM audit_logs l LEFT JOIN users")), true);
+});
+
+test("customers cannot read owner audit logs", async () => {
+  const { env, queries } = createEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/audit-logs", {
+      headers: { Authorization: "Bearer " + "S".repeat(48) }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "insufficient_permissions");
+  assert.equal(queries.some(sql => sql.includes("FROM audit_logs")), false);
+});
+
+test("audit log endpoint rejects an invalid or excessive limit", async () => {
+  const { env, queries } = createEnv({ session: ownerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/audit-logs?limit=101", {
+      headers: { Authorization: "Bearer " + "T".repeat(48) }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal((await json(response)).error, "invalid_audit_limit");
+  assert.equal(queries.some(sql => sql.includes("FROM audit_logs")), false);
+});
