@@ -107,6 +107,7 @@ internal fun AuthenticatedAppHost() {
             AccessRole.DEVELOPER,
             AccessRole.DESIGNER,
             AccessRole.REVIEWER -> CollaboratorWorkspace(
+                accessToken = currentToken,
                 role = currentUser.role,
                 permissions = currentUser.permissions,
                 email = currentUser.email,
