@@ -1455,7 +1455,7 @@ async function listAdminPackages(request, env, session) {
 
 async function createAdminPackage(request, env, session) {
   await requireRole(session, ["OWNER"]);
-  const body = await readBody(request, 48_000);
+  const body = await readBody(request, 128_000);
   const metadata = validatePackageMetadata(body);
   const id = crypto.randomUUID();
   const version = 1;
@@ -1495,7 +1495,7 @@ async function createAdminPackage(request, env, session) {
 async function createAdminPackageVersion(request, env, session, packageId) {
   await requireRole(session, ["OWNER"]);
   if (!PROJECT_ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
-  const body = await readBody(request, 48_000);
+  const body = await readBody(request, 128_000);
   const metadata = validatePackageMetadata(body);
   const current = await env.DB.prepare(
     "SELECT id, name, description, status, latest_version FROM script_packages WHERE id = ?"
@@ -1509,20 +1509,25 @@ async function createAdminPackageVersion(request, env, session, packageId) {
   if (!Number.isSafeInteger(version) || version < 2) throw new HttpError(409, "invalid_package_version", "The next package version is invalid.");
   const now = Math.floor(Date.now() / 1000);
   const encrypted = await encryptPackageSource(env, packageId, version, metadata.source);
-  await env.DB.batch([
+  const batchResults = await env.DB.batch([
     env.DB.prepare(
       "INSERT INTO script_package_versions " +
       "(id, package_id, version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, key_version, source_sha256, created_by, created_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
+      "WHERE EXISTS (SELECT 1 FROM script_packages WHERE id = ? AND latest_version = ? AND status = 'ACTIVE')"
     ).bind(
       crypto.randomUUID(), packageId, version, metadata.languageVersion,
       encrypted.ciphertext, encrypted.contentIv, encrypted.encryptedDataKey,
-      encrypted.keyIv, encrypted.keyVersion, encrypted.sourceSha256, session.user_id, now
+      encrypted.keyIv, encrypted.keyVersion, encrypted.sourceSha256, session.user_id, now,
+      packageId, current.latest_version
     ),
     env.DB.prepare(
       "UPDATE script_packages SET description = ?, latest_version = ?, updated_at = ? WHERE id = ? AND latest_version = ? AND status = 'ACTIVE'"
     ).bind(metadata.description, version, now, packageId, current.latest_version)
   ]);
+  if (batchResults?.length !== 2 || batchResults.some(result => result.meta?.changes !== 1)) {
+    throw new HttpError(409, "package_version_conflict", "The package changed while this version was being published. Refresh and try again.");
+  }
   await audit(env, session.user_id, "package.version_published", "script_package", packageId, {
     version, languageVersion: metadata.languageVersion, sourceSha256: encrypted.sourceSha256
   });
