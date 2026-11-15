@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.Locale
+import com.autulio.app.access.AccessRole
+import com.autulio.app.auth.AuthenticatedAppHost
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,22 +46,29 @@ private fun AutuLioAppEntry() {
     var previewRole by rememberSaveable { mutableStateOf<String?>(null) }
 
     if (!BuildConfig.DEBUG) {
-        CustomerApp()
+        AuthenticatedAppHost()
     } else if (previewRole == null) {
-        RolePreviewChooser(
-            onOpenAdmin = { previewRole = "admin" },
-            onOpenCustomer = { previewRole = "customer" }
-        )
+        RolePreviewChooser(onOpenRole = { previewRole = it.name })
     } else {
         BackHandler { previewRole = null }
-        if (previewRole == "admin") AdminApp() else CustomerApp()
+        val role = runCatching { AccessRole.valueOf(previewRole.orEmpty()) }
+            .getOrDefault(AccessRole.CUSTOMER)
+        when (role) {
+            AccessRole.OWNER -> AdminApp(onLogout = { previewRole = null })
+            AccessRole.CUSTOMER -> CustomerApp(email = tr("Tài khoản xem thử", "Preview account"), onLogout = { previewRole = null })
+            AccessRole.DEVELOPER,
+            AccessRole.DESIGNER,
+            AccessRole.REVIEWER -> CollaboratorWorkspace(
+                role = role,
+                email = tr("Tài khoản xem thử", "Preview account"),
+                onLogout = { previewRole = null }
+            )
+        }
     }
 }
-
 @Composable
 private fun RolePreviewChooser(
-    onOpenAdmin: () -> Unit,
-    onOpenCustomer: () -> Unit
+    onOpenRole: (AccessRole) -> Unit
 ) {
     AppTheme(dark = true) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
@@ -69,7 +78,7 @@ private fun RolePreviewChooser(
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
                     .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(13.dp)
             ) {
                 BrandHeader(admin = false)
                 Heading(
@@ -82,35 +91,41 @@ private fun RolePreviewChooser(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        tr("Hai lựa chọn dưới đây chỉ giúp kiểm tra bố cục. Chúng không đăng nhập, không cấp quyền Admin và không thay thế xác minh quyền trên máy chủ.",
-                            "These choices only preview layouts. They do not sign in, grant Admin access, or replace server-side authorization."),
+                        tr("Các lựa chọn dưới đây chỉ kiểm tra bố cục. Chúng không đăng nhập và không cấp quyền thật.", "These options only preview layouts. They do not sign in or grant real permissions."),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         lineHeight = 18.sp
                     )
                 }
-                Button(onClick = onOpenAdmin, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { onOpenRole(AccessRole.OWNER) }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.AdminPanelSettings, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Xem thử giao diện Chủ sở hữu", "Preview Owner interface"))
+                }
+                OutlinedButton(onClick = { onOpenRole(AccessRole.DEVELOPER) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Outlined.Code, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(tr("Xem thử giao diện Admin", "Preview Admin interface"))
+                    Text(tr("Xem thử Nhà phát triển", "Preview Developer"))
                 }
-                OutlinedButton(onClick = onOpenCustomer, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { onOpenRole(AccessRole.DESIGNER) }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.Palette, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Xem thử Nhà thiết kế", "Preview Designer"))
+                }
+                OutlinedButton(onClick = { onOpenRole(AccessRole.REVIEWER) }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.FactCheck, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Xem thử Người kiểm duyệt", "Preview Reviewer"))
+                }
+                OutlinedButton(onClick = { onOpenRole(AccessRole.CUSTOMER) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Outlined.Person, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(tr("Xem thử giao diện người dùng", "Preview customer interface"))
+                    Text(tr("Xem thử giao diện Người dùng", "Preview Customer interface"))
                 }
-                Text(
-                    tr("Bản phát hành sẽ chỉ mở quyền Admin sau khi Google đăng nhập và máy chủ xác minh vai trò.",
-                        "The release build will grant Admin access only after Google sign-in and server-side role verification."),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp,
-                    lineHeight = 16.sp
-                )
             }
         }
     }
 }
-
 internal fun tr(vi: String, en: String) =
     if (Locale.getDefault().language == "vi") vi else en
 
@@ -148,7 +163,7 @@ private val customerTabs = listOf(
 )
 
 @Composable
-private fun AdminApp() {
+internal fun AdminApp(onLogout: () -> Unit) {
     val context = LocalContext.current
     val preferences = remember(context) {
         context.getSharedPreferences("autulio_admin_drafts", Context.MODE_PRIVATE)
@@ -264,7 +279,8 @@ private fun AdminApp() {
                     page,
                     onSelect = { page = it },
                     onTheme = { dark = !dark },
-                    onMessage = { scope.launch { host.showSnackbar(it) } }
+                    onMessage = { scope.launch { host.showSnackbar(it) } },
+                    onLogout = onLogout
                 )
             }
         }
@@ -293,10 +309,9 @@ private fun AdminApp() {
 }
 
 @Composable
-private fun CustomerApp() {
+internal fun CustomerApp(email: String, onLogout: () -> Unit) {
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
-    var previewEntered by rememberSaveable { mutableStateOf(false) }
     var scriptDetail by rememberSaveable { mutableStateOf(false) }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -306,7 +321,7 @@ private fun CustomerApp() {
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(host) },
             bottomBar = {
-                if (previewEntered) NavigationBar {
+                NavigationBar {
                     customerTabs.forEach { tab ->
                         NavigationBarItem(
                             selected = page == tab.key,
@@ -318,25 +333,15 @@ private fun CustomerApp() {
                 }
             }
         ) { padding ->
-            if (!previewEntered) {
-                CustomerLoginPage(
-                    Modifier.padding(padding),
-                    onGoogle = {
-                        scope.launch {
-                            host.showSnackbar(tr("Google OAuth chưa được tích hợp trong bản prototype.", "Google OAuth is not integrated in this prototype."))
-                        }
-                    },
-                    onPreview = { previewEntered = true }
-                )
-            } else when (page) {
-                "home" -> CustomerHome(Modifier.padding(padding), onScripts = { page = "scripts" })
+            when (page) {
+                "home" -> CustomerHome(Modifier.padding(padding), email = email, onScripts = { page = "scripts" })
                 "scripts" -> if (scriptDetail) {
                     CustomerScriptDetail(
                         Modifier.padding(padding),
                         onBack = { scriptDetail = false },
                         onPreviewAction = {
                             scope.launch {
-                                host.showSnackbar(tr("Đây chỉ là bản xem trước. AUTU-LIO chưa thực hiện thao tác trên màn hình.", "This is preview only. AUTU-LIO did not perform any screen actions."))
+                                host.showSnackbar(tr("Runtime AutoClick chưa được tích hợp. Chưa có thao tác nào được thực hiện.", "AutoClick runtime is not integrated. No screen action was performed."))
                             }
                         }
                     )
@@ -347,12 +352,15 @@ private fun CustomerApp() {
                     )
                 }
                 "device" -> CustomerDeviceLicensePage(Modifier.padding(padding))
-                else -> SettingsScreen(Modifier.padding(padding), onTheme = { dark = !dark })
+                else -> SettingsScreen(
+                    Modifier.padding(padding),
+                    onTheme = { dark = !dark },
+                    onLogout = onLogout
+                )
             }
         }
     }
 }
-
 @Composable
 private fun CustomerLoginPage(
     modifier: Modifier,
@@ -539,7 +547,8 @@ private fun MoreScreen(
     page: String,
     onSelect: (String) -> Unit,
     onTheme: () -> Unit,
-    onMessage: (String) -> Unit
+    onMessage: (String) -> Unit,
+    onLogout: () -> Unit
 ) {
     val items = listOf(
         Triple("collaborators", tr("Cộng tác viên", "Collaborators"), Icons.Outlined.PersonAdd),
@@ -624,7 +633,8 @@ private fun MoreScreen(
                 "settings" -> {
                     SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · 0.1.0")
-                    SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Cấu hình đăng nhập và quyền quản trị sẽ được bổ sung khi tích hợp máy chủ.", "Sign-in and admin access controls will be added with the server integration."))
+                    SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Vai trò và quyền được xác minh từ máy chủ.", "Roles and permissions are verified by the server."))
+                    SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
                 }
             }
             OutlinedButton(
@@ -680,7 +690,7 @@ private fun AdminModulePage(
 }
 
 @Composable
-private fun CustomerHome(modifier: Modifier, onScripts: () -> Unit) {
+private fun CustomerHome(modifier: Modifier, email: String, onScripts: () -> Unit) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
         BrandHeader(admin = false)
         Heading(tr("Xin chào!", "Welcome!"), tr("Sẵn sàng sử dụng AUTU-LIO", "Ready to use AUTU-LIO"))
@@ -696,7 +706,7 @@ private fun CustomerHome(modifier: Modifier, onScripts: () -> Unit) {
         Text(tr("Kịch bản của bạn", "Your scripts"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
         EmptyState(Icons.Outlined.ListAlt, tr("Chưa có kịch bản", "No scripts available"), tr("Kịch bản được chủ ứng dụng phát hành sẽ xuất hiện tại đây.", "Scripts published by the app owner will appear here."))
         Button(onClick = onScripts, modifier = Modifier.fillMaxWidth()) { Text(tr("Xem kịch bản", "View scripts")) }
-        Text(tr("Prototype giao diện · Chưa đăng nhập", "UI prototype · Not signed in"), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(email, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -874,13 +884,14 @@ private fun CustomerDeviceLicensePage(modifier: Modifier) {
 }
 
 @Composable
-private fun SettingsScreen(modifier: Modifier, onTheme: () -> Unit) {
+private fun SettingsScreen(modifier: Modifier, onTheme: () -> Unit, onLogout: () -> Unit) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         BrandHeader(admin = false)
         Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
         SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO 0.1.0 · Prototype")
-        SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Thông tin quyền sẽ được bổ sung", "Permission details will be provided"))
+        SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
+        SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
     }
 }
 
