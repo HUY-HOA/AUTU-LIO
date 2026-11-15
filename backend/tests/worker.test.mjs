@@ -616,3 +616,62 @@ test("customer package download decrypts the server envelope and wraps the data 
   assert.equal(queries.some(sql => sql.includes("public_key_spki")), true);
 });
 
+
+test("customer without an active license cannot list published AUTUs", async () => {
+  const { env, queries } = createEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/customer/packages?deviceFingerprint=" + "a".repeat(64), {
+      headers: { Authorization: "Bearer " + "P".repeat(48) }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "active_license_required");
+  assert.equal(queries.some(sql => sql.includes("FROM script_packages")), false);
+});
+
+test("customer without an active registered device cannot download a published AUTU", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const license = {
+    id: "license-1",
+    user_id: customerSession.user_id,
+    plan_code: "MONTHLY",
+    status: "ACTIVE",
+    starts_at: now - 60,
+    expires_at: now + 86400,
+    max_devices: 1
+  };
+  const queries = [];
+  const env = {
+    DB: {
+      prepare(sql) {
+        queries.push(sql);
+        return {
+          bind() { return this; },
+          async first() {
+            if (sql.includes("FROM sessions s JOIN users u")) return customerSession;
+            if (sql.includes("FROM licenses WHERE user_id = ? AND status = 'ACTIVE'")) return license;
+            if (sql.includes("FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'")) return null;
+            return null;
+          },
+          async all() { return { results: [] }; },
+          async run() { return { meta: { changes: 1 } }; }
+        };
+      },
+      async batch() { return []; }
+    }
+  };
+  const packageId = "123e4567-e89b-42d3-a456-426614174000";
+  const response = await worker.fetch(
+    makeRequest("/api/customer/packages/" + packageId + "/download?deviceFingerprint=" + "b".repeat(64), {
+      headers: { Authorization: "Bearer " + "Q".repeat(48) }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "active_device_required");
+  assert.equal(queries.some(sql => sql.includes("FROM script_packages")), false);
+});
+
