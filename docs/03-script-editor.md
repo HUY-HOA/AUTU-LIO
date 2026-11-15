@@ -1,7 +1,7 @@
 # AUTU-LIO — Trình soạn thảo và ngôn ngữ kịch bản
 
 **Phiên bản ngôn ngữ đầu tiên:** AUTU-LIO Script 0.1  
-**Trạng thái:** Bộ phân tích cú pháp Kotlin và nút Kiểm tra mã đã được triển khai trên nhánh phát triển; đang chờ CI. Runtime Android chưa có.
+**Trạng thái:** Parser/validator và runtime core Kotlin đã có trong nhánh phát triển; runtime core đã có kiểm thử tự động. AccessibilityService adapter và kết nối nút Chạy thử vào thao tác Android vẫn đang triển khai.
 
 ## 1. Mục tiêu
 
@@ -10,7 +10,7 @@ Trình soạn thảo và ngôn ngữ kịch bản chỉ xuất hiện trong khô
 Quy trình tách rõ:
 1. Viết và lưu bản nháp.
 2. Kiểm tra cú pháp và giới hạn an toàn.
-3. Kiểm thử sau khi runtime được hoàn thiện.
+3. Chạy thử qua runtime core sau khi có dispatcher Android và quyền Trợ năng được người dùng tự bật.
 4. Gửi duyệt theo quy trình dự án.
 5. Chủ sở hữu kiểm tra và phát hành chính thức.
 
@@ -56,14 +56,14 @@ Tên lệnh phân biệt chữ hoa/chữ thường. Tham số ở phiên bản 0
 - Sau khi mở rộng vòng lặp: tối đa 5.000 lượt thực thi lệnh.
 - Tổng thời lượng chờ và thao tác tĩnh: tối đa 600.000 ms (10 phút).
 
-Bộ phân tích tạo cây lệnh có cấu trúc (AST), đếm số lệnh sau khi mở rộng vòng lặp và ước tính thời lượng. Nó không dùng JavaScript `eval`, reflection, shell hay thực thi mã tùy ý. Các giới hạn này chỉ là bước kiểm tra tĩnh; runtime phải áp dụng lại ngân sách khi chạy thực tế và có cơ chế Dừng.
+Bộ phân tích tạo cây lệnh có cấu trúc (AST), đếm số lệnh sau khi mở rộng vòng lặp và ước tính thời lượng. Runtime core kiểm tra lại cấu trúc AST, phiên bản ngôn ngữ, số lệnh và tổng thời lượng trước khi chạy; hỗ trợ chạy tuần tự, tạm dừng, tiếp tục và dừng. Nó không dùng JavaScript `eval`, reflection, shell hay thực thi mã tùy ý. Dispatcher Android vẫn phải kiểm tra lại tọa độ theo kích thước màn hình thật.
 
 ## 4. Hành vi trình soạn thảo
 
 - Ô mã lưu bản nháp theo luồng hiện có.
 - Nút **Kiểm tra mã** gọi ScriptCompiler 0.1 và hiển thị lỗi theo dòng/cột hoặc số lệnh/thời lượng tĩnh.
 - Sửa mã sẽ xóa kết quả kiểm tra cũ để tránh dùng nhầm kết quả không còn khớp nội dung.
-- Nút **Chạy thử** chưa thực thi; giao diện phải thông báo runtime chưa sẵn sàng.
+- Runtime core hiện chỉ chạy qua `ScriptActionDispatcher`; nút **Chạy thử** trên giao diện vẫn chưa gọi runtime cho tới khi AccessibilityService adapter, quyền Trợ năng và điều khiển phiên chạy được nối hoàn chỉnh.
 - Kiểm tra mã không yêu cầu quyền Trợ năng và không tạo thao tác trên màn hình.
 
 ## 5. Quyền và an toàn khi thực thi sau này
@@ -77,12 +77,14 @@ Bộ phân tích tạo cây lệnh có cấu trúc (AST), đếm số lệnh sau
 
 ## 6. Kiểm thử tự động
 
-Bộ JUnit của ScriptCompiler kiểm tra lệnh hợp lệ, vòng lặp, chú thích, số tham số, lệnh không biết, số âm, giới hạn tọa độ, giới hạn repeat, ngân sách số lệnh/thời lượng và mã quá dài. GitHub Actions chạy unit test cùng bước kiểm tra Kotlin, không tạo APK phát hành.
+Bộ JUnit của ScriptCompiler kiểm tra cú pháp, giới hạn và ngân sách. Bộ JUnit của ScriptExecutionEngine kiểm tra thứ tự lệnh, repeat lồng nhau, pause/resume, stop trong thời gian chờ, từ chối metadata giả mạo, giới hạn runtime và lỗi dispatcher. GitHub Actions chạy unit test cùng bước kiểm tra Kotlin, không tạo APK phát hành.
 
 ## 7. Phạm vi chưa hoàn tất
 
 - Biến, kiểu dữ liệu, biểu thức, điều kiện, hàm tự định nghĩa và thư viện.
 - Gợi ý mã/tô màu cú pháp/nút chuyển tới lỗi.
-- Interpreter/runtime và bộ thực thi lệnh Android.
-- AccessibilityService, cấp quyền minh bạch, hủy phiên chạy và kiểm thử trên nhiều kích thước màn hình.
+- AccessibilityService dispatcher để thực hiện gesture Android thật.
+- Kết nối runtime với giao diện Chạy thử, trạng thái tiến độ, pause/resume/stop.
+- Cấp quyền Trợ năng minh bạch do người dùng tự bật, xử lý mất dịch vụ và hủy gesture đang chạy.
+- Kiểm tra tọa độ theo kích thước/mật độ màn hình và thử nghiệm trên nhiều thiết bị.
 - Kiểm thử thiết bị thật, package có chữ ký và phát hành.
