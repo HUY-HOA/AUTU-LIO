@@ -81,5 +81,5 @@ Các không gian cộng tác viên hiện là prototype cục bộ. API kiểm t
 - Chưa có email OWNER được chủ ứng dụng xác nhận cho cấu hình secret.
 - Worker chưa được deploy và chưa có URL.
 - Chưa thử đăng nhập thực trên điện thoại.
-- Chưa nối màn hình mời cộng tác viên vào API.
+- Màn hình Android đã nối API quản lý, thu hồi lời mời và chấp nhận mã; chưa thể dùng trực tuyến cho tới khi Worker deploy và secrets Google được cấu hình.
 - Chưa có runtime AutoClick thật, cấp phép thật hoặc tự động gửi email lời mời.
