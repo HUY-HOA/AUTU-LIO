@@ -95,9 +95,9 @@ Quyền trong dự án hiện kết hợp vai trò/quyền tài khoản và tư 
 
 - Ẩn nút trong giao diện không phải là bảo vệ quyền; mọi API thay đổi dữ liệu phải kiểm tra session và quyền ở phía Worker.
 - Chỉ Chủ sở hữu được quản lý cộng tác viên, giấy phép, bí mật ký và phát hành cuối cùng.
-- Nhà phát triển hiện lưu bản nháp cục bộ; chưa đồng bộ mã lên máy chủ, chưa có compiler/runtime và chưa có thao tác gửi duyệt thật.
-- Nhà thiết kế hiện thay đổi màu/bố cục ở màn hình preview cục bộ; chưa ghi thay đổi UI vào kho thiết kế trung tâm.
-- Người kiểm duyệt hiện có workspace preview; hàng đợi duyệt và quyết định duyệt chưa kết nối backend.
+- Trình soạn thảo cục bộ cũ vẫn lưu bản nháp trên thiết bị; màn hình Dự án cộng tác mới trên nhánh riêng đã gọi API để lưu mã kịch bản dùng chung lên D1, có revision chống ghi đè.
+- Nhà thiết kế có thể lưu bản thiết kế JSON dùng chung theo mã màn hình và revision; bản preview giao diện cũ vẫn là bản xem trước cục bộ.
+- Người kiểm duyệt có màn hình hàng đợi dự án, xem snapshot được gửi và gửi quyết định duyệt/từ chối qua API; việc duyệt chưa phát hành package.
 - Kịch bản phát hành sau này cần phiên bản, chữ ký và kiểm tra tính toàn vẹn. Không tuyên bố chống sao chép tuyệt đối.
 - Accessibility/overlay chỉ xin quyền Android khi chức năng thực tế cần và giải thích rõ.
 - Thu thập tối thiểu dữ liệu tài khoản/thiết bị cần cho bảo mật và giấy phép; không lấy dữ liệu riêng tư không cần thiết.
@@ -106,6 +106,6 @@ Quyền trong dự án hiện kết hợp vai trò/quyền tài khoản và tư 
 
 Đã hợp nhất vào `main` nền tảng một APK, Google Credential Manager, xác minh session theo role, workspace riêng cho các vai trò và giao diện quản lý cộng tác viên nối API. Đây là mã nguồn đã qua kiểm tra biên dịch Kotlin và kiểm tra Worker ở PR; không phải xác nhận đăng nhập Google thật đã hoạt động.
 
-Quyền chi tiết theo cộng tác viên đã được hợp nhất vào `main`. API dự án dùng chung và lưu bản nháp từ máy chủ hiện nằm trên nhánh `feature/shared-project-workspaces`, chưa được hợp nhất và chưa triển khai lên Worker.
+Quyền chi tiết theo cộng tác viên đã được hợp nhất vào `main`. API dự án dùng chung, màn hình Android quản lý dự án/cộng tác viên, màn hình nhà phát triển/nhà thiết kế/người kiểm duyệt và repository gọi API hiện nằm trên nhánh `feature/shared-project-workspaces`; chưa được hợp nhất và chưa triển khai lên Worker.
 
-Chưa có Worker deployed, Google OAuth Client ID/OWNER_EMAIL, đăng nhập thật, gửi email mời tự động, runtime Auto Click, compiler, UI Android kết nối API dự án, so sánh diff/rollback tổng quát, pipeline phát hành package hoặc cập nhật package từ xa.
+Chưa có Worker deployed, Google OAuth Client ID/OWNER_EMAIL, đăng nhập thật, gửi email mời tự động, runtime Auto Click, compiler, Worker deployed, áp dụng migration 0003 lên D1, Google OAuth, đăng nhập thật, email mời tự động, UI preview từ thiết kế JSON, compiler/runtime Auto Click, so sánh diff/rollback tổng quát, pipeline phát hành package hoặc cập nhật package từ xa.
