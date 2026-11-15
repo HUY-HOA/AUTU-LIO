@@ -48,7 +48,7 @@ object ScriptCompiler {
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
-    const val MAX_WHILE_ITERATIONS = 1_000
+    const val MAX_WHILE_ITERATIONS = 900
     const val MAX_NESTING_DEPTH = 8
     const val MAX_EXPANDED_INSTRUCTIONS = 5_000L
     const val MAX_TOTAL_DURATION_MS = 600_000L
@@ -319,6 +319,7 @@ object ScriptCompiler {
             requireNesting(name, depth)
             val condition = parseParenthesizedExpression()
             val thenBody = parseBraceBlock(depth + 1, loopDepth)
+            if (thenBody.isEmpty()) fail(name.line, name.column, "empty_if", "Khối NẾU không được để trống.", "The NẾU block cannot be empty.")
             skipSeparators()
             val elseBody = when {
                 isIdentifier("NGƯỢC_LẠI") -> {
