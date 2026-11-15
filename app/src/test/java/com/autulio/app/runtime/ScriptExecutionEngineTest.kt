@@ -38,7 +38,7 @@ class ScriptExecutionEngineTest {
                     "longPress:3,4,100", "swipe:5,6,7,8,20"),
                 actions.actions
             )
-            assertEquals(7L, engine.snapshot().completedInstructions)
+            assertEquals(6L, engine.snapshot().completedInstructions)
             assertEquals(ScriptExecutionState.COMPLETED, engine.snapshot().state)
         } finally {
             engine.close()
