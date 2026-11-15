@@ -136,12 +136,6 @@ database.execute(
     "VALUES ('release-1', 'autu-1', '1.0.0', '0.2', 'ciphertext', 'iv', 'wrapped', 'wrap-iv', 'hash', 'PUBLISHED', 'owner-1', 1)"
 )
 database.execute(
-    "INSERT INTO autu_licenses "
-    "(id, autu_id, user_id, status, starts_at, expires_at, max_devices, created_by, updated_by, created_at, updated_at) "
-    "VALUES ('license-1', 'autu-1', 'customer-1', 'ACTIVE', 1, NULL, 2, 'owner-1', 'owner-1', 1, 1)"
-) if database.execute(
-    "SELECT id FROM users WHERE id = 'customer-1'"
-).fetchone() else database.execute(
     "INSERT INTO users (id, google_sub, email, role, status, created_at, updated_at) "
     "VALUES ('customer-1', 'google-customer', 'customer@example.com', 'CUSTOMER', 'ACTIVE', 1, 1)"
 )
