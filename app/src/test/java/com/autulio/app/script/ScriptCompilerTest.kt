@@ -109,6 +109,17 @@ class ScriptCompilerTest {
         assertTrue(english.diagnostics.toString(), english.isSuccess)
         assertEquals(2L, vietnamese.program?.expandedInstructionCount)
         assertEquals(2L, english.program?.expandedInstructionCount)
+
+        val supportedActions = listOf(
+            "ỨNG_DỤNG_GẦN_ĐÂY()", "MỞ_THÔNG_BÁO()", "MỞ_CÀI_ĐẶT_NHANH()",
+            "HIỆN_MENU_NGUỒN()", "KHÓA_MÀN_HÌNH()", "CHIA_MÀN_HÌNH()",
+            "RECENTS()", "NOTIFICATIONS()", "QUICKSETTINGS()",
+            "POWERDIALOG()", "LOCKSCREEN()", "SPLITSCREEN()"
+        )
+        supportedActions.forEach { source ->
+            val result = ScriptCompiler.compile(source)
+            assertTrue("$source: ${result.diagnostics}", result.isSuccess)
+        }
     }
 
     @Test
@@ -118,6 +129,10 @@ class ScriptCompilerTest {
 
         assertEquals("argument_count", back.diagnostics.first().code)
         assertEquals("argument_count", home.diagnostics.first().code)
+        val recents = ScriptCompiler.compile("ỨNG_DỤNG_GẦN_ĐÂY(1)")
+        val lock = ScriptCompiler.compile("KHÓA_MÀN_HÌNH(1)")
+        assertEquals("argument_count", recents.diagnostics.first().code)
+        assertEquals("argument_count", lock.diagnostics.first().code)
     }
 
     @Test

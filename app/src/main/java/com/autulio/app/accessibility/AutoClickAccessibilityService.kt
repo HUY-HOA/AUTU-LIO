@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
+import android.os.Build
 import android.os.PowerManager
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
@@ -164,6 +165,27 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     override fun goBack(): Boolean = dispatchGlobalAction(GLOBAL_ACTION_BACK)
 
     override fun goHome(): Boolean = dispatchGlobalAction(GLOBAL_ACTION_HOME)
+
+    override fun showRecents(): Boolean = dispatchGlobalAction(GLOBAL_ACTION_RECENTS)
+
+    override fun showNotifications(): Boolean = dispatchGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
+
+    override fun showQuickSettings(): Boolean = dispatchGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)
+
+    override fun showPowerDialog(): Boolean = dispatchGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
+
+    override fun lockScreen(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
+        return dispatchGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+    }
+
+    override fun toggleSplitScreen(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
+        val available = runCatching {
+            systemActions.any { it.id == GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN }
+        }.getOrDefault(false)
+        return available && dispatchGlobalAction(GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN)
+    }
 
     private fun dispatchGlobalAction(action: Int): Boolean {
         if (Looper.myLooper() == Looper.getMainLooper()) {

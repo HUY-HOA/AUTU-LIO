@@ -202,12 +202,21 @@ class ScriptExecutionEngineTest {
                 """
                 QUAY_LẠI()
                 VỀ_MÀN_HÌNH_CHÍNH()
+                ỨNG_DỤNG_GẦN_ĐÂY()
+                MỞ_THÔNG_BÁO()
+                MỞ_CÀI_ĐẶT_NHANH()
+                HIỆN_MENU_NGUỒN()
+                KHÓA_MÀN_HÌNH()
+                CHIA_MÀN_HÌNH()
                 """
             )
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
             assertTrue(completed.await(3, TimeUnit.SECONDS))
-            assertEquals(listOf("back", "home"), dispatcher.actions)
-            assertEquals(2L, engine.snapshot().completedInstructions)
+            assertEquals(
+                listOf("back", "home", "recents", "notifications", "quickSettings", "powerDialog", "lockScreen", "splitScreen"),
+                dispatcher.actions
+            )
+            assertEquals(8L, engine.snapshot().completedInstructions)
         } finally {
             engine.close()
         }
@@ -404,6 +413,36 @@ class ScriptExecutionEngineTest {
 
         override fun goHome(): Boolean {
             actions += "home"
+            return true
+        }
+
+        override fun showRecents(): Boolean {
+            actions += "recents"
+            return true
+        }
+
+        override fun showNotifications(): Boolean {
+            actions += "notifications"
+            return true
+        }
+
+        override fun showQuickSettings(): Boolean {
+            actions += "quickSettings"
+            return true
+        }
+
+        override fun showPowerDialog(): Boolean {
+            actions += "powerDialog"
+            return true
+        }
+
+        override fun lockScreen(): Boolean {
+            actions += "lockScreen"
+            return true
+        }
+
+        override fun toggleSplitScreen(): Boolean {
+            actions += "splitScreen"
             return true
         }
 

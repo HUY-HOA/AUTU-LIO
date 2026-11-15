@@ -24,6 +24,12 @@ interface ScriptActionDispatcher {
     fun openApp(packageName: String): Boolean = false
     fun goBack(): Boolean = false
     fun goHome(): Boolean = false
+    fun showRecents(): Boolean = false
+    fun showNotifications(): Boolean = false
+    fun showQuickSettings(): Boolean = false
+    fun showPowerDialog(): Boolean = false
+    fun lockScreen(): Boolean = false
+    fun toggleSplitScreen(): Boolean = false
     fun evaluateFunction(name: String, arguments: List<Any?>): Any? =
         throw UnsupportedOperationException("Hàm '$name' chưa được hỗ trợ trên thiết bị này.")
 }
@@ -316,6 +322,12 @@ class ScriptExecutionEngine(
             }
             "QUAY_LẠI" -> dispatcher.goBack()
             "VỀ_MÀN_HÌNH_CHÍNH" -> dispatcher.goHome()
+            "ỨNG_DỤNG_GẦN_ĐÂY" -> dispatcher.showRecents()
+            "MỞ_THÔNG_BÁO" -> dispatcher.showNotifications()
+            "MỞ_CÀI_ĐẶT_NHANH" -> dispatcher.showQuickSettings()
+            "HIỆN_MENU_NGUỒN" -> dispatcher.showPowerDialog()
+            "KHÓA_MÀN_HÌNH" -> dispatcher.lockScreen()
+            "CHIA_MÀN_HÌNH" -> dispatcher.toggleSplitScreen()
             else -> throw ScriptRuntimeFailure("unsupported_command", "Lệnh '${instruction.name}' chưa được hỗ trợ.")
         }
         if (!success) throw ScriptRuntimeFailure("dispatch_failed", "Không thực hiện được lệnh '${instruction.name}'. Hãy kiểm tra quyền và trạng thái Android.")
@@ -548,7 +560,9 @@ class ScriptExecutionEngine(
                         "NHẤN_GIỮ" -> 3
                         "VUỐT" -> 5
                         "CHỜ", "MỞ_ỨNG_DỤNG" -> 1
-                        "QUAY_LẠI", "VỀ_MÀN_HÌNH_CHÍNH" -> 0
+                        "QUAY_LẠI", "VỀ_MÀN_HÌNH_CHÍNH",
+                        "ỨNG_DỤNG_GẦN_ĐÂY", "MỞ_THÔNG_BÁO", "MỞ_CÀI_ĐẶT_NHANH",
+                        "HIỆN_MENU_NGUỒN", "KHÓA_MÀN_HÌNH", "CHIA_MÀN_HÌNH" -> 0
                         else -> return@all false
                     }
                     instruction.arguments.size == arity && instruction.arguments.all { validateExpression(it, 0) }
