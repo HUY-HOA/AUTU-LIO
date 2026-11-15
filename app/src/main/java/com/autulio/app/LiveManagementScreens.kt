@@ -507,8 +507,8 @@ internal fun CustomerDeviceLicenseScreen(
             text = {
                 Text(
                     tr(
-                        "AUTU-LIO sẽ tạo khóa RSA 3072-bit trong Android Keystore. Khóa riêng không rời thiết bị; chỉ khóa công khai và thông tin model/phiên bản Android/AUTU-LIO được gửi đến máy chủ để quản lý giới hạn thiết bị. Không gửi IMEI hoặc số sê-ri.",
-                        "AUTU-LIO will create an RSA 3072-bit key in Android Keystore. The private key stays on this device; only the public key and device model/Android/AUTU-LIO version are sent to the server for device limits. No IMEI or serial number is collected."
+                        "AUTU-LIO sẽ tạo khóa RSA 3072-bit trong Android Keystore. Khóa riêng không rời thiết bị; khóa công khai dùng để xác minh thiết bị và nhận khóa giải mã gói AUTU được gửi riêng cho thiết bị. Chỉ khóa công khai và thông tin model/phiên bản Android/AUTU-LIO được gửi đến máy chủ; không gửi IMEI hoặc số sê-ri.",
+                        "AUTU-LIO will create an RSA 3072-bit key in Android Keystore. The private key stays on this device; the public key verifies this device and lets the server wrap package decryption keys specifically for it. Only the public key and device model/Android/AUTU-LIO version are sent to the server; no IMEI or serial number is collected."
                     ),
                     fontSize = 13.sp
                 )
