@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS script_package_versions (
   content_iv TEXT NOT NULL,
   encrypted_data_key TEXT NOT NULL,
   key_iv TEXT NOT NULL,
+  key_version TEXT NOT NULL DEFAULT 'V1',
   source_sha256 TEXT NOT NULL,
   created_by TEXT NOT NULL REFERENCES users(id),
   created_at INTEGER NOT NULL,
