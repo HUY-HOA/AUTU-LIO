@@ -13,6 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -267,7 +270,12 @@ internal fun CollaboratorProjectsWorkspace(
     var selectedDesignId by rememberSaveable { mutableStateOf<String?>(null) }
     var designRevision by rememberSaveable { mutableIntStateOf(0) }
     var screenKey by rememberSaveable { mutableStateOf("home") }
-    var designJson by rememberSaveable { mutableStateOf("{\n  \"layout\": \"column\",\n  \"accent\": \"#4F8CFF\",\n  \"components\": []\n}") }
+    var designTitle by rememberSaveable { mutableStateOf("Trang chủ AUTU-LIO") }
+    var designSubtitle by rememberSaveable { mutableStateOf("Tự động hóa thao tác trên Android") }
+    var designButtonLabel by rememberSaveable { mutableStateOf("Bắt đầu") }
+    var designAccent by rememberSaveable { mutableStateOf("#4F8CFF") }
+    var showInfoCard by rememberSaveable { mutableStateOf(true) }
+    var showScriptList by rememberSaveable { mutableStateOf(true) }
     var reviewNote by rememberSaveable { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
@@ -297,7 +305,12 @@ internal fun CollaboratorProjectsWorkspace(
         selectedDesignId = null
         designRevision = 0
         screenKey = "home"
-        designJson = defaultSharedDesignJson()
+        designTitle = "Trang chủ AUTU-LIO"
+        designSubtitle = "Tự động hóa thao tác trên Android"
+        designButtonLabel = "Bắt đầu"
+        designAccent = "#4F8CFF"
+        showInfoCard = true
+        showScriptList = true
         reviewNote = ""
         val projectId = selectedProject?.id ?: return@LaunchedEffect
         loading = true
@@ -469,7 +482,19 @@ internal fun CollaboratorProjectsWorkspace(
                                         selectedDesignId = design.id
                                         screenKey = design.screenKey
                                         designRevision = design.revision
-                                        designJson = design.designJson
+                                        val saved = runCatching { JSONObject(design.designJson) }.getOrNull()
+                                        designTitle = saved?.optString("title", "Trang chủ AUTU-LIO") ?: "Trang chủ AUTU-LIO"
+                                        designSubtitle = saved?.optString("subtitle", "Tự động hóa thao tác trên Android") ?: "Tự động hóa thao tác trên Android"
+                                        designButtonLabel = saved?.optString("buttonLabel", "Bắt đầu") ?: "Bắt đầu"
+                                        designAccent = saved?.optString("accent", "#4F8CFF") ?: "#4F8CFF"
+                                        val components = saved?.optJSONArray("components")
+                                        val componentNames = buildSet {
+                                            if (components != null) {
+                                                for (index in 0 until components.length()) add(components.optString(index))
+                                            }
+                                        }
+                                        showInfoCard = "info_card" in componentNames
+                                        showScriptList = "script_list" in componentNames
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
@@ -489,12 +514,92 @@ internal fun CollaboratorProjectsWorkspace(
                                     label = { Text(sharedTr("Mã màn hình", "Screen key")) }
                                 )
                                 OutlinedTextField(
-                                    value = designJson,
-                                    onValueChange = { designJson = it },
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp),
-                                    minLines = 8,
-                                    label = { Text(sharedTr("Thiết kế UI (JSON)", "UI design (JSON)")) }
+                                    value = designTitle,
+                                    onValueChange = { designTitle = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    label = { Text(sharedTr("Tiêu đề màn hình", "Screen title")) }
                                 )
+                                OutlinedTextField(
+                                    value = designSubtitle,
+                                    onValueChange = { designSubtitle = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    minLines = 2,
+                                    label = { Text(sharedTr("Mô tả", "Subtitle")) }
+                                )
+                                OutlinedTextField(
+                                    value = designButtonLabel,
+                                    onValueChange = { designButtonLabel = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    label = { Text(sharedTr("Nội dung nút chính", "Primary button label")) }
+                                )
+                                Text(sharedTr("Màu chủ đạo", "Accent color"), fontWeight = FontWeight.SemiBold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    listOf(
+                                        "#4F8CFF" to sharedTr("Xanh dương", "Blue"),
+                                        "#00A68C" to sharedTr("Xanh lá", "Green"),
+                                        "#8B5CF6" to sharedTr("Tím", "Violet"),
+                                        "#F59E0B" to sharedTr("Cam", "Amber")
+                                    ).forEach { (hex, label) ->
+                                        FilterChip(
+                                            selected = designAccent == hex,
+                                            onClick = { designAccent = hex },
+                                            label = { Text(label, fontSize = 11.sp) }
+                                        )
+                                    }
+                                }
+                                Text(sharedTr("Thành phần màn hình", "Screen components"), fontWeight = FontWeight.SemiBold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = showInfoCard, onCheckedChange = { showInfoCard = it })
+                                    Text(sharedTr("Thẻ thông tin", "Information card"), fontSize = 12.sp)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = showScriptList, onCheckedChange = { showScriptList = it })
+                                    Text(sharedTr("Danh sách kịch bản", "Script list"), fontSize = 12.sp)
+                                }
+                                val previewAccent = remember(designAccent) {
+                                    runCatching { Color(android.graphics.Color.parseColor(designAccent)) }
+                                        .getOrDefault(Color(0xFF4F8CFF))
+                                }
+                                SharedCard {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("AUTU-LIO", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                        Text(sharedTr("XEM TRƯỚC", "PREVIEW"), color = previewAccent, fontSize = 10.sp)
+                                    }
+                                    Text(designTitle.ifBlank { sharedTr("Tiêu đề màn hình", "Screen title") }, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                    if (designSubtitle.isNotBlank()) {
+                                        Text(designSubtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                    }
+                                    if (showInfoCard) {
+                                        Surface(
+                                            color = previewAccent.copy(alpha = 0.13f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Outlined.Info, null, tint = previewAccent)
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(sharedTr("Thẻ thông tin mẫu", "Sample information card"), fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
+                                    if (showScriptList) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Outlined.ListAlt, null, tint = previewAccent)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(sharedTr("Danh sách kịch bản", "Script list"), fontWeight = FontWeight.Medium)
+                                        }
+                                    }
+                                    Button(
+                                        onClick = {},
+                                        enabled = false,
+                                        colors = ButtonDefaults.buttonColors(
+                                            disabledContainerColor = previewAccent.copy(alpha = 0.35f)
+                                        )
+                                    ) {
+                                        Text(designButtonLabel.ifBlank { sharedTr("Nút chính", "Primary button") })
+                                    }
+                                }
                                 Button(
                                     enabled = !saving && screenKey.isNotBlank(),
                                     modifier = Modifier.fillMaxWidth(),
@@ -502,8 +607,19 @@ internal fun CollaboratorProjectsWorkspace(
                                         scope.launch {
                                             saving = true
                                             try {
+                                                val componentList = buildList {
+                                                    if (showInfoCard) add("info_card")
+                                                    if (showScriptList) add("script_list")
+                                                }
+                                                val designPayload = JSONObject()
+                                                    .put("layout", "column")
+                                                    .put("title", designTitle.trim())
+                                                    .put("subtitle", designSubtitle.trim())
+                                                    .put("buttonLabel", designButtonLabel.trim())
+                                                    .put("accent", designAccent)
+                                                    .put("components", JSONArray(componentList))
                                                 designRevision = repository.saveProjectUiDraft(
-                                                    accessToken, project.id, screenKey, designJson, designRevision
+                                                    accessToken, project.id, screenKey, designPayload.toString(), designRevision
                                                 )
                                                 designs = repository.listProjectUiDrafts(accessToken, project.id)
                                                 selectedDesignId = designs.firstOrNull { it.screenKey == screenKey }?.id
@@ -708,11 +824,3 @@ private fun AccessRole.sharedRoleLabel(): String = when (this) {
 private fun sharedTr(vi: String, en: String): String =
     if (Locale.getDefault().language == "vi") vi else en
 
-
-private fun defaultSharedDesignJson(): String = """
-{
-  "layout": "column",
-  "accent": "#4F8CFF",
-  "components": []
-}
-""".trimIndent()
