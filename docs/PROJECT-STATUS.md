@@ -39,7 +39,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Đã có workflow `.github/workflows/build-apks.yml`.
 - Workflow được chỉnh để kiểm tra lint và tạo một APK debug duy nhất (`AUTU-LIO-Debug`).
 - Trigger được thiết lập theo `workflow_dispatch` hoặc nhánh `build-requests/**`; push thông thường lên `main` không tự build.
-- **Chưa có workflow run được xác minh và chưa có APK artifact được xác minh.**
+- Các workflow kiểm tra mã nguồn Android và Worker đã có lần chạy thành công; đây không phải build APK. **Chưa có lần chạy workflow tạo APK và chưa có APK artifact được xác minh.**
 - Tuân thủ quy tắc: chỉ bắt đầu build khi chủ ứng dụng gửi riêng đúng lệnh `BUILD APK`.
 
 ### Cấu hình build đã được đồng bộ tĩnh (chưa chạy thử)
