@@ -266,7 +266,7 @@ private fun DesignerWorkspace(
                 CardBox {
                     Text(tr("Quyền đã cấp", "Granted permissions"), fontWeight = FontWeight.SemiBold)
                     Text(
-                        permissions.filter { it in setOf(AccessPermission.EDIT_UI_DESIGN, AccessPermission.PREVIEW_UI) }
+                        permissions.filter { it in setOf(AccessPermission.EDIT_UI_DESIGN, AccessPermission.PREVIEW_UI, AccessPermission.SUBMIT_RELEASE) }
                             .joinToString(" · ") { it.labelText() }
                             .ifBlank { tr("Chưa được cấp quyền thiết kế hoặc xem trước.", "No design or preview permissions have been granted.") },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
