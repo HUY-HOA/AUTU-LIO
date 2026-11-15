@@ -9,6 +9,28 @@ const ROLE_PERMISSIONS = {
   CUSTOMER: ["RUN_PUBLISHED_SCRIPTS", "VIEW_OWN_ACCOUNT"]
 };
 
+const ALL_PERMISSION_NAMES = [
+  "VIEW_ADMIN_WORKSPACE",
+  "MANAGE_COLLABORATORS",
+  "MANAGE_CUSTOMERS_AND_LICENSES",
+  "EDIT_SCRIPTS",
+  "TEST_SCRIPTS",
+  "EDIT_UI_DESIGN",
+  "PREVIEW_UI",
+  "SUBMIT_RELEASE",
+  "REVIEW_RELEASE",
+  "PUBLISH_RELEASE",
+  "RUN_PUBLISHED_SCRIPTS",
+  "VIEW_OWN_ACCOUNT"
+];
+
+const ROLE_CONFIGURABLE_PERMISSIONS = {
+  DEVELOPER: ["EDIT_SCRIPTS", "TEST_SCRIPTS", "SUBMIT_RELEASE"],
+  DESIGNER: ["EDIT_UI_DESIGN", "PREVIEW_UI"],
+  REVIEWER: ["TEST_SCRIPTS", "REVIEW_RELEASE"],
+  CUSTOMER: []
+};
+
 class HttpError extends Error {
   constructor(status, code, message) {
     super(message);
@@ -206,6 +228,19 @@ async function requirePermission(env, session, permission) {
   }
 }
 
+async function effectivePermissions(env, userId, role) {
+  if (role === "OWNER") return ALL_PERMISSION_NAMES;
+  const permissions = new Set(ROLE_PERMISSIONS[role] || []);
+  const result = await env.DB.prepare(
+    "SELECT permission, allowed FROM permission_overrides WHERE user_id = ? AND scope = 'global'"
+  ).bind(userId).all();
+  for (const override of result.results || []) {
+    if (override.allowed === 1) permissions.add(override.permission);
+    else permissions.delete(override.permission);
+  }
+  return [...permissions];
+}
+
 async function audit(env, actorId, action, targetType = null, targetId = null, metadata = {}) {
   await env.DB.prepare(
     "INSERT INTO audit_logs (id, actor_user_id, action, target_type, target_id, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -302,7 +337,13 @@ async function googleLogin(request, env) {
     accessToken: rawSession,
     tokenType: "Bearer",
     expiresAt,
-    user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role }
+    user: {
+      id: user.id,
+      email: user.email,
+      displayName: user.display_name,
+      role: user.role,
+      permissions: await effectivePermissions(env, user.id, user.role)
+    }
   }, 200, env);
 }
 
@@ -421,9 +462,72 @@ async function updateCollaborator(request, env, session, userId) {
   const target = await env.DB.prepare("SELECT id, role FROM users WHERE id = ?").bind(userId).first();
   if (!target || target.role === "OWNER") throw new HttpError(404, "collaborator_not_found", "Collaborator was not found.");
   const now = Math.floor(Date.now() / 1000);
-  await env.DB.prepare("UPDATE users SET role = ?, updated_at = ? WHERE id = ?").bind(role, now, userId).run();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET role = ?, updated_at = ? WHERE id = ?").bind(role, now, userId),
+    env.DB.prepare("DELETE FROM permission_overrides WHERE user_id = ? AND scope = 'global'").bind(userId)
+  ]);
   await audit(env, session.user_id, "collaborator.role_changed", "user", userId, { from: target.role, to: role });
   return response(request, { updated: true, userId, role }, 200, env);
+}
+
+async function getCollaboratorPermissions(request, env, session, userId) {
+  await requireRole(session, ["OWNER"]);
+  const target = await env.DB.prepare("SELECT id, role FROM users WHERE id = ?").bind(userId).first();
+  if (!target || target.role === "OWNER") {
+    throw new HttpError(404, "collaborator_not_found", "Collaborator was not found.");
+  }
+  const availablePermissions = ROLE_CONFIGURABLE_PERMISSIONS[target.role] || [];
+  const permissions = await effectivePermissions(env, target.id, target.role);
+  return response(request, {
+    userId,
+    role: target.role,
+    permissions,
+    configurablePermissions: availablePermissions,
+    selectedPermissions: permissions.filter(permission => availablePermissions.includes(permission))
+  }, 200, env);
+}
+
+async function updateCollaboratorPermissions(request, env, session, userId) {
+  await requireRole(session, ["OWNER"]);
+  const body = await readBody(request);
+  const requested = body.permissions;
+  if (!Array.isArray(requested) || requested.length > 8 ||
+      requested.some(permission => typeof permission !== "string")) {
+    throw new HttpError(400, "invalid_permissions", "A valid permissions list is required.");
+  }
+  const target = await env.DB.prepare("SELECT id, role FROM users WHERE id = ?").bind(userId).first();
+  if (!target || target.role === "OWNER") {
+    throw new HttpError(404, "collaborator_not_found", "Collaborator was not found.");
+  }
+  const available = ROLE_CONFIGURABLE_PERMISSIONS[target.role] || [];
+  const selected = new Set(requested);
+  if (selected.size !== requested.length || [...selected].some(permission => !available.includes(permission))) {
+    throw new HttpError(400, "invalid_permissions", "One or more permissions cannot be assigned to this role.");
+  }
+
+  const defaults = new Set(ROLE_PERMISSIONS[target.role] || []);
+  const statements = [
+    env.DB.prepare("DELETE FROM permission_overrides WHERE user_id = ? AND scope = 'global'").bind(userId)
+  ];
+  for (const permission of available) {
+    const allowed = selected.has(permission);
+    if (allowed !== defaults.has(permission)) {
+      statements.push(env.DB.prepare(
+        "INSERT INTO permission_overrides (id, user_id, permission, scope, allowed, granted_by, created_at) VALUES (?, ?, ?, 'global', ?, ?, ?)"
+      ).bind(crypto.randomUUID(), userId, permission, allowed ? 1 : 0, session.user_id, Math.floor(Date.now() / 1000)));
+    }
+  }
+  await env.DB.batch(statements);
+  await audit(env, session.user_id, "collaborator.permissions_updated", "user", userId, {
+    role: target.role,
+    permissions: [...selected]
+  });
+  return response(request, {
+    updated: true,
+    userId,
+    role: target.role,
+    permissions: await effectivePermissions(env, userId, target.role)
+  }, 200, env);
 }
 
 async function revokeCollaborator(request, env, session, userId) {
@@ -476,7 +580,8 @@ async function route(request, env) {
         id: session.user_id,
         email: session.email,
         displayName: session.display_name,
-        role: session.role
+        role: session.role,
+        permissions: await effectivePermissions(env, session.user_id, session.role)
       },
       session: { expiresAt: session.expires_at }
     }, 200, env);
@@ -495,6 +600,14 @@ async function route(request, env) {
 
   const invitationMatch = path.match(/^\/api\/admin\/invitations\/([0-9a-f-]{36})$/i);
   if (invitationMatch && method === "DELETE") return await revokeInvitation(request, env, session, invitationMatch[1]);
+
+  const collaboratorPermissionsMatch = path.match(/^\/api\/admin\/collaborators\/([0-9a-f-]{36})\/permissions$/i);
+  if (collaboratorPermissionsMatch && method === "GET") {
+    return await getCollaboratorPermissions(request, env, session, collaboratorPermissionsMatch[1]);
+  }
+  if (collaboratorPermissionsMatch && method === "PUT") {
+    return await updateCollaboratorPermissions(request, env, session, collaboratorPermissionsMatch[1]);
+  }
 
   const collaboratorMatch = path.match(/^\/api\/admin\/collaborators\/([0-9a-f-]{36})$/i);
   if (collaboratorMatch && method === "PATCH") return await updateCollaborator(request, env, session, collaboratorMatch[1]);
