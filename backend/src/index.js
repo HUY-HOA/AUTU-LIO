@@ -1323,6 +1323,290 @@ async function removeOwnDevice(request, env, session, deviceId) {
   return response(request, { removed: true, deviceId }, 200, env);
 }
 
+async function packageMasterKey(env) {
+  if (typeof env.PACKAGE_MASTER_KEY !== "string" || !env.PACKAGE_MASTER_KEY.trim()) {
+    throw new HttpError(503, "package_encryption_not_configured", "Encrypted package delivery is not configured.");
+  }
+  let raw;
+  try {
+    raw = base64UrlDecode(env.PACKAGE_MASTER_KEY.trim());
+  } catch {
+    throw new HttpError(503, "package_encryption_key_invalid", "The package encryption key is invalid.");
+  }
+  if (raw.length !== 32) {
+    throw new HttpError(503, "package_encryption_key_invalid", "The package encryption key must be exactly 32 bytes.");
+  }
+  return crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+function randomBytes(size) {
+  const bytes = new Uint8Array(size);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function packageContext(packageId, version) {
+  return `AUTU-LIO|PACKAGE|${packageId}|v${version}`;
+}
+
+async function encryptPackageSource(env, packageId, version, source) {
+  const masterKey = await packageMasterKey(env);
+  const dataKeyBytes = randomBytes(32);
+  const contentIv = randomBytes(12);
+  const keyIv = randomBytes(12);
+  const context = packageContext(packageId, version);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: contentIv, additionalData: encoder.encode(context), tagLength: 128 },
+    await crypto.subtle.importKey("raw", dataKeyBytes, { name: "AES-GCM" }, false, ["encrypt"]),
+    encoder.encode(source)
+  );
+  const encryptedDataKey = await crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv: keyIv,
+      additionalData: encoder.encode(context + "|DATA_KEY"),
+      tagLength: 128
+    },
+    masterKey,
+    dataKeyBytes
+  );
+  return {
+    ciphertext: base64UrlEncode(new Uint8Array(ciphertext)),
+    contentIv: base64UrlEncode(contentIv),
+    encryptedDataKey: base64UrlEncode(new Uint8Array(encryptedDataKey)),
+    keyIv: base64UrlEncode(keyIv),
+    sourceSha256: await sha256(source)
+  };
+}
+
+async function wrapPackageKeyForDevice(env, packageId, version, encryptedDataKey, keyIv, publicKeySpki) {
+  const masterKey = await packageMasterKey(env);
+  const context = packageContext(packageId, version);
+  let dataKeyBytes;
+  let publicKey;
+  try {
+    dataKeyBytes = new Uint8Array(await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: base64UrlDecode(keyIv),
+        additionalData: encoder.encode(context + "|DATA_KEY"),
+        tagLength: 128
+      },
+      masterKey,
+      base64UrlDecode(encryptedDataKey)
+    ));
+    publicKey = await crypto.subtle.importKey(
+      "spki",
+      base64UrlDecode(publicKeySpki),
+      { name: "RSA-OAEP", hash: "SHA-1" },
+      false,
+      ["encrypt"]
+    );
+  } catch {
+    throw new HttpError(503, "package_key_wrap_failed", "The package key could not be prepared for this device.");
+  }
+  if (dataKeyBytes.length !== 32 || !Number.isInteger(publicKey.algorithm?.modulusLength) ||
+      publicKey.algorithm.modulusLength < 3072) {
+    throw new HttpError(403, "device_key_not_supported", "This registered device does not have a supported RSA-3072 package key.");
+  }
+  try {
+    const wrappedKey = await crypto.subtle.encrypt(
+      { name: "RSA-OAEP" },
+      publicKey,
+      dataKeyBytes
+    );
+    return base64UrlEncode(new Uint8Array(wrappedKey));
+  } catch {
+    throw new HttpError(503, "package_key_wrap_failed", "The package key could not be wrapped for this device.");
+  }
+}
+
+function validatePackageMetadata(body) {
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  const source = typeof body.source === "string" ? body.source : "";
+  const languageVersion = typeof body.languageVersion === "string" ? body.languageVersion.trim() : "";
+  if (!name || name.length > 100) throw new HttpError(400, "invalid_package_name", "Package name must contain 1 to 100 characters.");
+  if (description.length > 1_000) throw new HttpError(400, "invalid_package_description", "Package description cannot exceed 1,000 characters.");
+  if (!source.trim() || source.length > 32_768) throw new HttpError(400, "invalid_package_source", "Package source must contain 1 to 32,768 characters.");
+  if (!["0.2", "0.3"].includes(languageVersion)) {
+    throw new HttpError(400, "unsupported_language_version", "Only AUTU Script versions 0.2 and 0.3 can be published.");
+  }
+  return { name, description, source, languageVersion };
+}
+
+async function listAdminPackages(request, env, session) {
+  await requireRole(session, ["OWNER"]);
+  const result = await env.DB.prepare(
+    "SELECT p.id, p.name, p.description, p.status, p.latest_version, p.created_at, p.updated_at, " +
+    "v.language_version, v.created_at AS published_at " +
+    "FROM script_packages p LEFT JOIN script_package_versions v " +
+    "ON v.package_id = p.id AND v.version = p.latest_version " +
+    "ORDER BY p.updated_at DESC"
+  ).all();
+  return response(request, { packages: result.results || [] }, 200, env);
+}
+
+async function createAdminPackage(request, env, session) {
+  await requireRole(session, ["OWNER"]);
+  const body = await readBody(request, 48_000);
+  const metadata = validatePackageMetadata(body);
+  const id = crypto.randomUUID();
+  const version = 1;
+  const now = Math.floor(Date.now() / 1000);
+  const encrypted = await encryptPackageSource(env, id, version, metadata.source);
+  try {
+    await env.DB.batch([
+      env.DB.prepare(
+        "INSERT INTO script_packages (id, name, description, status, latest_version, created_by, created_at, updated_at) " +
+        "VALUES (?, ?, ?, 'ACTIVE', ?, ?, ?, ?)"
+      ).bind(id, metadata.name, metadata.description, version, session.user_id, now, now),
+      env.DB.prepare(
+        "INSERT INTO script_package_versions " +
+        "(id, package_id, version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, source_sha256, created_by, created_at) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind(
+        crypto.randomUUID(), id, version, metadata.languageVersion,
+        encrypted.ciphertext, encrypted.contentIv, encrypted.encryptedDataKey,
+        encrypted.keyIv, encrypted.sourceSha256, session.user_id, now
+      )
+    ]);
+  } catch (error) {
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "package_name_exists", "A package with this name already exists.");
+    }
+    throw error;
+  }
+  await audit(env, session.user_id, "package.published", "script_package", id, {
+    version, languageVersion: metadata.languageVersion, sourceSha256: encrypted.sourceSha256
+  });
+  return response(request, {
+    published: true,
+    package: { id, name: metadata.name, description: metadata.description, status: "ACTIVE", latestVersion: version, languageVersion: metadata.languageVersion, createdAt: now }
+  }, 201, env);
+}
+
+async function createAdminPackageVersion(request, env, session, packageId) {
+  await requireRole(session, ["OWNER"]);
+  if (!PROJECT_ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  const body = await readBody(request, 48_000);
+  const metadata = validatePackageMetadata(body);
+  const current = await env.DB.prepare(
+    "SELECT id, name, description, status, latest_version FROM script_packages WHERE id = ?"
+  ).bind(packageId).first();
+  if (!current) throw new HttpError(404, "package_not_found", "Package was not found.");
+  if (current.status !== "ACTIVE") throw new HttpError(409, "package_archived", "An archived package cannot receive a new version.");
+  if (metadata.name.toLocaleLowerCase() !== current.name.toLocaleLowerCase()) {
+    throw new HttpError(400, "package_name_immutable", "A package name cannot be changed when publishing a new version.");
+  }
+  const version = Number(current.latest_version) + 1;
+  if (!Number.isSafeInteger(version) || version < 2) throw new HttpError(409, "invalid_package_version", "The next package version is invalid.");
+  const now = Math.floor(Date.now() / 1000);
+  const encrypted = await encryptPackageSource(env, packageId, version, metadata.source);
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO script_package_versions " +
+      "(id, package_id, version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, source_sha256, created_by, created_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(
+      crypto.randomUUID(), packageId, version, metadata.languageVersion,
+      encrypted.ciphertext, encrypted.contentIv, encrypted.encryptedDataKey,
+      encrypted.keyIv, encrypted.sourceSha256, session.user_id, now
+    ),
+    env.DB.prepare(
+      "UPDATE script_packages SET description = ?, latest_version = ?, updated_at = ? WHERE id = ? AND latest_version = ? AND status = 'ACTIVE'"
+    ).bind(metadata.description, version, now, packageId, current.latest_version)
+  ]);
+  await audit(env, session.user_id, "package.version_published", "script_package", packageId, {
+    version, languageVersion: metadata.languageVersion, sourceSha256: encrypted.sourceSha256
+  });
+  return response(request, {
+    published: true,
+    package: { id: packageId, name: current.name, description: metadata.description, status: "ACTIVE", latestVersion: version, languageVersion: metadata.languageVersion, updatedAt: now }
+  }, 201, env);
+}
+
+async function updateAdminPackage(request, env, session, packageId) {
+  await requireRole(session, ["OWNER"]);
+  if (!PROJECT_ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  const body = await readBody(request, 4_000);
+  const status = String(body.status || "").toUpperCase();
+  if (!["ACTIVE", "ARCHIVED"].includes(status)) throw new HttpError(400, "invalid_package_status", "Package status must be ACTIVE or ARCHIVED.");
+  const result = await env.DB.prepare(
+    "UPDATE script_packages SET status = ?, updated_at = ? WHERE id = ?"
+  ).bind(status, Math.floor(Date.now() / 1000), packageId).run();
+  if (result.meta?.changes !== 1) throw new HttpError(404, "package_not_found", "Package was not found.");
+  await audit(env, session.user_id, "package.status_changed", "script_package", packageId, { status });
+  return response(request, { updated: true, packageId, status }, 200, env);
+}
+
+async function listCustomerPackages(request, env, session) {
+  await requireRole(session, ["CUSTOMER"]);
+  const now = Math.floor(Date.now() / 1000);
+  const license = await getActiveLicense(env, session.user_id, now);
+  if (!license) throw new HttpError(403, "active_license_required", "An active license is required to access published AUTUs.");
+  const url = new URL(request.url);
+  const fingerprint = (url.searchParams.get("deviceFingerprint") || "").toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(fingerprint)) throw new HttpError(400, "invalid_device_fingerprint", "A registered device fingerprint is required.");
+  const device = await env.DB.prepare(
+    "SELECT id FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'"
+  ).bind(session.user_id, fingerprint).first();
+  if (!device) throw new HttpError(403, "active_device_required", "Register this device before accessing published AUTUs.");
+  const result = await env.DB.prepare(
+    "SELECT p.id, p.name, p.description, p.latest_version, v.language_version, v.created_at AS published_at " +
+    "FROM script_packages p JOIN script_package_versions v ON v.package_id = p.id AND v.version = p.latest_version " +
+    "WHERE p.status = 'ACTIVE' ORDER BY p.updated_at DESC"
+  ).all();
+  await env.DB.prepare(
+    "UPDATE devices SET last_seen_at = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
+  ).bind(now, device.id, session.user_id).run();
+  return response(request, { deviceId: device.id, packages: result.results || [] }, 200, env);
+}
+
+async function downloadCustomerPackage(request, env, session, packageId) {
+  await requireRole(session, ["CUSTOMER"]);
+  if (!PROJECT_ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  const now = Math.floor(Date.now() / 1000);
+  const license = await getActiveLicense(env, session.user_id, now);
+  if (!license) throw new HttpError(403, "active_license_required", "An active license is required to download AUTUs.");
+  const url = new URL(request.url);
+  const fingerprint = (url.searchParams.get("deviceFingerprint") || "").toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(fingerprint)) throw new HttpError(400, "invalid_device_fingerprint", "A registered device fingerprint is required.");
+  const device = await env.DB.prepare(
+    "SELECT id, public_key_spki FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'"
+  ).bind(session.user_id, fingerprint).first();
+  if (!device) throw new HttpError(403, "active_device_required", "This device is not registered or has been revoked.");
+  const item = await env.DB.prepare(
+    "SELECT p.id, p.name, p.description, p.status, v.version, v.language_version, v.ciphertext, v.content_iv, " +
+    "v.encrypted_data_key, v.key_iv, v.source_sha256 " +
+    "FROM script_packages p JOIN script_package_versions v ON v.package_id = p.id AND v.version = p.latest_version " +
+    "WHERE p.id = ? AND p.status = 'ACTIVE'"
+  ).bind(packageId).first();
+  if (!item) throw new HttpError(404, "package_not_found", "Published AUTU package was not found.");
+  const wrappedKey = await wrapPackageKeyForDevice(
+    env, item.id, item.version, item.encrypted_data_key, item.key_iv, device.public_key_spki
+  );
+  await env.DB.prepare(
+    "UPDATE devices SET last_seen_at = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
+  ).bind(now, device.id, session.user_id).run();
+  await audit(env, session.user_id, "package.downloaded", "script_package", packageId, {
+    version: item.version, deviceId: device.id
+  });
+  return response(request, {
+    package: {
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      version: item.version,
+      languageVersion: item.language_version,
+      ciphertext: item.ciphertext,
+      contentIv: item.content_iv,
+      wrappedKey,
+      sourceSha256: item.source_sha256
+    }
+  }, 200, env);
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -1371,6 +1655,13 @@ async function route(request, env) {
   if (method === "GET" && path === "/api/customer/account") {
     return await getCustomerAccount(request, env, session);
   }
+  if (method === "GET" && path === "/api/customer/packages") {
+    return await listCustomerPackages(request, env, session);
+  }
+  const customerPackageDownloadMatch = path.match(/^\/api\/customer\/packages\/([0-9a-f-]{36})\/download$/i);
+  if (customerPackageDownloadMatch && method === "GET") {
+    return await downloadCustomerPackage(request, env, session, customerPackageDownloadMatch[1]);
+  }
   if (method === "POST" && path === "/api/customer/devices/challenge") {
     return await createCustomerDeviceChallenge(request, env, session);
   }
@@ -1381,6 +1672,13 @@ async function route(request, env) {
   if (ownDeviceMatch && method === "DELETE") {
     return await removeOwnDevice(request, env, session, ownDeviceMatch[1]);
   }
+
+  if (method === "GET" && path === "/api/admin/packages") return await listAdminPackages(request, env, session);
+  if (method === "POST" && path === "/api/admin/packages") return await createAdminPackage(request, env, session);
+  const adminPackageVersionMatch = path.match(/^\/api\/admin\/packages\/([0-9a-f-]{36})\/versions$/i);
+  if (adminPackageVersionMatch && method === "POST") return await createAdminPackageVersion(request, env, session, adminPackageVersionMatch[1]);
+  const adminPackageMatch = path.match(/^\/api\/admin\/packages\/([0-9a-f-]{36})$/i);
+  if (adminPackageMatch && method === "PATCH") return await updateAdminPackage(request, env, session, adminPackageMatch[1]);
 
   if (method === "GET" && path === "/api/admin/customers") return await listAdminCustomers(request, env, session);
   if (method === "GET" && path === "/api/admin/licenses") return await listAdminLicenses(request, env, session);
