@@ -487,7 +487,7 @@ class AuthRepository(context: Context) {
     suspend fun downloadLicensedAutu(accessToken: String, autuId: String): DownloadedAutuPackage {
         require(autuId.matches(Regex("^[0-9a-fA-F-]{36}$")))
         val installId = installPreferences.getString("install_id", null) ?: java.util.UUID.randomUUID().toString().also {
-            installPreferences.edit().putString("install_id", it).commit()
+            installPreferences.edit().putString("install_id", it).apply()
         }
         val query = "installId=$installId" +
             "&deviceLabel=" + URLEncoder.encode(deviceLabel(), "UTF-8") +
