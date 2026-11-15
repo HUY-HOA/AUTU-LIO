@@ -10,11 +10,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -53,6 +55,8 @@ internal fun CollaboratorsServerContent(
     var permissionTarget by remember { mutableStateOf<CollaboratorRecord?>(null) }
     var permissionOptions by remember { mutableStateOf<Set<AccessPermission>>(emptySet()) }
     var permissionDraft by remember { mutableStateOf<Set<AccessPermission>>(emptySet()) }
+    var showInviteForm by rememberSaveable { mutableStateOf(false) }
+    var showPermissionGuide by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var submitting by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("") }
@@ -85,108 +89,120 @@ internal fun CollaboratorsServerContent(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(tr("Quản lý cộng tác viên", "Collaborator management"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                Text(tr("Dữ liệu lấy trực tiếp từ máy chủ", "Live data from the server"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(tr("Cộng tác viên", "Collaborators"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(
+                    tr("Mời người cùng tạo AUTU và quản lý quyền", "Invite AUTU design collaborators and manage access"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
+                )
+            }
+            IconButton(onClick = { showPermissionGuide = true }) {
+                Icon(Icons.Outlined.Security, contentDescription = tr("Xem hướng dẫn cấp quyền", "View access guide"))
+            }
+            FilledTonalIconButton(onClick = { showInviteForm = !showInviteForm }) {
+                Icon(
+                    if (showInviteForm) Icons.Outlined.Close else Icons.Outlined.PersonAdd,
+                    contentDescription = if (showInviteForm) tr("Đóng biểu mẫu mời", "Close invitation form") else tr("Thêm cộng tác viên", "Add collaborator")
+                )
             }
             IconButton(onClick = { scope.launch { refresh() } }, enabled = !loading) {
                 Icon(Icons.Outlined.Refresh, contentDescription = tr("Làm mới", "Refresh"))
             }
         }
 
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            shape = RoundedCornerShape(16.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(tr("Quyền do máy chủ kiểm soát", "Server-controlled access"), fontWeight = FontWeight.SemiBold)
-                }
-                Text(
-                    tr(
-                        "Chỉ chủ sở hữu mới được mời, đổi vai trò hoặc thu hồi quyền. Mã lời mời chỉ hiển thị một lần để bạn sao chép và gửi cho đúng Gmail; ứng dụng hiện chưa tự gửi email.",
-                        "Only the owner can invite, change roles or revoke access. Invitation tokens are shown once for you to copy and share with the intended Google account; automatic email delivery is not available yet."
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp
-                )
-            }
+            Icon(Icons.Outlined.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            Text(
+                tr(
+                    "Chỉ chủ sở hữu mới được cấp, sửa hoặc thu hồi quyền cộng tác.",
+                    "Only the owner can grant, change or revoke collaborator access."
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
+            )
         }
 
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it; feedback = "" },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text(tr("Địa chỉ Gmail", "Google account email")) },
-            placeholder = { Text("name@gmail.com") },
-            isError = email.isNotBlank() && !validEmail
-        )
-        Text(tr("Vai trò được cấp", "Role to assign"), fontWeight = FontWeight.SemiBold)
-        collaboratorRoles.forEach { role ->
-            Card(
+        if (showInviteForm) {
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it; feedback = "" },
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (selectedRole == role) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-                ),
-                border = BorderStroke(
-                    1.dp,
-                    if (selectedRole == role) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                ),
-                shape = RoundedCornerShape(12.dp),
-                onClick = { selectedRole = role }
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                singleLine = true,
+                label = { Text(tr("Địa chỉ Gmail", "Google account email")) },
+                placeholder = { Text("name@gmail.com") },
+                isError = email.isNotBlank() && !validEmail
+            )
+            Text(tr("Vai trò được cấp", "Role to assign"), fontWeight = FontWeight.SemiBold)
+            collaboratorRoles.forEach { role ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (selectedRole == role) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (selectedRole == role) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = { selectedRole = role }
                 ) {
-                    RadioButton(selected = selectedRole == role, onClick = { selectedRole = role })
-                    Column(Modifier.weight(1f)) {
-                        Text(role.labelText(), fontWeight = FontWeight.SemiBold)
-                        Text(role.descriptionText(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = selectedRole == role, onClick = { selectedRole = role })
+                        Column(Modifier.weight(1f)) {
+                            Text(role.labelText(), fontWeight = FontWeight.SemiBold)
+                            Text(role.descriptionText(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                        }
                     }
                 }
             }
-        }
-        Button(
-            onClick = {
-                scope.launch {
-                    submitting = true
-                    feedback = ""
-                    try {
-                        createdInvitation = repository.createInvitation(
-                            accessToken = accessToken,
-                            email = normalizedEmail,
-                            role = selectedRole,
-                            expiresInDays = 7
-                        )
-                        email = ""
-                        refresh()
-                        feedback = tr("Đã tạo lời mời trên máy chủ. Hãy sao chép mã và gửi cho người được mời.", "Invitation created on the server. Copy the token and share it with the invitee.")
-                        isError = false
-                    } catch (error: Exception) {
-                        feedback = error.message ?: tr("Không tạo được lời mời.", "Could not create invitation.")
-                        isError = true
-                    } finally {
-                        submitting = false
+            Button(
+                onClick = {
+                    scope.launch {
+                        submitting = true
+                        feedback = ""
+                        try {
+                            createdInvitation = repository.createInvitation(
+                                accessToken = accessToken,
+                                email = normalizedEmail,
+                                role = selectedRole,
+                                expiresInDays = 7
+                            )
+                            email = ""
+                            showInviteForm = false
+                            refresh()
+                            feedback = tr("Đã tạo lời mời trên máy chủ. Hãy sao chép mã và gửi cho người được mời.", "Invitation created on the server. Copy the token and share it with the invitee.")
+                            isError = false
+                        } catch (error: Exception) {
+                            feedback = error.message ?: tr("Không tạo được lời mời.", "Could not create invitation.")
+                            isError = true
+                        } finally {
+                            submitting = false
+                        }
                     }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = validEmail && !duplicate && !submitting
+            ) {
+                if (submitting) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Outlined.PersonAdd, contentDescription = null)
                 }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = validEmail && !duplicate && !submitting
-        ) {
-            if (submitting) {
-                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-            } else {
-                Icon(Icons.Outlined.PersonAdd, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(tr("Tạo lời mời trên máy chủ", "Create server invitation"))
             }
-            Spacer(Modifier.width(8.dp))
-            Text(tr("Tạo lời mời trên máy chủ", "Create server invitation"))
+
         }
 
         if (feedback.isNotBlank()) {
@@ -300,6 +316,37 @@ internal fun CollaboratorsServerContent(
                 PendingInvitationCard(invitation, onRevoke = { revokeInvite = invitation })
             }
         }
+    }
+
+    if (showPermissionGuide) {
+        AlertDialog(
+            onDismissRequest = { showPermissionGuide = false },
+            title = { Text(tr("Quản lý quyền cộng tác", "Collaborator access")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        tr(
+                            "Chọn tài khoản trong danh sách, sau đó nhấn “Cấp / xem quyền” để kiểm tra hoặc bật tắt những quyền được phép.",
+                            "Choose an account from the list, then tap “Access” to review or enable and disable its allowed permissions."
+                        ),
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        tr(
+                            "Chủ sở hữu luôn giữ quyền quản trị cao nhất. Cộng tác viên không thể tự cấp quyền cho mình.",
+                            "The owner always retains the highest administrative access. Collaborators cannot grant permissions to themselves."
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPermissionGuide = false }) {
+                    Text(tr("Đã hiểu", "Got it"))
+                }
+            }
+        )
     }
 
     permissionTarget?.let { collaborator ->
@@ -462,7 +509,15 @@ private fun CollaboratorServerCard(
                     }
                 }
                 if (collaborator.role != AccessRole.CUSTOMER) {
-                    TextButton(onClick = onEditPermissions) { Text(tr("Quyền chi tiết", "Permissions")) }
+                    OutlinedButton(
+                        onClick = onEditPermissions,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Icon(Icons.Outlined.Security, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(tr("Cấp / xem quyền", "Access"), fontSize = 11.sp)
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onRevoke) { Text(tr("Thu hồi quyền", "Revoke access"), color = MaterialTheme.colorScheme.error) }
