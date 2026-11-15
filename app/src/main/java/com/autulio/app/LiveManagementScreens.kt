@@ -223,6 +223,32 @@ internal fun LicensesAdminScreen(accessToken: String?, modifier: Modifier = Modi
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    OutlinedButton(
+                        onClick = {
+                            val token = accessToken ?: return@OutlinedButton
+                            scope.launch {
+                                try {
+                                    val renewedExpiry = maxOf(
+                                        license.expiresAt,
+                                        System.currentTimeMillis() / 1000
+                                    ) + 30L * 86400L
+                                    repository.updateCustomerLicense(
+                                        token,
+                                        license.id,
+                                        "ACTIVE",
+                                        renewedExpiry,
+                                        license.maxDevices
+                                    )
+                                    notice = tr("Đã gia hạn giấy phép thêm 30 ngày.", "License extended by 30 days.")
+                                    refresh()
+                                } catch (exception: Exception) {
+                                    error = exception.message.orEmpty()
+                                }
+                            }
+                        },
+                        enabled = license.status != "REVOKED",
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(tr("Gia hạn thêm 30 ngày", "Extend by 30 days")) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             modifier = Modifier.weight(1f),
