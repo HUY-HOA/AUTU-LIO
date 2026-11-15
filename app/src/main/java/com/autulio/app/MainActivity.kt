@@ -683,7 +683,9 @@ private fun EditorScreen(
                     Text("ĐẶT ten = 3  ·  " + tr("Khai báo biến", "Declare a variable"))
                     Text("NẾU (ten > 1) { ... } NGƯỢC_LẠI { ... }")
                     Text("LẶP(ten) { ... }  ·  " + tr("Lặp theo số lần", "Repeat a fixed count"))
-                    Text("LẶP_KHI (ten < 10) { ... }  ·  " + tr("Lặp theo điều kiện", "Repeat while a condition is true"))
+                    Text("LẶP_KHI (ten < 10) { ... }  ·  " + tr("Lặp khi điều kiện đúng", "Repeat while a condition is true"))
+                    Text("LẶP_ĐẾN_KHI (ten >= 10) { ... }  ·  " + tr("Lặp đến khi điều kiện đúng", "Repeat until a condition is true"))
+                    Text("CHỜ_ĐẾN_KHI(điều_kiện, thời_hạn_ms, chu_kỳ_ms)")
                     Text("PIN(), ĐANG_SẠC(), CÓ_MẠNG(), MÀN_HÌNH_SÁNG()")
                     Text(
                         tr("3. Nhấn Kiểm tra mã để tìm lỗi cú pháp. Chỉ khi mã hợp lệ mới chuẩn bị được cửa sổ chạy.", "3. Tap Check code to find syntax errors. Only valid code can be prepared for running.")
