@@ -118,9 +118,54 @@ data class SharedSubmission(
     val createdAt: Long
 )
 
+data class PublishedAutu(
+    val id: String,
+    val name: String,
+    val description: String,
+    val releaseId: String,
+    val version: String,
+    val languageVersion: String,
+    val sourceSha256: String,
+    val licenseId: String,
+    val expiresAt: Long?,
+    val maxDevices: Int
+)
+
+data class DownloadedAutuPackage(
+    val id: String,
+    val name: String,
+    val description: String,
+    val releaseId: String,
+    val version: String,
+    val languageVersion: String,
+    val source: String,
+    val sourceSha256: String,
+    val downloadedAt: Long,
+    val licenseExpiresAt: Long?,
+    val maxDevices: Int
+)
+
+data class AutuCustomer(
+    val id: String,
+    val email: String,
+    val displayName: String?,
+    val status: String
+)
+
+data class OwnerAutuProduct(
+    val id: String,
+    val name: String,
+    val description: String,
+    val status: String,
+    val version: String?,
+    val languageVersion: String?,
+    val activeLicenses: Int
+)
+
 class AuthRepository(context: Context) {
     private val appContext = context.applicationContext
     private val credentialManager = CredentialManager.create(appContext)
+    private val installPreferences = appContext.getSharedPreferences("autulio_install_identity", Context.MODE_PRIVATE)
 
     val isConfigured: Boolean
         get() = BuildConfig.AUTH_API_BASE_URL.isNotBlank() &&
@@ -410,6 +455,183 @@ class AuthRepository(context: Context) {
             "DELETE",
             bearerToken = accessToken
         )
+    }
+
+    suspend fun listLicensedAutus(accessToken: String): List<PublishedAutu> {
+        val result = apiRequest("/api/autu/library", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("autus") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val name = item.optString("name")
+                if (id.isBlank() || name.isBlank()) continue
+                add(
+                    PublishedAutu(
+                        id = id,
+                        name = name,
+                        description = item.optString("description"),
+                        releaseId = item.optString("release_id"),
+                        version = item.optString("version"),
+                        languageVersion = item.optString("language_version", "0.2"),
+                        sourceSha256 = item.optString("source_sha256"),
+                        licenseId = item.optString("license_id"),
+                        expiresAt = item.optLong("expires_at").takeIf { !item.isNull("expires_at") && item.has("expires_at") },
+                        maxDevices = item.optInt("max_devices", 1)
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun downloadLicensedAutu(accessToken: String, autuId: String): DownloadedAutuPackage {
+        require(autuId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val installId = installPreferences.getString("install_id", null) ?: java.util.UUID.randomUUID().toString().also {
+            installPreferences.edit().putString("install_id", it).commit()
+        }
+        val query = "installId=$installId" +
+            "&deviceLabel=" + URLEncoder.encode(deviceLabel(), "UTF-8") +
+            "&appVersion=" + URLEncoder.encode(BuildConfig.VERSION_NAME, "UTF-8")
+        val result = apiRequest(
+            "/api/autu/products/$autuId/download?$query",
+            "GET",
+            bearerToken = accessToken
+        )
+        val item = result.optJSONObject("package")
+            ?: throw IOException("Máy chủ không trả về gói AUTU hợp lệ.")
+        val source = item.optString("source")
+        val expectedHash = item.optString("sourceSha256")
+        val actualHash = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(source.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+        if (source.isBlank() || expectedHash.isBlank() || !actualHash.equals(expectedHash, ignoreCase = true)) {
+            throw IOException("Gói AUTU không vượt qua kiểm tra toàn vẹn SHA-256.")
+        }
+        val languageVersion = item.optString("languageVersion")
+        if (languageVersion != "0.2") {
+            throw IOException("Phiên bản ngôn ngữ AUTU '$languageVersion' chưa được ứng dụng hỗ trợ.")
+        }
+        val license = result.optJSONObject("license") ?: JSONObject()
+        return DownloadedAutuPackage(
+            id = item.optString("id"),
+            name = item.optString("name"),
+            description = item.optString("description"),
+            releaseId = item.optString("releaseId"),
+            version = item.optString("version"),
+            languageVersion = languageVersion,
+            source = source,
+            sourceSha256 = expectedHash,
+            downloadedAt = result.optLong("downloadedAt"),
+            licenseExpiresAt = license.optLong("expiresAt").takeIf { license.has("expiresAt") && !license.isNull("expiresAt") },
+            maxDevices = license.optInt("maxDevices", 1)
+        )
+    }
+
+    suspend fun listOwnerAutus(accessToken: String): List<OwnerAutuProduct> {
+        val result = apiRequest("/api/admin/autu/products", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("autus") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val name = item.optString("name")
+                if (id.isBlank() || name.isBlank()) continue
+                add(
+                    OwnerAutuProduct(
+                        id = id,
+                        name = name,
+                        description = item.optString("description"),
+                        status = item.optString("status"),
+                        version = item.optString("version").takeIf { it.isNotBlank() && it != "null" },
+                        languageVersion = item.optString("language_version").takeIf { it.isNotBlank() && it != "null" },
+                        activeLicenses = item.optInt("active_licenses")
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun publishAutuProduct(
+        accessToken: String,
+        name: String,
+        description: String,
+        source: String,
+        version: String = "1.0.0",
+        languageVersion: String = "0.2"
+    ): String {
+        val result = apiRequest(
+            "/api/admin/autu/products",
+            "POST",
+            JSONObject()
+                .put("name", name.trim())
+                .put("description", description.trim())
+                .put("source", source)
+                .put("version", version)
+                .put("languageVersion", languageVersion),
+            accessToken
+        )
+        val id = result.optJSONObject("product")?.optString("id").orEmpty()
+        if (!result.optBoolean("published") || id.isBlank()) {
+            throw IOException("Máy chủ không xác nhận đã phát hành AUTU.")
+        }
+        return id
+    }
+
+    suspend fun publishAutuRelease(
+        accessToken: String,
+        autuId: String,
+        source: String,
+        version: String,
+        languageVersion: String = "0.2"
+    ) {
+        require(autuId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/admin/autu/products/$autuId/releases",
+            "POST",
+            JSONObject()
+                .put("source", source)
+                .put("version", version)
+                .put("languageVersion", languageVersion),
+            accessToken
+        )
+        if (!result.optBoolean("published")) throw IOException("Máy chủ không xác nhận đã phát hành phiên bản AUTU.")
+    }
+
+    suspend fun listAutuCustomers(accessToken: String): List<AutuCustomer> {
+        val result = apiRequest("/api/admin/autu/customers", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("customers") ?: return emptyList()
+        return buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val email = item.optString("email")
+                if (id.isBlank() || email.isBlank()) continue
+                add(AutuCustomer(id, email, item.optString("display_name").takeIf { it.isNotBlank() && it != "null" }, item.optString("status")))
+            }
+        }
+    }
+
+    suspend fun setAutuLicense(
+        accessToken: String,
+        autuId: String,
+        userId: String,
+        status: String = "ACTIVE",
+        expiresAt: Long? = null,
+        maxDevices: Int = 1
+    ) {
+        require(autuId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val body = JSONObject()
+            .put("status", status)
+            .put("maxDevices", maxDevices.coerceIn(1, 10))
+        if (expiresAt == null) body.put("expiresAt", JSONObject.NULL) else body.put("expiresAt", expiresAt)
+        val result = apiRequest(
+            "/api/admin/autu/products/$autuId/licenses/$userId",
+            "PUT",
+            body,
+            accessToken
+        )
+        if (!result.optBoolean("updated")) throw IOException("Máy chủ không xác nhận đã cập nhật giấy phép AUTU.")
     }
 
     suspend fun listProjectScripts(accessToken: String, projectId: String): List<SharedScriptDraft> {
