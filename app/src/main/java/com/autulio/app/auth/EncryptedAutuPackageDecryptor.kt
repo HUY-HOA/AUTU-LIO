@@ -1,7 +1,7 @@
 package com.autulio.app.auth
 
-import android.util.Base64
 import java.security.MessageDigest
+import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -11,19 +11,23 @@ object EncryptedAutuPackageDecryptor {
         identityStore: SecureDeviceIdentityStore,
         encryptedPackage: EncryptedAutuPackage
     ): String {
-        require(encryptedPackage.version > 0)
-        require(encryptedPackage.ciphertext.isNotBlank() && encryptedPackage.ciphertext.length <= 100_000)
-        require(encryptedPackage.contentIv.isNotBlank() && encryptedPackage.wrappedKey.isNotBlank())
-
         val dataKey = identityStore.decryptPackageKey(encryptedPackage.wrappedKey)
+        return decryptSourceUsingDataKey(encryptedPackage, dataKey)
+    }
+
+    internal fun decryptSourceUsingDataKey(
+        encryptedPackage: EncryptedAutuPackage,
+        dataKey: ByteArray
+    ): String {
         try {
+            require(encryptedPackage.version > 0)
+            require(encryptedPackage.ciphertext.isNotBlank() && encryptedPackage.ciphertext.length <= 200_000)
+            require(encryptedPackage.contentIv.isNotBlank() && encryptedPackage.wrappedKey.isNotBlank())
             require(dataKey.size == 32) { "Khóa giải mã gói AUTU không hợp lệ." }
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            val iv = Base64.decode(
-                encryptedPackage.contentIv,
-                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
-            )
+
+            val iv = Base64.getUrlDecoder().decode(encryptedPackage.contentIv)
             require(iv.size == 12) { "IV gói AUTU không hợp lệ." }
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(
                 Cipher.DECRYPT_MODE,
                 SecretKeySpec(dataKey, "AES"),
@@ -31,10 +35,7 @@ object EncryptedAutuPackageDecryptor {
             )
             val context = "AUTU-LIO|PACKAGE|${encryptedPackage.id}|v${encryptedPackage.version}"
             cipher.updateAAD(context.toByteArray(Charsets.UTF_8))
-            val encryptedBytes = Base64.decode(
-                encryptedPackage.ciphertext,
-                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
-            )
+            val encryptedBytes = Base64.getUrlDecoder().decode(encryptedPackage.ciphertext)
             val plainBytes = cipher.doFinal(encryptedBytes)
             try {
                 val digest = MessageDigest.getInstance("SHA-256")
