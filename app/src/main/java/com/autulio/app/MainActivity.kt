@@ -300,6 +300,8 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 
 @Composable
 internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit, onRoleUpdated: () -> Unit) {
+    val context = LocalContext.current
+    val authRepository = remember(context) { AuthRepository(context) }
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
     var selectedAutu by remember { mutableStateOf<com.autulio.app.auth.PublishedAutu?>(null) }
@@ -359,7 +361,7 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                         } else {
                             scope.launch {
                                 try {
-                                    AuthRepository(LocalContext.current).acceptInvitation(accessToken, invitationToken)
+                                    authRepository.acceptInvitation(accessToken, invitationToken)
                                     host.showSnackbar(tr("Đã chấp nhận lời mời. Đang cập nhật quyền tài khoản…", "Invitation accepted. Refreshing account access…"))
                                     onRoleUpdated()
                                 } catch (error: Exception) {
@@ -1053,7 +1055,6 @@ private fun CustomerScriptDetail(
     val repository = remember(context) { AuthRepository(context) }
     val scope = rememberCoroutineScope()
     var downloading by remember { mutableStateOf(false) }
-    var lastRunReady by remember { mutableStateOf(false) }
     var lastError by remember { mutableStateOf("") }
 
     Column(
@@ -1094,11 +1095,9 @@ private fun CustomerScriptDetail(
                             } else {
                                 val service = AutoClickAccessibilityService.current()
                                 if (service == null) {
-                                    lastRunReady = false
                                     onNotice(tr("Hãy bật AUTU-LIO trong Cài đặt > Trợ năng, sau đó quay lại nhấn Tải và chuẩn bị chạy.", "Enable AUTU-LIO in Settings > Accessibility, then return and tap Download and prepare again."))
                                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                                 } else if (service.prepareProgram(compilation.program!!)) {
-                                    lastRunReady = true
                                     onNotice(tr("Gói đã kiểm tra và sẵn sàng. Mở ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.", "Package verified and ready. Open the target app, then press Run in the floating window."))
                                 } else {
                                     lastError = tr("Không thể mở bộ điều khiển. Hãy dừng AUTU đang chạy hoặc kiểm tra quyền Trợ năng.", "The runner could not be opened. Stop the current AUTU or check Accessibility access.")
