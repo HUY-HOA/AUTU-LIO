@@ -994,7 +994,7 @@ private fun ActionTile(title: String, icon: ImageVector, modifier: Modifier, onC
 }
 
 @Composable
-private fun EmptyState(icon: ImageVector, title: String, message: String) {
+internal fun EmptyState(icon: ImageVector, title: String, message: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
