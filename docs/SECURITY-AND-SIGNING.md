@@ -72,10 +72,27 @@ Chỉ nhập chuỗi Base64 vào `AUTU_LIO_RELEASE_KEYSTORE_BASE64`; nhập riê
 
 Dữ liệu cần ở dạng plaintext trong editor khi chủ sở hữu chỉnh sửa; thiết bị đã root hoặc tiến trình bị hook vẫn có thể đọc nội dung lúc đang mở. Mã hóa lưu trữ giúp bảo vệ dữ liệu khi file preferences bị lấy riêng lẻ, không chống được mọi hình thức tấn công trên thiết bị đã bị kiểm soát.
 
-## 5. Những lớp cần tiếp tục hoàn thiện
+## 5. Mã hóa và phân phối gói AUTU
 
-- Xác minh quyền và license phía Worker trước mọi API quản trị/phát hành.
-- Mã hóa package kịch bản trước khi lưu và phân phối từ R2; dùng khóa ngẫu nhiên theo package và cơ chế xoay/thu hồi khóa.
-- Thêm kiểm tra integrity/anti-tamper phù hợp, nhưng không xem chúng là ranh giới bảo mật duy nhất.
-- Kiểm thử cài đặt/cập nhật Release bằng cùng một khóa trên thiết bị thật.
-- Lưu backup signing key riêng; không tự động xoay hoặc thay khóa ký của ứng dụng đã phát hành.
+Worker hiện có mã nguồn cho quy trình phát hành gói AUTU theo phiên bản; API chỉ hoạt động sau khi Worker được triển khai, D1 migration và secret được cấu hình.
+
+- Mỗi phiên bản tạo khóa dữ liệu AES-256 ngẫu nhiên riêng và nonce AES-GCM 96-bit riêng.
+- Mã nguồn được mã hóa bằng AES-256-GCM với tag 128-bit và AAD gắn với package ID + version để ngăn tráo dữ liệu giữa các phiên bản.
+- D1 chỉ lưu ciphertext, nonce nội dung, khóa dữ liệu đã mã hóa, nonce của khóa, phiên bản master key và SHA-256; không lưu source dạng rõ trong bảng phiên bản.
+- Khóa dữ liệu được bảo vệ bằng PACKAGE_MASTER_KEY_V1 (32 byte ngẫu nhiên) lưu trong Worker secret, không nhúng vào APK. Mỗi version ghi lại key_version để có thể xoay master key có kiểm soát.
+- Khi khách hàng tải gói, Worker kiểm tra tài khoản, license đang hiệu lực và thiết bị RSA-3072 đang ACTIVE thuộc chính tài khoản đó.
+- Worker chỉ bọc lại khóa AES 32 byte cho public key của thiết bị; private key không xuất được nằm trong Android Keystore. Android giải mã AES-GCM, xác minh SHA-256 rồi mới biên dịch/chạy.
+- Phiên bản đã phát hành là bất biến; cập nhật tạo version mới. Chủ sở hữu có thể lưu trữ hoặc khôi phục package.
+
+RSA-OAEP SHA-1/MGF1-SHA1 hiện chỉ dùng để bọc khóa AES 32 byte nhằm tương thích với Android Keystore OAEP MGF1 mặc định trên thiết bị đích. Nội dung script vẫn được mã hóa bằng AES-256-GCM. SHA-1 ở bước wrap không phải thuật toán mã hóa nội dung. Có thể nâng cấp giao thức theo khả năng OAEP SHA-256/MGF1 của thiết bị trong một phiên bản tương lai.
+
+Không có khóa giải mã chung trong APK. Tuy nhiên, khi script được giải mã và chạy, nội dung sẽ có trong bộ nhớ tiến trình; không thể bảo đảm chống sao chép tuyệt đối trên thiết bị đã bị kiểm soát. R8 chỉ shrink/obfuscate mã APK, không phải mã hóa tuyệt đối.
+
+## 6. Điều kiện trước khi phát hành thật
+
+- Worker chưa được deploy; cần cấu hình Google OAuth và D1 migrations còn thiếu.
+- Cần đặt GOOGLE_CLIENT_ID, OWNER_EMAIL và PACKAGE_MASTER_KEY_V1 bằng Worker secrets. Không đưa các giá trị này vào Git, chat hoặc APK.
+- Cần kiểm thử đăng nhập thật, cấp license, đăng ký thiết bị, phát hành, tải/giải mã và thu hồi trên thiết bị Android thật.
+- Cần tạo keystore ký Release riêng cho AUTU-LIO, lưu bản sao lưu an toàn và cấu hình đủ bốn GitHub Actions secrets.
+- Kiểm thử cài đặt/cập nhật Release bằng cùng một chữ ký ổn định; không tự động xoay hoặc thay signing key sau khi đã phát hành.
+- Tiếp tục bổ sung kiểm thử runtime và chống giả mạo phù hợp; không xem R8 hay mã hóa package là ranh giới bảo mật duy nhất.
