@@ -7,7 +7,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Devices
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.*
@@ -87,9 +86,11 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                                 Text(customer.displayName ?: customer.email, fontWeight = FontWeight.SemiBold)
                                 Text(customer.email, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
-                            AssistChip(
-                                onClick = {},
-                                label = { Text(if (customer.status == "ACTIVE") tr("Hoạt động", "Active") else customer.status) }
+                            Text(
+                                if (customer.status == "ACTIVE") tr("Hoạt động", "Active") else customer.status,
+                                color = if (customer.status == "ACTIVE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                         Text(
@@ -338,7 +339,12 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
                             Text(device.label.ifBlank { "${device.manufacturer} ${device.model}".trim().ifBlank { device.email } }, fontWeight = FontWeight.SemiBold)
                             Text(device.email, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                         }
-                        AssistChip(onClick = {}, label = { Text(device.status) })
+                        Text(
+                            device.status,
+                            color = if (device.status == "ACTIVE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                     Text("${device.manufacturer} ${device.model} · Android ${device.androidVersion}", fontSize = 12.sp)
                     Text(
