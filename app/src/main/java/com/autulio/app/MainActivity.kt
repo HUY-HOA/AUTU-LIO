@@ -175,34 +175,17 @@ private val customerTabs = listOf(
 @Composable
 internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
     val context = LocalContext.current
-    val preferences = remember(context) {
-        context.getSharedPreferences("autulio_admin_drafts", Context.MODE_PRIVATE)
-    }
+    val draftStore = remember(context) { SecureScriptDraftStore(context) }
+    val initialDrafts = remember(draftStore) { draftStore.load() }
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("overview") }
     var editor by rememberSaveable { mutableStateOf<String?>(null) }
     var createDialog by remember { mutableStateOf(false) }
-    val scripts = remember(preferences) {
-        mutableStateListOf<String>().apply {
-            val saved = runCatching {
-                JSONArray(preferences.getString("scripts", "[]") ?: "[]")
-            }.getOrNull()
-            if (saved != null) {
-                for (index in 0 until saved.length()) {
-                    val name = saved.optString(index).trim()
-                    if (name.isNotEmpty() && none { it.equals(name, ignoreCase = true) }) add(name)
-                }
-            }
-        }
+    val scripts = remember(initialDrafts) {
+        mutableStateListOf<String>().apply { addAll(initialDrafts.names) }
     }
-    val draftContents = remember(preferences) {
-        mutableStateMapOf<String, String>().apply {
-            preferences.all.forEach { (key, value) ->
-                if (key.startsWith("draft:") && value is String) {
-                    put(key.removePrefix("draft:"), value)
-                }
-            }
-        }
+    val draftContents = remember(initialDrafts) {
+        mutableStateMapOf<String, String>().apply { putAll(initialDrafts.contents) }
     }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -231,16 +214,13 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     code = draftContents[editingName].orEmpty(),
                     onCodeChange = {
                         draftContents[editingName] = it
-                        preferences.edit().putString("draft:$editingName", it).apply()
+                        draftStore.save(scripts.toList(), draftContents.toMap())
                     },
                     modifier = Modifier.padding(padding),
                     onBack = { editor = null },
                     onMessage = { scope.launch { host.showSnackbar(it) } },
                     onSaveDraft = {
-                        preferences.edit()
-                            .putString("scripts", JSONArray(scripts).toString())
-                            .putString("draft:$editingName", draftContents[editingName].orEmpty())
-                            .apply()
+                        draftStore.save(scripts.toList(), draftContents.toMap())
                         scope.launch {
                             host.showSnackbar(tr("Đã lưu bản nháp trên thiết bị này. Chưa đồng bộ máy chủ.", "Draft saved on this device. It has not been synced to a server."))
                         }
@@ -306,10 +286,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                 } else {
                     scripts.add(name)
                     draftContents[name] = ""
-                    preferences.edit()
-                        .putString("scripts", JSONArray(scripts).toString())
-                        .putString("draft:$name", "")
-                        .apply()
+                    draftStore.save(scripts.toList(), draftContents.toMap())
                     editor = name
                     page = "scripts"
                     createDialog = false
