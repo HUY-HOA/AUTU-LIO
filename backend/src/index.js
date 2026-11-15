@@ -4,7 +4,7 @@ const ASSIGNABLE_ROLES = new Set(["CUSTOMER", ...OWNER_ROLES]);
 const ROLE_PERMISSIONS = {
   OWNER: ["*"],
   DEVELOPER: ["VIEW_ADMIN_WORKSPACE", "EDIT_SCRIPTS", "TEST_SCRIPTS", "SUBMIT_RELEASE"],
-  DESIGNER: ["VIEW_ADMIN_WORKSPACE", "EDIT_UI_DESIGN", "PREVIEW_UI"],
+  DESIGNER: ["VIEW_ADMIN_WORKSPACE", "EDIT_UI_DESIGN", "PREVIEW_UI", "SUBMIT_RELEASE"],
   REVIEWER: ["VIEW_ADMIN_WORKSPACE", "TEST_SCRIPTS", "REVIEW_RELEASE"],
   CUSTOMER: ["RUN_PUBLISHED_SCRIPTS", "VIEW_OWN_ACCOUNT"]
 };
@@ -26,7 +26,7 @@ const ALL_PERMISSION_NAMES = [
 
 const ROLE_CONFIGURABLE_PERMISSIONS = {
   DEVELOPER: ["EDIT_SCRIPTS", "TEST_SCRIPTS", "SUBMIT_RELEASE"],
-  DESIGNER: ["EDIT_UI_DESIGN", "PREVIEW_UI"],
+  DESIGNER: ["EDIT_UI_DESIGN", "PREVIEW_UI", "SUBMIT_RELEASE"],
   REVIEWER: ["TEST_SCRIPTS", "REVIEW_RELEASE"],
   CUSTOMER: []
 };
@@ -550,6 +550,9 @@ const MAX_DRAFT_SOURCE_CHARS = 64_000;
 const MAX_UI_DESIGN_CHARS = 64_000;
 
 async function requireProjectAccess(env, session, projectId) {
+  if (session.role !== "OWNER" && !["DEVELOPER", "DESIGNER", "REVIEWER"].includes(session.role)) {
+    throw new HttpError(404, "project_not_found", "Project was not found.");
+  }
   if (!PROJECT_ID_PATTERN.test(projectId)) {
     throw new HttpError(400, "invalid_project_id", "Project ID is invalid.");
   }
@@ -577,7 +580,8 @@ async function listProjects(request, env, session) {
     : env.DB.prepare(
       "SELECT p.id, p.name, p.description, p.status, p.created_at, p.updated_at, u.role AS access_role " +
       "FROM projects p JOIN project_memberships m ON m.project_id = p.id " +
-      "JOIN users u ON u.id = m.user_id WHERE m.user_id = ? AND p.status = 'ACTIVE' ORDER BY p.updated_at DESC"
+      "JOIN users u ON u.id = m.user_id WHERE m.user_id = ? AND p.status = 'ACTIVE' " +
+      "AND u.role IN ('DEVELOPER','DESIGNER','REVIEWER') ORDER BY p.updated_at DESC"
     ).bind(session.user_id);
   const result = await query.all();
   return response(request, { projects: result.results || [] }, 200, env);
@@ -602,6 +606,17 @@ async function createProject(request, env, session) {
   ).bind(projectId, name, description, session.user_id, now, now).run();
   await audit(env, session.user_id, "project.created", "project", projectId, { name });
   return response(request, { created: true, project: { id: projectId, name, description, status: "ACTIVE" } }, 201, env);
+}
+
+async function listProjectMembers(request, env, session, projectId) {
+  await requireRole(session, ["OWNER"]);
+  await requireProjectAccess(env, session, projectId);
+  const result = await env.DB.prepare(
+    "SELECT u.id, u.email, u.display_name, u.role, u.status, m.created_at AS added_at " +
+    "FROM project_memberships m JOIN users u ON u.id = m.user_id " +
+    "WHERE m.project_id = ? ORDER BY m.created_at ASC"
+  ).bind(projectId).all();
+  return response(request, { members: result.results || [] }, 200, env);
 }
 
 async function addProjectMember(request, env, session, projectId) {
@@ -993,6 +1008,9 @@ async function route(request, env) {
   if (method === "POST" && path === "/api/admin/projects") return await createProject(request, env, session);
 
   const projectMemberMatch = path.match(/^\/api\/admin\/projects\/([0-9a-f-]{36})\/members$/i);
+  if (projectMemberMatch && method === "GET") {
+    return await listProjectMembers(request, env, session, projectMemberMatch[1]);
+  }
   if (projectMemberMatch && method === "POST") {
     return await addProjectMember(request, env, session, projectMemberMatch[1]);
   }
