@@ -137,8 +137,17 @@ async function verifyGoogleIdToken(idToken, expectedNonce, env) {
   if (!issuerValid || !audiences.includes(env.GOOGLE_CLIENT_ID)) {
     throw new HttpError(401, "invalid_token_audience", "Google ID token issuer or audience is invalid.");
   }
-  if (claims.azp && claims.azp !== env.GOOGLE_CLIENT_ID) {
-    throw new HttpError(401, "invalid_authorized_party", "Google ID token authorized party is invalid.");
+  if (claims.azp) {
+    const allowedAuthorizedParties = new Set([
+      env.GOOGLE_CLIENT_ID,
+      ...(env.GOOGLE_ALLOWED_AZP || "")
+        .split(",")
+        .map(value => value.trim())
+        .filter(Boolean)
+    ]);
+    if (!allowedAuthorizedParties.has(claims.azp)) {
+      throw new HttpError(401, "invalid_authorized_party", "Google ID token authorized party is invalid.");
+    }
   }
   if (!Number.isFinite(claims.exp) || claims.exp <= now ||
       !Number.isFinite(claims.iat) || claims.iat > now + 60) {
