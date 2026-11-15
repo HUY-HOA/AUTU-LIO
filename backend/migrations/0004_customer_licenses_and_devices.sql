@@ -40,3 +40,16 @@ CREATE INDEX IF NOT EXISTS idx_devices_user_status
 ON devices(user_id, status, registered_at DESC);
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen
 ON devices(last_seen_at DESC);
+
+CREATE TABLE IF NOT EXISTS device_enrollment_challenges (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  nonce_hash TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  consumed_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_device_enrollment_challenges_expiry
+ON device_enrollment_challenges(expires_at);
+CREATE INDEX IF NOT EXISTS idx_device_enrollment_challenges_user
+ON device_enrollment_challenges(user_id, created_at DESC);
