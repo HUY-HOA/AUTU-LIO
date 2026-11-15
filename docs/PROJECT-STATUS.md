@@ -23,6 +23,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Bản nháp chưa đồng bộ máy chủ và chưa được mã hóa riêng ở tầng ứng dụng.
 - Trang Khách hàng và Thiết bị.
 - Trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
+- Trang Quản lý cộng tác viên prototype: nhập Gmail, chọn Nhà phát triển / Nhà thiết kế / Người kiểm duyệt, lưu và xóa bản nháp lời mời cục bộ. Chưa gửi lời mời, chưa gán vai trò trên máy chủ.
 - Chuyển giao diện sáng / tối.
 
 ### Giao diện người dùng
@@ -53,7 +54,6 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 ## 4. Phần chưa triển khai
 
 - Google Credential Manager / Google Sign-In và hệ thống tài khoản thực.
-- Trang Quản lý cộng tác viên đã có prototype: nhập Gmail, chọn Nhà phát triển / Nhà thiết kế / Người kiểm duyệt, lưu và xóa bản nháp lời mời cục bộ. Chưa gửi lời mời, chưa gán vai trò trên máy chủ.
 - Cloudflare Workers / D1 / R2 và API.
 - Xác minh Google ID token phía máy chủ, session và phân quyền vai trò.
 - Quản lý lời mời, cộng tác viên và lịch sử thay đổi quyền.
