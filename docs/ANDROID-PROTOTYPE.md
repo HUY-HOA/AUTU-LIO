@@ -22,6 +22,8 @@ Bản prototype dùng để kiểm tra bố cục, màu sắc, điều hướng 
 - Mục Thêm mở được các trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
 - Trang Khách hàng và Thiết bị có bố cục quản trị riêng, hiện trạng thái chưa có dữ liệu máy chủ.
 - Bộ lọc Kịch bản phân biệt Bản nháp và Đã phát hành.
+- Màn hình Dự án cộng tác cho phép tạo dự án, thêm/gỡ cộng tác viên đã chấp nhận lời mời.
+- Workspace Nhà phát triển lưu bản nháp mã chung theo revision; workspace Nhà thiết kế chỉnh tiêu đề, mô tả, màu và thành phần UI với preview trực tiếp; workspace Người kiểm duyệt duyệt/từ chối snapshot.
 
 ### AutoClick
 - Màn hình chào và đăng nhập Google ở dạng giao diện.
@@ -34,8 +36,8 @@ Bản prototype dùng để kiểm tra bố cục, màu sắc, điều hướng 
 - Bật/tắt giao diện sáng và tối.
 
 ## 4. Những chức năng chưa hoạt động
-- Google OAuth và tài khoản thật.
-- Kết nối Cloudflare Workers / D1 / R2.
+- Google OAuth và tài khoản thật; Worker chưa deploy.
+- Kết nối API thời gian thực tới Cloudflare Worker (D1 migration đã áp dụng, nhưng API chưa hoạt động từ app cho đến khi Worker deploy).
 - Đăng ký và đồng bộ thiết bị thật.
 - Giấy phép, thanh toán, gia hạn và thu hồi.
 - Ngôn ngữ lập trình riêng, compiler và runtime.
@@ -60,6 +62,7 @@ Liên kết workflow: https://github.com/HUY-HOA-1/AUTU-LIO/actions/workflows/bu
 - Tài khoản/role thực phải được Cloudflare Worker xác minh từ Google ID token và dữ liệu quyền phía máy chủ.
 - Không dùng màn hình đăng nhập prototype với tài khoản thật cho đến khi OAuth được tích hợp.
 - Đây là APK debug để thử giao diện, không phải bản phát hành thương mại.
+- CI hiện chỉ xác nhận biên dịch Kotlin; chưa đóng gói APK trong các lượt kiểm tra mã nguồn.
 - Không dùng APK prototype để bán hoặc cấp cho khách hàng.
 - Không nhập mật khẩu Google thật vào màn hình thử nghiệm.
 - Chỉ cấp quyền Android khi chức năng thực tế cần quyền đó và đã có giải thích.
