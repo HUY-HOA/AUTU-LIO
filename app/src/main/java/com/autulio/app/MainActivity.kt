@@ -308,22 +308,11 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
         ) { padding ->
             when (page) {
                 "home" -> CustomerHome(Modifier.padding(padding), email = email, onScripts = { page = "scripts" })
-                "scripts" -> if (scriptDetail) {
-                    CustomerScriptDetail(
-                        Modifier.padding(padding),
-                        onBack = { scriptDetail = false },
-                        onPreviewAction = {
-                            scope.launch {
-                                host.showSnackbar(tr("Runtime AutoClick chưa được tích hợp. Chưa có thao tác nào được thực hiện.", "AutoClick runtime is not integrated. No screen action was performed."))
-                            }
-                        }
-                    )
-                } else {
-                    CustomerScriptsScreen(
-                        Modifier.padding(padding),
-                        onOpen = { scriptDetail = true }
-                    )
-                }
+                "scripts" -> CustomerPackagesScreen(
+                    accessToken = accessToken,
+                    modifier = Modifier.padding(padding),
+                    onOpenDevices = { page = "device" }
+                )
                 "device" -> CustomerDeviceLicenseScreen(
                     accessToken = accessToken,
                     modifier = Modifier.padding(padding)
