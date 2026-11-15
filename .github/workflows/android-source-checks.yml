@@ -46,5 +46,18 @@ jobs:
         with:
           gradle-version: "9.6.0"
 
+      - name: Verify Maven repositories
+        run: |
+          set -e
+          urls=(
+            "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.4.21/kotlin-gradle-plugins-bom-2.4.21.pom"
+            "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.pom"
+            "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.9/asm-9.9.pom"
+            "https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/9.3.1/gradle-9.3.1.pom"
+          )
+          for url in "${urls[@]}"; do
+            curl --fail --silent --show-error --location --output /dev/null --write-out "%{http_code} %{url_effective}\n" "$url"
+          done
+
       - name: Compile Kotlin sources only
-        run: gradle --no-daemon :app:compileDebugKotlin
+        run: gradle --no-daemon --info :app:compileDebugKotlin
