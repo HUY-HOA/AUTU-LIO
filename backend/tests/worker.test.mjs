@@ -192,22 +192,21 @@ test("non-owner cannot read customer license administration", async () => {
   assert.equal((await json(response)).error, "insufficient_permissions");
 });
 
-test("device registration rejects a valid public key until the account has an active license", async () => {
-  const keyPair = await crypto.subtle.generateKey(
-    {
-      name: "RSA-OAEP",
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: "SHA-256"
-    },
-    true,
-    ["encrypt", "decrypt"]
+test("device enrollment challenge requires an active customer license", async () => {
+  const { env } = createEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/customer/devices/challenge", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${"G".repeat(48)}` }
+    }),
+    env
   );
-  const spki = new Uint8Array(await crypto.subtle.exportKey("spki", keyPair.publicKey));
-  let binary = "";
-  for (const byte of spki) binary += String.fromCharCode(byte);
-  const publicKeySpki = btoa(binary);
 
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "active_license_required");
+});
+
+test("device registration rejects unsigned or missing one-time proof", async () => {
   const { env } = createEnv({ session: customerSession });
   const response = await worker.fetch(
     makeRequest("/api/customer/devices", {
@@ -216,14 +215,15 @@ test("device registration rejects a valid public key until the account has an ac
         Authorization: `Bearer ${"G".repeat(48)}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ publicKeySpki, label: "My Android" })
+      body: JSON.stringify({ publicKeySpki: "A".repeat(500), label: "My Android" })
     }),
     env
   );
 
-  assert.equal(response.status, 403);
-  assert.equal((await json(response)).error, "active_license_required");
+  assert.equal(response.status, 400);
+  assert.equal((await json(response)).error, "invalid_device_proof");
 });
+
 
 test("owner cannot create a license for an invalid customer identifier", async () => {
   const { env } = createEnv({ session: ownerSession });
