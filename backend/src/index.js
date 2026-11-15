@@ -79,7 +79,16 @@ function randomToken(size = 32) {
 }
 
 async function sha256(value) {
-  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
+  const bytes = encoder.encode(value);
+  try {
+    return await sha256Bytes(bytes);
+  } finally {
+    bytes.fill(0);
+  }
+}
+
+async function sha256Bytes(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -1364,6 +1373,7 @@ async function encryptPackageSource(env, packageId, version, source) {
   const contentIv = randomBytes(12);
   const keyIv = randomBytes(12);
   const context = packageContext(packageId, version);
+  const sourceBytes = encoder.encode(source);
   try {
     const contentKey = await crypto.subtle.importKey(
       "raw",
@@ -1375,7 +1385,7 @@ async function encryptPackageSource(env, packageId, version, source) {
     const ciphertext = await crypto.subtle.encrypt(
       { name: "AES-GCM", iv: contentIv, additionalData: encoder.encode(context), tagLength: 128 },
       contentKey,
-      encoder.encode(source)
+      sourceBytes
     );
     const encryptedDataKey = await crypto.subtle.encrypt(
       {
@@ -1392,10 +1402,11 @@ async function encryptPackageSource(env, packageId, version, source) {
       contentIv: base64UrlEncode(contentIv),
       encryptedDataKey: base64UrlEncode(new Uint8Array(encryptedDataKey)),
       keyIv: base64UrlEncode(keyIv),
-      sourceSha256: await sha256(source),
+      sourceSha256: await sha256Bytes(sourceBytes),
       keyVersion
     };
   } finally {
+    sourceBytes.fill(0);
     dataKeyBytes.fill(0);
   }
 }
@@ -1404,7 +1415,6 @@ async function wrapPackageKeyForDevice(env, packageId, version, encryptedDataKey
   const masterKey = await packageMasterKey(env, keyVersion);
   const context = packageContext(packageId, version);
   let dataKeyBytes;
-  let publicKey;
   try {
     dataKeyBytes = new Uint8Array(await crypto.subtle.decrypt(
       {
@@ -1416,17 +1426,18 @@ async function wrapPackageKeyForDevice(env, packageId, version, encryptedDataKey
       masterKey,
       base64UrlDecode(encryptedDataKey)
     ));
-    publicKey = await crypto.subtle.importKey(
+  } catch {
+    throw new HttpError(503, "package_key_wrap_failed", "The package key could not be prepared for this device.");
+  }
+
+  try {
+    const publicKey = await crypto.subtle.importKey(
       "spki",
       base64UrlDecode(publicKeySpki),
       { name: "RSA-OAEP", hash: "SHA-1" },
       false,
       ["encrypt"]
     );
-  } catch {
-    throw new HttpError(503, "package_key_wrap_failed", "The package key could not be prepared for this device.");
-  }
-  try {
     if (dataKeyBytes.length !== 32 || !Number.isInteger(publicKey.algorithm?.modulusLength) ||
         publicKey.algorithm.modulusLength < 3072) {
       throw new HttpError(403, "device_key_not_supported", "This registered device does not have a supported RSA-3072 package key.");
