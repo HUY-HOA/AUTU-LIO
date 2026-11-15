@@ -37,6 +37,8 @@ Không gửi các giá trị này qua chat, issue, commit hoặc log.
 
 ### Tạo khóa ký trên máy tính do chủ sở hữu kiểm soát
 
+Mỗi ứng dụng nên có keystore riêng. Không dùng chung keystore của COC-LIO cho AUTU-LIO; khóa này là danh tính ký riêng của gói `com.autulio.app`.
+
 Dùng JDK `keytool` trên máy tính riêng, tạo một lần duy nhất:
 
 ```bash
@@ -54,7 +56,7 @@ Chuyển file sang Base64 để nhập vào secret:
 - Linux/macOS: `base64 < autu-lio-release.p12 | tr -d '\n'`
 - Windows PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("autu-lio-release.p12"))`
 
-Chỉ nhập chuỗi Base64 vào `AUTU_LIO_RELEASE_KEYSTORE_BASE64`; nhập riêng ba giá trị còn lại vào các secret tương ứng. Không commit file .p12 hoặc file chứa mật khẩu.
+Chỉ nhập chuỗi Base64 vào `AUTU_LIO_RELEASE_KEYSTORE_BASE64`; nhập riêng ba giá trị còn lại vào các secret tương ứng. Không commit file .p12 hoặc file chứa mật khẩu. Bản Debug đang cài có thể phải gỡ trước khi cài Release lần đầu vì chứng thư ký khác nhau; sau đó mọi bản Release cập nhật phải dùng cùng keystore.
 
 ### Cách workflow xử lý
 
