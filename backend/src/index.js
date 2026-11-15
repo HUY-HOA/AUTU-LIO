@@ -1717,6 +1717,18 @@ async function route(request, env) {
   const deviceMatch = path.match(/^\/api\/admin\/devices\/([0-9a-f-]{36})$/i);
   if (deviceMatch && method === "PATCH") return await revokeCustomerDevice(request, env, session, deviceMatch[1]);
 
+
+  if (method === "GET" && path === "/api/admin/packages") return await listAdminAutuPackages(request, env, session);
+  if (method === "POST" && path === "/api/admin/packages") return await publishAutuPackage(request, env, session);
+  const adminPackageMatch = path.match(/^\/api\/admin\/packages\/([0-9a-f-]{36})$/i);
+  if (adminPackageMatch && method === "PATCH") return await updateAdminAutuPackage(request, env, session, adminPackageMatch[1]);
+
+  if (method === "GET" && path === "/api/customer/packages") return await listCustomerAutuPackages(request, env, session);
+  const customerPackageDownloadMatch = path.match(/^\/api\/customer\/packages\/([0-9a-f-]{36})\/download$/i);
+  if (customerPackageDownloadMatch && method === "GET") {
+    return await downloadCustomerAutuPackage(request, env, session, customerPackageDownloadMatch[1]);
+  }
+
   if (method === "POST" && path === "/api/auth/logout") {
     const now = Math.floor(Date.now() / 1000);
     await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL").bind(now, session.session_id).run();
