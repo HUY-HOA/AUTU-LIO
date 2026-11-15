@@ -557,7 +557,8 @@ internal fun CustomerDeviceLicenseScreen(
 @Composable
 internal fun AdminPackagesScreen(
     accessToken: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -602,6 +603,8 @@ internal fun AdminPackagesScreen(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        BrandHeader(admin = true)
+        TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Heading(
