@@ -361,58 +361,6 @@ internal fun CustomerApp(email: String, onLogout: () -> Unit) {
         }
     }
 }
-@Composable
-private fun CustomerLoginPage(
-    modifier: Modifier,
-    onGoogle: () -> Unit,
-    onPreview: () -> Unit
-) {
-    Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Spacer(Modifier.height(24.dp))
-        BrandHeader(admin = false)
-        Spacer(Modifier.height(24.dp))
-        Icon(
-            Icons.Outlined.Code,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(54.dp)
-        )
-        Heading(
-            tr("Chào mừng đến với AUTU-LIO", "Welcome to AUTU-LIO"),
-            tr("Đăng nhập để sử dụng các kịch bản được cấp phép.", "Sign in to use your licensed scripts.")
-        )
-        CardBox {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = onGoogle, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Outlined.Person, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(tr("Đăng nhập bằng Google", "Continue with Google"))
-                }
-                OutlinedButton(onClick = onPreview, modifier = Modifier.fillMaxWidth()) {
-                    Text(tr("Xem trước giao diện", "Preview the interface"))
-                }
-                Text(
-                    tr("Đăng nhập Google chưa hoạt động trong bản thử nghiệm này. Bạn có thể vào chế độ xem trước để kiểm tra giao diện.",
-                        "Google sign-in is not active in this prototype. Use preview mode to explore the interface."),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-        Text(
-            tr("Bằng cách tiếp tục, bạn sẽ xem được Điều khoản và Chính sách quyền riêng tư khi tính năng tài khoản được tích hợp.",
-                "Terms and Privacy information will be shown when account features are integrated."),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center
-        )
-    }
-}
 
 @Composable
 private fun OverviewScreen(modifier: Modifier, onNavigate: (String) -> Unit, onCreate: () -> Unit) {
