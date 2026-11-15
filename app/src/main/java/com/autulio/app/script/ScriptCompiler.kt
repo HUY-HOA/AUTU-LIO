@@ -347,6 +347,7 @@ object ScriptCompiler {
             val condition = parseParenthesizedExpression()
             val thenBody = parseBraceBlock(depth + 1, loopDepth)
             if (thenBody.isEmpty()) fail(name.line, name.column, "empty_if", "Khối NẾU không được để trống.", "The NẾU block cannot be empty.")
+            val afterThenBlock = index
             skipSeparators()
             val elseBody = when {
                 isIdentifier("NGƯỢC_LẠI") -> {
@@ -357,7 +358,10 @@ object ScriptCompiler {
                     val elseToken = advance()
                     listOf(parseIf(elseToken, depth, loopDepth))
                 }
-                else -> emptyList()
+                else -> {
+                    index = afterThenBlock
+                    emptyList()
+                }
             }
             return ScriptInstruction.If(condition, thenBody, elseBody)
         }
