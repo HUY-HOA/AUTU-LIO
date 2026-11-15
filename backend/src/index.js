@@ -1323,6 +1323,332 @@ async function removeOwnDevice(request, env, session, deviceId) {
   return response(request, { removed: true, deviceId }, 200, env);
 }
 
+
+async function getPackageMasterKey(env) {
+  const encoded = typeof env.PACKAGE_MASTER_KEY === "string" ? env.PACKAGE_MASTER_KEY.trim() : "";
+  if (!encoded) {
+    throw new HttpError(503, "package_encryption_not_configured", "Published package encryption is not configured.");
+  }
+  let raw;
+  try {
+    raw = base64UrlDecode(encoded);
+  } catch {
+    throw new HttpError(503, "package_encryption_not_configured", "The package encryption key is invalid.");
+  }
+  if (raw.length !== 32) {
+    throw new HttpError(503, "package_encryption_not_configured", "The package encryption key must be 256 bits.");
+  }
+  return crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+function requirePackageBucket(env) {
+  if (!env.PACKAGE_BUCKET || typeof env.PACKAGE_BUCKET.put !== "function" ||
+      typeof env.PACKAGE_BUCKET.get !== "function") {
+    throw new HttpError(503, "package_storage_unavailable", "Encrypted package storage is not enabled.");
+  }
+  return env.PACKAGE_BUCKET;
+}
+
+async function publishAutuPackage(request, env, session) {
+  await requirePermission(env, session, "PUBLISH_RELEASE");
+  const bucket = requirePackageBucket(env);
+  const masterKey = await getPackageMasterKey(env);
+  const body = await readBody(request, 360_000);
+  const name = cleanDeviceText(body.name, 80);
+  const description = cleanDeviceText(body.description, 500);
+  const source = typeof body.source === "string" ? body.source : "";
+  const languageVersion = typeof body.languageVersion === "string" ? body.languageVersion.trim() : "";
+  const packageIdInput = typeof body.packageId === "string" ? body.packageId.trim() : "";
+  const now = Math.floor(Date.now() / 1000);
+
+  if (!name || !/^[\\p{L}\\p{N} _().-]{1,80}$/u.test(name)) {
+    throw new HttpError(400, "invalid_package_name", "The package name is invalid.");
+  }
+  if (!source.trim()) throw new HttpError(400, "empty_package_source", "The AUTU source cannot be empty.");
+  if (languageVersion !== "0.2") {
+    throw new HttpError(400, "unsupported_language_version", "Only AUTU language version 0.2 can be published.");
+  }
+  if (encoder.encode(source).byteLength > 262_144) {
+    throw new HttpError(413, "package_source_too_large", "The AUTU source exceeds 256 KiB.");
+  }
+  if (packageIdInput && !PROJECT_ID_PATTERN.test(packageIdInput)) {
+    throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  }
+
+  let packageRecord = null;
+  if (packageIdInput) {
+    packageRecord = await env.DB.prepare(
+      "SELECT id, name, status FROM autu_packages WHERE id = ?"
+    ).bind(packageIdInput).first();
+    if (!packageRecord) throw new HttpError(404, "package_not_found", "The AUTU package was not found.");
+  } else {
+    const duplicate = await env.DB.prepare(
+      "SELECT id FROM autu_packages WHERE name = ? COLLATE NOCASE"
+    ).bind(name).first();
+    if (duplicate) {
+      throw new HttpError(409, "package_name_exists", "An AUTU with this name already exists. Use its package ID to publish a new version.");
+    }
+  }
+  if (packageRecord?.status === "ARCHIVED") {
+    throw new HttpError(409, "package_archived", "An archived AUTU must be reactivated before publishing a new version.");
+  }
+
+  const packageId = packageRecord?.id || crypto.randomUUID();
+  const maxVersion = await env.DB.prepare(
+    "SELECT COALESCE(MAX(version_code), 0) AS max_version FROM autu_package_versions WHERE package_id = ?"
+  ).bind(packageId).first();
+  const versionCode = (maxVersion?.max_version || 0) + 1;
+  const versionId = crypto.randomUUID();
+  const versionName = typeof body.versionName === "string" && body.versionName.trim()
+    ? body.versionName.trim()
+    : "0.2." + versionCode;
+  if (!/^[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}$/.test(versionName)) {
+    throw new HttpError(400, "invalid_package_version", "Package version name is invalid.");
+  }
+
+  const plaintext = encoder.encode(source);
+  const sourceHash = await sha256(source);
+  const contentKeyBytes = crypto.getRandomValues(new Uint8Array(32));
+  const contentNonce = crypto.getRandomValues(new Uint8Array(12));
+  const contentKeyNonce = crypto.getRandomValues(new Uint8Array(12));
+  const contentAad = encoder.encode(
+    "AUTU-LIO-PACKAGE|" + packageId + "|" + versionId + "|" + languageVersion + "|" + sourceHash
+  );
+  const contentKey = await crypto.subtle.importKey(
+    "raw",
+    contentKeyBytes,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt"]
+  );
+  const encryptedContent = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: contentNonce, additionalData: contentAad, tagLength: 128 },
+    contentKey,
+    plaintext
+  );
+  const keyAad = encoder.encode("AUTU-LIO-PACKAGE-KEY|" + packageId + "|" + versionId);
+  const encryptedContentKey = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: contentKeyNonce, additionalData: keyAad, tagLength: 128 },
+    masterKey,
+    contentKeyBytes
+  );
+
+  const objectKey = "packages/" + packageId + "/" + versionId + ".bin";
+  try {
+    await bucket.put(objectKey, new Uint8Array(encryptedContent), {
+      httpMetadata: { contentType: "application/octet-stream", cacheControl: "private, no-store" },
+      customMetadata: {
+        packageId,
+        versionId,
+        languageVersion,
+        sourceSha256: sourceHash
+      }
+    });
+
+    const statements = [];
+    if (!packageRecord) {
+      statements.push(env.DB.prepare(
+        "INSERT INTO autu_packages (id, name, description, status, current_version_id, created_by, created_at, updated_at) " +
+        "VALUES (?, ?, ?, 'ACTIVE', ?, ?, ?, ?)"
+      ).bind(packageId, name, description, versionId, session.user_id, now, now));
+    } else {
+      statements.push(env.DB.prepare(
+        "UPDATE autu_packages SET name = ?, description = ?, status = 'ACTIVE', current_version_id = ?, updated_at = ? WHERE id = ?"
+      ).bind(name, description, versionId, now, packageId));
+    }
+    statements.push(env.DB.prepare(
+      "INSERT INTO autu_package_versions " +
+      "(id, package_id, version_code, version_name, language_version, object_key, content_nonce, encrypted_content_key, content_key_nonce, source_sha256, plaintext_size, status, created_by, created_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)"
+    ).bind(
+      versionId,
+      packageId,
+      versionCode,
+      versionName,
+      languageVersion,
+      objectKey,
+      base64UrlEncode(contentNonce),
+      base64UrlEncode(new Uint8Array(encryptedContentKey)),
+      base64UrlEncode(contentKeyNonce),
+      sourceHash,
+      plaintext.byteLength,
+      session.user_id,
+      now
+    ));
+    if (packageRecord) {
+      statements.push(env.DB.prepare(
+        "UPDATE autu_packages SET current_version_id = ?, updated_at = ? WHERE id = ?"
+      ).bind(versionId, now, packageId));
+    }
+    await env.DB.batch(statements);
+  } catch (error) {
+    await bucket.delete(objectKey).catch(() => {});
+    if (String(error?.message || "").toLowerCase().includes("unique")) {
+      throw new HttpError(409, "package_version_conflict", "This AUTU version conflicts with an existing release. Please publish again.");
+    }
+    throw error;
+  }
+
+  await audit(env, session.user_id, "package.published", "package", packageId, {
+    versionId, versionCode, versionName, languageVersion, sourceHash, plaintextSize: plaintext.byteLength
+  });
+  return response(request, {
+    published: true,
+    package: {
+      id: packageId,
+      name,
+      description,
+      versionId,
+      versionCode,
+      versionName,
+      languageVersion,
+      sourceSha256: sourceHash,
+      plaintextSize: plaintext.byteLength,
+      publishedAt: now
+    }
+  }, packageRecord ? 200 : 201, env);
+}
+
+async function listAdminAutuPackages(request, env, session) {
+  await requirePermission(env, session, "PUBLISH_RELEASE");
+  const result = await env.DB.prepare(
+    "SELECT p.id, p.name, p.description, p.status, p.created_at, p.updated_at, " +
+    "v.id AS version_id, v.version_code, v.version_name, v.language_version, v.source_sha256, v.plaintext_size, v.created_at AS published_at, " +
+    "(SELECT COUNT(*) FROM autu_package_versions all_versions WHERE all_versions.package_id = p.id) AS version_count " +
+    "FROM autu_packages p LEFT JOIN autu_package_versions v ON v.id = p.current_version_id " +
+    "ORDER BY p.updated_at DESC"
+  ).all();
+  return response(request, { packages: result.results || [] }, 200, env);
+}
+
+async function updateAdminAutuPackage(request, env, session, packageId) {
+  await requirePermission(env, session, "PUBLISH_RELEASE");
+  if (!PROJECT_ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  const body = await readBody(request);
+  const status = typeof body.status === "string" ? body.status.trim().toUpperCase() : "";
+  if (!["ACTIVE", "ARCHIVED"].includes(status)) {
+    throw new HttpError(400, "invalid_package_status", "Package status must be ACTIVE or ARCHIVED.");
+  }
+  const result = await env.DB.prepare(
+    "UPDATE autu_packages SET status = ?, updated_at = ? WHERE id = ?"
+  ).bind(status, Math.floor(Date.now() / 1000), packageId).run();
+  if (result.meta?.changes !== 1) throw new HttpError(404, "package_not_found", "The AUTU package was not found.");
+  await audit(env, session.user_id, "package.status_changed", "package", packageId, { status });
+  return response(request, { updated: true, packageId, status }, 200, env);
+}
+
+async function listCustomerAutuPackages(request, env, session) {
+  await requireRole(session, ["CUSTOMER"]);
+  const license = await getActiveLicense(env, session.user_id);
+  if (!license) throw new HttpError(403, "active_license_required", "An active license is required to browse AUTUs.");
+  const url = new URL(request.url);
+  const deviceId = url.searchParams.get("deviceId") || "";
+  if (!PROJECT_ID_PATTERN.test(deviceId)) {
+    throw new HttpError(400, "device_registration_required", "Register an authorized device before browsing published AUTUs.");
+  }
+  const device = await env.DB.prepare(
+    "SELECT id FROM devices WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
+  ).bind(deviceId, session.user_id).first();
+  if (!device) throw new HttpError(403, "device_not_authorized", "This device is not authorized for the customer account.");
+
+  const result = await env.DB.prepare(
+    "SELECT p.id, p.name, p.description, v.id AS version_id, v.version_code, v.version_name, " +
+    "v.language_version, v.source_sha256, v.plaintext_size, v.created_at AS published_at " +
+    "FROM autu_packages p JOIN autu_package_versions v ON v.id = p.current_version_id " +
+    "WHERE p.status = 'ACTIVE' AND v.status = 'PUBLISHED' ORDER BY p.name COLLATE NOCASE"
+  ).all();
+  return response(request, { packages: result.results || [] }, 200, env);
+}
+
+async function downloadCustomerAutuPackage(request, env, session, packageId) {
+  await requireRole(session, ["CUSTOMER"]);
+  if (!PROJECT_ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  const bucket = requirePackageBucket(env);
+  const masterKey = await getPackageMasterKey(env);
+  const now = Math.floor(Date.now() / 1000);
+  const license = await getActiveLicense(env, session.user_id, now);
+  if (!license) throw new HttpError(403, "active_license_required", "An active license is required to download AUTUs.");
+
+  const url = new URL(request.url);
+  const deviceId = url.searchParams.get("deviceId") || "";
+  if (!PROJECT_ID_PATTERN.test(deviceId)) throw new HttpError(400, "device_registration_required", "An authorized device is required.");
+  const device = await env.DB.prepare(
+    "SELECT id, public_key_spki, oaep_hash, status FROM devices WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
+  ).bind(deviceId, session.user_id).first();
+  if (!device) throw new HttpError(403, "device_not_authorized", "This device is not authorized for the customer account.");
+
+  const version = await env.DB.prepare(
+    "SELECT p.id AS package_id, p.name, p.description, p.status AS package_status, " +
+    "v.id AS version_id, v.version_code, v.version_name, v.language_version, v.object_key, " +
+    "v.content_nonce, v.encrypted_content_key, v.content_key_nonce, v.source_sha256, v.plaintext_size, v.status AS version_status " +
+    "FROM autu_packages p JOIN autu_package_versions v ON v.id = p.current_version_id " +
+    "WHERE p.id = ?"
+  ).bind(packageId).first();
+  if (!version || version.package_status !== "ACTIVE" || version.version_status !== "PUBLISHED") {
+    throw new HttpError(404, "published_package_not_found", "The published AUTU package was not found.");
+  }
+
+  const contentKeyNonce = base64UrlDecode(version.content_key_nonce);
+  const encryptedContentKey = base64UrlDecode(version.encrypted_content_key);
+  const keyAad = encoder.encode("AUTU-LIO-PACKAGE-KEY|" + version.package_id + "|" + version.version_id);
+  let contentKeyBytes;
+  try {
+    contentKeyBytes = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: contentKeyNonce, additionalData: keyAad, tagLength: 128 },
+      masterKey,
+      encryptedContentKey
+    );
+  } catch {
+    throw new HttpError(500, "package_key_decryption_failed", "The published package key could not be recovered.");
+  }
+
+  let deviceWrappingKey;
+  const oaepHash = device.oaep_hash === "SHA-256" ? "SHA-256" : "SHA-1";
+  try {
+    deviceWrappingKey = await crypto.subtle.importKey(
+      "spki",
+      base64UrlDecode(device.public_key_spki),
+      { name: "RSA-OAEP", hash: oaepHash },
+      false,
+      ["encrypt"]
+    );
+  } catch {
+    throw new HttpError(500, "device_key_invalid", "The registered device public key is invalid.");
+  }
+  const wrappedContentKey = await crypto.subtle.encrypt(
+    { name: "RSA-OAEP" },
+    deviceWrappingKey,
+    contentKeyBytes
+  );
+
+  const object = await bucket.get(version.object_key);
+  if (!object) throw new HttpError(404, "package_blob_missing", "The encrypted AUTU package is no longer available.");
+  const encryptedPayload = new Uint8Array(await object.arrayBuffer());
+  await audit(env, session.user_id, "package.downloaded", "package", packageId, {
+    versionId: version.version_id, deviceId
+  });
+
+  return response(request, {
+    package: {
+      id: version.package_id,
+      name: version.name,
+      description: version.description,
+      versionId: version.version_id,
+      versionCode: version.version_code,
+      versionName: version.version_name,
+      languageVersion: version.language_version,
+      sourceSha256: version.source_sha256,
+      plaintextSize: version.plaintext_size
+    },
+    deviceId,
+    wrapHash: oaepHash,
+    wrappedContentKey: base64UrlEncode(new Uint8Array(wrappedContentKey)),
+    contentKeyNonce: version.content_key_nonce,
+    encryptedPayload: base64UrlEncode(encryptedPayload),
+    contentNonce: version.content_nonce
+  }, 200, env);
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
