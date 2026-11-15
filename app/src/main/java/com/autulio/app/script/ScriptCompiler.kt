@@ -26,6 +26,11 @@ sealed interface ScriptInstruction {
     data class If(val condition: ScriptExpression, val thenBody: List<ScriptInstruction>, val elseBody: List<ScriptInstruction>) : ScriptInstruction
     data class Repeat(val count: ScriptExpression, val body: List<ScriptInstruction>) : ScriptInstruction
     data class While(val condition: ScriptExpression, val body: List<ScriptInstruction>) : ScriptInstruction
+    data class WaitUntil(
+        val condition: ScriptExpression,
+        val timeoutMs: ScriptExpression,
+        val intervalMs: ScriptExpression
+    ) : ScriptInstruction
     data object BreakLoop : ScriptInstruction
     data object ContinueLoop : ScriptInstruction
 }
@@ -44,7 +49,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "0.2"
+    const val LANGUAGE_VERSION = "0.3"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -128,6 +133,7 @@ object ScriptCompiler {
                     cappedMultiply(cappedAdd(nested.first, 1L, INSTRUCTION_CAP), MAX_WHILE_ITERATIONS.toLong(), INSTRUCTION_CAP) to
                         cappedMultiply(nested.second, MAX_WHILE_ITERATIONS.toLong(), DURATION_CAP)
                 }
+                is ScriptInstruction.WaitUntil -> 1L to expressionUpperBound(instruction.timeoutMs, MAX_WAIT_MS.toLong())
                 ScriptInstruction.BreakLoop, ScriptInstruction.ContinueLoop -> 1L to 0L
             }
             count = cappedAdd(count, item.first, INSTRUCTION_CAP)
@@ -311,12 +317,19 @@ object ScriptCompiler {
         private fun parseStatement(depth: Int, loopDepth: Int): ScriptInstruction {
             val name = expect(TokenType.IDENTIFIER, "expected_command", "Cần có lệnh hoặc biến.", "Expected a command or variable.")
             val rawKeyword = normalize(name.text)
-            val keyword = if (rawKeyword == "REPEAT") "LẶP" else rawKeyword
+            val keyword = when (rawKeyword) {
+                "REPEAT" -> "LẶP"
+                "UNTIL", "LOOP_UNTIL" -> "LẶP_ĐẾN_KHI"
+                "WAIT_UNTIL", "WAITUNTIL" -> "CHỜ_ĐẾN_KHI"
+                else -> rawKeyword
+            }
             return when (keyword) {
                 "ĐẶT" -> parseVariableDeclaration(name)
                 "NẾU" -> parseIf(name, depth, loopDepth)
                 "LẶP" -> parseRepeat(name, depth, loopDepth)
                 "LẶP_KHI" -> parseWhile(name, depth, loopDepth)
+                "LẶP_ĐẾN_KHI" -> parseUntil(name, depth, loopDepth)
+                "CHỜ_ĐẾN_KHI" -> parseWaitUntil(name)
                 "THOÁT_LẶP" -> {
                     requireInsideLoop(name, loopDepth)
                     optionalEmptyCall()
@@ -384,6 +397,49 @@ object ScriptCompiler {
             val body = parseBraceBlock(depth + 1, loopDepth + 1)
             if (body.isEmpty()) fail(name.line, name.column, "empty_while", "Khối LẶP_KHI không được để trống.", "A LẶP_KHI block cannot be empty.")
             return ScriptInstruction.While(condition, body)
+        }
+
+        private fun parseUntil(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.While {
+            requireNesting(name, depth)
+            val condition = parseParenthesizedExpression()
+            val body = parseBraceBlock(depth + 1, loopDepth + 1)
+            if (body.isEmpty()) fail(name.line, name.column, "empty_until", "Khối LẶP_ĐẾN_KHI không được để trống.", "A LẶP_ĐẾN_KHI block cannot be empty.")
+            return ScriptInstruction.While(ScriptExpression.Unary("KHÔNG", condition), body)
+        }
+
+        private fun parseWaitUntil(name: Token): ScriptInstruction.WaitUntil {
+            val arguments = parseArguments()
+            if (arguments.size != 3) {
+                fail(name.line, name.column, "wait_until_argument_count", "CHỜ_ĐẾN_KHI cần đúng 3 tham số: điều kiện, thời hạn và chu kỳ kiểm tra.", "CHỜ_ĐẾN_KHI requires exactly 3 arguments: condition, timeout and polling interval.")
+            }
+            validateStaticIntegerRange(
+                name, arguments[1], 1, MAX_WAIT_MS,
+                "wait_until_timeout_range",
+                "Thời hạn CHỜ_ĐẾN_KHI phải từ 1 đến $MAX_WAIT_MS mili giây.",
+                "The CHỜ_ĐẾN_KHI timeout must be between 1 and $MAX_WAIT_MS milliseconds."
+            )
+            validateStaticIntegerRange(
+                name, arguments[2], 50, 5_000,
+                "wait_until_interval_range",
+                "Chu kỳ kiểm tra phải từ 50 đến 5.000 mili giây.",
+                "The polling interval must be between 50 and 5,000 milliseconds."
+            )
+            return ScriptInstruction.WaitUntil(arguments[0], arguments[1], arguments[2])
+        }
+
+        private fun validateStaticIntegerRange(
+            name: Token,
+            expression: ScriptExpression,
+            minimum: Int,
+            maximum: Int,
+            code: String,
+            messageVi: String,
+            messageEn: String
+        ) {
+            val value = constantNumber(expression) ?: return
+            if (!value.isFinite() || value % 1.0 != 0.0 || value < minimum || value > maximum) {
+                fail(name.line, name.column, code, messageVi, messageEn)
+            }
         }
 
         private fun parseBraceBlock(depth: Int, loopDepth: Int): List<ScriptInstruction> {

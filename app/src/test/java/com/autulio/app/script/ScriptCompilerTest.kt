@@ -62,6 +62,31 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun supportsWaitUntilAndLoopUntilCommands() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT daXong = SAI
+            CHỜ_ĐẾN_KHI(daXong == ĐÚNG, 5000, 100)
+            LẶP_ĐẾN_KHI(daXong == ĐÚNG) {
+                daXong = ĐÚNG
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("0.3", result.program?.languageVersion)
+    }
+
+    @Test
+    fun rejectsInvalidWaitUntilTimeoutAndPollingInterval() {
+        val invalidTimeout = ScriptCompiler.compile("CHỜ_ĐẾN_KHI(ĐÚNG, 0, 100)")
+        val invalidInterval = ScriptCompiler.compile("CHỜ_ĐẾN_KHI(ĐÚNG, 1000, 20)")
+
+        assertEquals("wait_until_timeout_range", invalidTimeout.diagnostics.first().code)
+        assertEquals("wait_until_interval_range", invalidInterval.diagnostics.first().code)
+    }
+
+    @Test
     fun supportsStringsAndFunctionCallsInExpressions() {
         val result = ScriptCompiler.compile(
             """
