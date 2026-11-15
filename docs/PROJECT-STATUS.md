@@ -1,6 +1,6 @@
 # AUTU-LIO — Trạng thái dự án
 
-**Cập nhật:** 15/11/2026, 10:06 (Asia/Ho_Chi_Minh)  
+**Cập nhật:** 15/11/2026, 10:20 (Asia/Ho_Chi_Minh)  
 **Nhánh chính:** `main`  
 **Repository:** [HUY-HOA-1/AUTU-LIO](https://github.com/HUY-HOA-1/AUTU-LIO)
 
@@ -12,7 +12,7 @@
 
 Dự án đã chuyển từ tài liệu thiết kế sang **prototype Android Kotlin/Jetpack Compose**. Đã chuyển dự án sang **một APK duy nhất** với application ID `com.autulio.app`. Các giao diện Admin và AutoClick là các khu vực trong cùng ứng dụng, được mở theo vai trò do máy chủ xác minh. Bản Debug hiện có bộ chọn giao diện thử nghiệm để kiểm tra bố cục; bộ chọn này không cấp quyền thật.
 
-Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Mã nguồn workspace cộng tác và Worker API đã có trong `main`; schema D1 cho workspace đã áp dụng. Bộ test Worker mới gồm 10 ca về health/config, xác thực, quyền OWNER-only, kiểm tra đầu vào và CORS đã chạy thành công trên nhánh PR và sau merge vào `main` (PR #13, commit `9fb9c5db`). Tài khoản Cloudflare đã có D1 nhưng danh sách Worker đang trống; Worker chưa deploy và Google OAuth chưa cấu hình, nên đăng nhập thật và đồng bộ giữa các tài khoản chưa hoạt động. Engine Auto Click và runtime vẫn chưa có.
+Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Mã nguồn workspace cộng tác và Worker API đã có trong `main`; schema D1 cho workspace đã áp dụng. Bộ test Worker mới gồm 10 ca về health/config, xác thực, quyền OWNER-only, kiểm tra đầu vào và CORS đã chạy thành công trên nhánh PR và sau merge vào `main` (PR #13, commit `9fb9c5db`). Tài khoản Cloudflare đã có D1 nhưng danh sách Worker đang trống; Worker chưa deploy và Google OAuth chưa cấu hình, nên đăng nhập thật và đồng bộ giữa các tài khoản chưa hoạt động. PR #14 đã đưa AUTU-LIO Script 0.1 vào `main` ở commit `51460f66`: parser Kotlin tạo AST, chẩn đoán lỗi dòng/cột, giới hạn vòng lặp/số lệnh/thời lượng và nút Kiểm tra mã trong editor. GitHub Actions chạy `:app:testDebugUnitTest` thành công (12 test); đây là kiểm thử mã nguồn, không tạo APK. Engine Auto Click và runtime Android vẫn chưa có.
 
 ## 2. Phần đã có trong mã nguồn
 
@@ -47,6 +47,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - PR #12 đã được hợp nhất vào `main` ở commit `941d9dbb`.
 - GitHub Actions đã xác nhận Kotlin compilation và Worker/D1 migration checks thành công trên commit PR trước khi merge; workflow kiểm tra Worker sau merge đang/đã chạy riêng.
 - Bộ kiểm tra Worker sau merge tại [GitHub Actions](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43671159108) đã thành công.
+- PR #14 đã hợp nhất tại commit `51460f660a55f91d4025e1d29b3ecbb90f10b948`; Android source checks và unit tests thành công tại [GitHub Actions](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43671662017).
 - **Chưa có lần chạy workflow tạo APK và chưa có APK artifact được xác minh.**
 - Tuân thủ quy tắc: chỉ bắt đầu build khi chủ ứng dụng gửi riêng đúng lệnh `BUILD APK`.
 
@@ -58,7 +59,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - JDK chạy build: `21`; bytecode ứng dụng vẫn đặt Java/Kotlin target `17`.
 - Android SDK: `compileSdk 37`, Build Tools `36.0.0`.
 - Tạm đặt `android.builtInKotlin=false` và `android.newDsl=false` để dùng Kotlin Android plugin 2.4.21 trong bộ phiên bản tương thích đã chọn. Đây là bước tương thích tạm thời; cần chuyển sang Kotlin tích hợp của AGP trước khi nâng AGP 10.
-- Cấu hình đã được kiểm chứng bằng tác vụ Gradle `:app:compileDebugKotlin` trong CI. Đây chỉ là kiểm tra biên dịch Kotlin, không chạy `assembleDebug`, không tạo APK và chưa thay thế kiểm thử lint/thiết bị.
+- Cấu hình Android đã được kiểm chứng bằng tác vụ Gradle `:app:testDebugUnitTest` trong CI, bao gồm biên dịch Kotlin và chạy 12 unit test Script Compiler. Đây không chạy `assembleDebug`, không tạo APK và chưa thay thế lint hoặc kiểm thử trên thiết bị.
 
 ## 4. Phần chưa triển khai
 
@@ -71,7 +72,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 - Developer/Designer/Reviewer có workspace riêng cho dự án được giao. API lưu nội dung lên D1 theo revision; giao diện mới đã biên dịch thành công nhưng chưa được thử với tài khoản Google thật do Worker chưa deploy.
 - Worker source có API xác thực, lời mời, quyền chi tiết, tạo dự án, membership, script/UI drafts, submission và review. Các endpoint chưa hoạt động công khai vì Worker chưa deploy và OAuth secrets chưa cấu hình.
 - Đồng bộ tài khoản, thiết bị, giấy phép và dữ liệu khách hàng.
-- Trình biên dịch, parser, bytecode và runtime của ngôn ngữ AUTU-LIO.
+- Parser/validator AUTU-LIO Script 0.1 đã có; còn thiếu interpreter/runtime, bytecode, biến, điều kiện, hàm tự định nghĩa và thư viện.
 - Engine thực hiện Auto Click, Accessibility Service, overlay và điều khiển vòng đời tác vụ.
 - Đóng gói, ký, mã hóa và phân phối kịch bản thật.
 - Cập nhật từ xa, nhật ký máy chủ và quy trình thu hồi package.
@@ -85,7 +86,7 @@ Các màn hình prototype có thể điều hướng và kiểm tra bố cục. 
 2. Cấu hình Worker secrets `GOOGLE_CLIENT_ID`, `OWNER_EMAIL`, `GOOGLE_ALLOWED_AZP`; deploy Worker và kiểm tra `/health`.
 3. Đặt `AUTU_LIO_AUTH_API_BASE_URL` và `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID` trong môi trường Gradle; thử đăng nhập chủ sở hữu, mời cộng tác viên và kiểm tra workspace trên điện thoại.
 4. Bổ sung test API/role, giới hạn tần suất đăng nhập, kiểm thử lời mời dùng một lần, thu hồi phiên và kiểm thử xung đột revision.
-5. Thiết kế đặc tả ngôn ngữ AUTU-LIO, triển khai parser/compiler/runtime rồi engine Auto Click và xin quyền Android minh bạch.
+5. Mở rộng ngôn ngữ AUTU-LIO (biến, điều kiện, hàm, thư viện); xây interpreter/runtime và engine Auto Click, sau đó xin quyền Android minh bạch.
 6. Hoàn thiện giấy phép, ký/mã hóa package, cập nhật từ xa và kiểm thử phát hành.
 
 ## 6. Quy tắc báo cáo
