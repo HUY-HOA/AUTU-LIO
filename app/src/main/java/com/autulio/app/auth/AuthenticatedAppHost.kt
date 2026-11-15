@@ -108,6 +108,7 @@ internal fun AuthenticatedAppHost() {
             AccessRole.DESIGNER,
             AccessRole.REVIEWER -> CollaboratorWorkspace(
                 role = currentUser.role,
+                permissions = currentUser.permissions,
                 email = currentUser.email,
                 onLogout = ::signOut
             )
