@@ -111,7 +111,7 @@ private fun RolePreviewChooser(
     }
 }
 
-private fun tr(vi: String, en: String) =
+internal fun tr(vi: String, en: String) =
     if (Locale.getDefault().language == "vi") vi else en
 
 @Composable
@@ -623,7 +623,7 @@ private fun MoreScreen(
                 }
                 "settings" -> {
                     SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
-                    SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO Admin Studio · 0.1.0")
+                    SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · 0.1.0")
                     SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Cấu hình đăng nhập và quyền quản trị sẽ được bổ sung khi tích hợp máy chủ.", "Sign-in and admin access controls will be added with the server integration."))
                 }
             }
@@ -927,7 +927,7 @@ private fun BrandHeader(admin: Boolean) {
 }
 
 @Composable
-private fun Heading(title: String, subtitle: String) {
+internal fun Heading(title: String, subtitle: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(subtitle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
