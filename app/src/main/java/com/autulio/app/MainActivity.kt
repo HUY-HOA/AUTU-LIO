@@ -794,7 +794,11 @@ private fun MoreScreen(
                     }
                     EmptyState(Icons.Outlined.VerifiedUser, tr("Chưa có giấy phép", "No licenses yet"), tr("Dữ liệu giấy phép sẽ xuất hiện sau khi kết nối máy chủ.", "License data will appear after the server is connected."))
                 }
-                "packages" -> AdminPackagesScreen(accessToken = accessToken, modifier = Modifier.fillMaxSize())
+                "packages" -> AdminPackagesScreen(
+                    accessToken = accessToken,
+                    modifier = Modifier.fillMaxSize(),
+                    onBack = { onSelect("more") }
+                )
                 "library" -> {
                     CardBox {
                         Text(tr("Thư viện dùng chung", "Shared libraries"), fontWeight = FontWeight.SemiBold)
@@ -1197,7 +1201,7 @@ private fun EmptyPage(modifier: Modifier, title: String, subtitle: String, icon:
 }
 
 @Composable
-private fun BrandHeader(admin: Boolean) {
+internal fun BrandHeader(admin: Boolean) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)) {
