@@ -43,10 +43,10 @@ sealed interface ScriptExecutionStartResult {
 
 class ScriptExecutionEngine(
     private val dispatcher: ScriptActionDispatcher,
-    private val observer: (ScriptExecutionSnapshot) -> Unit = {},
     private val worker: ExecutorService = Executors.newSingleThreadExecutor { task ->
         Thread(task, "AUTU-LIO-ScriptRuntime").apply { isDaemon = true }
-    }
+    },
+    private val observer: (ScriptExecutionSnapshot) -> Unit = {}
 ) : Closeable {
     private val lock = ReentrantLock()
     private val changed = lock.newCondition()
