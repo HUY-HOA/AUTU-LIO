@@ -1155,37 +1155,89 @@ async function getCustomerAccount(request, env, session) {
   }, 200, env);
 }
 
+async function createCustomerDeviceChallenge(request, env, session) {
+  await requireRole(session, ["CUSTOMER"]);
+  const now = Math.floor(Date.now() / 1000);
+  const license = await getActiveLicense(env, session.user_id, now);
+  if (!license) {
+    throw new HttpError(403, "active_license_required", "An active license is required to register this device.");
+  }
+  const id = crypto.randomUUID();
+  const nonce = randomToken(32);
+  await env.DB.prepare(
+    "INSERT INTO device_enrollment_challenges (id, user_id, nonce_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)"
+  ).bind(id, session.user_id, await sha256(nonce), now + 300, now).run();
+  await env.DB.prepare(
+    "DELETE FROM device_enrollment_challenges WHERE expires_at <= ? OR consumed_at IS NOT NULL"
+  ).bind(now - 300).run();
+  return response(request, { challengeId: id, nonce, expiresInSeconds: 300 }, 200, env);
+}
+
 async function registerCustomerDevice(request, env, session) {
   await requireRole(session, ["CUSTOMER"]);
   const body = await readBody(request, 12_000);
   const publicKeySpki = typeof body.publicKeySpki === "string" ? body.publicKeySpki.trim() : "";
-  if (publicKeySpki.length < 200 || publicKeySpki.length > 8192 ||
+  const challengeId = typeof body.challengeId === "string" ? body.challengeId.trim() : "";
+  const nonce = typeof body.nonce === "string" ? body.nonce : "";
+  const signatureText = typeof body.signature === "string" ? body.signature.trim() : "";
+  if (publicKeySpki.length < 300 || publicKeySpki.length > 8192 ||
       !/^[A-Za-z0-9+/=_-]+$/.test(publicKeySpki)) {
     throw new HttpError(400, "invalid_device_public_key", "A valid Android Keystore public key is required.");
   }
+  if (!PROJECT_ID_PATTERN.test(challengeId) || nonce.length < 32 || nonce.length > 128 ||
+      !/^[A-Za-z0-9_-]{40,100}$/.test(signatureText)) {
+    throw new HttpError(400, "invalid_device_proof", "A valid one-time device enrollment proof is required.");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const challenge = await env.DB.prepare(
+    "SELECT id, nonce_hash, expires_at, consumed_at FROM device_enrollment_challenges " +
+    "WHERE id = ? AND user_id = ?"
+  ).bind(challengeId, session.user_id).first();
+  if (!challenge || challenge.consumed_at || challenge.expires_at <= now ||
+      (await sha256(nonce)) !== challenge.nonce_hash) {
+    throw new HttpError(401, "invalid_device_challenge", "Device enrollment challenge is invalid, expired or already used.");
+  }
+
+  const license = await getActiveLicense(env, session.user_id, now);
+  if (!license) throw new HttpError(403, "active_license_required", "An active license is required to register this device.");
 
   let publicKeyBytes;
   let publicKey;
+  let signature;
   try {
     publicKeyBytes = base64UrlDecode(publicKeySpki);
     publicKey = await crypto.subtle.importKey(
       "spki",
       publicKeyBytes,
-      { name: "RSA-OAEP", hash: "SHA-256" },
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
       false,
-      ["encrypt"]
+      ["verify"]
     );
+    signature = base64UrlDecode(signatureText);
   } catch {
-    throw new HttpError(400, "invalid_device_public_key", "The device public key could not be verified.");
+    throw new HttpError(400, "invalid_device_public_key", "The device key or signature format is invalid.");
   }
   const modulusLength = publicKey.algorithm?.modulusLength;
-  if (!Number.isInteger(modulusLength) || modulusLength < 2048 || modulusLength > 4096) {
-    throw new HttpError(400, "weak_device_public_key", "The device key must use RSA 2048 to 4096 bits.");
+  if (!Number.isInteger(modulusLength) || modulusLength < 3072 || modulusLength > 4096) {
+    throw new HttpError(400, "weak_device_public_key", "The device key must use RSA 3072 to 4096 bits.");
   }
+  const proofMessage = encoder.encode(challengeId + "." + nonce);
+  const proofValid = await crypto.subtle.verify(
+    { name: "RSASSA-PKCS1-v1_5" },
+    publicKey,
+    signature,
+    proofMessage
+  );
+  if (!proofValid) throw new HttpError(401, "invalid_device_signature", "The device did not prove ownership of its private key.");
 
-  const now = Math.floor(Date.now() / 1000);
-  const license = await getActiveLicense(env, session.user_id, now);
-  if (!license) throw new HttpError(403, "active_license_required", "An active license is required to register this device.");
+  const consumed = await env.DB.prepare(
+    "UPDATE device_enrollment_challenges SET consumed_at = ? " +
+    "WHERE id = ? AND user_id = ? AND nonce_hash = ? AND consumed_at IS NULL AND expires_at > ?"
+  ).bind(now, challengeId, session.user_id, challenge.nonce_hash, now).run();
+  if (consumed.meta?.changes !== 1) {
+    throw new HttpError(409, "device_challenge_already_used", "This device enrollment challenge has already been used.");
+  }
 
   const publicKeyCanonical = base64UrlEncode(publicKeyBytes);
   const digest = await crypto.subtle.digest("SHA-256", publicKeyBytes);
@@ -1299,6 +1351,9 @@ async function route(request, env) {
 
   if (method === "GET" && path === "/api/customer/account") {
     return await getCustomerAccount(request, env, session);
+  }
+  if (method === "POST" && path === "/api/customer/devices/challenge") {
+    return await createCustomerDeviceChallenge(request, env, session);
   }
   if (method === "POST" && path === "/api/customer/devices") {
     return await registerCustomerDevice(request, env, session);
