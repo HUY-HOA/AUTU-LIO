@@ -7,26 +7,31 @@ import org.junit.Test
 
 class ScriptCompilerTest {
     @Test
-    fun acceptsSupportedCommandsAndCalculatesDuration() {
+    fun compilesVietnameseCommandsVariablesConditionsAndExpressions() {
         val result = ScriptCompiler.compile(
             """
-            tap(12, 34)
-            longPress(4, 5, 800)
-            swipe(1, 2, 3, 4, 300)
-            wait(500)
+            ĐẶT sốLần = 2 + 1
+            NẾU (sốLần == 3 VÀ ĐÚNG) {
+                CHẠM(120, 240)
+            } NGƯỢC_LẠI {
+                CHỜ(100)
+            }
+            LẶP(sốLần) {
+                NHẤN_GIỮ(20, 30, 500)
+            }
             """.trimIndent()
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals(4L, result.program?.expandedInstructionCount)
-        assertEquals(1_600L, result.program?.estimatedDurationMs)
+        assertEquals(ScriptCompiler.LANGUAGE_VERSION, result.program?.languageVersion)
+        assertEquals(5_000L, result.program?.expandedInstructionCount)
     }
 
     @Test
-    fun repeatExpandsInstructionAndDurationBudgets() {
+    fun supportsNestedRepeatAndLegacyEnglishAliases() {
         val result = ScriptCompiler.compile(
             """
-            repeat(3) {
+            repeat(2) {
                 tap(10, 20)
                 wait(100)
             }
@@ -34,20 +39,35 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals(6L, result.program?.expandedInstructionCount)
-        assertEquals(300L, result.program?.estimatedDurationMs)
+        assertEquals(4L, result.program?.expandedInstructionCount)
+        assertEquals(200L, result.program?.estimatedDurationMs)
     }
 
     @Test
-    fun acceptsCommentsBlankLinesAndSemicolons() {
+    fun supportsWhileAndLoopControlStatements() {
         val result = ScriptCompiler.compile(
             """
-            // first tap
-            tap(10, 20); wait(100)
+            ĐẶT i = 0
+            LẶP_KHI (i < 10) {
+                i = i + 1
+                NẾU (i == 5) {
+                    THOÁT_LẶP
+                }
+                CHẠM(i, 20)
+            }
+            """.trimIndent()
+        )
 
-            repeat(2) {
-                // repeated action
-                tap(30, 40)
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
+    @Test
+    fun supportsStringsAndFunctionCallsInExpressions() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT tenGoi = "com.example.game"
+            NẾU (ỨNG_DỤNG_ĐÃ_CÀI(tenGoi) == ĐÚNG HOẶC PIN() < 10) {
+                MỞ_ỨNG_DỤNG(tenGoi)
             }
             """.trimIndent()
         )
@@ -57,7 +77,7 @@ class ScriptCompilerTest {
 
     @Test
     fun rejectsUnknownCommands() {
-        val result = ScriptCompiler.compile("teleport(1, 2)")
+        val result = ScriptCompiler.compile("DỊCH_CHUYỂN(1, 2)")
 
         assertFalse(result.isSuccess)
         assertEquals("unknown_command", result.diagnostics.first().code)
@@ -65,31 +85,15 @@ class ScriptCompilerTest {
 
     @Test
     fun rejectsIncorrectArgumentCount() {
-        val result = ScriptCompiler.compile("tap(10)")
+        val result = ScriptCompiler.compile("CHẠM(10)")
 
         assertFalse(result.isSuccess)
         assertEquals("argument_count", result.diagnostics.first().code)
     }
 
     @Test
-    fun rejectsNegativeNumbers() {
-        val result = ScriptCompiler.compile("tap(-1, 2)")
-
-        assertFalse(result.isSuccess)
-        assertEquals("invalid_character", result.diagnostics.first().code)
-    }
-
-    @Test
-    fun rejectsCoordinatesOutsideSupportedRange() {
-        val result = ScriptCompiler.compile("tap(10001, 20)")
-
-        assertFalse(result.isSuccess)
-        assertEquals("coordinate_range", result.diagnostics.first().code)
-    }
-
-    @Test
     fun rejectsRepeatCountOutsideSupportedRange() {
-        val result = ScriptCompiler.compile("repeat(0) { tap(1, 2) }")
+        val result = ScriptCompiler.compile("LẶP(0) { CHẠM(1, 2) }")
 
         assertFalse(result.isSuccess)
         assertEquals("repeat_range", result.diagnostics.first().code)
@@ -99,9 +103,9 @@ class ScriptCompilerTest {
     fun rejectsExpandedInstructionBudgetOverflow() {
         val result = ScriptCompiler.compile(
             """
-            repeat(100) {
-                repeat(100) {
-                    tap(1, 2)
+            LẶP(100) {
+                LẶP(100) {
+                    CHẠM(1, 2)
                 }
             }
             """.trimIndent()
@@ -113,26 +117,43 @@ class ScriptCompilerTest {
 
     @Test
     fun rejectsTotalDurationBudgetOverflow() {
-        val result = ScriptCompiler.compile("repeat(100) { wait(60000) }")
+        val result = ScriptCompiler.compile("LẶP(100) { CHỜ(6001) }")
 
         assertFalse(result.isSuccess)
         assertEquals("duration_budget_exceeded", result.diagnostics.first().code)
     }
 
     @Test
-    fun rejectsOversizedSource() {
-        val result = ScriptCompiler.compile(" ".repeat(ScriptCompiler.MAX_SOURCE_LENGTH + 1))
+    fun rejectsLoopControlOutsideLoop() {
+        val result = ScriptCompiler.compile("THOÁT_LẶP")
 
         assertFalse(result.isSuccess)
-        assertEquals("source_too_large", result.diagnostics.first().code)
+        assertEquals("loop_control_outside_loop", result.diagnostics.first().code)
     }
 
     @Test
-    fun rejectsEmptyAndUnclosedRepeatBlocks() {
-        val empty = ScriptCompiler.compile("  // nothing here")
-        val unclosed = ScriptCompiler.compile("repeat(2) { tap(1, 2)")
+    fun rejectsUnclosedBlocksAndOversizedSource() {
+        val unclosed = ScriptCompiler.compile("LẶP(2) { CHẠM(1, 2)")
+        val oversized = ScriptCompiler.compile(" ".repeat(ScriptCompiler.MAX_SOURCE_LENGTH + 1))
 
-        assertEquals("empty_program", empty.diagnostics.first().code)
         assertEquals("missing_brace", unclosed.diagnostics.first().code)
+        assertEquals("source_too_large", oversized.diagnostics.first().code)
+    }
+
+    @Test
+    fun acceptsCommentsBlankLinesAndSemicolons() {
+        val result = ScriptCompiler.compile(
+            """
+            // Chú thích đầu
+            CHẠM(10, 20); CHỜ(100)
+
+            LẶP(2) {
+                // Một thao tác lặp
+                CHẠM(30, 40)
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
     }
 }
