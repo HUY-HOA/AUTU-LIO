@@ -20,8 +20,10 @@ android {
         val googleServerClientId = providers.gradleProperty("AUTU_LIO_GOOGLE_SERVER_CLIENT_ID")
             .orElse(providers.environmentVariable("AUTU_LIO_GOOGLE_SERVER_CLIENT_ID"))
             .getOrElse("")
-        buildConfigField("String", "AUTH_API_BASE_URL", "${authApiBaseUrl}")
-        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "${googleServerClientId}")
+        val escapedAuthApiBaseUrl = authApiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
+        val escapedGoogleServerClientId = googleServerClientId.replace("\\", "\\\\").replace("\"", "\\\"")
+        buildConfigField("String", "AUTH_API_BASE_URL", "\"$escapedAuthApiBaseUrl\"")
+        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$escapedGoogleServerClientId\"")
     }
 
     buildFeatures {
