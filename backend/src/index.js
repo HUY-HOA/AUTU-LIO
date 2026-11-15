@@ -1323,13 +1323,17 @@ async function removeOwnDevice(request, env, session, deviceId) {
   return response(request, { removed: true, deviceId }, 200, env);
 }
 
-async function packageMasterKey(env) {
-  if (typeof env.PACKAGE_MASTER_KEY !== "string" || !env.PACKAGE_MASTER_KEY.trim()) {
+async function packageMasterKey(env, keyVersion = "V1") {
+  if (!/^V[1-9][0-9]*$/.test(keyVersion)) {
+    throw new HttpError(503, "package_encryption_key_version_invalid", "The package encryption key version is invalid.");
+  }
+  const encoded = env[`PACKAGE_MASTER_KEY_${keyVersion}`];
+  if (typeof encoded !== "string" || !encoded.trim()) {
     throw new HttpError(503, "package_encryption_not_configured", "Encrypted package delivery is not configured.");
   }
   let raw;
   try {
-    raw = base64UrlDecode(env.PACKAGE_MASTER_KEY.trim());
+    raw = base64UrlDecode(encoded.trim());
   } catch {
     throw new HttpError(503, "package_encryption_key_invalid", "The package encryption key is invalid.");
   }
@@ -1350,7 +1354,8 @@ function packageContext(packageId, version) {
 }
 
 async function encryptPackageSource(env, packageId, version, source) {
-  const masterKey = await packageMasterKey(env);
+  const keyVersion = String(env.PACKAGE_MASTER_KEY_VERSION || "V1").trim().toUpperCase();
+  const masterKey = await packageMasterKey(env, keyVersion);
   const dataKeyBytes = randomBytes(32);
   const contentIv = randomBytes(12);
   const keyIv = randomBytes(12);
@@ -1375,12 +1380,13 @@ async function encryptPackageSource(env, packageId, version, source) {
     contentIv: base64UrlEncode(contentIv),
     encryptedDataKey: base64UrlEncode(new Uint8Array(encryptedDataKey)),
     keyIv: base64UrlEncode(keyIv),
-    sourceSha256: await sha256(source)
+    sourceSha256: await sha256(source),
+    keyVersion
   };
 }
 
-async function wrapPackageKeyForDevice(env, packageId, version, encryptedDataKey, keyIv, publicKeySpki) {
-  const masterKey = await packageMasterKey(env);
+async function wrapPackageKeyForDevice(env, packageId, version, encryptedDataKey, keyIv, keyVersion, publicKeySpki) {
+  const masterKey = await packageMasterKey(env, keyVersion);
   const context = packageContext(packageId, version);
   let dataKeyBytes;
   let publicKey;
@@ -1463,12 +1469,12 @@ async function createAdminPackage(request, env, session) {
       ).bind(id, metadata.name, metadata.description, version, session.user_id, now, now),
       env.DB.prepare(
         "INSERT INTO script_package_versions " +
-        "(id, package_id, version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, source_sha256, created_by, created_at) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "(id, package_id, version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, key_version, source_sha256, created_by, created_at) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind(
         crypto.randomUUID(), id, version, metadata.languageVersion,
         encrypted.ciphertext, encrypted.contentIv, encrypted.encryptedDataKey,
-        encrypted.keyIv, encrypted.sourceSha256, session.user_id, now
+        encrypted.keyIv, encrypted.keyVersion, encrypted.sourceSha256, session.user_id, now
       )
     ]);
   } catch (error) {
@@ -1506,12 +1512,12 @@ async function createAdminPackageVersion(request, env, session, packageId) {
   await env.DB.batch([
     env.DB.prepare(
       "INSERT INTO script_package_versions " +
-      "(id, package_id, version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, source_sha256, created_by, created_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "(id, package_id, version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, key_version, source_sha256, created_by, created_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(
       crypto.randomUUID(), packageId, version, metadata.languageVersion,
       encrypted.ciphertext, encrypted.contentIv, encrypted.encryptedDataKey,
-      encrypted.keyIv, encrypted.sourceSha256, session.user_id, now
+      encrypted.keyIv, encrypted.keyVersion, encrypted.sourceSha256, session.user_id, now
     ),
     env.DB.prepare(
       "UPDATE script_packages SET description = ?, latest_version = ?, updated_at = ? WHERE id = ? AND latest_version = ? AND status = 'ACTIVE'"
@@ -1578,13 +1584,13 @@ async function downloadCustomerPackage(request, env, session, packageId) {
   if (!device) throw new HttpError(403, "active_device_required", "This device is not registered or has been revoked.");
   const item = await env.DB.prepare(
     "SELECT p.id, p.name, p.description, p.status, v.version, v.language_version, v.ciphertext, v.content_iv, " +
-    "v.encrypted_data_key, v.key_iv, v.source_sha256 " +
+    "v.encrypted_data_key, v.key_iv, v.key_version, v.source_sha256 " +
     "FROM script_packages p JOIN script_package_versions v ON v.package_id = p.id AND v.version = p.latest_version " +
     "WHERE p.id = ? AND p.status = 'ACTIVE'"
   ).bind(packageId).first();
   if (!item) throw new HttpError(404, "package_not_found", "Published AUTU package was not found.");
   const wrappedKey = await wrapPackageKeyForDevice(
-    env, item.id, item.version, item.encrypted_data_key, item.key_iv, device.public_key_spki
+    env, item.id, item.version, item.encrypted_data_key, item.key_iv, item.key_version, device.public_key_spki
   );
   await env.DB.prepare(
     "UPDATE devices SET last_seen_at = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
