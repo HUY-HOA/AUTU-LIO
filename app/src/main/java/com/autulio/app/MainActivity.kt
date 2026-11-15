@@ -310,7 +310,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 }
 
 @Composable
-internal fun CustomerApp(email: String, onLogout: () -> Unit) {
+internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit, onRoleUpdated: () -> Unit) {
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
     var scriptDetail by rememberSaveable { mutableStateOf(false) }
@@ -355,8 +355,24 @@ internal fun CustomerApp(email: String, onLogout: () -> Unit) {
                 "device" -> CustomerDeviceLicensePage(Modifier.padding(padding))
                 else -> SettingsScreen(
                     Modifier.padding(padding),
+                    accessToken = accessToken,
                     onTheme = { dark = !dark },
-                    onLogout = onLogout
+                    onLogout = onLogout,
+                    onAcceptInvitation = { invitationToken ->
+                        if (accessToken.isNullOrBlank()) {
+                            scope.launch { host.showSnackbar(tr("Chế độ xem thử không nhận lời mời thật.", "Preview mode cannot accept real invitations.")) }
+                        } else {
+                            scope.launch {
+                                try {
+                                    AuthRepository(LocalContext.current).acceptInvitation(accessToken, invitationToken)
+                                    host.showSnackbar(tr("Đã chấp nhận lời mời. Đang cập nhật quyền tài khoản…", "Invitation accepted. Refreshing account access…"))
+                                    onRoleUpdated()
+                                } catch (error: Exception) {
+                                    host.showSnackbar(error.message ?: tr("Không chấp nhận được lời mời.", "Could not accept invitation."))
+                                }
+                            }
+                        }
+                    }
                 )
             }
         }
@@ -834,13 +850,44 @@ private fun CustomerDeviceLicensePage(modifier: Modifier) {
 }
 
 @Composable
-private fun SettingsScreen(modifier: Modifier, onTheme: () -> Unit, onLogout: () -> Unit) {
+private fun SettingsScreen(
+    modifier: Modifier,
+    accessToken: String?,
+    onTheme: () -> Unit,
+    onLogout: () -> Unit,
+    onAcceptInvitation: (String) -> Unit
+) {
+    var invitationToken by rememberSaveable { mutableStateOf("") }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         BrandHeader(admin = false)
         Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
         SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO 0.1.0 · Prototype")
         SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
+        CardBox {
+            Text(tr("Bạn có mã lời mời cộng tác viên?", "Have a collaborator invitation token?"), fontWeight = FontWeight.SemiBold)
+            Text(
+                tr("Đăng nhập bằng đúng Gmail đã nhận lời mời, sau đó nhập mã bên dưới để chấp nhận và nhận vai trò.",
+                    "Sign in with the exact Google account that received the invitation, then enter its token below to accept the assigned role."),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                lineHeight = 18.sp
+            )
+            OutlinedTextField(
+                value = invitationToken,
+                onValueChange = { invitationToken = it.trim() },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(tr("Mã lời mời", "Invitation token")) },
+                minLines = 2
+            )
+            Button(
+                onClick = { onAcceptInvitation(invitationToken.trim()) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !accessToken.isNullOrBlank() && invitationToken.isNotBlank()
+            ) {
+                Text(tr("Chấp nhận lời mời", "Accept invitation"))
+            }
+        }
         SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
     }
 }
