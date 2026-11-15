@@ -163,6 +163,30 @@ data class DeviceRecord(
     val revokedAt: Long?
 )
 
+data class PublishedAutuPackage(
+    val id: String,
+    val name: String,
+    val description: String,
+    val versionId: String,
+    val versionCode: Int,
+    val versionName: String,
+    val languageVersion: String,
+    val sourceSha256: String,
+    val plaintextSize: Int,
+    val publishedAt: Long,
+    val versionCount: Int = 1
+)
+
+data class EncryptedAutuPackage(
+    val packageInfo: PublishedAutuPackage,
+    val deviceId: String,
+    val wrapHash: String,
+    val wrappedContentKey: ByteArray,
+    val encryptedPayload: ByteArray,
+    val contentKeyNonce: ByteArray,
+    val contentNonce: ByteArray
+)
+
 data class DeviceEnrollmentChallenge(
     val challengeId: String,
     val nonce: String,
@@ -192,6 +216,7 @@ data class CustomerLicenseInfo(
 
 data class CustomerDeviceInfo(
     val id: String,
+    val fingerprintSha256: String,
     val label: String,
     val manufacturer: String,
     val model: String,
@@ -869,6 +894,7 @@ class AuthRepository(context: Context) {
                     add(
                         CustomerDeviceInfo(
                             id = id,
+                            fingerprintSha256 = item.optString("public_key_fingerprint"),
                             label = item.optString("label"),
                             manufacturer = item.optString("manufacturer"),
                             model = item.optString("model"),
@@ -920,6 +946,7 @@ class AuthRepository(context: Context) {
         challengeId: String,
         nonce: String,
         signature: String,
+        oaepHash: String,
         label: String,
         manufacturer: String,
         model: String,
@@ -934,6 +961,7 @@ class AuthRepository(context: Context) {
                 .put("challengeId", challengeId)
                 .put("nonce", nonce)
                 .put("signature", signature)
+                .put("oaepHash", oaepHash)
                 .put("label", label)
                 .put("manufacturer", manufacturer)
                 .put("model", model)
@@ -955,6 +983,151 @@ class AuthRepository(context: Context) {
             "DELETE",
             bearerToken = accessToken
         )
+    }
+
+    suspend fun listAdminAutuPackages(accessToken: String): List<PublishedAutuPackage> {
+        val result = apiRequest("/api/admin/packages", "GET", bearerToken = accessToken)
+        val items = result.optJSONArray("packages") ?: return emptyList()
+        return parsePublishedPackages(items)
+    }
+
+    suspend fun publishAutuPackage(
+        accessToken: String,
+        name: String,
+        description: String,
+        source: String,
+        packageId: String? = null
+    ): PublishedAutuPackage {
+        require(name.trim().isNotEmpty() && name.length <= 80)
+        require(source.isNotBlank() && source.toByteArray(Charsets.UTF_8).size <= 262_144)
+        val body = JSONObject()
+            .put("name", name.trim())
+            .put("description", description.trim().take(500))
+            .put("source", source)
+            .put("languageVersion", "0.2")
+        if (!packageId.isNullOrBlank()) {
+            require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+            body.put("packageId", packageId)
+        }
+        val result = apiRequest("/api/admin/packages", "POST", body, accessToken)
+        if (!result.optBoolean("published")) throw IOException("Máy chủ không xác nhận đã phát hành AUTU.")
+        val item = result.optJSONObject("package") ?: throw IOException("Máy chủ không trả về phiên bản AUTU.")
+        return PublishedAutuPackage(
+            id = item.optString("id"),
+            name = item.optString("name"),
+            description = item.optString("description"),
+            versionId = item.optString("versionId"),
+            versionCode = item.optInt("versionCode"),
+            versionName = item.optString("versionName"),
+            languageVersion = item.optString("languageVersion"),
+            sourceSha256 = item.optString("sourceSha256"),
+            plaintextSize = item.optInt("plaintextSize"),
+            publishedAt = item.optLong("publishedAt")
+        )
+    }
+
+    suspend fun setAutuPackageStatus(accessToken: String, packageId: String, status: String) {
+        require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(status in setOf("ACTIVE", "ARCHIVED"))
+        apiRequest(
+            "/api/admin/packages/$packageId",
+            "PATCH",
+            JSONObject().put("status", status),
+            accessToken
+        )
+    }
+
+    suspend fun listCustomerAutuPackages(
+        accessToken: String,
+        deviceId: String
+    ): List<PublishedAutuPackage> {
+        require(deviceId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/customer/packages?deviceId=${URLEncoder.encode(deviceId, "UTF-8")}",
+            "GET",
+            bearerToken = accessToken
+        )
+        return parsePublishedPackages(result.optJSONArray("packages") ?: JSONArray())
+    }
+
+    suspend fun downloadCustomerAutuPackage(
+        accessToken: String,
+        packageId: String,
+        deviceId: String
+    ): EncryptedAutuPackage {
+        require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(deviceId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/customer/packages/$packageId/download?deviceId=${URLEncoder.encode(deviceId, "UTF-8")}",
+            "GET",
+            bearerToken = accessToken
+        )
+        val item = result.optJSONObject("package") ?: throw IOException("Máy chủ không trả về thông tin gói AUTU.")
+        val encrypted = result.optString("encryptedPayload")
+        val wrapped = result.optString("wrappedContentKey")
+        val contentKeyNonce = result.optString("contentKeyNonce")
+        val contentNonce = result.optString("contentNonce")
+        if (encrypted.isBlank() || wrapped.isBlank() || contentKeyNonce.isBlank() || contentNonce.isBlank()) {
+            throw IOException("Gói AUTU được tải về không đầy đủ.")
+        }
+        val packageInfo = PublishedAutuPackage(
+            id = item.optString("id"),
+            name = item.optString("name"),
+            description = item.optString("description"),
+            versionId = item.optString("versionId"),
+            versionCode = item.optInt("versionCode"),
+            versionName = item.optString("versionName"),
+            languageVersion = item.optString("languageVersion"),
+            sourceSha256 = item.optString("sourceSha256"),
+            plaintextSize = item.optInt("plaintextSize"),
+            publishedAt = item.optLong("publishedAt")
+        )
+        if (packageInfo.id != packageId || packageInfo.versionId.isBlank() ||
+            packageInfo.languageVersion != "0.2" || packageInfo.plaintextSize !in 1..262_144) {
+            throw IOException("Thông tin gói AUTU không hợp lệ hoặc không tương thích.")
+        }
+        return EncryptedAutuPackage(
+            packageInfo = packageInfo,
+            deviceId = result.optString("deviceId"),
+            wrapHash = result.optString("wrapHash"),
+            wrappedContentKey = decodeBase64Url(wrapped),
+            encryptedPayload = decodeBase64Url(encrypted),
+            contentKeyNonce = decodeBase64Url(contentKeyNonce),
+            contentNonce = decodeBase64Url(contentNonce)
+        )
+    }
+
+    private fun parsePublishedPackages(items: JSONArray): List<PublishedAutuPackage> =
+        buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val versionId = item.optString("version_id", item.optString("versionId"))
+                if (id.isBlank() || versionId.isBlank()) continue
+                add(
+                    PublishedAutuPackage(
+                        id = id,
+                        name = item.optString("name"),
+                        description = item.optString("description"),
+                        versionId = versionId,
+                        versionCode = item.optInt("version_code", item.optInt("versionCode")),
+                        versionName = item.optString("version_name", item.optString("versionName")),
+                        languageVersion = item.optString("language_version", item.optString("languageVersion")),
+                        sourceSha256 = item.optString("source_sha256", item.optString("sourceSha256")),
+                        plaintextSize = item.optInt("plaintext_size", item.optInt("plaintextSize")),
+                        publishedAt = item.optLong("published_at", item.optLong("publishedAt")),
+                        versionCount = item.optInt("version_count", 1)
+                    )
+                )
+            }
+        }
+
+    private fun decodeBase64Url(value: String): ByteArray {
+        return try {
+            java.util.Base64.getUrlDecoder().decode(value)
+        } catch (error: IllegalArgumentException) {
+            throw IOException("Dữ liệu mã hóa không đúng định dạng.", error)
+        }
     }
 
     private fun JSONArray?.toAccessPermissions(): Set<AccessPermission> {
