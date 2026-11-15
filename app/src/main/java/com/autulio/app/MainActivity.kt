@@ -40,6 +40,7 @@ import com.autulio.app.access.defaultPermissions
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
+import com.autulio.app.script.ScriptTemplateCatalog
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -479,18 +480,43 @@ private fun EditorScreen(
 ) {
     var validationText by rememberSaveable { mutableStateOf("") }
     var validationSucceeded by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var showTemplates by rememberSaveable { mutableStateOf(false) }
+    var showHelp by rememberSaveable { mutableStateOf(false) }
 
-    Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(
             tr(
-                "Ngôn ngữ AUTU-LIO 0.1: tap, longPress, swipe, wait và repeat. Trình soạn thảo mở riêng; bảng chạy chỉ thao tác sau khi bạn nhấn Chạy trên ứng dụng mục tiêu.",
-                "AUTU-LIO 0.1 supports tap, longPress, swipe, wait and repeat. The editor is separate; the runner acts only after you press Run over the target app."
+                "Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. AUTU-LIO Script 0.1 hỗ trợ tap, longPress, swipe, wait và repeat.",
+                "Choose a built-in template, or write and edit your own source below. AUTU-LIO Script 0.1 supports tap, longPress, swipe, wait and repeat."
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             lineHeight = 18.sp
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { showTemplates = true },
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Outlined.LibraryBooks, contentDescription = null)
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Mẫu có sẵn", "Templates"))
+            }
+            OutlinedButton(
+                onClick = { showHelp = true },
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Outlined.HelpOutline, contentDescription = null)
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Hướng dẫn", "Guide"))
+            }
+        }
+        Text(
+            tr("Mã nguồn AUTU-LIO · Bạn có thể tự nhập hoặc chỉnh sửa", "AUTU-LIO source · Write or edit your own code"),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.sp
         )
         OutlinedTextField(
             value = code,
@@ -500,8 +526,9 @@ private fun EditorScreen(
                 validationSucceeded = null
             },
             modifier = Modifier.fillMaxWidth().weight(1f),
-            minLines = 10,
-            placeholder = { Text(tr("Nhập mã kịch bản...", "Enter script source...")) }
+            minLines = 8,
+            label = { Text(tr("Mã nguồn", "Source code")) },
+            placeholder = { Text(tr("Nhập mã kịch bản hoặc chọn một mẫu...", "Enter a script or choose a template...")) }
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
@@ -536,7 +563,7 @@ private fun EditorScreen(
                 ) {
                     Icon(Icons.Outlined.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(5.dp))
-                    Text(tr("Chuẩn bị cửa sổ chạy", "Prepare runner window"))
+                    Text(tr("Chuẩn bị chạy", "Prepare run"))
                 }
             }
         }
@@ -551,6 +578,106 @@ private fun EditorScreen(
         OutlinedButton(onClick = onSaveDraft, modifier = Modifier.fillMaxWidth()) {
             Text(tr("Lưu bản nháp trên thiết bị", "Save draft on this device"))
         }
+    }
+
+    if (showTemplates) {
+        AlertDialog(
+            onDismissRequest = { showTemplates = false },
+            title = { Text(tr("Chọn mẫu AUTU có sẵn", "Choose an AUTU template")) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 430.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ScriptTemplateCatalog.templates.forEach { template ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                onCodeChange(template.source)
+                                validationText = ""
+                                validationSucceeded = null
+                                showTemplates = false
+                            },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Column(
+                                Modifier.fillMaxWidth().padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text(
+                                    tr(template.nameVi, template.nameEn),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    tr(template.descriptionVi, template.descriptionEn),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    template.source,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                                Text(
+                                    tr("Chạm để dùng mẫu này", "Tap to use this template"),
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTemplates = false }) {
+                    Text(tr("Đóng", "Close"))
+                }
+            }
+        )
+    }
+
+    if (showHelp) {
+        AlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = { Text(tr("Hướng dẫn tạo và chạy AUTU", "How to create and run an AUTU")) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Text(
+                        tr("1. Chọn mẫu có sẵn hoặc tự viết mã. Khi chọn mẫu, toàn bộ mã mẫu được đưa vào ô soạn thảo và bạn có thể sửa tiếp.", "1. Choose a template or write code yourself. A selected template is inserted into the editor and remains fully editable.")
+                    )
+                    Text(
+                        tr("2. Sửa tọa độ X, Y theo vị trí trên màn hình điện thoại. Tọa độ tính bằng pixel; cần kiểm tra lại khi đổi độ phân giải hoặc xoay màn hình.", "2. Adjust X and Y to match positions on the phone screen. Coordinates are pixels and should be checked after changing resolution or rotating the device.")
+                    )
+                    Text(tr("Các lệnh đang hỗ trợ", "Supported commands"), fontWeight = FontWeight.SemiBold)
+                    Text("tap(x, y)  ·  " + tr("Chạm một lần", "Single tap"))
+                    Text("longPress(x, y, ms)  ·  " + tr("Nhấn giữ", "Long press"))
+                    Text("swipe(x1, y1, x2, y2, ms)  ·  " + tr("Vuốt", "Swipe"))
+                    Text("wait(ms)  ·  " + tr("Chờ", "Wait"))
+                    Text("repeat(n) { ... }  ·  " + tr("Lặp nhóm lệnh", "Repeat a block"))
+                    Text(
+                        tr("3. Nhấn Kiểm tra mã để tìm lỗi cú pháp. Chỉ khi mã hợp lệ mới chuẩn bị được cửa sổ chạy.", "3. Tap Check code to find syntax errors. Only valid code can be prepared for running.")
+                    )
+                    Text(
+                        tr("4. Bật quyền Trợ năng cho AUTU-LIO khi Android yêu cầu. Đây là quyền do bạn tự cấp trong Cài đặt Android.", "4. Enable AUTU-LIO Accessibility when Android asks. You grant this permission yourself in Android Settings.")
+                    )
+                    Text(
+                        tr("5. Khi cửa sổ chạy xuất hiện, chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi. Có thể Tạm dừng, Tiếp tục, Dừng hoặc thu nhỏ bất cứ lúc nào.", "5. When the runner appears, switch to the target app and press Run on the floating window. You can pause, resume, stop or collapse it.")
+                    )
+                    Text(
+                        tr("Lưu ý: Phiên bản 0.1 chưa hỗ trợ biến, điều kiện, hàm tự định nghĩa hoặc tự nhận diện hình ảnh. Không chạy mẫu trước khi sửa tọa độ cho đúng ứng dụng của bạn.", "Note: Version 0.1 does not yet support variables, conditions, custom functions or image recognition. Do not run a template until its coordinates match your target app.")
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showHelp = false }) {
+                    Text(tr("Đã hiểu", "Got it"))
+                }
+            }
+        )
     }
 }
 
