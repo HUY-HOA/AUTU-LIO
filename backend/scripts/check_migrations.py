@@ -28,6 +28,8 @@ required_tables = {
     "licenses",
     "devices",
     "device_enrollment_challenges",
+    "script_packages",
+    "script_package_versions",
 }
 actual_tables = {
     row[0]
@@ -167,6 +169,50 @@ except sqlite3.IntegrityError:
     pass
 else:
     raise SystemExit("Database accepted a duplicate device public-key fingerprint")
+
+database.execute(
+    "INSERT INTO script_packages "
+    "(id, name, description, status, latest_version, created_by, created_at, updated_at) "
+    "VALUES ('package-1', 'AUTU Test', '', 'ACTIVE', 1, 'owner-1', 100, 100)"
+)
+database.execute(
+    "INSERT INTO script_package_versions "
+    "(id, package_id, version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, key_version, source_sha256, created_by, created_at) "
+    "VALUES ('package-version-1', 'package-1', 1, '0.3', 'encrypted-payload', 'content-iv', 'encrypted-key', 'key-iv', 'V1', 'hash', 'owner-1', 100)"
+)
+try:
+    database.execute(
+        "INSERT INTO script_package_versions "
+        "(id, package_id, version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, key_version, source_sha256, created_by, created_at) "
+        "VALUES ('package-version-duplicate', 'package-1', 1, '0.3', 'ciphertext', 'iv', 'wrapped', 'iv', 'V1', 'hash', 'owner-1', 100)"
+    )
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise SystemExit("Database accepted a duplicate package version")
+
+package_version_columns = {
+    row[1]
+    for row in database.execute("PRAGMA table_info(script_package_versions)")
+}
+required_encrypted_columns = {
+    "ciphertext", "content_iv", "encrypted_data_key", "key_iv", "key_version", "source_sha256"
+}
+if not required_encrypted_columns.issubset(package_version_columns):
+    raise SystemExit("Encrypted package version columns are incomplete")
+if "source" in package_version_columns:
+    raise SystemExit("Plain script source must never be stored in the package version table")
+
+try:
+    database.execute(
+        "INSERT INTO script_packages "
+        "(id, name, description, status, latest_version, created_by, created_at, updated_at) "
+        "VALUES ('package-2', 'autu test', '', 'ACTIVE', 1, 'owner-1', 100, 100)"
+    )
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise SystemExit("Package names are not unique (case-insensitive)")
 
 foreign_key_errors = database.execute("PRAGMA foreign_key_check").fetchall()
 if foreign_key_errors:
