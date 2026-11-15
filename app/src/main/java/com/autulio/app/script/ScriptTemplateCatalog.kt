@@ -148,6 +148,54 @@ object ScriptTemplateCatalog {
             descriptionVi = "Đưa thiết bị về màn hình chính Android.",
             descriptionEn = "Run Android's Home global action.",
             source = "VỀ_MÀN_HÌNH_CHÍNH()"
+        ),
+        ScriptTemplate(
+            id = "show_recents",
+            nameVi = "Mở ứng dụng gần đây",
+            nameEn = "Show recent apps",
+            descriptionVi = "Mở giao diện ứng dụng gần đây của Android.",
+            descriptionEn = "Open Android's recent apps overview.",
+            source = "ỨNG_DỤNG_GẦN_ĐÂY()"
+        ),
+        ScriptTemplate(
+            id = "show_notifications",
+            nameVi = "Mở thông báo",
+            nameEn = "Show notifications",
+            descriptionVi = "Mở ngăn thông báo Android.",
+            descriptionEn = "Open the Android notification shade.",
+            source = "MỞ_THÔNG_BÁO()"
+        ),
+        ScriptTemplate(
+            id = "show_quick_settings",
+            nameVi = "Mở cài đặt nhanh",
+            nameEn = "Show quick settings",
+            descriptionVi = "Mở bảng cài đặt nhanh Android.",
+            descriptionEn = "Open Android quick settings.",
+            source = "MỞ_CÀI_ĐẶT_NHANH()"
+        ),
+        ScriptTemplate(
+            id = "show_power_dialog",
+            nameVi = "Hiện menu nguồn",
+            nameEn = "Show power dialog",
+            descriptionVi = "Mở menu nguồn bằng thao tác hệ thống Android.",
+            descriptionEn = "Open Android's power dialog.",
+            source = "HIỆN_MENU_NGUỒN()"
+        ),
+        ScriptTemplate(
+            id = "lock_screen",
+            nameVi = "Khóa màn hình",
+            nameEn = "Lock screen",
+            descriptionVi = "Khóa màn hình nếu phiên bản Android hỗ trợ.",
+            descriptionEn = "Lock the screen on supported Android versions.",
+            source = "KHÓA_MÀN_HÌNH()"
+        ),
+        ScriptTemplate(
+            id = "split_screen",
+            nameVi = "Chia đôi màn hình",
+            nameEn = "Toggle split screen",
+            descriptionVi = "Bật chế độ chia đôi nếu Android cung cấp thao tác này.",
+            descriptionEn = "Toggle split screen when Android exposes the action.",
+            source = "CHIA_MÀN_HÌNH()"
         )
     )
 }
