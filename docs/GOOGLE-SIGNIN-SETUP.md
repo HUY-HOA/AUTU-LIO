@@ -62,7 +62,7 @@ Trước khi deploy:
 1. Xác nhận `GOOGLE_CLIENT_ID` và `OWNER_EMAIL` đã được cấu hình an toàn.
 2. Kiểm tra binding D1 `autu_lio_auth` trong `backend/wrangler.jsonc`.
 3. Cài Wrangler theo phiên bản ổn định phù hợp và chạy `npm run check`.
-4. Áp dụng migration nếu thiết lập một môi trường mới; database AUTU-LIO hiện tại đã được khởi tạo và xác minh.
+4. Database AUTU-LIO hiện tại đã áp dụng migration `0001`–`0003`; khi thiết lập môi trường D1 mới, áp dụng toàn bộ migration theo thứ tự.
 5. Deploy Worker, gọi `GET /health`, xác nhận database và cấu hình Google đều báo sẵn sàng.
 6. Kiểm thử đăng nhập bằng tài khoản chủ sở hữu trước khi mời tài khoản khác.
 
@@ -76,7 +76,7 @@ Không deploy Auth API trước khi hoàn tất cấu hình OAuth và xác nhậ
 - REVIEWER: chỉ mở hàng chờ kiểm duyệt.
 - CUSTOMER: chỉ mở AutoClick và kịch bản được cấp phép.
 
-Các không gian cộng tác viên hiện là prototype cục bộ. API kiểm tra quyền thật đã có trong Worker, nhưng luồng API mời / cập nhật cộng tác viên chưa được nối vào giao diện Android. Không được hiểu bản xem thử Debug hoặc bản nháp cục bộ là quyền thật.
+Màn hình mời/quản lý cộng tác viên và workspace dự án đã được nối với API trong mã Android. Chủ sở hữu tạo dự án, phân công cộng tác viên; Developer lưu script, Designer lưu UI draft và Reviewer kiểm duyệt snapshot. Các màn hình này chưa thể hoạt động trực tuyến cho tới khi Worker deploy và Android được cấu hình Auth API URL + Server Client ID. Bản xem thử Debug không cấp quyền thật.
 
 ## 7. Phạm vi chưa hoàn tất
 
@@ -84,5 +84,6 @@ Các không gian cộng tác viên hiện là prototype cục bộ. API kiểm t
 - Chưa có email OWNER được chủ ứng dụng xác nhận cho cấu hình secret.
 - Worker chưa được deploy và chưa có URL.
 - Chưa thử đăng nhập thực trên điện thoại.
-- Màn hình Android đã nối API quản lý, thu hồi lời mời và chấp nhận mã; chưa thể dùng trực tuyến cho tới khi Worker deploy và secrets Google được cấu hình.
+- Màn hình Android đã nối API quản lý cộng tác viên, thu hồi lời mời, chấp nhận mã, quản lý dự án, lưu script/UI draft và duyệt submission; chưa thể dùng trực tuyến cho tới khi Worker deploy và secrets Google được cấu hình.
+- `AUTU_LIO_AUTH_API_BASE_URL` và `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID` hiện chưa được đặt trong môi trường build; để trống sẽ khóa đăng nhập có chủ đích.
 - Chưa có runtime AutoClick thật, cấp phép thật hoặc tự động gửi email lời mời.
