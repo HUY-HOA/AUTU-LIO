@@ -38,6 +38,7 @@ import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.access.defaultPermissions
 import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.SecureSessionStore
 import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptTemplateCatalog
@@ -513,6 +514,8 @@ private fun EditorScreen(
     onMessage: (String) -> Unit,
     onSaveDraft: () -> Unit,
     allowTest: Boolean,
+    allowPublish: Boolean,
+    onPublish: (String) -> Unit,
     onPrepareRun: (String) -> Unit
 ) {
     var validationText by rememberSaveable { mutableStateOf("") }
@@ -525,8 +528,8 @@ private fun EditorScreen(
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(
             tr(
-                "Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. AUTU-LIO Script 0.1 hỗ trợ tap, longPress, swipe, wait và repeat.",
-                "Choose a built-in template, or write and edit your own source below. AUTU-LIO Script 0.1 supports tap, longPress, swipe, wait and repeat."
+                "Ngôn ngữ AUTU 0.2 hỗ trợ biến, phép tính, điều kiện, vòng lặp và các điều kiện trạng thái Android. Chọn mẫu hoặc tự viết mã bên dưới.",
+                "AUTU Script 0.2 supports variables, expressions, conditions, loops and Android device-state checks. Choose a template or write your own code below."
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
@@ -613,7 +616,17 @@ private fun EditorScreen(
             )
         }
         OutlinedButton(onClick = onSaveDraft, modifier = Modifier.fillMaxWidth()) {
-            Text(tr("Lưu bản nháp trên thiết bị", "Save draft on this device"))
+            Text(tr("Lưu bản nháp được mã hóa", "Save encrypted draft"))
+        }
+        if (allowPublish) {
+            Button(
+                onClick = { onPublish(code) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Outlined.CloudUpload, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(tr("Phát hành AUTU cho khách hàng", "Publish AUTU for customers"))
+            }
         }
     }
 
@@ -1330,6 +1343,48 @@ class ScriptEditorActivity : ComponentActivity() {
                             }
                         },
                         allowTest = allowTest,
+                        allowPublish = namespace == "admin",
+                        onPublish = { source ->
+                            val compilation = ScriptCompiler.compile(source)
+                            if (!compilation.isSuccess) {
+                                val message = compilation.diagnostics.joinToString("\n") { diagnostic ->
+                                    "Dòng ${diagnostic.line}, cột ${diagnostic.column}: ${diagnostic.messageVi}"
+                                }
+                                scope.launch { host.showSnackbar(message) }
+                            } else {
+                                scope.launch {
+                                    val accessToken = SecureSessionStore(this@ScriptEditorActivity).read()
+                                    if (accessToken.isNullOrBlank()) {
+                                        host.showSnackbar(tr("Cần đăng nhập tài khoản chủ sở hữu để phát hành.", "Sign in as the app owner to publish AUTU."))
+                                    } else {
+                                        try {
+                                            val repository = AuthRepository(this@ScriptEditorActivity)
+                                            val current = repository.listOwnerAutus(accessToken)
+                                            val existing = current.firstOrNull { it.name.equals(scriptName, ignoreCase = true) }
+                                            if (existing == null) {
+                                                repository.publishAutuProduct(
+                                                    accessToken = accessToken,
+                                                    name = scriptName,
+                                                    description = "",
+                                                    source = source
+                                                )
+                                                host.showSnackbar(tr("Đã phát hành AUTU lên máy chủ. Hãy cấp giấy phép cho khách hàng.", "AUTU was published to the server. Assign a customer license to make it available."))
+                                            } else {
+                                                val parts = existing.version.orEmpty().split(".").mapNotNull { it.toIntOrNull() }
+                                                if (parts.size != 3) throw IllegalStateException("Không đọc được phiên bản AUTU hiện tại.")
+                                                val nextVersion = "${parts[0]}.${parts[1]}.${parts[2] + 1}"
+                                                repository.publishAutuRelease(accessToken, existing.id, source, nextVersion)
+                                                host.showSnackbar(tr("Đã phát hành phiên bản $nextVersion.", "Published version $nextVersion."))
+                                            }
+                                            store.save(initialNames, initial.contents + (scriptName to source))
+                                            setResult(Activity.RESULT_OK)
+                                        } catch (error: Exception) {
+                                            host.showSnackbar(error.message ?: tr("Không phát hành được AUTU.", "Could not publish AUTU."))
+                                        }
+                                    }
+                                }
+                            }
+                        },
                         onPrepareRun = { source ->
                             if (!allowTest) return@EditorScreen
                             store.save(initialNames, initial.contents + (scriptName to source))
