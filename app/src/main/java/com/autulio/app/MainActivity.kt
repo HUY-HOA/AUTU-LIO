@@ -33,6 +33,7 @@ import com.autulio.app.access.AccessRole
 import com.autulio.app.access.defaultPermissions
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
+import com.autulio.app.script.ScriptCompiler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -498,18 +499,74 @@ private fun EditorScreen(
     onMessage: (String) -> Unit,
     onSaveDraft: () -> Unit
 ) {
+    var validationText by rememberSaveable { mutableStateOf("") }
+    var validationSucceeded by rememberSaveable { mutableStateOf<Boolean?>(null) }
+
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
-        Text(tr("Ngôn ngữ riêng AUTU-LIO sẽ được định nghĩa trước khi thực thi. Nội dung dưới đây chưa chạy được.", "The AUTU-LIO language will be specified before execution. Text below is not executable."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        OutlinedTextField(value = code, onValueChange = onCodeChange, modifier = Modifier.fillMaxWidth().weight(1f), minLines = 10, placeholder = { Text(tr("Nhập nội dung bản nháp...", "Enter draft content...")) })
+        Text(
+            tr(
+                "Ngôn ngữ AUTU-LIO 0.1: tap, longPress, swipe, wait và repeat. Kiểm tra chỉ phân tích mã, chưa thực hiện thao tác.",
+                "AUTU-LIO 0.1 supports tap, longPress, swipe, wait and repeat. Check only analyzes source; it does not perform actions."
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            lineHeight = 18.sp
+        )
+        OutlinedTextField(
+            value = code,
+            onValueChange = {
+                onCodeChange(it)
+                validationText = ""
+                validationSucceeded = null
+            },
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            minLines = 10,
+            placeholder = { Text(tr("Nhập mã kịch bản...", "Enter script source...")) }
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { onMessage(tr("Bộ kiểm tra cú pháp chưa được tích hợp.", "Syntax checker is not integrated.")) }, modifier = Modifier.weight(1f)) { Text(tr("Kiểm tra", "Check")) }
-            Button(onClick = { onMessage(tr("Runtime chưa sẵn sàng để chạy thử.", "Runtime is not ready for testing.")) }, modifier = Modifier.weight(1f)) {
+            OutlinedButton(
+                onClick = {
+                    val result = ScriptCompiler.compile(code)
+                    validationSucceeded = result.isSuccess
+                    validationText = if (result.isSuccess) {
+                        val program = result.program!!
+                        tr(
+                            "Mã hợp lệ · AUTU-LIO " + program.languageVersion +
+                                "\nSố lệnh sau khi mở rộng: " + program.expandedInstructionCount +
+                                "\nTổng thời lượng tĩnh: " + program.estimatedDurationMs + " ms",
+                            "Valid source · AUTU-LIO " + program.languageVersion +
+                                "\nExpanded instructions: " + program.expandedInstructionCount +
+                                "\nStatic duration: " + program.estimatedDurationMs + " ms"
+                        )
+                    } else {
+                        result.diagnostics.joinToString("\n") { diagnostic ->
+                            tr(
+                                "Dòng " + diagnostic.line + ", cột " + diagnostic.column + ": " + diagnostic.messageVi,
+                                "Line " + diagnostic.line + ", column " + diagnostic.column + ": " + diagnostic.messageEn
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text(tr("Kiểm tra mã", "Check code")) }
+            Button(
+                onClick = { onMessage(tr("Runtime Android chưa sẵn sàng. Chưa có thao tác nào được thực hiện.", "The Android runtime is not ready. No actions were performed.")) },
+                modifier = Modifier.weight(1f)
+            ) {
                 Icon(Icons.Outlined.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(5.dp))
                 Text(tr("Chạy thử", "Test"))
             }
+        }
+        if (validationText.isNotBlank()) {
+            Text(
+                validationText,
+                color = if (validationSucceeded == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                fontSize = 12.sp,
+                lineHeight = 18.sp
+            )
         }
         OutlinedButton(onClick = onSaveDraft, modifier = Modifier.fillMaxWidth()) {
             Text(tr("Lưu bản nháp trên thiết bị", "Save draft on this device"))
