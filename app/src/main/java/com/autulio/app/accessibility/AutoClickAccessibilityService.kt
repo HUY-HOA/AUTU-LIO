@@ -191,9 +191,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         require(arguments.size == expected) { "Hàm '$name' cần $expected tham số." }
     }
 
+    @Suppress("DEPRECATION")
     private fun isPackageInstalled(packageName: String): Boolean {
         return try {
-            @Suppress("DEPRECATION")
             packageManager.getPackageInfo(packageName, 0)
             true
         } catch (_: PackageManager.NameNotFoundException) {
