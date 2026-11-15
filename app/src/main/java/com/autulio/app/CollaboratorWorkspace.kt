@@ -155,7 +155,7 @@ private fun DeveloperWorkspace(
                                     context = context,
                                     scriptName = cleanName,
                                     namespace = "developer",
-                                    allowTest = canTestScripts
+                                    allowRun = canTestScripts
                                 )
                             )
                         }
