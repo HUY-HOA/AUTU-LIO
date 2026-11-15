@@ -4,7 +4,7 @@
 
 - **Chủ sở hữu:** quản trị toàn bộ ứng dụng, cộng tác viên, kịch bản và phát hành.
 - **Nhà phát triển:** viết, sửa và kiểm thử kịch bản theo quyền được cấp.
-- **Nhà thiết kế:** thiết kế giao diện và xem trước.
+- **Nhà thiết kế:** chỉnh tiêu đề, nội dung, màu và thành phần UI với bản xem trước.
 - **Người kiểm duyệt:** kiểm tra và duyệt bản phát hành.
 - **Người dùng:** chỉ sử dụng kịch bản đã phát hành.
 
@@ -39,4 +39,4 @@ Build chỉ được khởi chạy theo đúng quy tắc trong [GITHUB-WORKFLOW.
 
 ## Trạng thái
 
-Đã có prototype Android Kotlin/Jetpack Compose được chuyển sang một APK duy nhất. Bản Debug có bộ chọn giao diện xem thử Admin/khách hàng; đây không phải cơ chế cấp quyền thật. Google OAuth, xác minh vai trò bằng Cloudflare, quản lý cộng tác viên, giấy phép, trình biên dịch/ngôn ngữ riêng và engine tự động hóa chưa được tích hợp. Chưa có APK build thành công được xác minh. Xem [trạng thái dự án](docs/PROJECT-STATUS.md) để biết chi tiết.
+Đã có prototype Android Kotlin/Jetpack Compose trong một APK duy nhất. Quản lý cộng tác viên, phân quyền chi tiết, workspace dự án, lưu bản nháp mã/UI và quy trình duyệt đã được thêm vào `main`; các kiểm tra Kotlin compilation và Worker/D1 đã thành công. Migration workspace đã áp dụng vào D1. Tuy vậy Worker chưa deploy và Google OAuth chưa cấu hình nên đăng nhập/sync thật chưa hoạt động. Compiler/runtime Auto Click và engine thao tác chưa hoàn thành. Chưa tạo APK artifact; build chỉ thực hiện khi nhận đúng lệnh `BUILD APK`. Xem [trạng thái dự án](docs/PROJECT-STATUS.md) để biết chi tiết.
