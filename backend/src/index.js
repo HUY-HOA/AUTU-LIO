@@ -968,24 +968,28 @@ async function getActiveLicense(env, userId, now = Math.floor(Date.now() / 1000)
 
 async function listAdminCustomers(request, env, session) {
   await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
+  const now = Math.floor(Date.now() / 1000);
   const result = await env.DB.prepare(
     "SELECT u.id, u.email, u.display_name, u.status, u.created_at, u.last_login_at, " +
     "l.id AS license_id, l.plan_code, l.status AS license_status, l.starts_at, l.expires_at, l.max_devices, " +
+    "CASE WHEN l.id IS NULL THEN NULL WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_license_status, " +
     "(SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE') AS active_device_count " +
     "FROM users u LEFT JOIN licenses l ON l.user_id = u.id AND l.status = 'ACTIVE' " +
     "WHERE u.role = 'CUSTOMER' ORDER BY u.created_at DESC"
-  ).all();
+  ).bind(now, now).all();
   return response(request, { customers: result.results || [] }, 200, env);
 }
 
 async function listAdminLicenses(request, env, session) {
   await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
+  const now = Math.floor(Date.now() / 1000);
   const result = await env.DB.prepare(
-    "SELECT l.id, l.user_id, u.email, u.display_name, l.plan_code, l.status, l.starts_at, l.expires_at, " +
-    "l.max_devices, l.created_at, l.updated_at, " +
+    "SELECT l.id, l.user_id, u.email, u.display_name, l.plan_code, l.status, " +
+    "CASE WHEN l.status <> 'ACTIVE' THEN l.status WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_status, " +
+    "l.starts_at, l.expires_at, l.max_devices, l.created_at, l.updated_at, " +
     "(SELECT COUNT(*) FROM devices d WHERE d.user_id = l.user_id AND d.status = 'ACTIVE') AS active_device_count " +
     "FROM licenses l JOIN users u ON u.id = l.user_id ORDER BY l.created_at DESC"
-  ).all();
+  ).bind(now, now).all();
   return response(request, { licenses: result.results || [] }, 200, env);
 }
 
@@ -1078,6 +1082,9 @@ async function updateCustomerLicense(request, env, session, licenseId) {
   }
   if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 20) {
     throw new HttpError(400, "invalid_device_limit", "The device limit must be from 1 to 20.");
+  }
+  if (status === "ACTIVE" && (startsAt > now || expiresAt <= now)) {
+    throw new HttpError(400, "license_not_current", "An active license must have a start time in the past and an expiry time in the future.");
   }
 
   try {
