@@ -188,3 +188,104 @@ test("CORS preflight allows an explicitly configured origin", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://trusted.example");
 });
+
+
+test("Developer cannot publish customer AUTU packages", async () => {
+  const developer = { ...ownerSession, role: "DEVELOPER", user_id: "developer-user" };
+  const { env } = createEnv({ session: developer });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/autu/products", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${"D".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: "Protected package",
+        source: "CHẠM(10, 20)",
+        languageVersion: "0.2",
+        version: "1.0.0"
+      })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "insufficient_permissions");
+});
+
+test("Owner package publishing fails closed until the server encryption key is configured", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/autu/products", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${"E".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: "Protected package",
+        description: "Encrypted source test",
+        source: "CHẠM(10, 20)",
+        languageVersion: "0.2",
+        version: "1.0.0"
+      })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 503);
+  assert.equal((await json(response)).error, "package_encryption_not_configured");
+});
+
+test("Customer AUTU library requires a live signed-in session", async () => {
+  const { env, queries } = createEnv();
+  const response = await worker.fetch(makeRequest("/api/autu/library"), env);
+
+  assert.equal(response.status, 401);
+  assert.equal((await json(response)).error, "authentication_required");
+  assert.equal(queries.length, 0);
+});
+
+test("Customer library lists only licensed server packages", async () => {
+  const customer = { ...ownerSession, role: "CUSTOMER", user_id: "customer-user" };
+  const { env } = createEnv({ session: customer });
+  const response = await worker.fetch(
+    makeRequest("/api/autu/library", {
+      headers: { Authorization: `Bearer ${"F".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.autus, []);
+});
+
+test("Customer cannot download an AUTU without an active license", async () => {
+  const customer = { ...ownerSession, role: "CUSTOMER", user_id: "customer-user" };
+  const { env } = createEnv({ session: customer });
+  const response = await worker.fetch(
+    makeRequest("/api/autu/products/123e4567-e89b-42d3-a456-426614174000/download?installId=123e4567-e89b-42d3-a456-426614174001", {
+      headers: { Authorization: `Bearer ${"G".repeat(48)}` }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "autu_license_required");
+});
+
+test("Owner can open the AUTU product catalog without exposing package source", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/autu/products", {
+      headers: { Authorization: `Bearer ${"H".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.autus, []);
+});
