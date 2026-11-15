@@ -80,32 +80,34 @@ Các quyền quản lý cộng tác viên, quản lý giấy phép, ký và phá
 
 ## 7. Dự án cộng tác và quy trình duyệt
 
-Mã Worker trên nhánh `feature/shared-project-workspaces` bổ sung API dự án dùng chung:
+Mã Worker đã được hợp nhất vào `main`; migration `0003_shared_project_workspaces.sql` đã được áp dụng vào D1:
 
 - Chủ sở hữu tạo dự án và thêm/xóa tài khoản Nhà phát triển, Nhà thiết kế hoặc Người kiểm duyệt.
-- Nhà phát triển lưu bản nháp mã kịch bản vào D1; Nhà thiết kế lưu bản thiết kế UI dạng JSON vào D1.
+- Nhà phát triển lưu bản nháp mã kịch bản vào D1 theo revision.
+- Nhà thiết kế dùng trình chỉnh UI cơ bản (tiêu đề, mô tả, nhãn nút, màu chủ đạo, thẻ thông tin, danh sách kịch bản) và xem trước trực tiếp; cấu hình được lưu dưới dạng JSON theo mã màn hình và revision.
 - Mỗi bản nháp có số revision. Khi hai người cùng sửa, lần lưu dùng revision cũ sẽ nhận HTTP 409 để tải lại, không âm thầm ghi đè.
 - Người có quyền gửi duyệt tạo submission chứa snapshot bất biến của revision được gửi.
 - Người kiểm duyệt xem hàng chờ và duyệt/từ chối; không được tự duyệt bản gửi của chính mình.
 - Mọi hành động dự án/lưu bản nháp/gửi duyệt được ghi audit log, không ghi nội dung mã nguồn vào audit log.
+- Android có màn hình tạo/quản lý dự án cho Chủ sở hữu và workspace dự án được giao cho các vai trò cộng tác viên.
 
-Quyền trong dự án hiện kết hợp vai trò/quyền tài khoản và tư cách thành viên dự án. Chưa có quyền tùy chỉnh riêng từng dự án, tự động gửi email, so sánh diff trực quan hoặc khôi phục phiên bản mã bất kỳ. Duyệt submission chưa đồng nghĩa với phát hành package; phát hành cuối cùng vẫn là quyền riêng của Chủ sở hữu và pipeline package chưa triển khai.
+Quyền trong dự án hiện kết hợp vai trò/quyền tài khoản và tư cách thành viên dự án. Chưa có quyền tùy chỉnh riêng từng dự án, tự động gửi email, so sánh diff trực quan hoặc khôi phục phiên bản mã bất kỳ. Trình chỉnh UI chưa có thao tác kéo-thả và chưa render cấu hình thiết kế vào mọi màn hình ứng dụng. Duyệt submission chưa đồng nghĩa với phát hành package; phát hành cuối cùng vẫn là quyền riêng của Chủ sở hữu và pipeline package chưa triển khai.
 
 ## 8. Ranh giới bảo mật và giới hạn prototype
 
 - Ẩn nút trong giao diện không phải là bảo vệ quyền; mọi API thay đổi dữ liệu phải kiểm tra session và quyền ở phía Worker.
 - Chỉ Chủ sở hữu được quản lý cộng tác viên, giấy phép, bí mật ký và phát hành cuối cùng.
-- Trình soạn thảo cục bộ cũ vẫn lưu bản nháp trên thiết bị; màn hình Dự án cộng tác mới trên nhánh riêng đã gọi API để lưu mã kịch bản dùng chung lên D1, có revision chống ghi đè.
-- Nhà thiết kế có thể lưu bản thiết kế JSON dùng chung theo mã màn hình và revision; bản preview giao diện cũ vẫn là bản xem trước cục bộ.
-- Người kiểm duyệt có màn hình hàng đợi dự án, xem snapshot được gửi và gửi quyết định duyệt/từ chối qua API; việc duyệt chưa phát hành package.
+- Trình soạn thảo cục bộ cũ vẫn lưu bản nháp trên thiết bị; workspace dự án mới gọi API để lưu mã kịch bản dùng chung lên D1 khi Worker được triển khai, có revision chống ghi đè.
+- Nhà thiết kế có thể chỉnh nội dung và thành phần qua form, xem trước rồi lưu cấu hình JSON dùng chung. Bản preview thiết kế chưa được áp dụng tự động vào toàn bộ app.
+- Người kiểm duyệt có hàng đợi dự án, xem snapshot được gửi và gửi quyết định duyệt/từ chối qua API; việc duyệt chưa phát hành package.
 - Kịch bản phát hành sau này cần phiên bản, chữ ký và kiểm tra tính toàn vẹn. Không tuyên bố chống sao chép tuyệt đối.
 - Accessibility/overlay chỉ xin quyền Android khi chức năng thực tế cần và giải thích rõ.
 - Thu thập tối thiểu dữ liệu tài khoản/thiết bị cần cho bảo mật và giấy phép; không lấy dữ liệu riêng tư không cần thiết.
 
 ## 9. Trạng thái triển khai
 
-Đã hợp nhất vào `main` nền tảng một APK, Google Credential Manager, xác minh session theo role, workspace riêng cho các vai trò và giao diện quản lý cộng tác viên nối API. Đây là mã nguồn đã qua kiểm tra biên dịch Kotlin và kiểm tra Worker ở PR; không phải xác nhận đăng nhập Google thật đã hoạt động.
+Đã hợp nhất vào `main` nền tảng một APK, Google Credential Manager, xác minh session theo role, quyền chi tiết theo cộng tác viên và dự án dùng chung cho Developer/Designer/Reviewer. PR #12 đã được merge ở commit `941d9dbb`; Kotlin compilation và Worker/D1 migration checks đều thành công trên phiên bản được kiểm tra.
 
-Quyền chi tiết theo cộng tác viên đã được hợp nhất vào `main`. API dự án dùng chung, màn hình Android quản lý dự án/cộng tác viên, màn hình nhà phát triển/nhà thiết kế/người kiểm duyệt và repository gọi API hiện nằm trên nhánh `feature/shared-project-workspaces`; chưa được hợp nhất và chưa triển khai lên Worker.
+Migration D1 `0003_shared_project_workspaces.sql` đã được áp dụng. Bảng dự án, thành viên, bản nháp mã/UI và submission đã có; `PRAGMA foreign_key_check` không trả lỗi.
 
-Chưa có Worker deployed, Google OAuth Client ID/OWNER_EMAIL, đăng nhập thật, gửi email mời tự động, runtime Auto Click, compiler, Worker deployed, áp dụng migration 0003 lên D1, Google OAuth, đăng nhập thật, email mời tự động, UI preview từ thiết kế JSON, compiler/runtime Auto Click, so sánh diff/rollback tổng quát, pipeline phát hành package hoặc cập nhật package từ xa.
+Worker vẫn chưa deploy, Google OAuth Client ID và `OWNER_EMAIL` chưa cấu hình, nên chưa thể đăng nhập thật hoặc đồng bộ workspace giữa tài khoản. Chưa có email mời tự động, compiler/runtime Auto Click, renderer UI áp dụng thiết kế cho toàn app, diff/rollback tổng quát, pipeline phát hành package hoặc cập nhật package từ xa.
