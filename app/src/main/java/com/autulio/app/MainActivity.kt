@@ -31,6 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.Locale
@@ -227,6 +229,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
             when (page) {
                 "overview" -> OverviewScreen(
                     Modifier.padding(padding),
+                    accessToken = accessToken,
                     onNavigate = { page = it },
                     onCreate = { createDialog = true }
                 )
@@ -350,42 +353,120 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
 }
 
 @Composable
-private fun OverviewScreen(modifier: Modifier, onNavigate: (String) -> Unit, onCreate: () -> Unit) {
+private fun OverviewScreen(
+    modifier: Modifier,
+    accessToken: String?,
+    onNavigate: (String) -> Unit,
+    onCreate: () -> Unit
+) {
+    val context = LocalContext.current
+    val repository = remember(context) { AuthRepository(context) }
+    val scope = rememberCoroutineScope()
+    var customers by remember { mutableStateOf<List<com.autulio.app.auth.CustomerRecord>>(emptyList()) }
+    var licenses by remember { mutableStateOf<List<com.autulio.app.auth.LicenseRecord>>(emptyList()) }
+    var devices by remember { mutableStateOf<List<com.autulio.app.auth.DeviceRecord>>(emptyList()) }
+    var packages by remember { mutableStateOf<List<com.autulio.app.auth.AutuPackageRecord>>(emptyList()) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+
+    suspend fun refresh() {
+        val token = accessToken
+        if (token.isNullOrBlank()) return
+        loading = true
+        error = ""
+        try {
+            coroutineScope {
+                val customersRequest = async { repository.listAdminCustomers(token) }
+                val licensesRequest = async { repository.listAdminLicenses(token) }
+                val devicesRequest = async { repository.listAdminDevices(token) }
+                val packagesRequest = async { repository.listAdminPackages(token) }
+                customers = customersRequest.await()
+                licenses = licensesRequest.await()
+                devices = devicesRequest.await()
+                packages = packagesRequest.await()
+            }
+        } catch (exception: Exception) {
+            error = exception.message?.takeIf { it.isNotBlank() }
+                ?: tr("Không tải được số liệu tổng quan.", "Could not load dashboard data.")
+        } finally {
+            loading = false
+        }
+    }
+
+    LaunchedEffect(accessToken) { refresh() }
+
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
-        BrandHeader(admin = true)
-        Heading(tr("Tổng quan", "Overview"), tr("Quản lý ứng dụng và hoạt động hệ thống", "Manage the app and system activity"))
-        CardBox {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Column {
-                    Text(tr("Chưa kết nối máy chủ", "Server not connected"), fontWeight = FontWeight.SemiBold)
-                    Text(tr("Bản thử nghiệm giao diện, chưa có dữ liệu thật.", "UI prototype, no live data yet."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                BrandHeader(admin = true)
+                Heading(
+                    tr("Tổng quan", "Overview"),
+                    tr("Số liệu quản lý được đồng bộ trực tiếp từ máy chủ", "Management figures synchronized directly from the server")
+                )
+            }
+            IconButton(onClick = { scope.launch { refresh() } }, enabled = !loading && !accessToken.isNullOrBlank()) {
+                Icon(Icons.Outlined.Refresh, contentDescription = tr("Làm mới", "Refresh"))
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Metric(tr("Khách hàng", "Customers"), "—", Icons.Outlined.Group, Modifier.weight(1f))
-            Metric(tr("Thiết bị", "Devices"), "—", Icons.Outlined.Smartphone, Modifier.weight(1f))
+
+        if (accessToken.isNullOrBlank()) {
+            CardBox {
+                Text(tr("Chưa có phiên đăng nhập thật", "No authenticated session"), fontWeight = FontWeight.SemiBold)
+                Text(
+                    tr("Số liệu quản lý sẽ được tải sau khi đăng nhập bằng tài khoản chủ sở hữu.", "Management data loads after signing in with the owner account."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            }
+        } else {
+            if (loading && customers.isEmpty() && licenses.isEmpty() && devices.isEmpty() && packages.isEmpty()) {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            if (error.isNotBlank()) {
+                CardBox {
+                    Text(tr("Không thể đồng bộ dữ liệu", "Could not synchronize data"), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                    Text(error, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    OutlinedButton(onClick = { scope.launch { refresh() } }, enabled = !loading) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(tr("Thử lại", "Retry"))
+                    }
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Metric(tr("Khách hàng", "Customers"), customers.size.toString(), Icons.Outlined.Group, Modifier.weight(1f))
+                    Metric(tr("Thiết bị", "Devices"), devices.count { it.status == "ACTIVE" }.toString(), Icons.Outlined.Smartphone, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Metric(tr("Giấy phép hoạt động", "Active licenses"), licenses.count { it.status == "ACTIVE" }.toString(), Icons.Outlined.VerifiedUser, Modifier.weight(1f))
+                    Metric(tr("Gói AUTU hoạt động", "Active AUTU packages"), packages.count { it.status == "ACTIVE" }.toString(), Icons.Outlined.Code, Modifier.weight(1f))
+                }
+                Text(
+                    tr("Dữ liệu được tải từ API quản lý. Kéo xuống để xem thêm hoặc nhấn làm mới để đồng bộ lại.", "Data is loaded from management APIs. Scroll down or tap refresh to synchronize again."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
+                )
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Metric(tr("Giấy phép còn hạn", "Active licenses"), "—", Icons.Outlined.VerifiedUser, Modifier.weight(1f))
-            Metric(tr("Kịch bản phát hành", "Published scripts"), "—", Icons.Outlined.Code, Modifier.weight(1f))
-        }
+
         Text(tr("Truy cập nhanh", "Quick actions"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ActionTile(tr("Tạo kịch bản", "Create script"), Icons.Outlined.Add, Modifier.weight(1f), onCreate)
+            ActionTile(tr("Tạo AUTU", "Create AUTU"), Icons.Outlined.Add, Modifier.weight(1f), onCreate)
             ActionTile(tr("Kịch bản", "Scripts"), Icons.Outlined.ListAlt, Modifier.weight(1f)) { onNavigate("scripts") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ActionTile(tr("Khách hàng", "Customers"), Icons.Outlined.Group, Modifier.weight(1f)) { onNavigate("customers") }
             ActionTile(tr("Thiết bị", "Devices"), Icons.Outlined.Smartphone, Modifier.weight(1f)) { onNavigate("devices") }
         }
-        Text(tr("Hoạt động gần đây", "Recent activity"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-        EmptyState(Icons.Outlined.Info, tr("Chưa có hoạt động", "No activity yet"), tr("Nhật ký sẽ xuất hiện khi máy chủ được kết nối.", "Activity will appear after the server is connected."))
-        Text(tr("Prototype giao diện · Chưa kết nối máy chủ", "UI prototype · Server not connected"), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ActionTile(tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser, Modifier.weight(1f)) { onNavigate("licenses") }
+            ActionTile(tr("Phát hành gói", "Publish packages"), Icons.Outlined.CloudUpload, Modifier.weight(1f)) { onNavigate("packages") }
+        }
     }
 }
 
