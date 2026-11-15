@@ -869,6 +869,7 @@ async function createProjectSubmission(request, env, session, projectId) {
   if (!["SCRIPT", "UI"].includes(kind) || !Number.isInteger(revision) || revision < 1) {
     throw new HttpError(400, "invalid_submission", "A valid submission kind and revision are required.");
   }
+  await requirePermission(env, session, kind === "SCRIPT" ? "EDIT_SCRIPTS" : "EDIT_UI_DESIGN");
   let snapshot;
   if (kind === "SCRIPT") {
     if (!PROJECT_ID_PATTERN.test(itemId)) throw new HttpError(400, "invalid_item_id", "Script ID is invalid.");
