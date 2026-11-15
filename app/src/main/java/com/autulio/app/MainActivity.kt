@@ -130,7 +130,7 @@ internal fun tr(vi: String, en: String) =
     if (Locale.getDefault().language == "vi") vi else en
 
 @Composable
-private fun AppTheme(dark: Boolean, content: @Composable () -> Unit) {
+internal fun AppTheme(dark: Boolean, content: @Composable () -> Unit) {
     val scheme = if (dark) darkColorScheme(
         primary = Color(0xFF4F8CFF),
         secondary = Color(0xFF35C6C8),
