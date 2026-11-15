@@ -119,6 +119,22 @@ data class SharedSubmission(
 )
 
 
+data class CustomerRecord(
+    val userId: String,
+    val email: String,
+    val displayName: String?,
+    val status: String,
+    val createdAt: Long,
+    val lastLoginAt: Long?,
+    val licenseId: String?,
+    val planCode: String?,
+    val licenseStatus: String?,
+    val licenseStartsAt: Long?,
+    val licenseExpiresAt: Long?,
+    val maxDevices: Int?,
+    val activeDeviceCount: Int
+)
+
 data class LicenseRecord(
     val id: String,
     val userId: String,
@@ -671,23 +687,29 @@ class AuthRepository(context: Context) {
     }
 
 
-    suspend fun listAdminCustomers(accessToken: String): List<LicenseRecord> {
+    suspend fun listAdminCustomers(accessToken: String): List<CustomerRecord> {
         val result = apiRequest("/api/admin/customers", "GET", bearerToken = accessToken)
         val items = result.optJSONArray("customers") ?: return emptyList()
         return buildList {
             for (index in 0 until items.length()) {
                 val item = items.optJSONObject(index) ?: continue
-                val licenseId = item.optString("license_id").takeIf { it.isNotBlank() && it != "null" } ?: continue
+                val userId = item.optString("id")
+                val email = item.optString("email")
+                if (userId.isBlank() || email.isBlank()) continue
                 add(
-                    LicenseRecord(
-                        id = licenseId,
-                        userId = item.optString("id"),
-                        email = item.optString("email"),
-                        planCode = item.optString("plan_code"),
-                        status = item.optString("license_status"),
-                        startsAt = item.optLong("starts_at"),
-                        expiresAt = item.optLong("expires_at"),
-                        maxDevices = item.optInt("max_devices", 1),
+                    CustomerRecord(
+                        userId = userId,
+                        email = email,
+                        displayName = item.optString("display_name").takeIf { it.isNotBlank() && it != "null" },
+                        status = item.optString("status"),
+                        createdAt = item.optLong("created_at"),
+                        lastLoginAt = item.optLong("last_login_at").takeIf { item.has("last_login_at") && !item.isNull("last_login_at") },
+                        licenseId = item.optString("license_id").takeIf { it.isNotBlank() && it != "null" },
+                        planCode = item.optString("plan_code").takeIf { it.isNotBlank() && it != "null" },
+                        licenseStatus = item.optString("license_status").takeIf { it.isNotBlank() && it != "null" },
+                        licenseStartsAt = item.optLong("starts_at").takeIf { item.has("starts_at") && !item.isNull("starts_at") },
+                        licenseExpiresAt = item.optLong("expires_at").takeIf { item.has("expires_at") && !item.isNull("expires_at") },
+                        maxDevices = item.optInt("max_devices").takeIf { item.has("max_devices") && !item.isNull("max_devices") },
                         activeDeviceCount = item.optInt("active_device_count")
                     )
                 )
