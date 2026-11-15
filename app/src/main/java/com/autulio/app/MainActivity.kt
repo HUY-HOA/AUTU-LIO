@@ -302,9 +302,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit, onRoleUpdated: () -> Unit) {
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
-    var scriptDetail by rememberSaveable { mutableStateOf(false) }
-    val context = LocalContext.current
-    val authRepository = remember(context) { AuthRepository(context) }
+    var selectedAutu by remember { mutableStateOf<com.autulio.app.auth.PublishedAutu?>(null) }
     val host = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -317,7 +315,10 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                     customerTabs.forEach { tab ->
                         NavigationBarItem(
                             selected = page == tab.key,
-                            onClick = { page = tab.key },
+                            onClick = {
+                                page = tab.key
+                                if (tab.key != "scripts") selectedAutu = null
+                            },
                             icon = { Icon(tab.icon, contentDescription = tr(tab.vi, tab.en)) },
                             label = { Text(tr(tab.vi, tab.en), fontSize = 10.sp) }
                         )
@@ -327,21 +328,24 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
         ) { padding ->
             when (page) {
                 "home" -> CustomerHome(Modifier.padding(padding), email = email, onScripts = { page = "scripts" })
-                "scripts" -> if (scriptDetail) {
-                    CustomerScriptDetail(
-                        Modifier.padding(padding),
-                        onBack = { scriptDetail = false },
-                        onPreviewAction = {
-                            scope.launch {
-                                host.showSnackbar(tr("Runtime AutoClick chưa được tích hợp. Chưa có thao tác nào được thực hiện.", "AutoClick runtime is not integrated. No screen action was performed."))
-                            }
-                        }
-                    )
-                } else {
-                    CustomerScriptsScreen(
-                        Modifier.padding(padding),
-                        onOpen = { scriptDetail = true }
-                    )
+                "scripts" -> {
+                    val selected = selectedAutu
+                    if (selected == null) {
+                        CustomerScriptsScreen(
+                            Modifier.padding(padding),
+                            accessToken = accessToken,
+                            onOpen = { selectedAutu = it },
+                            onNotice = { message -> scope.launch { host.showSnackbar(message) } }
+                        )
+                    } else {
+                        CustomerScriptDetail(
+                            Modifier.padding(padding),
+                            autu = selected,
+                            accessToken = accessToken,
+                            onBack = { selectedAutu = null },
+                            onNotice = { message -> scope.launch { host.showSnackbar(message) } }
+                        )
+                    }
                 }
                 "device" -> CustomerDeviceLicensePage(Modifier.padding(padding))
                 else -> SettingsScreen(
@@ -355,7 +359,7 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                         } else {
                             scope.launch {
                                 try {
-                                    authRepository.acceptInvitation(accessToken, invitationToken)
+                                    AuthRepository(LocalContext.current).acceptInvitation(accessToken, invitationToken)
                                     host.showSnackbar(tr("Đã chấp nhận lời mời. Đang cập nhật quyền tài khoản…", "Invitation accepted. Refreshing account access…"))
                                     onRoleUpdated()
                                 } catch (error: Exception) {
@@ -919,64 +923,120 @@ private fun CustomerHome(modifier: Modifier, email: String, onScripts: () -> Uni
 }
 
 @Composable
-private fun CustomerScriptsScreen(modifier: Modifier, onOpen: () -> Unit) {
+private fun CustomerScriptsScreen(
+    modifier: Modifier,
+    accessToken: String?,
+    onOpen: (com.autulio.app.auth.PublishedAutu) -> Unit,
+    onNotice: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val repository = remember(context) { AuthRepository(context) }
+    val scope = rememberCoroutineScope()
+    var autus by remember { mutableStateOf<List<com.autulio.app.auth.PublishedAutu>>(emptyList()) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+
+    suspend fun refresh() {
+        if (accessToken.isNullOrBlank()) {
+            autus = emptyList()
+            return
+        }
+        loading = true
+        error = ""
+        try {
+            autus = repository.listLicensedAutus(accessToken)
+        } catch (exception: Exception) {
+            error = exception.message ?: tr("Không tải được kho AUTU.", "Could not load the AUTU library.")
+        } finally {
+            loading = false
+        }
+    }
+
+    LaunchedEffect(accessToken) { refresh() }
+
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         BrandHeader(admin = false)
-        Heading(tr("Kịch bản", "Scripts"), tr("Các kịch bản do chủ ứng dụng cung cấp", "Scripts provided by the app owner"))
-        Card(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                Modifier.fillMaxWidth().padding(15.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        tr("MẪU XEM TRƯỚC · KHÔNG PHẢI GÓI THẬT", "PREVIEW SAMPLE · NOT A REAL PACKAGE"),
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr("Kịch bản minh họa", "Sample script"), modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = null)
-                }
-                Text(
-                    tr("Màn hình mẫu để kiểm tra luồng xem chi tiết và các nút điều khiển. Không chứa thao tác tự động hóa thật.",
-                        "A sample screen to preview the details and control flow. It contains no real automation actions."),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp
-                )
-                OutlinedButton(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
-                    Text(tr("Xem chi tiết mẫu", "View sample details"))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Heading(tr("Kho AUTU", "AUTU library"), tr("Gói đã được cấp giấy phép cho tài khoản này", "Packages licensed to this account"))
+            }
+            IconButton(onClick = { scope.launch { refresh() } }, enabled = !loading && !accessToken.isNullOrBlank()) {
+                Icon(Icons.Outlined.Refresh, contentDescription = tr("Tải lại", "Refresh"))
+            }
+        }
+
+        if (loading) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(9.dp))
+                Text(tr("Đang đồng bộ giấy phép…", "Syncing licenses…"), fontSize = 12.sp)
+            }
+        }
+        if (error.isNotBlank()) {
+            CardBox {
+                Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                OutlinedButton(onClick = { scope.launch { refresh() } }, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Thử lại", "Retry"))
                 }
             }
         }
-        CardBox {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Outlined.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Column {
-                    Text(tr("Kho kịch bản chưa kết nối", "Script library not connected"), fontWeight = FontWeight.SemiBold)
+        if (accessToken.isNullOrBlank()) {
+            EmptyState(
+                Icons.Outlined.Lock,
+                tr("Cần đăng nhập thật", "Sign-in required"),
+                tr("Kho AUTU chỉ tải dữ liệu từ máy chủ sau khi tài khoản được xác minh. Chế độ xem trước không cấp giấy phép.", "The AUTU library loads from the server after account verification. Preview mode does not grant licenses.")
+            )
+        } else if (!loading && error.isBlank() && autus.isEmpty()) {
+            EmptyState(
+                Icons.Outlined.Inventory2,
+                tr("Chưa được cấp AUTU", "No AUTUs assigned"),
+                tr("Khi chủ sở hữu cấp giấy phép cho tài khoản này, các AUTU còn hiệu lực sẽ xuất hiện tại đây.", "AUTUs with active licenses will appear here after the owner assigns them to this account.")
+            )
+        }
+        autus.forEach { autu ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(autu.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                        Text("v${autu.version}", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
+                    }
+                    if (autu.description.isNotBlank()) {
+                        Text(autu.description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
                     Text(
-                        tr("Kịch bản thật sẽ xuất hiện sau khi đăng nhập và đồng bộ giấy phép.",
-                            "Real scripts will appear after sign-in and license synchronization."),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        tr("Ngôn ngữ AUTU ${autu.languageVersion} · Tối đa ${autu.maxDevices} thiết bị", "AUTU language ${autu.languageVersion} · Up to ${autu.maxDevices} devices"),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Text(
+                        if (autu.expiresAt == null) tr("Giấy phép không đặt ngày hết hạn", "License has no expiry date")
+                        else tr("Hết hạn: " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(autu.expiresAt * 1000)), "Expires: " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(autu.expiresAt * 1000))),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(onClick = { onOpen(autu) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Outlined.PlayArrow, null)
+                        Spacer(Modifier.width(7.dp))
+                        Text(tr("Chi tiết và chạy AUTU", "Details and run AUTU"))
+                    }
                 }
             }
+        }
+        if (accessToken != null) {
+            Text(
+                tr("Gói chỉ tải được khi giấy phép còn hiệu lực. Mỗi lượt tải đều được máy chủ kiểm tra quyền và giới hạn thiết bị.", "Packages are downloaded only while the license is active. Every download is checked against server permissions and device limits."),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                lineHeight = 16.sp
+            )
         }
     }
 }
@@ -984,72 +1044,127 @@ private fun CustomerScriptsScreen(modifier: Modifier, onOpen: () -> Unit) {
 @Composable
 private fun CustomerScriptDetail(
     modifier: Modifier,
+    autu: com.autulio.app.auth.PublishedAutu,
+    accessToken: String?,
     onBack: () -> Unit,
-    onPreviewAction: () -> Unit
+    onNotice: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    val repository = remember(context) { AuthRepository(context) }
+    val scope = rememberCoroutineScope()
+    var downloading by remember { mutableStateOf(false) }
+    var lastRunReady by remember { mutableStateOf(false) }
+    var lastError by remember { mutableStateOf("") }
+
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         BrandHeader(admin = false)
-        TextButton(onClick = onBack) { Text(tr("← Quay lại danh sách", "← Back to scripts")) }
-        Heading(tr("Kịch bản minh họa", "Sample script"), tr("Chi tiết bản xem trước", "Preview details"))
+        TextButton(onClick = onBack) { Text(tr("← Quay lại kho AUTU", "← Back to AUTU library")) }
+        Heading(autu.name, tr("Gói AUTU đã phát hành · v${autu.version}", "Published AUTU package · v${autu.version}"))
         CardBox {
-            Surface(
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    tr("CHỈ XEM TRƯỚC", "PREVIEW ONLY"),
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp
-                )
-            }
-            Text(tr("Mô tả", "Description"), fontWeight = FontWeight.SemiBold)
+            Text(tr("Thông tin gói", "Package information"), fontWeight = FontWeight.SemiBold)
+            if (autu.description.isNotBlank()) Text(autu.description, fontSize = 12.sp)
+            Text("AUTU Script ${autu.languageVersion}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                tr("Đây là nội dung minh họa để kiểm tra bố cục. Chưa có package được phát hành hoặc tải về thiết bị.",
-                    "This is sample content for layout testing. No released package has been downloaded to this device."),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                lineHeight = 18.sp
+                tr("Mã nguồn được mã hóa khi lưu trên máy chủ. Nội dung chỉ được trả sau khi kiểm tra giấy phép.", "Source is encrypted at rest on the server. It is returned only after license verification."),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        if (lastError.isNotBlank()) {
+            Text(lastError, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+        }
+        Button(
+            onClick = {
+                if (accessToken.isNullOrBlank()) {
+                    onNotice(tr("Bạn cần đăng nhập để tải AUTU.", "Sign in to download this AUTU."))
+                } else {
+                    scope.launch {
+                        downloading = true
+                        lastError = ""
+                        try {
+                            val downloaded = repository.downloadLicensedAutu(accessToken, autu.id)
+                            val compilation = ScriptCompiler.compile(downloaded.source)
+                            if (!compilation.isSuccess) {
+                                lastError = compilation.diagnostics.joinToString("\n") {
+                                    "Dòng ${it.line}, cột ${it.column}: ${it.messageVi}"
+                                }
+                            } else {
+                                val service = AutoClickAccessibilityService.current()
+                                if (service == null) {
+                                    lastRunReady = false
+                                    onNotice(tr("Hãy bật AUTU-LIO trong Cài đặt > Trợ năng, sau đó quay lại nhấn Tải và chuẩn bị chạy.", "Enable AUTU-LIO in Settings > Accessibility, then return and tap Download and prepare again."))
+                                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                } else if (service.prepareProgram(compilation.program!!)) {
+                                    lastRunReady = true
+                                    onNotice(tr("Gói đã kiểm tra và sẵn sàng. Mở ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.", "Package verified and ready. Open the target app, then press Run in the floating window."))
+                                } else {
+                                    lastError = tr("Không thể mở bộ điều khiển. Hãy dừng AUTU đang chạy hoặc kiểm tra quyền Trợ năng.", "The runner could not be opened. Stop the current AUTU or check Accessibility access.")
+                                }
+                            }
+                        } catch (exception: Exception) {
+                            lastError = exception.message ?: tr("Không tải hoặc chạy được AUTU.", "Could not download or run AUTU.")
+                        } finally {
+                            downloading = false
+                        }
+                    }
+                }
+            },
+            enabled = !downloading && !accessToken.isNullOrBlank(),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (downloading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            else Icon(Icons.Outlined.Download, null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (downloading) tr("Đang kiểm tra giấy phép và tải gói…", "Checking license and downloading…") else tr("Tải gói và chuẩn bị chạy", "Download package and prepare to run"))
+        }
         CardBox {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Icon(Icons.Outlined.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Column {
-                    Text(tr("Chưa sẵn sàng chạy", "Not ready to run"), fontWeight = FontWeight.SemiBold)
-                    Text(
-                        tr("Runtime AutoClick và quyền trợ năng chưa được tích hợp.", "The AutoClick runtime and accessibility service are not integrated."),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
-                    )
+            Text(tr("Điều khiển phiên chạy", "Run session controls"), fontWeight = FontWeight.SemiBold)
+            Text(
+                tr("Sau khi cửa sổ AUTU nổi xuất hiện, bạn có thể điều khiển phiên chạy ngay cả khi chuyển sang ứng dụng khác.", "After the floating AUTU controller appears, you can control the run session while using another app."),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        val changed = AutoClickAccessibilityService.current()?.pauseExecution() == true
+                        onNotice(if (changed) tr("Đã gửi yêu cầu tạm dừng.", "Pause requested.") else tr("Không có phiên đang chạy để tạm dừng.", "No active session to pause."))
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Outlined.Pause, null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(tr("Tạm dừng", "Pause"))
+                }
+                OutlinedButton(
+                    onClick = {
+                        val changed = AutoClickAccessibilityService.current()?.resumeExecution() == true
+                        onNotice(if (changed) tr("Đã gửi yêu cầu tiếp tục.", "Resume requested.") else tr("Không có phiên đang tạm dừng.", "No paused session to resume."))
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Outlined.PlayArrow, null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(tr("Tiếp tục", "Resume"))
                 }
             }
-        }
-        Text(tr("Bảng điều khiển", "Controls"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-        Button(onClick = onPreviewAction, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Outlined.PlayArrow, null)
-            Spacer(Modifier.width(8.dp))
-            Text(tr("Thử nút chạy (không thực thi)", "Preview Run button (no execution)"))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            OutlinedButton(onClick = onPreviewAction, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Outlined.Pause, null)
-                Spacer(Modifier.width(5.dp))
-                Text(tr("Tạm dừng mẫu", "Pause sample"))
-            }
-            OutlinedButton(onClick = onPreviewAction, modifier = Modifier.weight(1f)) {
+            OutlinedButton(
+                onClick = {
+                    val changed = AutoClickAccessibilityService.current()?.stopExecution() == true
+                    onNotice(if (changed) tr("Đã gửi yêu cầu dừng.", "Stop requested.") else tr("Không có phiên đang chạy để dừng.", "No active session to stop."))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Icon(Icons.Outlined.Stop, null)
-                Spacer(Modifier.width(5.dp))
-                Text(tr("Dừng mẫu", "Stop sample"))
+                Spacer(Modifier.width(6.dp))
+                Text(tr("Dừng AUTU", "Stop AUTU"))
             }
         }
         Text(
-            tr("Các nút trên chỉ kiểm tra giao diện và thông báo. Chúng không chạm, vuốt hoặc điều khiển ứng dụng khác.",
-                "These buttons only test the interface and messages. They do not tap, swipe, or control other apps."),
+            tr("Ứng dụng không tự cấp quyền Android. Nếu Trợ năng chưa bật, Android sẽ mở trang cài đặt để bạn tự bật.", "The app never grants Android permissions automatically. If Accessibility is off, Android opens Settings so you can enable it."),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 11.sp,
             lineHeight = 16.sp
