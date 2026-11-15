@@ -107,5 +107,32 @@ object ScriptTemplateCatalog {
                 }
             """.trimIndent()
         )
+,
+        ScriptTemplate(
+            id = "wait_until_condition",
+            nameVi = "Chờ ứng dụng hoặc điều kiện sẵn sàng",
+            nameEn = "Wait for an app or condition",
+            descriptionVi = "Kiểm tra điều kiện định kỳ và tự dừng khi hết thời hạn.",
+            descriptionEn = "Poll a condition and stop safely when the timeout is reached.",
+            source = """
+                CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ("com.example.game"), 15000, 250)
+                CHẠM(200, 400)
+            """.trimIndent()
+        ),
+        ScriptTemplate(
+            id = "until_loop",
+            nameVi = "Lặp đến khi đạt mục tiêu",
+            nameEn = "Loop until a goal is reached",
+            descriptionVi = "Thực hiện thao tác cho đến khi biến đạt điều kiện dừng.",
+            descriptionEn = "Repeat actions until a variable reaches the stop condition.",
+            source = """
+                ĐẶT dem = 0
+                LẶP_ĐẾN_KHI(dem >= 5) {
+                    dem = dem + 1
+                    CHẠM(200, 400)
+                    CHỜ(300)
+                }
+            """.trimIndent()
+        )
     )
 }
