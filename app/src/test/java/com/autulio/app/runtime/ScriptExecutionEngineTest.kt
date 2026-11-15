@@ -73,6 +73,53 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
+    fun pauseDuringAnInFlightActionWaitsForResumeWithoutFailing() {
+        val actionStarted = CountDownLatch(1)
+        val releaseAction = CountDownLatch(1)
+        val actionReturned = CountDownLatch(1)
+        val completed = CountDownLatch(1)
+        val actions = CopyOnWriteArrayList<String>()
+        val dispatcher = object : ScriptActionDispatcher {
+            override fun tap(x: Int, y: Int): Boolean {
+                actions += "tap:$x,$y"
+                if (x == 1) {
+                    actionStarted.countDown()
+                    releaseAction.await(2, TimeUnit.SECONDS)
+                    actionReturned.countDown()
+                }
+                return true
+            }
+
+            override fun longPress(x: Int, y: Int, durationMs: Int) = true
+            override fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int) = true
+        }
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            assertEquals(
+                ScriptExecutionStartResult.Started,
+                engine.start(compile("tap(1, 1)\\ntap(2, 2)"))
+            )
+            assertTrue(actionStarted.await(2, TimeUnit.SECONDS))
+            assertTrue(engine.pause())
+            releaseAction.countDown()
+            assertTrue(actionReturned.await(2, TimeUnit.SECONDS))
+            Thread.sleep(100)
+            assertEquals(ScriptExecutionState.PAUSED, engine.snapshot().state)
+            assertEquals(0L, engine.snapshot().completedInstructions)
+            assertEquals(listOf("tap:1,1"), actions)
+            assertTrue(engine.resume())
+            assertTrue(completed.await(2, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:1,1", "tap:2,2"), actions)
+            assertEquals(2L, engine.snapshot().completedInstructions)
+        } finally {
+            releaseAction.countDown()
+            engine.close()
+        }
+    }
+
+    @Test
     fun stopCancelsLongWaitPromptly() {
         val actions = RecordingDispatcher()
         val cancelled = CountDownLatch(1)
