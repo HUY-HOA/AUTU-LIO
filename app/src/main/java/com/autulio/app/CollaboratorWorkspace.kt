@@ -1,6 +1,8 @@
 package com.autulio.app
 
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -62,16 +64,26 @@ private fun DeveloperWorkspace(
     val canTestScripts = AccessPermission.TEST_SCRIPTS in permissions
     val canSubmitRelease = AccessPermission.SUBMIT_RELEASE in permissions
     val context = LocalContext.current
-    val preferences = remember(context) {
-        context.getSharedPreferences("autulio_developer_drafts", Context.MODE_PRIVATE)
-    }
+    val draftStore = remember(context) { SecureScriptDraftStore(context, "developer") }
+    val initialDrafts = remember(draftStore) { draftStore.load() }
+    var draftNames by remember(draftStore) { mutableStateOf(initialDrafts.names) }
     var name by rememberSaveable {
-        mutableStateOf(preferences.getString("draft_name", "") ?: "")
-    }
-    var code by rememberSaveable {
-        mutableStateOf(preferences.getString("draft_code", "") ?: "")
+        mutableStateOf(initialDrafts.names.firstOrNull().orEmpty())
     }
     var message by rememberSaveable { mutableStateOf("") }
+    val editorLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        val refreshed = draftStore.load()
+        draftNames = refreshed.names
+        if (name.isBlank() && refreshed.names.isNotEmpty()) {
+            name = refreshed.names.first()
+        }
+        message = tr(
+            "Đã cập nhật danh sách bản nháp được mã hóa trên thiết bị.",
+            "Encrypted local draft list has been refreshed."
+        )
+    }
 
     AppTheme(dark = true) {
         Scaffold(
@@ -90,8 +102,8 @@ private fun DeveloperWorkspace(
                 verticalArrangement = Arrangement.spacedBy(13.dp)
             ) {
                 Heading(
-                    tr("Trình soạn thảo kịch bản", "Script editor"),
-                    tr("Bạn có thể viết và kiểm thử bản nháp trong phạm vi được giao.", "Write and test drafts within your assigned scope.")
+                    tr("Kịch bản của nhà phát triển", "Developer scripts"),
+                    tr("Mã nguồn được chỉnh sửa trong cửa sổ trình soạn thảo riêng.", "Source code is edited in a separate editor window.")
                 )
                 OutlinedButton(onClick = onOpenProjects, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Outlined.FolderOpen, null)
@@ -106,37 +118,62 @@ private fun DeveloperWorkspace(
                     label = { Text(tr("Tên kịch bản", "Script name")) },
                     enabled = canEditScripts
                 )
-                OutlinedTextField(
-                    value = code,
-                    onValueChange = { code = it; message = "" },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp),
-                    label = { Text(tr("Mã kịch bản AUTU-LIO", "AUTU-LIO script source")) },
-                    placeholder = { Text(tr("Nhập mã kịch bản tại đây…", "Write the script here…")) },
-                    enabled = canEditScripts
-                )
+                if (draftNames.isNotEmpty()) {
+                    Text(
+                        tr("Bản nháp đã lưu", "Saved drafts"),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        draftNames.forEach { draftName ->
+                            OutlinedButton(
+                                onClick = { name = draftName; message = "" },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = canEditScripts
+                            ) {
+                                Icon(Icons.Outlined.Code, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(draftName)
+                            }
+                        }
+                    }
+                } else {
+                    WorkspaceNotice(
+                        tr("Chưa có bản nháp. Nhập tên rồi mở trình soạn thảo riêng để tạo kịch bản.", "No drafts yet. Enter a name and open the separate editor to create a script.")
+                    )
+                }
                 Button(
                     onClick = {
-                        preferences.edit()
-                            .putString("draft_name", name.trim())
-                            .putString("draft_code", code)
-                            .apply()
-                        message = tr(
-                            "Đã lưu bản nháp trên thiết bị. Chưa đồng bộ máy chủ hoặc gửi duyệt.",
-                            "Draft saved on this device. It has not been synced or submitted for review."
-                        )
+                        val cleanName = name.trim()
+                        if (cleanName.isNotEmpty()) {
+                            val current = draftStore.load()
+                            val names = (current.names + cleanName)
+                                .distinctBy { it.lowercase(java.util.Locale.ROOT) }
+                            draftStore.save(names, current.contents + (cleanName to current.contents[cleanName].orEmpty()))
+                            draftNames = names
+                            editorLauncher.launch(
+                                ScriptEditorActivity.intent(
+                                    context = context,
+                                    scriptName = cleanName,
+                                    namespace = "developer",
+                                    allowTest = canTestScripts
+                                )
+                            )
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = canEditScripts && name.isNotBlank() && code.isNotBlank()
+                    enabled = canEditScripts && name.isNotBlank()
                 ) {
-                    Icon(Icons.Outlined.Save, contentDescription = null)
+                    Icon(Icons.Outlined.Edit, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(tr("Lưu bản nháp", "Save draft"))
+                    Text(tr("Mở trình soạn thảo riêng", "Open separate script editor"))
                 }
-                if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                if (message.isNotBlank()) {
+                    Text(message, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                }
                 WorkspaceNotice(
                     tr(
-                        "Quyền nhà phát triển không bao gồm quản lý cộng tác viên, giấy phép, khóa ký hoặc phát hành chính thức. Bản nháp hiện chỉ lưu cục bộ.",
-                        "Developer access does not include collaborator management, licenses, signing keys or final publishing. Drafts are currently local only."
+                        "Bản nháp nhà phát triển được mã hóa và lưu riêng, không dùng chung kho bản nháp của Chủ sở hữu. Lưu cục bộ chưa có nghĩa là đã đồng bộ hoặc gửi duyệt.",
+                        "Developer drafts are encrypted and stored separately from Owner drafts. Local saving does not mean the draft has been synced or submitted for review."
                     )
                 )
                 CardBox {
@@ -151,12 +188,16 @@ private fun DeveloperWorkspace(
                     if (!canEditScripts) {
                         Text(tr("Bạn chỉ có thể xem màn hình; quyền sửa mã hiện đã bị tắt.", "You can only view this screen; script editing is disabled."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                     }
-                    if (canTestScripts || canSubmitRelease) {
+                    if (canTestScripts) {
                         Text(
-                            listOfNotNull(
-                                if (canTestScripts) tr("Có quyền kiểm thử", "Testing allowed") else null,
-                                if (canSubmitRelease) tr("Có quyền gửi duyệt", "Submission allowed") else null
-                            ).joinToString(" · "),
+                            tr("Bạn được phép kiểm thử kịch bản.", "You are allowed to test scripts."),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 11.sp
+                        )
+                    }
+                    if (canSubmitRelease) {
+                        Text(
+                            tr("Bạn được phép gửi bản kịch bản để duyệt.", "You are allowed to submit scripts for review."),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 11.sp
                         )
