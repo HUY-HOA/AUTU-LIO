@@ -542,6 +542,7 @@ private fun MoreScreen(
     onMessage: (String) -> Unit
 ) {
     val items = listOf(
+        Triple("collaborators", tr("Cộng tác viên", "Collaborators"), Icons.Outlined.PersonAdd),
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện", "Libraries"), Icons.Outlined.ListAlt),
         Triple("release", tr("Phát hành", "Releases"), Icons.Outlined.PlayArrow),
@@ -582,6 +583,7 @@ private fun MoreScreen(
             Heading(
                 selected?.second ?: tr("Quản lý", "Management"),
                 when (page) {
+                    "collaborators" -> tr("Mời và phân quyền nhà phát triển, nhà thiết kế, người kiểm duyệt", "Invite and assign developers, designers and reviewers")
                     "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
                     "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
                     "release" -> tr("Quản lý phiên bản và phân phối", "Manage versions and distribution")
@@ -590,6 +592,7 @@ private fun MoreScreen(
                 }
             )
             when (page) {
+                "collaborators" -> CollaboratorsContent(onBack = { onSelect("more") })
                 "licenses" -> {
                     CardBox {
                         Text(tr("Thông tin giấy phép", "License information"), fontWeight = FontWeight.SemiBold)
