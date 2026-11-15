@@ -953,7 +953,7 @@ internal fun Heading(title: String, subtitle: String) {
 }
 
 @Composable
-private fun CardBox(content: @Composable ColumnScope.() -> Unit) {
+internal fun CardBox(content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
