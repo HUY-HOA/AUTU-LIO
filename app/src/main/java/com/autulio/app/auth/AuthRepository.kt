@@ -207,6 +207,15 @@ class AuthRepository(context: Context) {
         )
     }
 
+    suspend fun revokeInvitation(accessToken: String, invitationId: String) {
+        require(invitationId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        apiRequest(
+            path = "/api/admin/invitations/${URLEncoder.encode(invitationId, "UTF-8")}",
+            method = "DELETE",
+            bearerToken = accessToken
+        )
+    }
+
     suspend fun acceptInvitation(accessToken: String, invitationToken: String): AccessRole {
         val result = apiRequest(
             path = "/api/invitations/accept",
