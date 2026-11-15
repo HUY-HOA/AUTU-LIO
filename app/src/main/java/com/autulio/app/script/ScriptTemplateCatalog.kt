@@ -132,6 +132,22 @@ object ScriptTemplateCatalog {
                     CHỜ(300)
                 }
             """.trimIndent()
+        ),
+        ScriptTemplate(
+            id = "go_back",
+            nameVi = "Quay lại",
+            nameEn = "Go back",
+            descriptionVi = "Thực hiện thao tác Quay lại của Android.",
+            descriptionEn = "Run Android's Back global action.",
+            source = "QUAY_LẠI()"
+        ),
+        ScriptTemplate(
+            id = "go_home",
+            nameVi = "Về màn hình chính",
+            nameEn = "Go to Home",
+            descriptionVi = "Đưa thiết bị về màn hình chính Android.",
+            descriptionEn = "Run Android's Home global action.",
+            source = "VỀ_MÀN_HÌNH_CHÍNH()"
         )
     )
 }

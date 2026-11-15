@@ -22,6 +22,8 @@ interface ScriptActionDispatcher {
     fun longPress(x: Int, y: Int, durationMs: Int): Boolean
     fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int): Boolean
     fun openApp(packageName: String): Boolean = false
+    fun goBack(): Boolean = false
+    fun goHome(): Boolean = false
     fun evaluateFunction(name: String, arguments: List<Any?>): Any? =
         throw UnsupportedOperationException("Hàm '$name' chưa được hỗ trợ trên thiết bị này.")
 }
@@ -312,6 +314,8 @@ class ScriptExecutionEngine(
                 }
                 dispatcher.openApp(packageName)
             }
+            "QUAY_LẠI" -> dispatcher.goBack()
+            "VỀ_MÀN_HÌNH_CHÍNH" -> dispatcher.goHome()
             else -> throw ScriptRuntimeFailure("unsupported_command", "Lệnh '${instruction.name}' chưa được hỗ trợ.")
         }
         if (!success) throw ScriptRuntimeFailure("dispatch_failed", "Không thực hiện được lệnh '${instruction.name}'. Hãy kiểm tra quyền và trạng thái Android.")
@@ -544,6 +548,7 @@ class ScriptExecutionEngine(
                         "NHẤN_GIỮ" -> 3
                         "VUỐT" -> 5
                         "CHỜ", "MỞ_ỨNG_DỤNG" -> 1
+                        "QUAY_LẠI", "VỀ_MÀN_HÌNH_CHÍNH" -> 0
                         else -> return@all false
                     }
                     instruction.arguments.size == arity && instruction.arguments.all { validateExpression(it, 0) }

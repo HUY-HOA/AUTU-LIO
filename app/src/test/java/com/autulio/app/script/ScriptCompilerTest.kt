@@ -101,6 +101,26 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun compilesVietnameseAndEnglishSystemNavigationCommands() {
+        val vietnamese = ScriptCompiler.compile("QUAY_LẠI()\nVỀ_MÀN_HÌNH_CHÍNH()")
+        val english = ScriptCompiler.compile("BACK()\nHOME()")
+
+        assertTrue(vietnamese.diagnostics.toString(), vietnamese.isSuccess)
+        assertTrue(english.diagnostics.toString(), english.isSuccess)
+        assertEquals(2L, vietnamese.program?.expandedInstructionCount)
+        assertEquals(2L, english.program?.expandedInstructionCount)
+    }
+
+    @Test
+    fun rejectsArgumentsForSystemNavigationCommands() {
+        val back = ScriptCompiler.compile("QUAY_LẠI(1)")
+        val home = ScriptCompiler.compile("VỀ_MÀN_HÌNH_CHÍNH(1)")
+
+        assertEquals("argument_count", back.diagnostics.first().code)
+        assertEquals("argument_count", home.diagnostics.first().code)
+    }
+
+    @Test
     fun rejectsUnknownCommands() {
         val result = ScriptCompiler.compile("DỊCH_CHUYỂN(1, 2)")
 
