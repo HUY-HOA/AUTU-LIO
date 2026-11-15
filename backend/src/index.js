@@ -1179,6 +1179,27 @@ async function setAutuLicense(request, env, session, autuId, userId) {
   return response(request, { updated: true, licenseId, autuId, userId, status, expiresAt, maxDevices }, 200, env);
 }
 
+async function listOwnerAutus(request, env, session) {
+  await requireRole(session, ["OWNER"]);
+  const result = await env.DB.prepare(
+    "SELECT p.id, p.name, p.description, p.status, p.created_at, p.updated_at, " +
+    "r.id AS release_id, r.version, r.language_version, r.source_sha256, r.created_at AS release_created_at, " +
+    "(SELECT COUNT(*) FROM autu_licenses l WHERE l.autu_id = p.id AND l.status = 'ACTIVE') AS active_licenses " +
+    "FROM autu_products p LEFT JOIN autu_releases r ON r.id = (" +
+    "SELECT r2.id FROM autu_releases r2 WHERE r2.autu_id = p.id AND r2.status = 'PUBLISHED' ORDER BY r2.created_at DESC LIMIT 1" +
+    ") ORDER BY p.updated_at DESC"
+  ).all();
+  return response(request, { autus: result.results || [] }, 200, env);
+}
+
+async function listOwnerAutuCustomers(request, env, session) {
+  await requireRole(session, ["OWNER"]);
+  const result = await env.DB.prepare(
+    "SELECT id, email, display_name, status, created_at FROM users WHERE role = 'CUSTOMER' ORDER BY lower(email)"
+  ).all();
+  return response(request, { customers: result.results || [] }, 200, env);
+}
+
 async function listLicensedAutus(request, env, session) {
   await requirePermission(env, session, "RUN_PUBLISHED_SCRIPTS");
   const now = Math.floor(Date.now() / 1000);
@@ -1310,6 +1331,18 @@ async function route(request, env) {
     return response(request, { loggedOut: true }, 200, env);
   }
 
+
+  if (method === "POST" && path === "/api/admin/autu/products") return await publishAutuProduct(request, env, session);
+  if (method === "GET" && path === "/api/admin/autu/products") return await listOwnerAutus(request, env, session);
+  if (method === "GET" && path === "/api/admin/autu/customers") return await listOwnerAutuCustomers(request, env, session);
+  if (method === "GET" && path === "/api/autu/library") return await listLicensedAutus(request, env, session);
+
+  const autuReleaseMatch = path.match(/^\/api\/admin\/autu\/products\/([0-9a-f-]{36})\/releases$/i);
+  if (autuReleaseMatch && method === "POST") return await publishAutuRelease(request, env, session, autuReleaseMatch[1]);
+  const autuLicenseMatch = path.match(/^\/api\/admin\/autu\/products\/([0-9a-f-]{36})\/licenses\/([0-9a-f-]{36})$/i);
+  if (autuLicenseMatch && method === "PUT") return await setAutuLicense(request, env, session, autuLicenseMatch[1], autuLicenseMatch[2]);
+  const autuDownloadMatch = path.match(/^\/api\/autu\/products\/([0-9a-f-]{36})\/download$/i);
+  if (autuDownloadMatch && method === "GET") return await downloadLicensedAutu(request, env, session, autuDownloadMatch[1]);
 
   if (method === "GET" && path === "/api/projects") return await listProjects(request, env, session);
   if (method === "POST" && path === "/api/admin/projects") return await createProject(request, env, session);
