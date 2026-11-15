@@ -91,7 +91,7 @@ internal fun AuthenticatedAppHost() {
     if (currentUser != null && accessToken != null) {
         when (currentUser.role) {
             AccessRole.OWNER -> AdminApp(onLogout = ::signOut)
-            AccessRole.CUSTOMER -> CustomerApp(onLogout = ::signOut)
+            AccessRole.CUSTOMER -> CustomerApp(email = currentUser.email, onLogout = ::signOut)
             AccessRole.DEVELOPER,
             AccessRole.DESIGNER,
             AccessRole.REVIEWER -> CollaboratorWorkspace(
