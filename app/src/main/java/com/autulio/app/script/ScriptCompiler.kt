@@ -1,5 +1,7 @@
 package com.autulio.app.script
 
+import java.util.Locale
+
 data class ScriptDiagnostic(
     val line: Int,
     val column: Int,
@@ -8,15 +10,27 @@ data class ScriptDiagnostic(
     val messageEn: String
 )
 
-sealed interface ScriptInstruction {
-    data class Tap(val x: Int, val y: Int) : ScriptInstruction
-    data class LongPress(val x: Int, val y: Int, val durationMs: Int) : ScriptInstruction
-    data class Swipe(
-        val startX: Int, val startY: Int, val endX: Int, val endY: Int, val durationMs: Int
-    ) : ScriptInstruction
-    data class Wait(val durationMs: Int) : ScriptInstruction
-    data class Repeat(val count: Int, val body: List<ScriptInstruction>) : ScriptInstruction
+sealed interface ScriptExpression {
+    data class NumberLiteral(val value: Double) : ScriptExpression
+    data class StringLiteral(val value: String) : ScriptExpression
+    data class BooleanLiteral(val value: Boolean) : ScriptExpression
+    data class Variable(val name: String) : ScriptExpression
+    data class Unary(val operator: String, val operand: ScriptExpression) : ScriptExpression
+    data class Binary(val operator: String, val left: ScriptExpression, val right: ScriptExpression) : ScriptExpression
+    data class FunctionCall(val name: String, val arguments: List<ScriptExpression>) : ScriptExpression
 }
+
+sealed interface ScriptInstruction {
+    data class Command(val name: String, val arguments: List<ScriptExpression>) : ScriptInstruction
+    data class SetVariable(val name: String, val value: ScriptExpression) : ScriptInstruction
+    data class If(val condition: ScriptExpression, val thenBody: List<ScriptInstruction>, val elseBody: List<ScriptInstruction>) : ScriptInstruction
+    data class Repeat(val count: ScriptExpression, val body: List<ScriptInstruction>) : ScriptInstruction
+    data class While(val condition: ScriptExpression, val body: List<ScriptInstruction>) : ScriptInstruction
+    data object BreakLoop : ScriptInstruction
+    data object ContinueLoop : ScriptInstruction
+}
+
+data class ScriptMetrics(val expandedInstructionCount: Long, val estimatedDurationMs: Long)
 
 data class ScriptProgram(
     val languageVersion: String,
@@ -25,110 +39,114 @@ data class ScriptProgram(
     val estimatedDurationMs: Long
 )
 
-data class ScriptCompileResult(
-    val program: ScriptProgram?,
-    val diagnostics: List<ScriptDiagnostic>
-) {
-    val isSuccess: Boolean
-        get() = program != null && diagnostics.isEmpty()
+data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: List<ScriptDiagnostic>) {
+    val isSuccess: Boolean get() = program != null && diagnostics.isEmpty()
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "0.1"
+    const val LANGUAGE_VERSION = "0.2"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
+    const val MAX_WHILE_ITERATIONS = 1_000
     const val MAX_NESTING_DEPTH = 8
     const val MAX_EXPANDED_INSTRUCTIONS = 5_000L
     const val MAX_TOTAL_DURATION_MS = 600_000L
-    private const val MAX_COORDINATE = 10_000
-    private const val MAX_WAIT_MS = 60_000
-    private const val MAX_GESTURE_MS = 10_000
+    const val MAX_COORDINATE = 10_000
+    const val MAX_WAIT_MS = 60_000
+    const val MAX_GESTURE_MS = 10_000
     private const val INSTRUCTION_CAP = MAX_EXPANDED_INSTRUCTIONS + 1
     private const val DURATION_CAP = MAX_TOTAL_DURATION_MS + 1
 
+    private val commandAliases = mapOf(
+        "CHẠM" to "CHẠM", "TAP" to "CHẠM",
+        "NHẤN_GIỮ" to "NHẤN_GIỮ", "LONGPRESS" to "NHẤN_GIỮ",
+        "VUỐT" to "VUỐT", "SWIPE" to "VUỐT",
+        "CHỜ" to "CHỜ", "WAIT" to "CHỜ",
+        "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG", "OPENAPP" to "MỞ_ỨNG_DỤNG"
+    )
+
     fun compile(source: String): ScriptCompileResult {
         if (source.length > MAX_SOURCE_LENGTH) {
-            return failure(1, 1, "source_too_large",
-                "Mã vượt quá giới hạn 32.768 ký tự.",
-                "Source exceeds the 32,768-character limit.")
+            return failure(1, 1, "source_too_large", "Mã vượt quá giới hạn 32.768 ký tự.", "Source exceeds the 32,768-character limit.")
         }
-
         return try {
             val instructions = Parser(source).parse()
             if (instructions.isEmpty()) {
                 return failure(1, 1, "empty_program", "Chưa có lệnh nào.", "The script has no instructions.")
             }
-
-            val metrics = measure(instructions)
-            if (metrics.instructions > MAX_EXPANDED_INSTRUCTIONS) {
-                return failure(1, 1, "instruction_budget_exceeded",
-                    "Kịch bản vượt quá 5.000 lượt thực thi lệnh.",
-                    "The script exceeds the 5,000 expanded-instruction limit.")
+            val metrics = measureProgram(instructions)
+            if (metrics.expandedInstructionCount > MAX_EXPANDED_INSTRUCTIONS) {
+                return failure(1, 1, "instruction_budget_exceeded", "Kịch bản có thể vượt quá 5.000 lượt thực thi lệnh.", "The script may exceed the 5,000 expanded-instruction limit.")
             }
-            if (metrics.durationMs > MAX_TOTAL_DURATION_MS) {
-                return failure(1, 1, "duration_budget_exceeded",
-                    "Tổng thời lượng chờ và thao tác vượt quá 10 phút.",
-                    "Total wait and gesture duration exceeds 10 minutes.")
+            if (metrics.estimatedDurationMs > MAX_TOTAL_DURATION_MS) {
+                return failure(1, 1, "duration_budget_exceeded", "Thời lượng ước tính vượt quá 10 phút.", "The estimated execution duration exceeds 10 minutes.")
             }
-
             ScriptCompileResult(
-                ScriptProgram(LANGUAGE_VERSION, instructions, metrics.instructions, metrics.durationMs),
+                ScriptProgram(LANGUAGE_VERSION, instructions, metrics.expandedInstructionCount, metrics.estimatedDurationMs),
                 emptyList()
             )
         } catch (error: CompileFailure) {
             ScriptCompileResult(null, listOf(error.diagnostic))
+        } catch (_: StackOverflowError) {
+            failure(1, 1, "nesting_limit", "Cấu trúc mã lồng nhau quá sâu.", "The script nesting depth is too large.")
         }
     }
 
-    private fun failure(
-        line: Int, column: Int, code: String, messageVi: String, messageEn: String
-    ) = ScriptCompileResult(
-        null, listOf(ScriptDiagnostic(line, column, code, messageVi, messageEn))
-    )
+    fun measureProgram(instructions: List<ScriptInstruction>): ScriptMetrics {
+        val metrics = measureBlock(instructions, 0)
+        return ScriptMetrics(metrics.first, metrics.second)
+    }
 
-    private data class Metrics(val instructions: Long, val durationMs: Long)
-
-    private fun measure(instructions: List<ScriptInstruction>): Metrics {
+    private fun measureBlock(instructions: List<ScriptInstruction>, depth: Int): Pair<Long, Long> {
+        if (depth > MAX_NESTING_DEPTH) return INSTRUCTION_CAP to DURATION_CAP
         var count = 0L
         var duration = 0L
         for (instruction in instructions) {
             val item = when (instruction) {
-                is ScriptInstruction.Tap -> Metrics(1, 0)
-                is ScriptInstruction.LongPress -> Metrics(1, instruction.durationMs.toLong())
-                is ScriptInstruction.Swipe -> Metrics(1, instruction.durationMs.toLong())
-                is ScriptInstruction.Wait -> Metrics(1, instruction.durationMs.toLong())
-                is ScriptInstruction.Repeat -> {
-                    val nested = measure(instruction.body)
-                    Metrics(
-                        cappedMultiply(nested.instructions, instruction.count.toLong(), INSTRUCTION_CAP),
-                        cappedMultiply(nested.durationMs, instruction.count.toLong(), DURATION_CAP)
-                    )
+                is ScriptInstruction.Command -> {
+                    val actionDuration = when (instruction.name) {
+                        "CHỜ" -> expressionUpperBound(instruction.arguments.firstOrNull(), MAX_WAIT_MS.toLong())
+                        "NHẤN_GIỮ", "VUỐT" -> expressionUpperBound(instruction.arguments.lastOrNull(), MAX_GESTURE_MS.toLong())
+                        else -> 0L
+                    }
+                    1L to actionDuration
                 }
+                is ScriptInstruction.SetVariable -> 1L to 0L
+                is ScriptInstruction.If -> {
+                    val yes = measureBlock(instruction.thenBody, depth + 1)
+                    val no = measureBlock(instruction.elseBody, depth + 1)
+                    cappedAdd(1L, maxOf(yes.first, no.first), INSTRUCTION_CAP) to maxOf(yes.second, no.second)
+                }
+                is ScriptInstruction.Repeat -> {
+                    val nested = measureBlock(instruction.body, depth + 1)
+                    val iterations = expressionUpperBound(instruction.count, MAX_REPEAT_COUNT.toLong()).coerceIn(0L, MAX_REPEAT_COUNT.toLong())
+                    cappedMultiply(nested.first, iterations, INSTRUCTION_CAP) to cappedMultiply(nested.second, iterations, DURATION_CAP)
+                }
+                is ScriptInstruction.While -> {
+                    val nested = measureBlock(instruction.body, depth + 1)
+                    cappedMultiply(cappedAdd(nested.first, 1L, INSTRUCTION_CAP), MAX_WHILE_ITERATIONS.toLong(), INSTRUCTION_CAP) to
+                        cappedMultiply(nested.second, MAX_WHILE_ITERATIONS.toLong(), DURATION_CAP)
+                }
+                ScriptInstruction.BreakLoop, ScriptInstruction.ContinueLoop -> 1L to 0L
             }
-            count = cappedAdd(count, item.instructions, INSTRUCTION_CAP)
-            duration = cappedAdd(duration, item.durationMs, DURATION_CAP)
+            count = cappedAdd(count, item.first, INSTRUCTION_CAP)
+            duration = cappedAdd(duration, item.second, DURATION_CAP)
         }
-        return Metrics(count, duration)
+        return count to duration
     }
+
+    private fun expressionUpperBound(expression: ScriptExpression?, fallback: Long): Long =
+        (expression as? ScriptExpression.NumberLiteral)?.value?.takeIf { it.isFinite() && it >= 0.0 }?.toLong() ?: fallback
 
     private fun cappedAdd(left: Long, right: Long, cap: Long): Long =
         if (left >= cap || right >= cap || left > cap - right) cap else left + right
 
     private fun cappedMultiply(value: Long, multiplier: Long, cap: Long): Long =
-        if (value == 0L || multiplier == 0L) 0L
-        else if (value >= cap || value > cap / multiplier) cap
-        else value * multiplier
+        if (value == 0L || multiplier == 0L) 0L else if (value >= cap || value > cap / multiplier) cap else value * multiplier
 
-    private enum class TokenType {
-        IDENTIFIER, INTEGER, LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
-        COMMA, NEWLINE, SEMICOLON, EOF
-    }
-
-    private data class Token(
-        val type: TokenType, val text: String, val line: Int, val column: Int
-    )
-
+    private enum class TokenType { IDENTIFIER, NUMBER, STRING, SYMBOL, NEWLINE, SEMICOLON, EOF }
+    private data class Token(val type: TokenType, val text: String, val line: Int, val column: Int)
     private class CompileFailure(val diagnostic: ScriptDiagnostic) : RuntimeException()
 
     private class Lexer(private val source: String) {
@@ -139,14 +157,14 @@ object ScriptCompiler {
 
         fun tokenize(): List<Token> {
             while (index < source.length) {
-                val current = source[index]
                 when {
-                    current == ' ' || current == '\t' -> advance()
-                    current == '\r' || current == '\n' -> readNewline()
-                    current == '/' && peekNext() == '/' -> readComment()
-                    current.isLetter() || current == '_' -> readIdentifier()
-                    current.isDigit() -> readInteger()
-                    else -> readPunctuation(current)
+                    source[index] == ' ' || source[index] == '\t' -> advance()
+                    source[index] == '\r' || source[index] == '\n' -> readNewline()
+                    source[index] == '/' && peekNext() == '/' -> readComment()
+                    source[index] == '"' -> readString()
+                    source[index].isDigit() -> readNumber()
+                    source[index].isLetter() || source[index] == '_' -> readIdentifier()
+                    else -> readSymbol()
                 }
             }
             tokens += Token(TokenType.EOF, "", line, column)
@@ -157,18 +175,45 @@ object ScriptCompiler {
             val startLine = line
             val startColumn = column
             val start = index
-            while (index < source.length &&
-                (source[index].isLetterOrDigit() || source[index] == '_')
-            ) advance()
+            while (index < source.length && (source[index].isLetterOrDigit() || source[index] == '_')) advance()
             tokens += Token(TokenType.IDENTIFIER, source.substring(start, index), startLine, startColumn)
         }
 
-        private fun readInteger() {
+        private fun readNumber() {
             val startLine = line
             val startColumn = column
             val start = index
             while (index < source.length && source[index].isDigit()) advance()
-            tokens += Token(TokenType.INTEGER, source.substring(start, index), startLine, startColumn)
+            if (index < source.length && source[index] == '.' && index + 1 < source.length && source[index + 1].isDigit()) {
+                advance()
+                while (index < source.length && source[index].isDigit()) advance()
+            }
+            tokens += Token(TokenType.NUMBER, source.substring(start, index), startLine, startColumn)
+        }
+
+        private fun readString() {
+            val startLine = line
+            val startColumn = column
+            advance()
+            val value = StringBuilder()
+            while (index < source.length && source[index] != '"') {
+                val char = source[index]
+                if (char == '\\') {
+                    advance()
+                    if (index >= source.length) fail(startLine, startColumn, "unterminated_string", "Chuỗi văn bản chưa đóng.", "Unterminated string.")
+                    value.append(when (val escaped = source[index]) {
+                        'n' -> '\n'; 'r' -> '\r'; 't' -> '\t'; '\\' -> '\\'; '"' -> '"'; else -> escaped
+                    })
+                    advance()
+                } else {
+                    if (char == '\r' || char == '\n') fail(startLine, startColumn, "unterminated_string", "Chuỗi văn bản không được xuống dòng.", "Strings cannot contain raw newlines.")
+                    value.append(char)
+                    advance()
+                }
+            }
+            if (index >= source.length) fail(startLine, startColumn, "unterminated_string", "Thiếu dấu nháy kép đóng chuỗi.", "Missing closing quote.")
+            advance()
+            tokens += Token(TokenType.STRING, value.toString(), startLine, startColumn)
         }
 
         private fun readNewline() {
@@ -184,29 +229,32 @@ object ScriptCompiler {
             while (index < source.length && source[index] != '\r' && source[index] != '\n') advance()
         }
 
-        private fun readPunctuation(current: Char) {
-            val type = when (current) {
-                '(' -> TokenType.LEFT_PAREN
-                ')' -> TokenType.RIGHT_PAREN
-                '{' -> TokenType.LEFT_BRACE
-                '}' -> TokenType.RIGHT_BRACE
-                ',' -> TokenType.COMMA
-                ';' -> TokenType.SEMICOLON
-                else -> fail(line, column, "invalid_character",
-                    "Ký tự '" + current + "' không được hỗ trợ.",
-                    "Character '" + current + "' is not supported.")
+        private fun readSymbol() {
+            val startLine = line
+            val startColumn = column
+            val current = source[index]
+            val next = peekNext()
+            val pair = if (next != null && (
+                (current == '=' && next == '=') || (current == '!' && next == '=') ||
+                    (current == '>' && next == '=') || (current == '<' && next == '=')
+            )) "$current$next" else null
+            if (pair != null) {
+                tokens += Token(TokenType.SYMBOL, pair, startLine, startColumn)
+                advance()
+                advance()
+                return
             }
-            tokens += Token(type, current.toString(), line, column)
-            advance()
+            if (current in "(){} ,;+-*/%=!<>") {
+                if (current == ';') tokens += Token(TokenType.SEMICOLON, ";", startLine, startColumn)
+                else if (current != ' ') tokens += Token(TokenType.SYMBOL, current.toString(), startLine, startColumn)
+                advance()
+                return
+            }
+            fail(startLine, startColumn, "invalid_character", "Ký tự '$current' không được hỗ trợ.", "Character '$current' is not supported.")
         }
 
-        private fun advance() {
-            index++
-            column++
-        }
-
-        private fun peekNext(): Char? =
-            if (index + 1 < source.length) source[index + 1] else null
+        private fun advance() { index++; column++ }
+        private fun peekNext(): Char? = if (index + 1 < source.length) source[index + 1] else null
     }
 
     private class Parser(source: String) {
@@ -214,158 +262,286 @@ object ScriptCompiler {
         private var index = 0
         private var statementCount = 0
 
-        fun parse(): List<ScriptInstruction> = parseBlock(nested = false, depth = 0)
+        fun parse(): List<ScriptInstruction> = parseBlock(false, 0, 0)
 
-        private fun parseBlock(nested: Boolean, depth: Int): List<ScriptInstruction> {
+        private fun parseBlock(expectClosingBrace: Boolean, depth: Int, loopDepth: Int): List<ScriptInstruction> {
             val instructions = mutableListOf<ScriptInstruction>()
             skipSeparators()
-
-            while (current().type != TokenType.EOF &&
-                !(nested && current().type == TokenType.RIGHT_BRACE)
-            ) {
-                if (!nested && current().type == TokenType.RIGHT_BRACE) {
-                    failCurrent("unexpected_brace", "Dấu '}' không có khối lệnh mở.", "Unexpected closing brace.")
-                }
+            while (current().type != TokenType.EOF && !(expectClosingBrace && isSymbol("}"))) {
+                if (isSymbol("}")) failCurrent("unexpected_brace", "Dấu '}' không có khối lệnh mở.", "Unexpected closing brace.")
                 statementCount++
-                if (statementCount > MAX_STATEMENTS) {
-                    failCurrent("too_many_statements",
-                        "Kịch bản vượt quá 1.000 câu lệnh khai báo.",
-                        "The script exceeds 1,000 source statements.")
-                }
-                instructions += parseStatement(depth)
-                if (current().type !in setOf(
-                        TokenType.NEWLINE, TokenType.SEMICOLON,
-                        TokenType.RIGHT_BRACE, TokenType.EOF
-                    )
-                ) {
-                    failCurrent("expected_separator",
-                        "Mỗi lệnh phải nằm trên một dòng riêng hoặc kết thúc bằng ';'.",
-                        "Separate statements with a newline or semicolon.")
+                if (statementCount > MAX_STATEMENTS) failCurrent("too_many_statements", "Kịch bản vượt quá 1.000 câu lệnh.", "The script exceeds 1,000 statements.")
+                instructions += parseStatement(depth, loopDepth)
+                if (current().type !in setOf(TokenType.NEWLINE, TokenType.SEMICOLON, TokenType.EOF) && !isSymbol("}")) {
+                    failCurrent("expected_separator", "Mỗi lệnh phải nằm trên một dòng riêng hoặc kết thúc bằng ';'.", "Separate statements with a newline or semicolon.")
                 }
                 skipSeparators()
             }
-
-            if (nested && current().type == TokenType.EOF) {
-                failCurrent("missing_brace", "Thiếu dấu '}' để đóng repeat.", "Missing '}' to close repeat.")
-            }
+            if (expectClosingBrace && current().type == TokenType.EOF) failCurrent("missing_brace", "Thiếu dấu '}' để đóng khối lệnh.", "Missing '}' to close the block.")
             return instructions
         }
 
-        private fun parseStatement(depth: Int): ScriptInstruction {
-            val name = expect(TokenType.IDENTIFIER, "expected_command",
-                "Cần có tên lệnh.", "Expected a command name.")
-            if (name.text == "repeat") return parseRepeat(name, depth)
-            val arguments = parseArguments()
-            return when (name.text) {
-                "tap" -> {
-                    requireArity(name, arguments, 2)
-                    ScriptInstruction.Tap(coordinate(name, arguments[0]), coordinate(name, arguments[1]))
+        private fun parseStatement(depth: Int, loopDepth: Int): ScriptInstruction {
+            val name = expect(TokenType.IDENTIFIER, "expected_command", "Cần có lệnh hoặc biến.", "Expected a command or variable.")
+            val rawKeyword = normalize(name.text)
+            val keyword = if (rawKeyword == "REPEAT") "LẶP" else rawKeyword
+            return when (keyword) {
+                "ĐẶT" -> parseVariableDeclaration(name)
+                "NẾU" -> parseIf(name, depth, loopDepth)
+                "LẶP" -> parseRepeat(name, depth, loopDepth)
+                "LẶP_KHI" -> parseWhile(name, depth, loopDepth)
+                "THOÁT_LẶP" -> {
+                    requireInsideLoop(name, loopDepth)
+                    optionalEmptyCall()
+                    ScriptInstruction.BreakLoop
                 }
-                "longPress" -> {
-                    requireArity(name, arguments, 3)
-                    ScriptInstruction.LongPress(
-                        coordinate(name, arguments[0]), coordinate(name, arguments[1]),
-                        duration(name, arguments[2], 100, MAX_GESTURE_MS)
-                    )
+                "BỎ_QUA_LƯỢT" -> {
+                    requireInsideLoop(name, loopDepth)
+                    optionalEmptyCall()
+                    ScriptInstruction.ContinueLoop
                 }
-                "swipe" -> {
-                    requireArity(name, arguments, 5)
-                    ScriptInstruction.Swipe(
-                        coordinate(name, arguments[0]), coordinate(name, arguments[1]),
-                        coordinate(name, arguments[2]), coordinate(name, arguments[3]),
-                        duration(name, arguments[4], 1, MAX_GESTURE_MS)
-                    )
+                else -> {
+                    if (isSymbol("=")) {
+                        advance()
+                        ScriptInstruction.SetVariable(name.text, parseExpression())
+                    } else parseCommand(name)
                 }
-                "wait" -> {
-                    requireArity(name, arguments, 1)
-                    ScriptInstruction.Wait(duration(name, arguments[0], 1, MAX_WAIT_MS))
-                }
-                else -> fail(name.line, name.column, "unknown_command",
-                    "Không nhận ra lệnh '" + name.text + "'.",
-                    "Unknown command '" + name.text + "'.")
             }
         }
 
-        private fun parseRepeat(name: Token, depth: Int): ScriptInstruction {
-            if (depth >= MAX_NESTING_DEPTH) {
-                fail(name.line, name.column, "nesting_limit",
-                    "Repeat lồng nhau tối đa 8 cấp.", "Repeat nesting is limited to 8 levels.")
+        private fun parseVariableDeclaration(name: Token): ScriptInstruction.SetVariable {
+            val variable = expect(TokenType.IDENTIFIER, "expected_variable_name", "Sau ĐẶT cần có tên biến.", "Expected a variable name after ĐẶT.")
+            expectSymbol("=", "expected_assignment", "Thiếu dấu '=' khi gán biến.", "Expected '=' in variable assignment.")
+            return ScriptInstruction.SetVariable(variable.text, parseExpression())
+        }
+
+        private fun parseIf(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.If {
+            requireNesting(name, depth)
+            val condition = parseParenthesizedExpression()
+            val thenBody = parseBraceBlock(depth + 1, loopDepth)
+            skipSeparators()
+            val elseBody = when {
+                isIdentifier("NGƯỢC_LẠI") -> {
+                    advance()
+                    parseBraceBlock(depth + 1, loopDepth)
+                }
+                isIdentifier("NGƯỢC_LẠI_NẾU") -> {
+                    val elseToken = advance()
+                    listOf(parseIf(elseToken, depth, loopDepth))
+                }
+                else -> emptyList()
             }
-            expect(TokenType.LEFT_PAREN, "expected_left_parenthesis", "Thiếu dấu '('.", "Expected '('.")
-            val countToken = expect(TokenType.INTEGER, "expected_integer",
-                "Repeat cần số lần lặp nguyên.", "Repeat requires an integer count.")
-            val count = countToken.text.toIntOrNull()
-                ?: fail(countToken.line, countToken.column, "invalid_integer", "Số nguyên không hợp lệ.", "Invalid integer.")
-            if (count !in 1..MAX_REPEAT_COUNT) {
-                fail(countToken.line, countToken.column, "repeat_range",
-                    "Số lần lặp phải từ 1 đến 100.", "Repeat count must be from 1 to 100.")
+            return ScriptInstruction.If(condition, thenBody, elseBody)
+        }
+
+        private fun parseRepeat(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.Repeat {
+            requireNesting(name, depth)
+            val count = parseParenthesizedExpression()
+            val literal = (count as? ScriptExpression.NumberLiteral)?.value
+            if (literal != null && (!literal.isFinite() || literal < 1.0 || literal > MAX_REPEAT_COUNT)) {
+                fail(name.line, name.column, "repeat_range", "Số lần lặp phải từ 1 đến $MAX_REPEAT_COUNT.", "Repeat count must be from 1 to $MAX_REPEAT_COUNT.")
             }
-            expect(TokenType.RIGHT_PAREN, "expected_right_parenthesis", "Thiếu dấu ')'.", "Expected ')'.")
-            expect(TokenType.LEFT_BRACE, "expected_left_brace",
-                "Thiếu dấu '{' mở khối repeat.", "Expected '{' to open repeat.")
-            val body = parseBlock(nested = true, depth = depth + 1)
-            expect(TokenType.RIGHT_BRACE, "expected_right_brace", "Thiếu dấu '}'.", "Expected '}'.")
-            if (body.isEmpty()) {
-                fail(name.line, name.column, "empty_repeat",
-                    "Khối repeat không được để trống.", "A repeat block cannot be empty.")
-            }
+            val body = parseBraceBlock(depth + 1, loopDepth + 1)
+            if (body.isEmpty()) fail(name.line, name.column, "empty_repeat", "Khối lặp không được để trống.", "A loop body cannot be empty.")
             return ScriptInstruction.Repeat(count, body)
         }
 
-        private fun parseArguments(): List<Int> {
-            expect(TokenType.LEFT_PAREN, "expected_left_parenthesis", "Thiếu dấu '('.", "Expected '('.")
-            val arguments = mutableListOf<Int>()
-            if (current().type != TokenType.RIGHT_PAREN) {
+        private fun parseWhile(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.While {
+            requireNesting(name, depth)
+            val condition = parseParenthesizedExpression()
+            val body = parseBraceBlock(depth + 1, loopDepth + 1)
+            if (body.isEmpty()) fail(name.line, name.column, "empty_while", "Khối LẶP_KHI không được để trống.", "A LẶP_KHI block cannot be empty.")
+            return ScriptInstruction.While(condition, body)
+        }
+
+        private fun parseBraceBlock(depth: Int, loopDepth: Int): List<ScriptInstruction> {
+            expectSymbol("{", "expected_left_brace", "Thiếu dấu '{' mở khối lệnh.", "Expected '{' to open a block.")
+            val body = parseBlock(true, depth, loopDepth)
+            expectSymbol("}", "expected_right_brace", "Thiếu dấu '}' đóng khối lệnh.", "Expected '}' to close the block.")
+            return body
+        }
+
+        private fun parseCommand(name: Token): ScriptInstruction.Command {
+            val normalized = normalize(name.text)
+            val command = commandAliases[normalized]
+                ?: fail(name.line, name.column, "unknown_command", "Không nhận ra lệnh '" + name.text + "'.", "Unknown command '" + name.text + "'.")
+            val args = parseArguments()
+            val expected = when (command) {
+                "CHẠM" -> 2
+                "NHẤN_GIỮ" -> 3
+                "VUỐT" -> 5
+                "CHỜ", "MỞ_ỨNG_DỤNG" -> 1
+                else -> 0
+            }
+            if (args.size != expected) fail(name.line, name.column, "argument_count", "Lệnh '$command' cần đúng $expected tham số.", "'$command' requires exactly $expected arguments.")
+            validateLiteralArguments(name, command, args)
+            return ScriptInstruction.Command(command, args)
+        }
+
+        private fun validateLiteralArguments(name: Token, command: String, args: List<ScriptExpression>) {
+            val coordinateIndexes = when (command) {
+                "CHẠM", "NHẤN_GIỮ" -> setOf(0, 1)
+                "VUỐT" -> setOf(0, 1, 2, 3)
+                else -> emptySet()
+            }
+            for (index in coordinateIndexes) {
+                val value = (args[index] as? ScriptExpression.NumberLiteral)?.value ?: continue
+                if (!value.isFinite() || value < 0.0 || value > MAX_COORDINATE) {
+                    fail(name.line, name.column, "coordinate_range", "Tọa độ phải từ 0 đến $MAX_COORDINATE.", "Coordinates must be between 0 and $MAX_COORDINATE.")
+                }
+            }
+            val durationIndex = if (command in setOf("CHỜ", "NHẤN_GIỮ", "VUỐT")) args.lastIndex else -1
+            if (durationIndex >= 0) {
+                val value = (args[durationIndex] as? ScriptExpression.NumberLiteral)?.value ?: return
+                val min = if (command == "NHẤN_GIỮ") 100.0 else 1.0
+                val max = if (command == "CHỜ") MAX_WAIT_MS.toDouble() else MAX_GESTURE_MS.toDouble()
+                if (!value.isFinite() || value < min || value > max) {
+                    fail(name.line, name.column, "duration_range", "Thời lượng lệnh '$command' không hợp lệ.", "The duration for '$command' is outside the supported range.")
+                }
+            }
+        }
+
+        private fun parseArguments(): List<ScriptExpression> {
+            expectSymbol("(", "expected_left_parenthesis", "Thiếu dấu '(' mở tham số.", "Expected '('.")
+            val values = mutableListOf<ScriptExpression>()
+            if (!isSymbol(")")) {
                 while (true) {
-                    val token = expect(TokenType.INTEGER, "expected_integer",
-                        "Tham số phải là số nguyên không âm.", "Arguments must be non-negative integers.")
-                    arguments += token.text.toIntOrNull()
-                        ?: fail(token.line, token.column, "invalid_integer", "Số nguyên không hợp lệ.", "Invalid integer.")
-                    if (current().type != TokenType.COMMA) break
+                    values += parseExpression()
+                    if (!isSymbol(",")) break
                     advance()
                 }
             }
-            expect(TokenType.RIGHT_PAREN, "expected_right_parenthesis", "Thiếu dấu ')'.", "Expected ')'.")
-            return arguments
+            expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng tham số.", "Expected ')'.")
+            return values
         }
 
-        private fun requireArity(name: Token, arguments: List<Int>, expected: Int) {
-            if (arguments.size != expected) {
-                fail(name.line, name.column, "argument_count",
-                    "Lệnh '" + name.text + "' cần đúng " + expected + " tham số.",
-                    "'" + name.text + "' requires exactly " + expected + " arguments.")
+        private fun parseParenthesizedExpression(): ScriptExpression {
+            expectSymbol("(", "expected_left_parenthesis", "Thiếu dấu '(' mở biểu thức.", "Expected '('.")
+            val expression = parseExpression()
+            expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng biểu thức.", "Expected ')'.")
+            return expression
+        }
+
+        private fun parseExpression(minPrecedence: Int = 0): ScriptExpression {
+            var left = parsePrefix()
+            while (true) {
+                val operator = currentOperator() ?: break
+                val priority = precedence(operator)
+                if (priority < minPrecedence) break
+                advance()
+                val right = parseExpression(priority + 1)
+                left = ScriptExpression.Binary(operator, left, right)
+            }
+            return left
+        }
+
+        private fun parsePrefix(): ScriptExpression {
+            val token = current()
+            if (token.type == TokenType.SYMBOL && token.text in setOf("!", "-", "+")) {
+                advance()
+                return ScriptExpression.Unary(if (token.text == "!") "KHÔNG" else token.text, parseExpression(7))
+            }
+            if (token.type == TokenType.IDENTIFIER && normalize(token.text) == "KHÔNG") {
+                advance()
+                return ScriptExpression.Unary("KHÔNG", parseExpression(7))
+            }
+            return when (token.type) {
+                TokenType.NUMBER -> {
+                    advance()
+                    val value = token.text.toDoubleOrNull() ?: fail(token.line, token.column, "invalid_number", "Số không hợp lệ.", "Invalid number.")
+                    if (!value.isFinite()) fail(token.line, token.column, "invalid_number", "Số phải hữu hạn.", "Numbers must be finite.")
+                    ScriptExpression.NumberLiteral(value)
+                }
+                TokenType.STRING -> {
+                    advance()
+                    ScriptExpression.StringLiteral(token.text)
+                }
+                TokenType.IDENTIFIER -> parseIdentifierExpression()
+                TokenType.SYMBOL -> {
+                    if (!isSymbol("(")) failCurrent("expected_expression", "Cần một giá trị hoặc biểu thức.", "Expected a value or expression.")
+                    advance()
+                    val nested = parseExpression()
+                    expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')'.", "Expected ')'.")
+                    nested
+                }
+                else -> failCurrent("expected_expression", "Cần một giá trị hoặc biểu thức.", "Expected a value or expression.")
             }
         }
 
-        private fun coordinate(name: Token, value: Int): Int {
-            if (value !in 0..MAX_COORDINATE) {
-                fail(name.line, name.column, "coordinate_range",
-                    "Tọa độ phải nằm trong khoảng 0 đến " + MAX_COORDINATE + ".",
-                    "Coordinates must be between 0 and " + MAX_COORDINATE + ".")
+        private fun parseIdentifierExpression(): ScriptExpression {
+            val token = advance()
+            return when (normalize(token.text)) {
+                "ĐÚNG" -> ScriptExpression.BooleanLiteral(true)
+                "SAI" -> ScriptExpression.BooleanLiteral(false)
+                else -> {
+                    if (isSymbol("(")) {
+                        advance()
+                        val args = mutableListOf<ScriptExpression>()
+                        if (!isSymbol(")")) {
+                            while (true) {
+                                args += parseExpression()
+                                if (!isSymbol(",")) break
+                                advance()
+                            }
+                        }
+                        expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng hàm.", "Expected ')' after function arguments.")
+                        ScriptExpression.FunctionCall(normalize(token.text), args)
+                    } else ScriptExpression.Variable(token.text)
+                }
             }
-            return value
         }
 
-        private fun duration(name: Token, value: Int, min: Int, max: Int): Int {
-            if (value !in min..max) {
-                fail(name.line, name.column, "duration_range",
-                    "Thời lượng của '" + name.text + "' phải từ " + min + " đến " + max + " ms.",
-                    "The duration for '" + name.text + "' must be between " + min + " and " + max + " ms.")
+        private fun currentOperator(): String? {
+            val token = current()
+            if (token.type == TokenType.SYMBOL && token.text in setOf("+", "-", "*", "/", "%", "==", "!=", ">", ">=", "<", "<=")) return token.text
+            if (token.type == TokenType.IDENTIFIER) return when (normalize(token.text)) {
+                "VÀ" -> "VÀ"
+                "HOẶC" -> "HOẶC"
+                else -> null
             }
-            return value
+            return null
+        }
+
+        private fun precedence(operator: String): Int = when (operator) {
+            "HOẶC" -> 1
+            "VÀ" -> 2
+            "==", "!=" -> 3
+            ">", ">=", "<", "<=" -> 4
+            "+", "-" -> 5
+            "*", "/", "%" -> 6
+            else -> -1
+        }
+
+        private fun optionalEmptyCall() {
+            if (!isSymbol("(")) return
+            advance()
+            expectSymbol(")", "unexpected_arguments", "Lệnh điều khiển không nhận tham số.", "This control statement takes no arguments.")
+        }
+
+        private fun requireInsideLoop(name: Token, loopDepth: Int) {
+            if (loopDepth <= 0) fail(name.line, name.column, "loop_control_outside_loop", "Lệnh điều khiển vòng lặp chỉ dùng bên trong vòng lặp.", "Loop control can only be used inside a loop.")
+        }
+
+        private fun requireNesting(name: Token, depth: Int) {
+            if (depth >= MAX_NESTING_DEPTH) fail(name.line, name.column, "nesting_limit", "Khối lệnh chỉ được lồng tối đa $MAX_NESTING_DEPTH cấp.", "Block nesting is limited to $MAX_NESTING_DEPTH levels.")
         }
 
         private fun skipSeparators() {
             while (current().type == TokenType.NEWLINE || current().type == TokenType.SEMICOLON) advance()
         }
 
-        private fun expect(
-            type: TokenType, code: String, messageVi: String, messageEn: String
-        ): Token {
+        private fun expect(type: TokenType, code: String, messageVi: String, messageEn: String): Token {
             if (current().type != type) failCurrent(code, messageVi, messageEn)
             return advance()
         }
 
+        private fun expectSymbol(symbol: String, code: String, messageVi: String, messageEn: String): Token {
+            if (!isSymbol(symbol)) failCurrent(code, messageVi, messageEn)
+            return advance()
+        }
+
+        private fun isSymbol(symbol: String): Boolean = current().type == TokenType.SYMBOL && current().text == symbol
+        private fun isIdentifier(identifier: String): Boolean = current().type == TokenType.IDENTIFIER && normalize(current().text) == identifier
         private fun current(): Token = tokens[index]
 
         private fun advance(): Token {
@@ -380,9 +556,12 @@ object ScriptCompiler {
         }
     }
 
-    private fun fail(
-        line: Int, column: Int, code: String, messageVi: String, messageEn: String
-    ): Nothing {
+    private fun normalize(value: String): String = value.uppercase(Locale.ROOT)
+
+    private fun failure(line: Int, column: Int, code: String, messageVi: String, messageEn: String) =
+        ScriptCompileResult(null, listOf(ScriptDiagnostic(line, column, code, messageVi, messageEn)))
+
+    private fun fail(line: Int, column: Int, code: String, messageVi: String, messageEn: String): Nothing {
         throw CompileFailure(ScriptDiagnostic(line, column, code, messageVi, messageEn))
     }
 }
