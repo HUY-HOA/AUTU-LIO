@@ -10,7 +10,10 @@ import com.autulio.app.BuildConfig
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import com.autulio.app.access.AccessPermission
 import com.autulio.app.access.AccessRole
+import com.autulio.app.access.configurablePermissions
+import com.autulio.app.access.defaultPermissions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -24,7 +27,8 @@ data class AuthenticatedUser(
     val id: String,
     val email: String,
     val displayName: String?,
-    val role: AccessRole
+    val role: AccessRole,
+    val permissions: Set<AccessPermission> = role.defaultPermissions()
 )
 
 data class AuthSession(
@@ -60,6 +64,11 @@ data class CreatedInvitation(
     val role: AccessRole,
     val expiresAt: Long,
     val invitationToken: String
+)
+
+data class CollaboratorPermissionSettings(
+    val permissions: Set<AccessPermission>,
+    val configurablePermissions: Set<AccessPermission>
 )
 
 class AuthRepository(context: Context) {
@@ -198,6 +207,39 @@ class AuthRepository(context: Context) {
         )
     }
 
+    suspend fun getCollaboratorPermissions(
+        accessToken: String,
+        userId: String
+    ): CollaboratorPermissionSettings {
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            path = "/api/admin/collaborators/${URLEncoder.encode(userId, "UTF-8")}/permissions",
+            method = "GET",
+            bearerToken = accessToken
+        )
+        return CollaboratorPermissionSettings(
+            permissions = result.optJSONArray("selectedPermissions").toAccessPermissions(),
+            configurablePermissions = result.optJSONArray("configurablePermissions").toAccessPermissions()
+        )
+    }
+
+    suspend fun updateCollaboratorPermissions(
+        accessToken: String,
+        userId: String,
+        permissions: Set<AccessPermission>
+    ) {
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            path = "/api/admin/collaborators/${URLEncoder.encode(userId, "UTF-8")}/permissions",
+            method = "PUT",
+            body = JSONObject().put("permissions", JSONArray(permissions.map { it.name })),
+            bearerToken = accessToken
+        )
+        if (!result.optBoolean("updated")) {
+            throw IOException("Máy chủ không xác nhận đã cập nhật quyền.")
+        }
+    }
+
     suspend fun revokeCollaborator(accessToken: String, userId: String) {
         require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
         apiRequest(
@@ -225,6 +267,16 @@ class AuthRepository(context: Context) {
         )
         return runCatching { AccessRole.valueOf(result.optString("role")) }
             .getOrElse { throw IOException("Máy chủ trả về vai trò không hợp lệ.") }
+    }
+
+    private fun JSONArray?.toAccessPermissions(): Set<AccessPermission> {
+        if (this == null) return emptySet()
+        return buildSet {
+            for (index in 0 until length()) {
+                val value = runCatching { AccessPermission.valueOf(optString(index)) }.getOrNull()
+                if (value != null) add(value)
+            }
+        }
     }
 
     private fun JSONArray?.toCollaborators(): List<CollaboratorRecord> {
@@ -280,7 +332,12 @@ class AuthRepository(context: Context) {
         val role = runCatching { AccessRole.valueOf(roleName) }.getOrNull()
         if (id.isBlank() || email.isBlank() || role == null) return null
         val displayName = optString("displayName").takeIf { it.isNotBlank() && it != "null" }
-        return AuthenticatedUser(id, email, displayName, role)
+        val permissions = if (has("permissions") && !isNull("permissions")) {
+            optJSONArray("permissions").toAccessPermissions()
+        } else {
+            role.defaultPermissions()
+        }
+        return AuthenticatedUser(id, email, displayName, role, permissions)
     }
 
     private fun deviceLabel(): String {
