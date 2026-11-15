@@ -27,15 +27,18 @@
 - [Một ứng dụng và phân quyền](docs/ONE-APP-ACCESS-CONTROL.md)
 - [Cấu hình đăng nhập Google và Cloudflare](docs/GOOGLE-SIGNIN-SETUP.md)
 - [Quy trình GitHub](docs/GITHUB-WORKFLOW.md)
+- [Bảo mật mã nguồn, APK và khóa ký](docs/SECURITY-AND-SIGNING.md)
 - [Hướng dẫn kiểm thử prototype Android](docs/ANDROID-PROTOTYPE.md)
 
 ## Build
 
-Một APK debug duy nhất được tạo từ ứng dụng có giao diện theo quyền tài khoản:
+Workflow tạo đúng một APK cho mỗi lượt build:
+- Khi đã cài đặt đủ GitHub Actions signing secrets: `release` — APK Release đã ký bằng khóa ổn định, bật R8 và shrink resources.
+- Khi chưa cài đặt khóa: `debug` — APK thử nghiệm, không dùng phát hành hoặc cập nhật đè ổn định.
 
-- `debug` — AUTU-LIO (bản thử nghiệm một ứng dụng, có bộ chọn giao diện preview chỉ dành cho Debug).
+Xem [hướng dẫn bảo mật và ký APK](docs/SECURITY-AND-SIGNING.md) trước khi phát hành cho người dùng.
 
-Build chỉ được khởi chạy theo đúng quy tắc trong [GITHUB-WORKFLOW.md](docs/GITHUB-WORKFLOW.md). Workflow APK chỉ chạy qua `workflow_dispatch` hoặc nhánh yêu cầu build chuyên biệt `build-requests/**`; push thông thường lên `main` không tự build.
+Build chỉ được khởi chạy theo đúng quy tắc trong [GITHUB-WORKFLOW.md](docs/GITHUB-WORKFLOW.md). Workflow APK chỉ chạy qua `workflow_dispatch` hoặc nhánh yêu cầu build chuyên biệt `build-requests/**`; push thông thường lên `main` không tự build. Chỉ khởi chạy khi tin nhắn của chủ sở hữu có cụm `BUILD APK`.
 
 ## Trạng thái
 
