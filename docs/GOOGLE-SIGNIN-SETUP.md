@@ -22,6 +22,8 @@ Tạo OAuth Client ID loại **Android** với:
 - SHA-1 và SHA-256 fingerprint của chứng thư ký Debug dùng để thử nghiệm.
 - SHA-1 và SHA-256 fingerprint của chứng thư ký Release trước khi phát hành thật.
 
+Sau khi có Android Client ID, thêm ID đó vào biến Worker `GOOGLE_ALLOWED_AZP` (nếu token thực tế có claim `azp` khác Web Client ID) để Worker xác minh đúng ứng dụng Android được phép trình token.
+
 Có thể lấy fingerprint của cấu hình ký Android bằng tác vụ Gradle `signingReport` trong môi trường phát triển. Không gửi file keystore hoặc mật khẩu ký cho cộng tác viên.
 
 ## 3. Cloudflare Worker secrets
@@ -35,6 +37,7 @@ npx wrangler secret put OWNER_EMAIL
 
 - `GOOGLE_CLIENT_ID`: Web application Client ID; phải giống Server Client ID được cấu hình cho app.
 - `OWNER_EMAIL`: email Google chính xác của chủ ứng dụng. Worker chỉ gán OWNER nếu email được Google xác minh trùng giá trị này và chưa có OWNER nào khác.
+- `GOOGLE_ALLOWED_AZP`: biến Worker tùy chọn, danh sách cách nhau bằng dấu phẩy gồm Android OAuth Client ID được phép xuất hiện trong claim `azp`. Claim `aud` vẫn bắt buộc phải trùng chính xác Web/Server Client ID; `azp` không được bỏ qua hoặc chấp nhận tùy tiện.
 
 Hai giá trị không được commit vào Git. Không đưa Google OAuth client secret, Cloudflare API token hoặc khóa ký Android vào APK.
 
