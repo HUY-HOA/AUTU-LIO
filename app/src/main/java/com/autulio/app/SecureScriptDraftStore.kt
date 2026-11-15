@@ -35,7 +35,7 @@ class SecureScriptDraftStore(context: Context) {
         val namesJson = runCatching {
             JSONArray(legacyPreferences.getString(LEGACY_NAMES_KEY, "[]") ?: "[]")
         }.getOrNull()
-        val names = buildList {
+        val names = buildList<String> {
             if (namesJson != null) {
                 for (index in 0 until namesJson.length()) {
                     val name = namesJson.optString(index).trim()
@@ -106,7 +106,7 @@ class SecureScriptDraftStore(context: Context) {
         val root = JSONObject(cipher.doFinal(ciphertext).toString(Charsets.UTF_8))
 
         val namesJson = root.optJSONArray("names") ?: JSONArray()
-        val names = buildList {
+        val names = buildList<String> {
             for (index in 0 until namesJson.length()) {
                 val name = namesJson.optString(index).trim()
                 if (name.isNotEmpty() && none { it.equals(name, ignoreCase = true) }) {
@@ -150,7 +150,7 @@ class SecureScriptDraftStore(context: Context) {
         const val GCM_TAG_LENGTH_BITS = 128
         const val GCM_TAG_LENGTH_BYTES = GCM_TAG_LENGTH_BITS / 8
         const val GCM_IV_LENGTH_BYTES = 12
-        const val ASSOCIATED_DATA = "AUTU-LIO|script-drafts|v1".toByteArray(Charsets.UTF_8)
+        val ASSOCIATED_DATA = "AUTU-LIO|script-drafts|v1".toByteArray(Charsets.UTF_8)
         const val ENCRYPTED_PREFERENCES = "autulio_encrypted_admin_drafts"
         const val LEGACY_PREFERENCES = "autulio_admin_drafts"
         const val DATA_KEY = "encrypted_payload_v1"
