@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
-internal fun ProjectsAdminScreen(accessToken: String, onBack: () -> Unit) {
+internal fun ProjectsAdminScreen(accessToken: String, modifier: Modifier = Modifier, onBack: () -> Unit) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
     val scope = rememberCoroutineScope()
@@ -75,7 +75,7 @@ internal fun ProjectsAdminScreen(accessToken: String, onBack: () -> Unit) {
     }
 
     MaterialTheme(colorScheme = darkColorScheme(primary = androidx.compose.ui.graphics.Color(0xFF4F8CFF))) {
-        Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+        Scaffold(modifier = modifier.fillMaxSize(), containerColor = MaterialTheme.colorScheme.background) { padding ->
             Column(
                 Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(13.dp)
