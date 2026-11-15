@@ -14,6 +14,16 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        val authApiBaseUrl = providers.gradleProperty("AUTU_LIO_AUTH_API_BASE_URL")
+            .orElse(providers.environmentVariable("AUTU_LIO_AUTH_API_BASE_URL"))
+            .getOrElse("")
+        val googleServerClientId = providers.gradleProperty("AUTU_LIO_GOOGLE_SERVER_CLIENT_ID")
+            .orElse(providers.environmentVariable("AUTU_LIO_GOOGLE_SERVER_CLIENT_ID"))
+            .getOrElse("")
+        val escapedAuthApiBaseUrl = authApiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
+        val escapedGoogleServerClientId = googleServerClientId.replace("\\", "\\\\").replace("\"", "\\\"")
+        buildConfigField("String", "AUTH_API_BASE_URL", "\"$escapedAuthApiBaseUrl\"")
+        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$escapedGoogleServerClientId\"")
     }
 
     buildFeatures {
@@ -35,6 +45,9 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.identity.googleid)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)

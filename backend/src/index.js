@@ -137,8 +137,17 @@ async function verifyGoogleIdToken(idToken, expectedNonce, env) {
   if (!issuerValid || !audiences.includes(env.GOOGLE_CLIENT_ID)) {
     throw new HttpError(401, "invalid_token_audience", "Google ID token issuer or audience is invalid.");
   }
-  if (claims.azp && claims.azp !== env.GOOGLE_CLIENT_ID) {
-    throw new HttpError(401, "invalid_authorized_party", "Google ID token authorized party is invalid.");
+  if (claims.azp) {
+    const allowedAuthorizedParties = new Set([
+      env.GOOGLE_CLIENT_ID,
+      ...(env.GOOGLE_ALLOWED_AZP || "")
+        .split(",")
+        .map(value => value.trim())
+        .filter(Boolean)
+    ]);
+    if (!allowedAuthorizedParties.has(claims.azp)) {
+      throw new HttpError(401, "invalid_authorized_party", "Google ID token authorized party is invalid.");
+    }
   }
   if (!Number.isFinite(claims.exp) || claims.exp <= now ||
       !Number.isFinite(claims.iat) || claims.iat > now + 60) {
@@ -382,6 +391,28 @@ async function acceptInvitation(request, env, session) {
   return response(request, { accepted: true, role: updated.role }, 200, env);
 }
 
+async function revokeInvitation(request, env, session, invitationId) {
+  await requireRole(session, ["OWNER"]);
+  const invitation = await env.DB.prepare(
+    "SELECT id, email, role, accepted_at, revoked_at FROM invitations WHERE id = ?"
+  ).bind(invitationId).first();
+  if (!invitation || invitation.accepted_at || invitation.revoked_at) {
+    throw new HttpError(404, "invitation_not_found", "Pending invitation was not found.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const result = await env.DB.prepare(
+    "UPDATE invitations SET revoked_at = ? WHERE id = ? AND accepted_at IS NULL AND revoked_at IS NULL"
+  ).bind(now, invitationId).run();
+  if (result.meta?.changes !== 1) {
+    throw new HttpError(409, "invitation_revoke_conflict", "Invitation could not be revoked.");
+  }
+  await audit(env, session.user_id, "collaborator.invitation_revoked", "invitation", invitationId, {
+    email: invitation.email,
+    role: invitation.role
+  });
+  return response(request, { revoked: true, invitationId }, 200, env);
+}
+
 async function updateCollaborator(request, env, session, userId) {
   await requireRole(session, ["OWNER"]);
   const body = await readBody(request);
@@ -461,6 +492,9 @@ async function route(request, env) {
   if (method === "POST" && path === "/api/invitations/accept") return await acceptInvitation(request, env, session);
   if (method === "GET" && path === "/api/admin/collaborators") return await listCollaborators(request, env, session);
   if (method === "POST" && path === "/api/admin/invitations") return await createInvitation(request, env, session);
+
+  const invitationMatch = path.match(/^\/api\/admin\/invitations\/([0-9a-f-]{36})$/i);
+  if (invitationMatch && method === "DELETE") return await revokeInvitation(request, env, session, invitationMatch[1]);
 
   const collaboratorMatch = path.match(/^\/api\/admin\/collaborators\/([0-9a-f-]{36})$/i);
   if (collaboratorMatch && method === "PATCH") return await updateCollaborator(request, env, session, collaboratorMatch[1]);

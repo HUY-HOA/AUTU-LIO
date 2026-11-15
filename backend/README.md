@@ -31,6 +31,8 @@ Set these only after the values have been confirmed:
 - `GOOGLE_CLIENT_ID`: Google OAuth Web/server client ID used as the expected ID-token audience.
 - `OWNER_EMAIL`: exact Google email that is allowed to become the first OWNER after Google verifies the account.
 
+Optional Worker variable `GOOGLE_ALLOWED_AZP`: comma-separated allowlist of Android OAuth Client IDs that may appear in the Google ID token `azp` (authorized presenter) claim. The `aud` claim must still exactly match `GOOGLE_CLIENT_ID`; an arbitrary `azp` is rejected. Configure the Android OAuth Client ID here after obtaining it from Google Cloud.
+
 Do not place either value in Git. Never place a client secret or Cloudflare API token in the Android APK. Android Google Sign-In should use Credential Manager and request an ID token for the server client ID.
 
 If `OWNER_EMAIL` is absent, newly authenticated accounts receive CUSTOMER. The app never promotes itself to OWNER based on a local email check or a Debug preview selection. A unique D1 index prevents more than one OWNER account.
@@ -60,8 +62,9 @@ This repository currently contains the Worker source and D1 binding configuratio
 - `POST /api/admin/invitations` — OWNER
 - `PATCH /api/admin/collaborators/:userId` — OWNER
 - `DELETE /api/admin/collaborators/:userId` — OWNER
+- `DELETE /api/admin/invitations/:invitationId` — OWNER
 
-The Worker currently returns an invitation token for the owner to copy and share manually. It does not send email. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
+The Worker returns a one-time invitation token for the owner to copy and share manually. The owner can list and revoke pending invitations; the Worker does not send email. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
 
 ## Local validation
 

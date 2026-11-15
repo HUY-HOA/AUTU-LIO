@@ -27,7 +27,16 @@ private data class CollaboratorInviteDraft(
 )
 
 @Composable
-internal fun CollaboratorsContent(onBack: () -> Unit) {
+internal fun CollaboratorsContent(accessToken: String?, onBack: () -> Unit) {
+    if (accessToken.isNullOrBlank()) {
+        LocalCollaboratorDrafts(onBack)
+    } else {
+        CollaboratorsServerContent(accessToken, onBack)
+    }
+}
+
+@Composable
+private fun LocalCollaboratorDrafts(onBack: () -> Unit) {
     val context = LocalContext.current
     val preferences = remember(context) {
         context.getSharedPreferences("autulio_collaborator_invite_drafts", Context.MODE_PRIVATE)

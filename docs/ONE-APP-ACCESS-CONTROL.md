@@ -86,7 +86,7 @@ Cloudflare D1 database `autu_lio_auth` đã được tạo trong tài khoản Cl
 
 Mã Worker nằm trong `backend/src/index.js`, có các endpoint xác minh Google ID token (RS256/JWKS, issuer, audience, expiry, verified email và nonce), tạo/thu hồi session, tạo lời mời, xem trước/chấp nhận lời mời, liệt kê cộng tác viên, đổi vai trò và thu hồi quyền. Lời mời yêu cầu tài khoản Google đã đăng nhập phải trùng email nhận lời mời. Token lời mời và session chỉ lưu dạng SHA-256 hash trong D1.
 
-Worker source hiện mới ở repository; **chưa deploy**. Cần cấu hình Cloudflare secrets `GOOGLE_CLIENT_ID` và `OWNER_EMAIL` trước. Chưa có email tự động; API trả token lời mời để chủ ứng dụng sao chép/chia sẻ thủ công. Android Credential Manager cũng chưa được kết nối với API.
+Worker source hiện mới ở repository; **chưa deploy**. Màn hình Android đã gọi các endpoint quản lý cộng tác viên; chức năng trực tuyến chỉ có hiệu lực sau khi deploy Worker. Cần cấu hình Cloudflare secrets `GOOGLE_CLIENT_ID` và `OWNER_EMAIL` trước. Chưa có email tự động; API trả token lời mời để chủ ứng dụng sao chép/chia sẻ thủ công. Android Credential Manager cũng chưa được kết nối với API.
 
 ## 9. Trạng thái triển khai
 
