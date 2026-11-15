@@ -1,6 +1,14 @@
 package com.autulio.app.accessibility
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
+import android.os.PowerManager
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.PixelFormat
@@ -49,6 +57,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var collapsed = false
     private var pendingProgram: ScriptProgram? = null
     private var latestSnapshot: ScriptExecutionSnapshot? = null
+    @Volatile private var foregroundPackage: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -60,7 +69,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // The service does not inspect or store accessibility event content.
+        val packageName = event?.packageName?.toString()
+        if (!packageName.isNullOrBlank()) {
+            foregroundPackage = packageName
+        }
     }
 
     override fun onInterrupt() {
@@ -138,6 +150,87 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             lineTo(endX.toFloat(), endY.toFloat())
         }
         return dispatchPath(path, durationMs)
+    }
+
+    override fun openApp(packageName: String): Boolean {
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return false
+        return runCatching {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(launchIntent)
+            true
+        }.getOrDefault(false)
+    }
+
+    override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
+        return when (name) {
+            "PIN", "PHẦN_TRĂM_PIN" -> batteryPercent()
+            "ĐANG_SẠC" -> isCharging()
+            "CÓ_MẠNG" -> hasNetworkConnection()
+            "MÀN_HÌNH_SÁNG" -> {
+                val power = getSystemService(Context.POWER_SERVICE) as PowerManager
+                power.isInteractive
+            }
+            "ỨNG_DỤNG_ĐÃ_CÀI" -> {
+                requireArgumentCount(name, arguments, 1)
+                val packageName = arguments[0] as? String ?: return false
+                isPackageInstalled(packageName)
+            }
+            "ỨNG_DỤNG_ĐANG_MỞ" -> {
+                requireArgumentCount(name, arguments, 1)
+                val packageName = arguments[0] as? String ?: return false
+                foregroundPackage == packageName
+            }
+            "CHIỀU_RỘNG_MÀN_HÌNH" -> readDisplayMetrics().widthPixels
+            "CHIỀU_CAO_MÀN_HÌNH" -> readDisplayMetrics().heightPixels
+            "THỜI_GIAN_MS" -> System.currentTimeMillis()
+            else -> throw UnsupportedOperationException("Hàm '$name' chưa được hỗ trợ trên thiết bị này.")
+        }
+    }
+
+    private fun requireArgumentCount(name: String, arguments: List<Any?>, expected: Int) {
+        require(arguments.size == expected) { "Hàm '$name' cần $expected tham số." }
+    }
+
+    private fun isPackageInstalled(packageName: String): Boolean {
+        return try {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        } catch (_: RuntimeException) {
+            false
+        }
+    }
+
+    private fun batteryIntent(): Intent? =
+        registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+
+    private fun batteryPercent(): Int {
+        val manager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val level = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        if (level in 0..100) return level
+        val intent = batteryIntent() ?: return -1
+        val current = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        return if (current >= 0 && scale > 0) (current * 100 / scale) else -1
+    }
+
+    private fun isCharging(): Boolean {
+        val intent = batteryIntent() ?: return false
+        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+        return status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL ||
+            plugged != 0
+    }
+
+    private fun hasNetworkConnection(): Boolean {
+        val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
     private fun dispatchPointGesture(x: Int, y: Int, durationMs: Int): Boolean {
