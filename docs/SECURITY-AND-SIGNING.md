@@ -19,7 +19,7 @@ Các lớp bảo vệ được sử dụng:
 4. Logic quyết định quyền, chủ sở hữu, license và phát hành phải được kiểm tra ở Worker/máy chủ; không tin cờ quyền do client tự gửi. Activity editor Release xác minh lại phiên, role và `EDIT_SCRIPTS` với máy chủ mỗi lần mở; quyền kiểm thử cũng lấy từ dữ liệu máy chủ, không lấy từ Intent.
 5. Bản nháp trên thiết bị được mã hóa AES-256-GCM; khóa AES được tạo và giữ trong Android Keystore, ưu tiên StrongBox trên thiết bị hỗ trợ và tự fallback về Android Keystore thông thường nếu StrongBox không khả dụng.
 6. Gói AUTU phát hành được mã hóa AES-256-GCM từng phiên bản; data key chỉ được Worker bọc cho RSA-3072 public key của thiết bị đã đăng ký.
-7. Bản nháp dự án cộng tác và snapshot gửi duyệt được mã hóa AES-256-GCM ở Worker trước khi ghi D1, dùng khóa riêng trong Worker Secret và AAD gắn với dự án, bản ghi, revision và version khóa.
+7. Bản nháp dự án cộng tác và snapshot gửi duyệt dùng envelope encryption: mỗi bản ghi có khóa dữ liệu AES-256 ngẫu nhiên riêng để mã hóa nội dung bằng AES-256-GCM; khóa dữ liệu lại được bọc bằng master key riêng trong Worker Secret. AAD gắn cả nội dung và khóa bọc với purpose, dự án, bản ghi, revision và version khóa.
 
 R8 là làm rối và thu gọn mã, không phải mã hóa tuyệt đối. Mã giải mã và nội dung cần chạy vẫn có thể xuất hiện trong bộ nhớ khi ứng dụng hoạt động.
 
@@ -75,11 +75,11 @@ Dữ liệu cần ở dạng plaintext trong editor khi chủ sở hữu chỉnh
 
 ## 5. Mã hóa bản nháp cộng tác và snapshot duyệt ở máy chủ
 
-Các cột `source_ciphertext/source_iv/source_key_version` trong `script_drafts` và `snapshot_ciphertext/snapshot_iv/snapshot_key_version` trong `change_submissions` giữ dữ liệu đã mã hóa. Worker sử dụng AES-256-GCM, nonce ngẫu nhiên 96-bit và tag 128-bit; AAD ràng buộc purpose, project ID, record ID, revision và key version. D1 chỉ nhận chuỗi source/snapshot rỗng ở các bản ghi mới sau khi migration 0004 và Worker mới được triển khai.
+Các cột `source_ciphertext/source_iv/source_encrypted_data_key/source_key_iv/source_key_version` trong `script_drafts` và `snapshot_ciphertext/snapshot_iv/snapshot_encrypted_data_key/snapshot_key_iv/snapshot_key_version` trong `change_submissions` giữ envelope đã mã hóa. Mỗi bản ghi được sinh một data key AES-256 ngẫu nhiên mới; data key mã hóa nội dung bằng AES-256-GCM với nonce 96-bit, sau đó master key trong Worker Secret bọc data key bằng AES-256-GCM với nonce 96-bit thứ hai. Cả hai thao tác dùng tag 128-bit và AAD ràng buộc purpose, project ID, record ID, revision và key version. D1 chỉ nhận source/snapshot rỗng ở bản ghi mới.
 
 Khóa dự án độc lập với khóa package: `PROJECT_DRAFT_MASTER_KEY_V1` là Worker Secret 32 byte ngẫu nhiên, không có trong APK, Git hay D1. Biến `PROJECT_DRAFT_MASTER_KEY_VERSION` chọn version đang hoạt động. Giữ lại mọi version cũ cho đến khi không còn bản ghi nào tham chiếu tới. Không xoay khóa bằng cách thay secret tại cùng một version.
 
-Sau khi áp dụng migration 0004 và deploy Worker, OWNER gọi `POST /api/admin/security/migrate-project-data` lặp lại đến khi `complete=true`. Mỗi lần xử lý tối đa 50 bản nháp và 50 snapshot. Endpoint kiểm tra role OWNER; các bản ghi cũ cũng được chuyển đổi lười khi được đọc hợp lệ. Nếu secret thiếu, thao tác mã hóa mới fail closed thay vì ghi thêm plaintext.
+Sau khi áp dụng cả các migration 0004 và 0005 và 0005 rồi deploy Worker, OWNER gọi `POST /api/admin/security/migrate-project-data` lặp lại đến khi `complete=true`. Mỗi lần xử lý tối đa 50 bản nháp và 50 snapshot. Endpoint kiểm tra role OWNER; các bản ghi cũ cũng được chuyển đổi lười khi được đọc hợp lệ. Nếu secret thiếu, thao tác mã hóa mới fail closed thay vì ghi thêm plaintext.
 
 Worker chỉ giải mã source khi quyền dự án và `EDIT_SCRIPTS` hợp lệ. REVIEWER không có `EDIT_SCRIPTS` chỉ nhận metadata; CUSTOMER không được truy cập dự án. Snapshot chỉ được giải mã sau khi kiểm tra quyền `REVIEW_RELEASE`.
 
