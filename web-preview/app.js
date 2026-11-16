@@ -1,105 +1,186 @@
 const $ = (id) => document.getElementById(id);
-const state = {
-  role:"owner", page:"overview", scripts:[
-    {name:"Auto Farm",desc:"Chuỗi thao tác mẫu để kiểm thử giao diện điều khiển.",status:"Đã phát hành",kind:"good",updated:"Hôm nay"},
-    {name:"Thu thập tài nguyên",desc:"Kịch bản mẫu với các bước chờ và lặp.",status:"Bản nháp",kind:"warn",updated:"Hôm qua"},
-    {name:"Kiểm tra căn cứ",desc:"Ví dụ về một quy trình tự động hóa.",status:"Đã phát hành",kind:"good",updated:"12/11/2026"}
-  ], running:false, paused:false, progress:0, seconds:0, timer:null, activeScript:"Auto Farm"
+const state = { role:null, page:"", theme:"dark", editorSource:"", selectedTemplate:"", toastTimer:null };
+const roles = {
+  owner:{label:"Chủ sở hữu",subtitle:"Quản trị ứng dụng, kịch bản và quyền sử dụng",icon:"⌂"},
+  developer:{label:"Nhà phát triển",subtitle:"Workspace mã và dự án được phân công",icon:"⌘"},
+  designer:{label:"Nhà thiết kế",subtitle:"Workspace thiết kế giao diện",icon:"✧"},
+  reviewer:{label:"Người kiểm duyệt",subtitle:"Hàng đợi kiểm tra và duyệt đề xuất",icon:"✓"},
+  customer:{label:"Người dùng",subtitle:"Sử dụng các gói AUTU được phát hành",icon:"♙"}
 };
-const navByRole = {
- owner:[["overview","Tổng quan","⌂"],["scripts","Kịch bản","▤"],["customers","Khách hàng","♙"],["devices","Thiết bị","▣"],["more","Quản lý thêm","•••"]],
- developer:[["workspace","Workspace mã","⌘"],["scripts","Kịch bản","▤"],["library","Thư viện","▧"],["preview","Xem trước","◫"]],
- designer:[["design","Thiết kế giao diện","✧"],["preview","Bản xem trước","◫"],["assets","Tài nguyên","▧"]],
- reviewer:[["reviews","Chờ duyệt","✓"],["history","Lịch sử duyệt","◷"]],
- customer:[["home","Trang chủ","⌂"],["scripts","Kịch bản của tôi","▤"],["device","Thiết bị","▣"],["settings","Cài đặt","⚙"]]
-};
-const titles={overview:"Tổng quan",scripts:"Kịch bản",customers:"Khách hàng",devices:"Thiết bị",more:"Quản lý thêm",workspace:"Workspace mã",library:"Thư viện",preview:"Xem trước",design:"Thiết kế giao diện",assets:"Tài nguyên",reviews:"Chờ duyệt",history:"Lịch sử duyệt",home:"Trang chủ",device:"Thiết bị",settings:"Cài đặt"};
-function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),2500)}
-function header(kicker,title,sub,actions=""){return `<div class="page-heading"><div><div class="eyebrow">${kicker}</div><h1>${title}</h1><p>${sub}</p></div><div class="heading-actions">${actions}</div></div>`}
-function cardStat(label,value,foot,icon){return `<div class="card stat-card"><div class="stat-top"><span>${label}</span><span class="stat-icon">${icon}</span></div><div class="stat-value">${value}</div><div class="stat-foot">${foot}</div></div>`}
-function activity(icon,title,desc,time){return `<div class="activity-row"><div class="activity-icon">${icon}</div><div><b>${title}</b><small>${desc}</small></div><time>${time}</time></div>`}
-function renderNav(){
- const items=navByRole[state.role]||navByRole.owner;
- const html=items.map(([key,label,icon])=>`<button class="nav-item ${state.page===key?"active":""}" data-page="${key}"><span class="nav-icon">${icon}</span><span>${label}</span></button>`).join("");
- $("side-nav").innerHTML=html;$("mobile-nav").innerHTML=html;
+const ownerTabs = [["overview","Tổng quan","⌂"],["scripts","Kịch bản","▤"],["customers","Khách hàng","♙"],["devices","Thiết bị","▣"],["more","Thêm","•••"]];
+const customerTabs = [["home","Trang chủ","⌂"],["scripts","Kịch bản","▤"],["device","Thiết bị","▣"],["settings","Cài đặt","⚙"]];
+const moreItems = [
+  ["collaborators","Cộng tác viên","Mời và phân quyền nhà phát triển, nhà thiết kế, người kiểm duyệt","♙"],
+  ["projects","Dự án cộng tác","Chia dự án cho các thành viên đã được mời","▧"],
+  ["licenses","Giấy phép","Cấp, gia hạn và thu hồi quyền sử dụng","✓"],
+  ["library","Thư viện mẫu AUTU","Quản lý và chọn mẫu AUTU có sẵn","▤"],
+  ["packages","Gói AUTU","Mã hóa, phát hành phiên bản và phân phối AUTU","⌘"],
+  ["settings","Cài đặt","Giao diện, bảo mật và kết nối máy chủ","⚙"]
+];
+const templates = [
+ ["Chạm một lần","Chạm tại một tọa độ trên màn hình.","CHẠM(200, 400)"],
+ ["Chuỗi chạm có thời gian chờ","Chạm hai vị trí, giữa hai lần chạm chờ 500 ms.","CHẠM(200, 400)\nCHỜ(500)\nCHẠM(500, 400)"],
+ ["Nhấn giữ","Nhấn giữ tại một vị trí trong 800 ms.","NHẤN_GIỮ(200, 400, 800)"],
+ ["Vuốt lên","Vuốt từ dưới lên trên trong 450 ms.","VUỐT(360, 850, 360, 350, 450)"],
+ ["Lặp thao tác chạm","Lặp thao tác chạm theo số lần đã đặt.","ĐẶT soLan = 3\nLẶP(soLan) {\n  CHẠM(200, 400)\n  CHỜ(500)\n}"],
+ ["Kiểm tra pin trước khi chạy","Chỉ tiếp tục thao tác khi pin còn trên 20%.","NẾU (PIN() > 20) {\n  CHẠM(200, 400)\n} NGƯỢC_LẠI {\n  CHỜ(1000)\n}"],
+ ["Mở ứng dụng","Mở ứng dụng bằng tên gói Android hợp lệ.","MỞ_ỨNG_DỤNG(\"com.example.game\")"],
+ ["Lặp theo điều kiện","Tăng biến đếm và dừng lặp khi đạt điều kiện.","ĐẶT dem = 0\nLẶP_KHI (dem < 5) {\n  dem = dem + 1\n  CHẠM(200, 400)\n  CHỜ(300)\n}"],
+ ["Chờ điều kiện sẵn sàng","Kiểm tra điều kiện định kỳ và dừng khi hết thời hạn.","CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ(\"com.example.game\"), 15000, 250)\nCHẠM(200, 400)"],
+ ["Lặp đến khi đạt mục tiêu","Thực hiện thao tác đến khi đạt điều kiện dừng.","ĐẶT dem = 0\nLẶP_ĐẾN_KHI(dem >= 5) {\n  dem = dem + 1\n  CHẠM(200, 400)\n  CHỜ(300)\n}"],
+ ["Quay lại","Thực hiện thao tác Quay lại của Android.","QUAY_LẠI()"],
+ ["Về màn hình chính","Đưa thiết bị về màn hình chính Android.","VỀ_MÀN_HÌNH_CHÍNH()"],
+ ["Mở ứng dụng gần đây","Mở giao diện ứng dụng gần đây của Android.","ỨNG_DỤNG_GẦN_ĐÂY()"],
+ ["Mở thông báo","Mở ngăn thông báo Android.","MỞ_THÔNG_BÁO()"],
+ ["Mở cài đặt nhanh","Mở bảng cài đặt nhanh Android.","MỞ_CÀI_ĐẶT_NHANH()"],
+ ["Hiện menu nguồn","Mở menu nguồn Android.","HIỆN_MENU_NGUỒN()"],
+ ["Khóa màn hình","Khóa màn hình nếu phiên bản Android hỗ trợ.","KHÓA_MÀN_HÌNH()"],
+ ["Chia đôi màn hình","Bật chia đôi nếu Android hỗ trợ.","CHIA_MÀN_HÌNH()"]
+];
+function esc(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+function notify(message){const el=$("toast");el.textContent=message;el.classList.remove("hidden");clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>el.classList.add("hidden"),3000);}
+function heading(kicker,title,subtitle){return '<div class="eyebrow">'+kicker+'</div><h1 class="page-title">'+title+'</h1><p class="page-sub">'+subtitle+'</p>';}
+function card(title,body,extra){return '<section class="card">'+(title?'<div class="card-head"><h3>'+title+'</h3>'+(extra||"")+'</div>':"")+body+'</section>';}
+function unavailable(title,description){return card("",'<div class="empty-state"><div class="empty-icon">◌</div><strong>'+title+'</strong><p>'+description+'</p></div>');}
+function actionRow(icon,title,description,page){return '<button class="action-row" data-page="'+page+'"><span class="action-icon">'+icon+'</span><span><strong>'+title+'</strong><small>'+description+'</small></span><span class="action-arrow">›</span></button>';}
+function renderChooser(){
+ $("topbar").classList.add("hidden");$("bottom-nav").classList.add("hidden");$("back-to-roles").classList.add("hidden");
+ const list=Object.entries(roles).map(([key,r])=>'<button type="button" class="role-card" data-role="'+key+'"><span class="action-icon">'+r.icon+'</span><span><strong>'+r.label+'</strong><small>'+r.subtitle+'</small></span><span class="action-arrow">›</span></button>').join("");
+ $("screen").innerHTML='<div style="padding-top:10px"><div class="brand-mark" style="width:54px;height:54px;font-size:23px;margin-bottom:20px">A</div><div class="eyebrow">ANDROID · DEBUG PREVIEW</div><h1 class="page-title" style="font-size:29px;margin-top:8px">AUTU-LIO</h1><p class="page-sub">Một ứng dụng duy nhất. Giao diện được mở theo vai trò tài khoản.</p><div class="status-note blue">Đây là màn hình chọn vai trò xem trước trong bản Debug Android. Bản phát hành thật phải xác minh vai trò từ máy chủ, không tự cấp quyền tại đây.</div><h3 style="font-size:14px;margin:23px 0 10px">Chọn giao diện để đối chiếu</h3><div class="role-grid">'+list+'</div></div>';
 }
-function render(){
- $("role-select").value=state.role;$("page-crumb").textContent=titles[state.page]||"Không gian làm việc";
- renderNav();
- let view="";
- if(state.role==="owner") view=renderOwner();
- if(state.role==="developer") view=renderDeveloper();
- if(state.role==="designer") view=renderDesigner();
- if(state.role==="reviewer") view=renderReviewer();
- if(state.role==="customer") view=renderCustomer();
- $("content").innerHTML=view;
+function navMarkup(tabs){return tabs.map(([key,label,icon])=>'<button type="button" class="nav-btn '+(state.page===key?'active':'')+'" data-page="'+key+'"><span class="nav-icon">'+icon+'</span><span>'+label+'</span></button>').join("");}
+function setRole(role){state.role=role;state.page=role==="owner"?"overview":role==="customer"?"home":"workspace";render();}
+function renderShell(){
+ $("topbar").classList.remove("hidden");$("top-title").textContent=state.role==="owner"?"AUTU-LIO · Chủ sở hữu":roles[state.role].label;
+ $("top-subtitle").textContent="Bản đối chiếu giao diện từ mã Android";
+ $("back-to-roles").classList.remove("hidden");
+ const tabs=state.role==="owner"?ownerTabs:state.role==="customer"?customerTabs:null;
+ if(tabs){$("bottom-nav").classList.remove("hidden");$("bottom-nav").innerHTML=navMarkup(tabs);}
+ else {$("bottom-nav").classList.add("hidden");$("bottom-nav").innerHTML="";}
 }
 function renderOwner(){
- if(state.page==="scripts") return header("QUẢN LÝ NỘI DUNG","Kịch bản","Tạo, tổ chức và theo dõi các kịch bản AUTU-LIO.",'<button class="btn ghost" data-action="floating">▣ Cửa sổ nổi</button><button class="btn primary" data-action="new-script">＋ Tạo kịch bản</button>')+`<div class="grid script-grid">${state.scripts.map((s,i)=>`<article class="card script-card"><div class="script-card-head"><div class="script-symbol">⌘</div><span class="status ${s.kind}">${s.status}</span></div><div><h3>${s.name}</h3><p>${s.desc}</p></div><div class="script-card-foot"><span>Cập nhật: ${s.updated}</span><button class="btn ghost" data-action="open-script" data-index="${i}">Chi tiết →</button></div></article>`).join("")}</div>`;
- if(state.page==="customers") return header("QUẢN LÝ TÀI KHOẢN","Khách hàng","Theo dõi khách hàng và quyền sử dụng do Owner quản lý.",'<button class="btn primary" data-action="notice">＋ Thêm khách hàng</button>')+`<div class="card"><div class="section-title"><h2>Danh sách khách hàng</h2><span>Dữ liệu minh họa</span></div><div class="table-wrap"><table class="table"><thead><tr><th>KHÁCH HÀNG</th><th>THIẾT BỊ</th><th>TRẠNG THÁI</th><th>HOẠT ĐỘNG</th></tr></thead><tbody><tr><td class="name-cell"><b>Nguyễn Văn A</b><small>user-a@example.com</small></td><td>1 thiết bị</td><td><span class="status good">Được phép</span></td><td>Hôm nay</td></tr><tr><td class="name-cell"><b>Trần Thị B</b><small>user-b@example.com</small></td><td>2 thiết bị</td><td><span class="status warn">Chờ xác minh</span></td><td>Hôm qua</td></tr><tr><td class="name-cell"><b>Lê Văn C</b><small>user-c@example.com</small></td><td>1 thiết bị</td><td><span class="status bad">Đã từ chối</span></td><td>10/11/2026</td></tr></tbody></table></div></div>`;
- if(state.page==="devices") return header("QUẢN LÝ THIẾT BỊ","Thiết bị","Danh sách thiết bị minh họa, chưa kết nối máy chủ.",'<button class="btn ghost" data-action="notice">↻ Làm mới</button>')+`<div class="card device-list"><div class="device-row"><div class="device-icon">▣</div><div><b>Android · Thiết bị A</b><small>AUTU-LIO Debug Preview · Lần cuối: hôm nay</small></div><span class="status good" style="margin-left:auto">Đang hoạt động</span></div><div class="device-row"><div class="device-icon">▣</div><div><b>Android · Thiết bị B</b><small>Chưa xác minh chữ ký · Lần cuối: hôm qua</small></div><span class="status warn" style="margin-left:auto">Chờ kiểm tra</span></div></div>`;
- if(state.page==="more") return header("CẤU HÌNH HỆ THỐNG","Quản lý thêm","Các khu vực quản lý của Owner.",'')+`<div class="grid script-grid"><button class="card quick-action" data-action="notice">♧<strong>Giấy phép</strong><small>Hạn dùng và trạng thái quyền</small></button><button class="card quick-action" data-action="notice">▧<strong>Thư viện</strong><small>Hàm và tài nguyên dùng chung</small></button><button class="card quick-action" data-action="notice">⇧<strong>Phát hành</strong><small>Phiên bản và gói AUTU</small></button><button class="card quick-action" data-action="notice">◷<strong>Nhật ký</strong><small>Lịch sử hoạt động và lỗi</small></button></div>`;
- return header("OWNER STUDIO · TỔNG QUAN","Chào mừng trở lại","Quản lý kịch bản, khách hàng và quyền sử dụng AUTU-LIO.",'<button class="btn ghost" data-action="floating">▣ Mở cửa sổ nổi</button><button class="btn primary" data-action="new-script">＋ Kịch bản mới</button>')+
- `<div class="banner"><div class="banner-icon">✦</div><div><b>Không gian quản trị AUTU-LIO</b><p>Đang xem dữ liệu mẫu để duyệt bố cục. Dữ liệu này chưa được lưu lên máy chủ.</p></div><span class="tag">PREVIEW MODE</span></div>
- <div class="grid stats-grid">${cardStat("Tổng kịch bản","12",'<em>+2</em> trong tháng',"⌘")}${cardStat("Khách hàng","48",'<em>+6</em> trong tháng',"♙")}${cardStat("Thiết bị","63","Đã đăng ký minh họa","▣")}${cardStat("Đang hoạt động","41",'<em>65%</em> tổng thiết bị',"◉")}</div>
- <div class="grid two-col"><div class="card"><div class="section-title"><h2>Hoạt động gần đây</h2><span>7 ngày gần nhất</span></div><div class="activity-list">${activity("＋","Đã tạo kịch bản mới","Auto Farm · Bản nháp","09:42")}${activity("✓","Đã cấp quyền sử dụng","Người dùng A · 1 thiết bị","Hôm qua")}${activity("↻","Đã cập nhật package","Phiên bản 0.1.0","14/11")}${activity("▣","Thiết bị mới được ghi nhận","Android · Thiết bị B","13/11")}</div></div><div class="card"><div class="section-title"><h2>Thao tác nhanh</h2><span>Tiện ích Owner</span></div><div class="quick-grid"><button class="quick-action" data-action="new-script">＋<strong>Tạo kịch bản</strong><small>Bắt đầu nội dung mới</small></button><button class="quick-action" data-page="customers">♙<strong>Khách hàng</strong><small>Quản lý người dùng</small></button><button class="quick-action" data-page="devices">▣<strong>Thiết bị</strong><small>Xem thiết bị</small></button><button class="quick-action" data-page="scripts">▤<strong>Thư viện kịch bản</strong><small>Mở danh sách</small></button></div></div></div>`;
+ switch(state.page){
+ case "overview":
+  return heading("OWNER · TỔNG QUAN","Tổng quan","Quản lý kịch bản, khách hàng, thiết bị, giấy phép và gói AUTU.")+
+   '<div class="status-note"><b>Chưa có phiên đăng nhập thật.</b><br>Đang xem vai trò Owner ở chế độ Debug Preview. Dữ liệu khách hàng, thiết bị, giấy phép và gói chỉ tải khi có phiên đăng nhập hợp lệ và máy chủ hoạt động.</div>'+
+   '<div class="grid"><div class="metric"><small>Khách hàng</small><strong>—</strong></div><div class="metric"><small>Thiết bị</small><strong>—</strong></div><div class="metric"><small>Giấy phép hoạt động</small><strong>—</strong></div><div class="metric"><small>Gói AUTU hoạt động</small><strong>—</strong></div></div>'+
+   card("Truy cập nhanh",'<div class="action-list">'+actionRow("＋","Tạo AUTU","Mở danh sách kịch bản để tạo mới","scripts")+actionRow("▤","Kịch bản","Mở các bản nháp được lưu trên thiết bị","scripts")+actionRow("♙","Khách hàng","Quản lý tài khoản khách hàng","customers")+actionRow("▣","Thiết bị","Quản lý thiết bị Android đã đăng ký","devices")+actionRow("✓","Giấy phép","Cấp, gia hạn hoặc thu hồi quyền","licenses")+actionRow("⇧","Phát hành gói","Quản lý gói AUTU","packages")+'</div>');
+ case "scripts":
+  return heading("OWNER · KỊCH BẢN","Kịch bản","Tạo kịch bản, mở trình soạn thảo và quản lý bản nháp AUTU.")+
+   '<div class="status-note blue">Android lưu bản nháp cục bộ bằng SecureScriptDraftStore. Bản Web không thể đọc các bản nháp đã mã hóa bên trong điện thoại.</div>'+
+   card("Bản nháp trên thiết bị",'<div class="empty-state"><div class="empty-icon">▤</div><strong>Không có bản nháp Android hiển thị ở đây</strong><p>Hãy mở mục Kịch bản trong APK để xem dữ liệu thực đang lưu trên thiết bị.</p></div>')+
+   '<div class="btn-row"><button class="btn primary" data-page="editor">＋ Xem giao diện tạo AUTU</button><button class="btn" data-page="library">Mẫu có sẵn</button></div>';
+ case "customers":
+  return heading("OWNER · KHÁCH HÀNG","Khách hàng","Theo dõi tài khoản, giấy phép và quyền sử dụng.")+
+   unavailable("Chưa có phiên đăng nhập thật","Màn hình Android lấy danh sách từ Auth API. Bản Debug xem thử đang dùng accessToken = null nên không có dữ liệu khách hàng trực tiếp.");
+ case "devices":
+  return heading("OWNER · THIẾT BỊ","Thiết bị","Theo dõi thiết bị đã đăng ký và trạng thái hoạt động.")+
+   unavailable("Chưa có phiên đăng nhập thật","Không có danh sách thiết bị thật để hiển thị trong chế độ xem thử. Không sử dụng dữ liệu thiết bị giả.");
+ case "more":
+  return heading("OWNER · QUẢN LÝ","Thêm","Các khu vực quản trị bổ sung của Chủ sở hữu.")+
+   '<div class="action-list">'+moreItems.map(x=>actionRow(x[3],x[1],x[2],x[0])).join("")+'</div>'+
+   card("Giao diện và tài khoản",'<div class="action-list">'+actionRow("◐","Chuyển giao diện sáng / tối","Đổi màu giao diện của bản Web xem trước","theme")+'</div><div class="status-note blue">Đăng xuất thật cần phiên Google đã xác thực. Bản xem thử không tạo tài khoản hoặc phiên đăng nhập.</div>');
+ case "editor": return renderEditor();
+ case "library": return renderTemplates();
+ case "collaborators": return heading("OWNER · CỘNG TÁC VIÊN","Cộng tác viên","Mời và phân quyền nhà phát triển, nhà thiết kế và người kiểm duyệt.")+unavailable("Chưa kết nối phiên máy chủ","Giao diện và API quản lý cộng tác viên có trong mã Android. Cần đăng nhập thật và cấu hình Auth API để đọc hoặc thay đổi dữ liệu.");
+ case "projects": return heading("OWNER · DỰ ÁN","Dự án cộng tác","Tạo dự án và thêm các cộng tác viên đã được mời.")+unavailable("Chưa có dự án trực tuyến","Workspace dự án lưu dữ liệu qua Worker/D1. Bản Web này chưa đăng nhập và không đọc D1.");
+ case "licenses": return heading("OWNER · GIẤY PHÉP","Giấy phép","Cấp, gia hạn và thu hồi quyền sử dụng.")+unavailable("Chưa có dữ liệu giấy phép","Màn hình Android cần phiên xác thực và phản hồi từ máy chủ. Không hiển thị bản ghi minh họa.");
+ case "packages": return heading("OWNER · GÓI AUTU","Gói AUTU","Quản lý bản nháp, mã hóa và phát hành phiên bản AUTU.")+
+   '<div class="status-note blue">Mã Android có màn hình quản lý gói và quy trình phát hành. Bản Web không tạo, mã hóa, ký hoặc phân phối package thật.</div>'+
+   unavailable("Chưa có phiên đăng nhập thật","Danh sách gói đã phát hành chỉ hiển thị sau khi kết nối API và xác thực Owner.");
+ case "settings": return heading("OWNER · CÀI ĐẶT","Cài đặt","Giao diện, bảo mật và kết nối máy chủ.")+
+   card("Giao diện",'<div class="btn-row"><button class="btn" data-action="theme">◐ Chuyển giao diện sáng / tối</button></div>')+
+   card("Bảo mật",'<p>Vai trò và quyền được xác minh từ máy chủ. Bản Debug có bộ chọn xem trước; bộ chọn này không cấp quyền Admin ở bản phát hành.</p>')+
+   card("Kết nối máy chủ",'<div class="status-note">Chưa có phiên đăng nhập thật. Kiểm tra máy chủ trong Web không xác minh được phiên trên Android.</div>');
+ default:return heading("OWNER","Màn hình chưa chọn","Chọn mục từ thanh điều hướng.");
+ }
 }
-function renderDeveloper(){
- if(state.page==="scripts") return renderOwnerScriptsForDev();
- if(state.page==="library") return header("DEVELOPER","Thư viện hàm","Các lệnh mẫu có thể dùng trong ngôn ngữ AUTU-LIO.",'')+`<div class="grid script-grid"><div class="card"><span class="status good">Có trong bản mẫu</span><h3>CHẠM(x, y)</h3><p>Gửi thao tác chạm tại tọa độ trên màn hình.</p></div><div class="card"><span class="status good">Có trong bản mẫu</span><h3>CHỜ(ms)</h3><p>Tạm dừng luồng kịch bản trong một khoảng thời gian.</p></div><div class="card"><span class="status warn">Minh họa</span><h3>VUỐT(...)</h3><p>Ví dụ lệnh vuốt với điểm bắt đầu và kết thúc.</p></div></div>`;
- if(state.page==="preview") return header("DEVELOPER","Xem trước kịch bản","Kiểm tra nội dung mẫu và bảng điều khiển nổi mô phỏng.",'<button class="btn primary" data-action="floating">▣ Mở cửa sổ nổi</button>')+`<div class="grid two-col"><div class="card"><div class="section-title"><h2>Auto Farm · Bản thử</h2><span class="status warn">Mô phỏng</span></div><p class="muted">Cửa sổ điều khiển dưới đây mô phỏng hành vi giao diện. Không gửi thao tác tới Android.</p><button class="btn primary" data-action="floating">Mở bảng điều khiển nổi</button></div><div class="preview-frame"><div class="preview-phone"><div class="phone-notch"></div><div class="phone-screen"><h3>Ứng dụng mục tiêu</h3><p>Khung màn hình giả lập</p><div class="mini-tile">Kịch bản đang chờ <span>○</span></div><div class="mini-tile">Cửa sổ AUTU-LIO <span>▣</span></div></div></div></div></div>`;
- return header("DEVELOPER WORKSPACE","Không gian lập trình","Soạn thảo và kiểm tra cú pháp kịch bản mẫu.",'<button class="btn ghost" data-action="floating">▣ Cửa sổ nổi</button><button class="btn primary" data-action="check-code">✓ Kiểm tra mã</button>')+
- `<div class="editor-layout"><div class="card"><div class="editor-toolbar"><b>Script Editor · AUTU Script 0.1</b><span class="status good">Bản nháp cục bộ</span></div><textarea id="script-editor" class="code-editor" spellcheck="false">ĐẶT "vòng_lặp" = 3
-LẶP 3 LẦN
-  CHẠM(540, 1200)
-  CHỜ(800)
-  VUỐT(540, 1200, 540, 700, 450)
-  CHỜ(1200)
-KẾT_THÚC</textarea><div class="editor-status" id="editor-status">Sẵn sàng kiểm tra cú pháp mẫu.</div></div><div class="card"><div class="section-title"><h2>Thông số thử nghiệm</h2><span>Chỉnh khi chạy</span></div><div class="param-list"><label class="param-row">Số lần lặp <input type="number" value="3" min="1" max="20"></label><label class="param-row">Thời gian chờ (ms) <input type="number" value="800" min="0" max="10000"></label><label class="param-row">Tốc độ vuốt (ms) <input type="number" value="450" min="100" max="5000"></label></div><button class="btn primary" style="width:100%;margin-top:17px" data-action="floating">▣ Thử bảng điều khiển</button></div></div>`;
+function renderEditor(){
+ return heading("AUTU SCRIPT EDITOR","Trình soạn thảo AUTU","Màn hình riêng để viết mã, chọn mẫu, kiểm tra cú pháp và chuẩn bị chạy.")+
+  '<div class="status-note blue">Đây là bản phản chiếu. Compiler Kotlin ScriptCompiler và bộ thực thi Android không chạy bên trong trình duyệt này.</div>'+
+  card("Mã nguồn",'<textarea id="editor-source" class="code-area" spellcheck="false" placeholder="Nhập mã kịch bản hoặc chọn một mẫu...">'+esc(state.editorSource)+'</textarea>'+
+  '<div class="btn-row"><button class="btn" data-page="library">Mẫu có sẵn</button><button class="btn" data-page="guide">Hướng dẫn</button></div>'+
+  '<div class="btn-row"><button class="btn primary" data-action="check-code">✓ Kiểm tra mã</button><button class="btn" disabled>Chuẩn bị chạy · Chỉ trong Android</button></div>'+
+  '<div class="status-note">Bản nháp Android được lưu trên thiết bị. Web không ghi vào SecureScriptDraftStore hoặc Android Keystore.</div>');
 }
-function renderOwnerScriptsForDev(){return header("DEVELOPER","Kịch bản","Các nội dung mẫu được phân quyền làm việc.",'<button class="btn primary" data-action="notice">＋ Tạo bản nháp</button>')+`<div class="grid script-grid">${state.scripts.map((s,i)=>`<div class="card script-card"><div class="script-card-head"><div class="script-symbol">⌘</div><span class="status ${s.kind}">${s.status}</span></div><h3>${s.name}</h3><p>${s.desc}</p><div class="script-card-foot"><span>${s.updated}</span><button class="btn ghost" data-action="edit-demo">Mở →</button></div></div>`).join("")}</div>`;}
-function renderDesigner(){
- if(state.page==="assets") return header("DESIGNER","Tài nguyên giao diện","Các thành phần giao diện mẫu.",'')+`<div class="grid script-grid"><div class="card"><div class="stat-icon">▧</div><h3>Thẻ thông tin</h3><p>Thẻ chứa trạng thái, tiêu đề và mô tả.</p></div><div class="card"><div class="stat-icon">◉</div><h3>Nhãn trạng thái</h3><p>Hiển thị tình trạng quyền và tiến độ.</p></div><div class="card"><div class="stat-icon">▣</div><h3>Nút điều khiển</h3><p>Nhóm hành động chính và phụ.</p></div></div>`;
- return header("DESIGN WORKSPACE","Thiết kế giao diện","Chỉnh nội dung và xem bản xem trước trực tiếp.",'<button class="btn primary" data-action="save-design">✓ Lưu bản thiết kế</button>')+`<div class="editor-layout"><div class="card"><div class="section-title"><h2>Thuộc tính thành phần</h2><span>LIVE EDIT</span></div><label class="field-label" for="design-title">Tiêu đề</label><input class="text-input" id="design-title" value="Chào mừng đến với AUTU-LIO"><label class="field-label" for="design-desc">Mô tả</label><textarea class="text-input" id="design-desc" rows="3">Quản lý và chạy các kịch bản tự động hóa của bạn.</textarea><label class="field-label" for="design-color">Màu nhấn</label><input class="text-input" id="design-color" type="color" value="#4d8fff" style="height:42px;padding:4px"></div><div class="card"><div class="section-title"><h2>Bản xem trước</h2><span>TRỰC TIẾP</span></div><div class="preview-frame"><div class="preview-phone"><div class="phone-notch"></div><div class="phone-screen"><div class="eyebrow">AUTU-LIO</div><h3 id="design-preview-title">Chào mừng đến với AUTU-LIO</h3><p id="design-preview-desc">Quản lý và chạy các kịch bản tự động hóa của bạn.</p><div class="mini-tile">Kịch bản của tôi <span>03</span></div><div class="mini-tile">Thiết bị <span>01</span></div><button class="btn primary" style="width:100%;margin-top:10px">Mở kịch bản</button></div></div></div></div></div>`;
+function renderTemplates(){
+ return heading("AUTU SCRIPT · TEMPLATES","Mẫu có sẵn","Các mẫu được khai báo trong ScriptTemplateCatalog.kt.")+
+ templates.map((t,i)=>'<div class="template"><div class="card-head"><strong>'+t[0]+'</strong><button class="btn" data-template="'+i+'">Dùng mẫu</button></div><small>'+t[1]+'</small><pre style="white-space:pre-wrap;color:#a8c9ff;font:11px/1.5 ui-monospace,monospace;margin:10px 0 0">'+esc(t[2])+'</pre></div>').join("")+
+ '<div class="btn-row"><button class="btn" data-page="editor">← Quay lại trình soạn thảo</button></div>';
 }
-function renderReviewer(){
- return header("REVIEW CENTER","Hàng chờ duyệt","Kiểm tra thay đổi trước khi đưa vào bản phát hành.",'')+`<div class="card"><div class="section-title"><h2>Yêu cầu đang chờ</h2><span class="status warn">2 yêu cầu</span></div><div class="activity-list">${activity("⌘","Cập nhật Auto Farm","Nhà phát triển · Thay đổi 4 dòng","10:15")}${activity("✧","Thiết kế màn hình trang chủ","Nhà thiết kế · Revision 08","09:20")}</div><div class="review-actions"><button class="btn primary" data-action="approve">✓ Duyệt bản đang chọn</button> <button class="btn ghost" data-action="reject">Từ chối</button></div></div>`;
+function renderGuide(){
+ const commands=["CHẠM(x, y) · Chạm một lần","NHẤN_GIỮ(x, y, ms) · Nhấn giữ","VUỐT(x1, y1, x2, y2, ms) · Vuốt","CHỜ(ms) · Chờ","MỞ_ỨNG_DỤNG(\"tên.gói\") · Mở ứng dụng","ĐẶT ten = 3 · Khai báo biến","NẾU (điều_kiện) { ... } NGƯỢC_LẠI { ... }","LẶP(ten) { ... } · Lặp theo số lần","LẶP_KHI (điều_kiện) { ... }","LẶP_ĐẾN_KHI(điều_kiện) { ... }","CHỜ_ĐẾN_KHI(điều_kiện, thời_hạn_ms, chu_kỳ_ms)","PIN(), ĐANG_SẠC(), CÓ_MẠNG(), MÀN_HÌNH_SÁNG()"];
+ return heading("AUTU SCRIPT · GUIDE","Hướng dẫn tạo và chạy AUTU","Các lệnh được hướng dẫn trong màn hình Editor của Android.")+
+  card("Các lệnh đang hỗ trợ",'<div class="action-list">'+commands.map(c=>'<div class="template"><strong>'+esc(c)+'</strong></div>').join("")+'</div>')+
+  '<div class="btn-row"><button class="btn" data-page="editor">← Quay lại trình soạn thảo</button></div>';
+}
+function renderCollaborator(){
+ if(state.page==="projects")return heading("DỰ ÁN CỘNG TÁC","Dự án được phân công","Các dự án hiển thị theo membership và quyền tài khoản.")+unavailable("Chưa tải được dự án","Bản xem thử không có access token hoặc kết nối phiên Worker đang hoạt động.");
+ if(state.role==="developer"){
+  return heading("DEVELOPER WORKSPACE","Không gian Nhà phát triển","Soạn thảo kịch bản và làm việc trong dự án được giao.")+
+   '<div class="btn-row"><button class="btn primary full" data-page="projects">Mở dự án cộng tác</button></div>'+
+   card("Tạo hoặc mở bản nháp",'<label class="field"><span>Tên kịch bản</span><input id="dev-script-name" placeholder="Tên kịch bản"></label><label class="field"><span>Mã nguồn</span><textarea class="code-area" id="dev-script-code" placeholder="Nhập nội dung AUTU..."></textarea></label><div class="btn-row"><button class="btn primary" data-page="editor">Mở trình soạn thảo riêng</button></div>')+
+   card("Quyền đã cấp",'<p>Quyền phụ thuộc vào vai trò và quyền chi tiết mà Owner cấp trong máy chủ.</p><div class="status-note">Đang ở chế độ xem thử. Không có quyền tài khoản thật được cấp từ trang Web.</div>');
+ }
+ if(state.role==="designer"){
+  return heading("DESIGNER WORKSPACE","Không gian Nhà thiết kế","Chỉnh giao diện được giao và xem trước thành phần.")+
+   '<div class="btn-row"><button class="btn primary full" data-page="projects">Mở dự án thiết kế</button></div>'+
+   card("Kịch bản mẫu",'<div style="border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--surface2)"><div style="font-weight:800">AUTU-LIO</div><small style="color:var(--muted)">Tự động hóa thao tác</small><hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><strong>Kịch bản mẫu</strong><p style="margin:6px 0 12px">Bản xem trước — chưa phát hành</p><button class="btn" disabled>Nút xem trước</button></div>')+
+   card("Chọn màu nhấn",'<div class="color-row"><button class="color-chip" data-color="blue">Blue</button><button class="color-chip" data-color="green">Green</button><button class="color-chip" data-color="violet">Violet</button></div>')+
+   card("Quyền đã cấp",'<p>Khả năng chỉnh sửa và xem trước phụ thuộc quyền mà Owner cấp.</p><div class="status-note">Bản Web chỉ đổi màu xem trước cục bộ; không ghi thiết kế lên dự án Android.</div>');
+ }
+ return heading("REVIEWER WORKSPACE","Không gian Người kiểm duyệt","Xem mã được giao, chạy kiểm thử và duyệt hoặc từ chối đề xuất.")+
+  '<div class="btn-row"><button class="btn primary full" data-page="projects">Mở hàng đợi dự án</button></div>'+
+  card("Quyền kiểm duyệt",'<p>Xem mã được giao · Chạy kiểm thử · Duyệt hoặc từ chối đề xuất.</p><p style="margin-top:8px">Không có quyền phát hành cuối cùng hoặc quản lý tài khoản.</p>')+
+  unavailable("Chưa có đề xuất để duyệt","Hàng đợi thực tế lấy từ máy chủ theo quyền tài khoản. Web chưa được xác thực nên không tự tạo yêu cầu giả.");
 }
 function renderCustomer(){
- if(state.page==="scripts") return header("THƯ VIỆN CỦA BẠN","Kịch bản của tôi","Chỉ hiển thị nội dung được Owner cấp quyền.",'')+`<div class="grid script-grid">${state.scripts.filter(s=>s.kind==="good").map((s,i)=>`<div class="card script-card"><div class="script-card-head"><div class="script-symbol">⌘</div><span class="status good">Được cấp quyền</span></div><div><h3>${s.name}</h3><p>${s.desc}</p></div><div class="script-card-foot"><span>Đã cập nhật ${s.updated}</span><button class="btn primary" data-action="open-runner" data-name="${s.name}">Mở →</button></div></div>`).join("")}</div>`;
- if(state.page==="device") return header("TÀI KHOẢN","Thiết bị & quyền sử dụng","Thông tin minh họa trong bản xem trước.",'')+`<div class="card device-list"><div class="device-row"><div class="device-icon">▣</div><div><b>Thiết bị Android hiện tại</b><small>Chưa đăng ký thật trong bản Preview</small></div><span class="status warn" style="margin-left:auto">Mô phỏng</span></div><div class="device-row"><div class="device-icon">✓</div><div><b>Quyền sử dụng</b><small>Trạng thái mẫu do Owner quản lý</small></div><span class="status good" style="margin-left:auto">Được phép</span></div></div>`;
- if(state.page==="settings") return header("CÀI ĐẶT","Cài đặt ứng dụng","Tùy chỉnh trải nghiệm người dùng.",'')+`<div class="card"><div class="device-row"><div><b>Thông báo</b><small>Hiển thị thông báo trạng thái kịch bản</small></div><span class="status good" style="margin-left:auto">Bật</span></div><div class="device-row"><div><b>Giao diện</b><small>Chế độ tối</small></div><span class="status neutral" style="margin-left:auto">Dark</span></div><div class="device-row"><div><b>Phiên bản</b><small>AUTU-LIO Preview 0.1</small></div><span class="status neutral" style="margin-left:auto">Web</span></div></div>`;
- return header("AUTU-LIO AUTOCLICK","Xin chào!","Các kịch bản đã được cấp quyền sẽ xuất hiện tại đây.",'<button class="btn ghost" data-action="floating">▣ Cửa sổ nổi</button>')+`<div class="banner"><div class="banner-icon">✦</div><div><b>Sẵn sàng cho phiên làm việc</b><p>Đây là dữ liệu minh họa. Bản Preview chưa kết nối tài khoản hoặc giấy phép thật.</p></div><span class="tag">DEMO</span></div><div class="section-title"><h2>Kịch bản được đề xuất</h2><span>2 kịch bản mẫu</span></div><div class="grid script-grid">${state.scripts.filter(s=>s.kind==="good").map(s=>`<div class="card script-card"><div class="script-card-head"><div class="script-symbol">⌘</div><span class="status good">Được cấp quyền</span></div><div><h3>${s.name}</h3><p>${s.desc}</p></div><div class="script-card-foot"><span>Đã sẵn sàng</span><button class="btn primary" data-action="open-runner" data-name="${s.name}">Xem chi tiết</button></div></div>`).join("")}</div>`;
+ switch(state.page){
+ case "home":
+  return heading("AUTU-LIO · CUSTOMER","Trang chủ","Các gói AUTU được Chủ sở hữu phát hành cho tài khoản.")+
+   '<div class="status-note">Tài khoản xem thử · Chưa có phiên đăng nhập thật. Dữ liệu gói và giấy phép cần Google Sign-In và Auth API.</div>'+
+   card("Gói AUTU của bạn",'<div class="empty-state"><div class="empty-icon">⌘</div><strong>Chưa tải được gói AUTU</strong><p>Đăng nhập thật trong APK để đồng bộ gói đã được cấp.</p></div>')+
+   '<div class="btn-row"><button class="btn primary" data-page="scripts">Mở kho AUTU</button><button class="btn" data-page="device">Thiết bị và giấy phép</button></div>';
+ case "scripts":
+  return heading("CUSTOMER · KỊCH BẢN","Kịch bản","Các kịch bản do Chủ sở hữu cung cấp.")+
+   unavailable("Kho kịch bản chưa kết nối","Danh sách AUTU được tải từ máy chủ theo quyền tài khoản. Bản xem thử không hiển thị package mẫu giả.");
+ case "device":
+  return heading("CUSTOMER · THIẾT BỊ","Thiết bị và giấy phép","Thông tin đăng ký thiết bị, giới hạn và thời hạn sử dụng.")+
+   unavailable("Chưa có phiên đăng nhập thật","Đăng ký thiết bị và kiểm tra giấy phép thực cần tài khoản đã xác thực và sự đồng ý của người dùng.");
+ case "settings":
+  return heading("CUSTOMER · CÀI ĐẶT","Cài đặt","Tùy chọn giao diện, lời mời và tài khoản.")+
+   card("Giao diện",'<div class="btn-row"><button class="btn" data-action="theme">◐ Chuyển giao diện sáng / tối</button></div>')+
+   card("Lời mời cộng tác",'<label class="field"><span>Mã lời mời</span><input placeholder="Dán mã lời mời tại đây"></label><div class="status-note">Chế độ xem thử không thể chấp nhận lời mời thật. Trong APK, máy chủ sẽ kiểm tra email Google và token một lần.</div>')+
+   card("Tài khoản",'<p>Tài khoản xem thử</p>');
+ default:return heading("CUSTOMER","Trang chủ","Chọn mục bên dưới.");
+ }
 }
-function openModal(){ $("modal-backdrop").classList.remove("hidden");$("script-name").focus(); }
-function closeModal(){ $("modal-backdrop").classList.add("hidden"); }
-function showFloating(name){if(name)state.activeScript=name;$("float-script-name").textContent=state.activeScript+" · Demo";$("floating-panel").classList.remove("hidden","collapsed");$("float-expand").classList.add("hidden");}
-function updateFloat(){ $("float-progress").style.width=state.progress+"%";$("float-step").textContent=Math.round(state.progress/100*12)+" / 12 bước";$("float-time").textContent=String(Math.floor(state.seconds/60)).padStart(2,"0")+":"+String(state.seconds%60).padStart(2,"0");$("float-status").textContent=state.running?"Đang chạy mô phỏng":state.paused?"Đã tạm dừng":state.progress>=100?"Hoàn thành mô phỏng":"Sẵn sàng chạy thử giao diện";$("float-run").textContent=state.paused?"▶ Tiếp tục":"▶ Chạy";$("float-run").disabled=state.running;$("float-pause").disabled=!state.running;$("float-stop").disabled=!state.running&&!state.paused;$("float-run").style.opacity=state.running?".55":"1";$("float-pause").style.opacity=state.running?"1":".55";$("float-stop").style.opacity=state.running||state.paused?"1":".55";$("floating-panel").querySelector(".dot-pulse").classList.toggle("active",state.running);}
-function startDemo(){if(state.running)return;if(state.paused){state.paused=false;state.running=true;}else{state.progress=0;state.seconds=0;state.running=true;}clearInterval(state.timer);state.timer=setInterval(()=>{if(!state.running)return;state.seconds++;state.progress=Math.min(100,state.progress+8.333);updateFloat();if(state.progress>=100){state.running=false;clearInterval(state.timer);toast("Mô phỏng hoàn tất. Không có thao tác Android nào được thực hiện.");} },1000);updateFloat();}
-function pauseDemo(){if(!state.running)return;state.running=false;state.paused=true;updateFloat();toast("Đã tạm dừng mô phỏng.");}
-function stopDemo(){state.running=false;state.paused=false;clearInterval(state.timer);state.progress=0;state.seconds=0;updateFloat();toast("Đã dừng mô phỏng.");}
-function changeRole(role){state.role=role;state.page=navByRole[role][0][0];render();}
-document.addEventListener("click",e=>{
- const nav=e.target.closest("[data-page]");if(nav){state.page=nav.dataset.page;render();return;}
- const action=e.target.closest("[data-action]")?.dataset.action;
- if(action==="new-script")openModal();
- if(action==="floating")showFloating();
- if(action==="open-script"){const s=state.scripts[Number(e.target.closest("[data-index]").dataset.index)];toast("Đã mở thông tin: "+s.name+" (dữ liệu mẫu).");}
- if(action==="notice"||action==="edit-demo")toast("Mục này đang ở chế độ xem trước.");
- if(action==="check-code"){const code=$("script-editor")?.value||"";const ok=(code.match(/LẶP/g)||[]).length===(code.match(/KẾT_THÚC/g)||[]).length; $("editor-status").textContent=ok?"✓ Kiểm tra cấu trúc mẫu: không phát hiện cặp LẶP thiếu KẾT_THÚC.":"⚠ Số LẶP và KẾT_THÚC chưa khớp."; $("editor-status").style.color=ok?"#76dfb9":"#ff9aaa";}
- if(action==="open-runner"){const name=e.target.closest("[data-name]")?.dataset.name;showFloating(name);}
- if(action==="save-design")toast("Đã lưu trạng thái xem trước trên phiên trình duyệt này.");
- if(action==="approve"||action==="reject")toast(action==="approve"?"Đã mô phỏng thao tác duyệt.":"Đã mô phỏng thao tác từ chối.");
+function render(){
+ if(!state.role){renderChooser();return;}
+ renderShell();
+ if(state.role==="owner")$("screen").innerHTML=renderOwner();
+ else if(state.role==="customer")$("screen").innerHTML=renderCustomer();
+ else $("screen").innerHTML=renderCollaborator();
+ const top=state.page==="overview"?"Tổng quan":state.page==="scripts"?"Kịch bản":state.page==="customers"?"Khách hàng":state.page==="devices"?"Thiết bị":state.page==="more"?"Thêm":state.page==="home"?"Trang chủ":state.page==="device"?"Thiết bị":state.page==="settings"?"Cài đặt":state.page==="editor"?"Trình soạn thảo":state.page==="library"?"Thư viện mẫu":state.page==="guide"?"Hướng dẫn":state.page==="projects"?"Dự án cộng tác":(moreItems.find(x=>x[0]===state.page)||[])[1]||roles[state.role].label;
+ $("top-title").textContent=top;
+}
+function changePage(page){if(page==="theme"){toggleTheme();return;}state.page=page;render();}
+function toggleTheme(){state.theme=state.theme==="dark"?"light":"dark";document.body.classList.toggle("theme-light",state.theme==="light");}
+document.addEventListener("click",event=>{
+ const role=event.target.closest("[data-role]");if(role){setRole(role.dataset.role);return;}
+ const page=event.target.closest("[data-page]");if(page){changePage(page.dataset.page);return;}
+ const action=event.target.closest("[data-action]");
+ if(action){
+  if(action.dataset.action==="theme")toggleTheme();
+  else if(action.dataset.action==="check-code")notify("Kiểm tra cú pháp thật dùng ScriptCompiler trong APK Android.");
+  return;
+ }
+ const template=event.target.closest("[data-template]");
+ if(template){const item=templates[Number(template.dataset.template)];if(item){state.editorSource=item[2];state.page="editor";render();}return;}
+ const color=event.target.closest("[data-color]");
+ if(color){document.documentElement.style.setProperty("--blue",color.dataset.color==="green"?"#35b78b":color.dataset.color==="violet"?"#9a79ee":"#4f8cff");notify("Đổi màu xem trước trong trình duyệt; chưa lưu dự án Android.");return;}
 });
-$("role-select").addEventListener("change",e=>changeRole(e.target.value));
-$("floating-open").addEventListener("click",()=>showFloating());
-$("float-close").addEventListener("click",()=>{$("floating-panel").classList.add("hidden");});
-$("float-collapse").addEventListener("click",()=>{$("floating-panel").classList.add("collapsed");$("float-expand").classList.remove("hidden");});
-$("float-expand").addEventListener("click",()=>{$("floating-panel").classList.remove("collapsed");$("float-expand").classList.add("hidden");});
-$("float-run").addEventListener("click",startDemo);$("float-pause").addEventListener("click",pauseDemo);$("float-stop").addEventListener("click",stopDemo);
-$("float-edit").addEventListener("click",()=>toast("Bản Android sẽ áp dụng thông số ở mốc an toàn; web chỉ mô phỏng."));
-$("modal-backdrop").addEventListener("click",e=>{if(e.target.id==="modal-backdrop"||e.target.closest("[data-close-modal]"))closeModal();});
-$("create-script").addEventListener("click",()=>{const name=$("script-name").value.trim();if(!name){toast("Hãy nhập tên kịch bản.");return;}if(state.scripts.some(s=>s.name.toLowerCase()===name.toLowerCase())){toast("Tên kịch bản đã tồn tại.");return;}state.scripts.unshift({name,desc:$("script-note").value.trim()||"Kịch bản mới được tạo trong bản xem trước.",status:"Bản nháp",kind:"warn",updated:"Vừa xong"});closeModal();$("script-name").value="";$("script-note").value="";state.page="scripts";render();toast("Đã tạo bản nháp mô phỏng.");});
-["design-title","design-desc","design-color"].forEach(id=>document.addEventListener("input",e=>{if(e.target.id===id){const target=id==="design-title"?"design-preview-title":id==="design-desc"?"design-preview-desc":null;if(target)$(target).textContent=e.target.value;if(id==="design-color")$("design-preview-title").style.color=e.target.value;}}));
-let drag=null;$("float-drag").addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,left:$("floating-panel").getBoundingClientRect().left,top:$("floating-panel").getBoundingClientRect().top};$("float-drag").setPointerCapture(e.pointerId);});$("float-drag").addEventListener("pointermove",e=>{if(!drag)return;const p=$("floating-panel");p.style.left=Math.max(5,Math.min(innerWidth-p.offsetWidth-5,drag.left+e.clientX-drag.x))+"px";p.style.top=Math.max(5,Math.min(innerHeight-p.offsetHeight-5,drag.top+e.clientY-drag.y))+"px";p.style.right="auto";p.style.bottom="auto";});["pointerup","pointercancel"].forEach(ev=>$("float-drag").addEventListener(ev,()=>drag=null));
-render();updateFloat();
+$("back-to-roles").addEventListener("click",()=>{state.role=null;state.page="";render();});
+$("theme-toggle").addEventListener("click",toggleTheme);
+$("screen").addEventListener("input",event=>{if(event.target.id==="editor-source")state.editorSource=event.target.value;});
+render();
