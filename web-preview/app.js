@@ -16,7 +16,7 @@ const customerTabs = [
   ["home","⌂","Trang chủ"],["scripts","☷","Kịch bản"],["device","▣","Thiết bị"],["settings","⚙","Cài đặt"]
 ];
 const state = {
-  role:null, page:"", adminSub:"", theme:"dark", scriptFilter:"all", scriptQuery:"", inviteRole:"DEVELOPER", invites:[],
+  role:null, page:"", adminSub:"", previewChooser:false, theme:"dark", scriptFilter:"all", scriptQuery:"", inviteRole:"DEVELOPER", invites:[],
   libraryQuery:"", editorName:"", editorSource:"", drafts:[], modal:"", accent:"blue",
   reviewerProject:"", statusMessage:""
 };
@@ -66,14 +66,23 @@ function button(label,action,kind,disabled){
 function menuItem(icon,title,sub,page){
   return '<button class="menu-item" data-page="'+esc(page)+'"><span class="mi-icon">'+icon+'</span><span class="grow"><b>'+esc(title)+'</b><small>'+esc(sub)+'</small></span><span class="chevron">›</span></button>';
 }
+function authScreen(){
+  return '<div class="chooser"><div class="chooser-card">'+brandHeader(false)+heading("Đăng nhập","Đăng nhập để xác minh quyền tài khoản.")+
+    button("Đăng nhập bằng Google","sign-in","primary",true)+
+    notice("Đăng nhập chưa được bật","Cần cấu hình Auth API URL và Google Server Client ID trước khi sử dụng.","warn")+
+    card("Xác minh vai trò",'<p>AUTU-LIO không tự cấp quyền Admin. Vai trò được máy chủ xác minh sau khi Google xác thực tài khoản.</p>')+
+    button("Xem thử 5 giao diện theo vai trò","open-role-chooser","outline")+
+    '</div></div>';
+}
 function chooser(){
-  return '<div class="chooser"><div class="chooser-card">'+brandHeader(false)+heading("Chọn giao diện kiểm thử","Một ứng dụng AUTU-LIO, giao diện được mở theo quyền tài khoản.")+
+  return '<div class="chooser"><div class="chooser-card">'+brandHeader(false)+heading("Chọn giao diện kiểm thử","Bộ chọn vai trò này chỉ có trong bản Debug; bản Release mở màn hình đăng nhập.")+
     notice("Chế độ xem thử dành cho bản Debug","Các lựa chọn dưới đây chỉ kiểm tra bố cục. Chúng không đăng nhập và không cấp quyền thật.","info")+
+    button("← Màn hình đăng nhập","back-auth","outline")+
     '<div class="role-list">'+roles.map(r=>'<button class="role-card" data-role="'+r.id+'"><span class="role-icon">'+r.icon+'</span><span class="grow"><b>'+r.title+'</b><small>'+r.sub+'</small></span><span class="chevron">›</span></button>').join("")+'</div></div></div>';
 }
 function header(){
  const role=roles.find(r=>r.id===state.role);
- return '<header class="topbar"><div class="brand"><div class="brand-mark">A</div><div><div class="brand-name">AUTU-LIO</div><div class="brand-sub">'+esc(role?role.title:"Bản xem trước")+'</div></div></div><span class="preview-label">DEBUG PREVIEW</span><button class="small-link" data-action="back-roles">Đổi vai trò</button></header>';
+ return '<header class="topbar"><div class="brand"><div class="brand-mark">A</div><div><div class="brand-name">AUTU-LIO</div><div class="brand-sub">'+esc(role?role.title:"Bản xem trước")+'</div></div></div><span class="preview-label">WEB PREVIEW</span><button class="small-link" data-action="back-roles">Đổi vai trò xem thử</button></header>';
 }
 function navBar(){
  const tabs=state.role==="OWNER"?adminTabs:state.role==="CUSTOMER"?customerTabs:[];
@@ -98,7 +107,7 @@ function adminScripts(){
  return brandHeader(true)+'<div class="heading-row">'+heading("AUTU","Quản lý và xây dựng các AUTU của bạn")+'<div class="heading-buttons">'+button("Quyền","go-collaborators","outline")+button("＋","create-script","primary")+'</div></div>'+
   '<div class="field"><input id="script-search" placeholder="⌕  Tìm kiếm kịch bản" value="'+esc(state.scriptQuery)+'"></div>'+
   '<div class="filter-row">'+[["all","Tất cả"],["draft","Bản nháp"],["published","Đã phát hành"]].map(f=>'<button class="filter '+(state.scriptFilter===f[0]?"active":"")+'" data-filter="'+f[0]+'">'+f[1]+'</button>').join("")+'</div>'+
-  '<p class="muted">Bản nháp được lưu trên thiết bị này; chưa đồng bộ máy chủ.</p>'+
+  '<p class="muted">Trên Android, bản nháp được lưu trên thiết bị và chưa đồng bộ máy chủ. Bản Web chỉ mô phỏng màn hình.</p>'+
   (filtered.length?filtered.map((d,i)=>card('<div class="row between"><span>'+esc(d.name)+'</span><span class="status warn">Bản nháp</span></div>','<p>Chạm để mở trình soạn thảo và tiếp tục chỉnh sửa AUTU.</p>'+button("Mở trình soạn thảo","open-draft:"+i,"soft"))).join(""):empty("☷",state.scriptFilter==="published"?"Chưa có kịch bản phát hành":"Chưa có kịch bản nào",state.scriptFilter==="published"?"Các kịch bản đã phát hành sẽ xuất hiện tại đây sau khi được kết nối.":"Tạo kịch bản đầu tiên để bắt đầu."));
 }
 function createScriptDialog(){
@@ -191,7 +200,7 @@ function customerDetail(){
  return brandHeader(false)+button("← Quay lại danh sách","scripts","outline")+heading("Kịch bản minh họa","Chi tiết bản xem trước")+
   card('<span class="status warn">CHỈ XEM TRƯỚC</span><div class="section-title">Mô tả</div>',
    '<p>Đây là nội dung minh họa để kiểm tra bố cục. Chưa có package được phát hành hoặc tải về thiết bị.</p>')+
-  notice("Chưa sẵn sàng chạy","Runtime AutoClick và quyền trợ năng chưa được tích hợp.","warn")+
+  notice("Gói mẫu chưa thể chạy","Android đã có ScriptCompiler, ScriptExecutionEngine, AccessibilityService và cửa sổ chạy nổi. Riêng gói mẫu này chưa có lệnh tự động hóa thật và chưa được kiểm thử trên thiết bị thật.","warn")+
   '<div class="section-title">Bảng điều khiển</div>'+button("▶  Thử nút chạy (không thực thi)","sample-run","primary")+
   '<div class="actions two">'+button("Ⅱ  Tạm dừng mẫu","sample-pause","outline")+button("■  Dừng mẫu","sample-stop","outline")+'</div>'+
   '<p class="muted">Các nút trên chỉ kiểm tra giao diện và thông báo. Chúng không chạm, vuốt hoặc điều khiển ứng dụng khác.</p>';
@@ -211,32 +220,32 @@ function customerSettings(){
   menuItem("⇥","Đăng xuất","Kết thúc phiên đăng nhập trên thiết bị này.","signout");
 }
 function developerWorkspace(){
- return '<div class="workspace-top"><div><b>Không gian nhà phát triển</b><small>developer@example · Bản xem trước</small></div>'+button("Đăng xuất","signout","outline")+'</div>'+
+ return '<div class="workspace-top"><div><b>Không gian nhà phát triển</b><small>Tài khoản mẫu · Bản xem trước</small></div>'+button("Đăng xuất","signout","outline")+'</div>'+
   heading("Kịch bản của nhà phát triển","Mã nguồn được chỉnh sửa trong cửa sổ trình soạn thảo riêng.")+
   button("▤  Mở dự án cộng tác","collaborator-projects","outline")+
   '<div class="field"><label>Tên kịch bản</label><input id="developer-script-name" placeholder="Tên kịch bản"></div>'+
   '<div class="section-title">Bản nháp đã lưu</div>'+empty("⌘","Chưa có bản nháp","Nhập tên rồi mở trình soạn thảo riêng để tạo kịch bản.")+
   button("✎  Mở trình soạn thảo riêng","developer-editor","primary")+
-  notice("Lưu trữ bản nháp","Bản nháp nhà phát triển được mã hóa và lưu riêng, không dùng chung kho bản nháp của Chủ sở hữu. Lưu cục bộ chưa có nghĩa là đã đồng bộ hoặc gửi duyệt.","info")+
-  card("Quyền đã cấp",'<p>Quyền sửa mã, kiểm thử hoặc gửi duyệt phụ thuộc quyền do Chủ sở hữu cấp.</p>');
+  notice("Lưu trữ bản nháp","Trên Android, bản nháp nhà phát triển được mã hóa và lưu riêng với kho bản nháp của Chủ sở hữu. Bản Web không truy cập kho đó; dữ liệu xem trước không đồng bộ hoặc gửi duyệt.","info")+
+  card("Quyền mặc định theo mã Android",'<p>Viết và sửa mã kịch bản · Kiểm thử kịch bản · Gửi bản để duyệt</p><p class="muted">Quyền tài khoản thật do máy chủ cấp riêng và Chủ sở hữu có thể tắt.</p>');
 }
 function designerWorkspace(){
- return '<div class="workspace-top"><div><b>Không gian nhà thiết kế</b><small>designer@example · Bản xem trước</small></div>'+button("Đăng xuất","signout","outline")+'</div>'+
+ return '<div class="workspace-top"><div><b>Không gian nhà thiết kế</b><small>Tài khoản mẫu · Bản xem trước</small></div>'+button("Đăng xuất","signout","outline")+'</div>'+
   heading("Bản xem trước giao diện","Thiết kế bố cục và màu sắc trong khu vực được giao.")+
   button("▤  Mở dự án thiết kế","collaborator-projects","outline")+
   '<section class="designer-preview" id="designer-preview"><div class="row"><span class="icon-box" id="designer-icon">✣</span><div><b>AUTU-LIO</b><p class="muted">Tự động hóa thao tác</p></div></div><div class="section-title">Kịch bản của bạn</div><div class="sample-row"><b>Kịch bản mẫu</b><small>Bản xem trước — chưa phát hành</small></div><button class="btn primary" disabled>Nút xem trước</button></section>'+
   '<div class="section-title">Chọn màu nhấn</div><div class="actions three">'+
   '<button class="filter active" data-color="blue">● Blue</button><button class="filter" data-color="green">● Green</button><button class="filter" data-color="violet">● Violet</button></div>'+
   notice("Bản xem trước cục bộ","Thay đổi hiện chỉ là bản xem trước cục bộ. Vai trò nhà thiết kế không được xem hoặc sửa mã kịch bản, giấy phép hay phát hành.","info")+
-  card("Quyền đã cấp",'<p>Chỉnh sửa giao diện · Xem trước · Gửi đề xuất (tùy quyền được cấp).</p>');
+  card("Quyền mặc định theo mã Android",'<p>Thiết kế giao diện · Xem trước giao diện · Gửi bản để duyệt</p><p class="muted">Quyền tài khoản thật do máy chủ cấp riêng và Chủ sở hữu có thể tắt.</p>');
 }
 function reviewerWorkspace(){
- return '<div class="workspace-top"><div><b>Không gian kiểm duyệt</b><small>reviewer@example · Bản xem trước</small></div>'+button("Đăng xuất","signout","outline")+'</div>'+
+ return '<div class="workspace-top"><div><b>Không gian kiểm duyệt</b><small>Tài khoản mẫu · Bản xem trước</small></div>'+button("Đăng xuất","signout","outline")+'</div>'+
   heading("Kiểm tra bản gửi duyệt","Bạn chỉ xem và đánh giá các bản được gửi vào hàng chờ.")+
   button("▤  Mở hàng đợi dự án","collaborator-projects","outline")+
   notice("Chưa có bản phát hành nào được gửi duyệt","Khi kết nối máy chủ, các bản gửi duyệt sẽ xuất hiện ở đây.","warn")+
   card("Quyền kiểm duyệt",'<p>Xem mã được giao · Chạy kiểm thử · Duyệt hoặc từ chối đề xuất</p><p>Không có quyền phát hành cuối cùng hoặc quản lý tài khoản.</p>')+
-  card("Quyền đã cấp",'<p>Quyền kiểm thử và duyệt bản gửi phụ thuộc Chủ sở hữu.</p>');
+  card("Quyền mặc định theo mã Android",'<p>Kiểm thử kịch bản · Duyệt hoặc từ chối bản gửi</p><p class="muted">Quyền tài khoản thật do máy chủ cấp riêng và Chủ sở hữu có thể tắt.</p>');
 }
 function collaboratorProjects(){
  return '<div class="workspace-top"><div><b>Dự án cộng tác</b><small>Không gian dự án được giao</small></div>'+button("← Quay lại","back-workspace","outline")+'</div>'+
@@ -303,13 +312,14 @@ function renderModal(){
 }
 function render(){
  const root=$("app");
- if(!state.role){root.innerHTML=chooser();return;}
+ if(!state.role){root.innerHTML=state.previewChooser?chooser():authScreen();document.body.classList.toggle("theme-light",state.theme==="light");return;}
  root.innerHTML='<div class="app">'+header()+'<main class="content"><div class="preview-warning"><strong>Chế độ đối chiếu giao diện Android.</strong> Đây không phải APK, không đăng nhập Google, không truy cập dữ liệu thật và không điều khiển ứng dụng khác.</div>'+renderBody()+'</main>'+navBar()+'</div>';
  document.body.classList.toggle("theme-light",state.theme==="light");
  document.body.dataset.accent=state.accent;
 }
 function setRole(role){
  state.role=role;
+ state.previewChooser=false;
  state.adminSub="";
  state.page=role==="OWNER"?"overview":role==="CUSTOMER"?"home":"workspace";
  render();
@@ -325,7 +335,7 @@ document.addEventListener("click",(event)=>{
  const role=event.target.closest("[data-role]");
  if(role){setRole(role.dataset.role);return;}
  const page=event.target.closest("[data-page]");
- if(page){const target=page.dataset.page;const sub=page.dataset.sub;if(sub){state.adminSub=sub;state.page="more-sub";render();}else if(target==="theme"){state.theme=state.theme==="dark"?"light":"dark";render();}else if(target==="signout"){state.role=null;state.page="";render();}else if(["about","privacy","security"].includes(target)){toast("Đây là màn hình thông tin trong bản đối chiếu.");}else go(target);return;}
+ if(page){const target=page.dataset.page;const sub=page.dataset.sub;if(sub){state.adminSub=sub;state.page="more-sub";render();}else if(target==="theme"){state.theme=state.theme==="dark"?"light":"dark";render();}else if(target==="signout"){state.role=null;state.page="";state.previewChooser=false;render();}else if(["about","privacy","security"].includes(target)){toast("Đây là màn hình thông tin trong bản đối chiếu.");}else go(target);return;}
  const filter=event.target.closest("[data-filter]");
  if(filter){state.scriptFilter=filter.dataset.filter;render();return;}
  const template=event.target.closest("[data-template]");
@@ -337,7 +347,10 @@ document.addEventListener("click",(event)=>{
  const action=event.target.closest("[data-action]");
  if(!action)return;
  const a=action.dataset.action;
- if(a==="back-roles"){state.role=null;state.page="";state.modal="";render();}
+ if(a==="back-roles"){state.role=null;state.page="";state.modal="";state.previewChooser=true;render();}
+ else if(a==="open-role-chooser"){state.previewChooser=true;render();}
+ else if(a==="back-auth"){state.previewChooser=false;render();}
+ else if(a==="sign-in"){toast("Đăng nhập Google chưa hoạt động trong bản Web đối chiếu.");}
  else if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";render();}
  else if(a==="create-script"){createScriptDialog();}
  else if(a==="close-modal"){state.modal="";renderModal();}
@@ -369,7 +382,7 @@ document.addEventListener("click",(event)=>{
  }
  else if(a.startsWith("remove-invite:")){const i=Number(a.split(":")[1]);if(Number.isInteger(i)&&i>=0){state.invites.splice(i,1);render();}}
  else if(a==="accept-invite"){toast("Chức năng này yêu cầu đăng nhập Google và API thật.");}
- else if(a==="signout"){state.role=null;state.page="";render();}
+ else if(a==="signout"){state.role=null;state.page="";state.previewChooser=false;render();}
  else if(a==="about"||a==="privacy"||a==="security"){toast("Đây là màn hình thông tin trong bản đối chiếu.");}
 });
 document.addEventListener("input",(event)=>{
