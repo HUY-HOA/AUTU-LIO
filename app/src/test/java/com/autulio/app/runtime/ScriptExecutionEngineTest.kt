@@ -378,10 +378,10 @@ class ScriptExecutionEngineTest {
     @Test
     fun editsRuntimeVariablesAtomicallyWhilePausedAndUsesNewValuesAfterResume() {
         val dispatcher = RecordingDispatcher()
-        val firstVariableReady = CountDownLatch(1)
+        val allVariablesReady = CountDownLatch(1)
         val completed = CountDownLatch(1)
         val engine = ScriptExecutionEngine(dispatcher) {
-            if (it.completedInstructions >= 1L) firstVariableReady.countDown()
+            if (it.completedInstructions >= 3L) allVariablesReady.countDown()
             if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
         }
         try {
@@ -397,7 +397,7 @@ class ScriptExecutionEngineTest {
                 """.trimIndent()
             )
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
-            assertTrue(firstVariableReady.await(2, TimeUnit.SECONDS))
+            assertTrue(allVariablesReady.await(2, TimeUnit.SECONDS))
             assertEquals(10.0, engine.variablesSnapshot()["x"])
             assertFalse(engine.updateVariablesFromText(mapOf("x" to "30")).first)
 
