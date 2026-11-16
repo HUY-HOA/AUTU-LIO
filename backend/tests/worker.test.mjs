@@ -971,6 +971,62 @@ test("tampered encrypted project source fails integrity verification", async () 
   assert.equal(body.error, "project_data_integrity_failed");
 });
 
+test("encrypted project source is bound to its record revision", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"R".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Revision binding", source: "tap(20, 30)", languageVersion: "0.1" })
+    }),
+    env
+  );
+  assert.equal(created.status, 201);
+  scripts[0].revision += 1;
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, { headers }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 500);
+  assert.equal(body.error, "project_data_integrity_failed");
+});
+
+test("tampered wrapped project data key fails integrity verification", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"S".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Wrapped key tamper", source: "tap(40, 50)", languageVersion: "0.1" })
+    }),
+    env
+  );
+  assert.equal(created.status, 201);
+  scripts[0].source_encrypted_data_key =
+    (scripts[0].source_encrypted_data_key[0] === "A" ? "B" : "A") +
+    scripts[0].source_encrypted_data_key.slice(1);
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, { headers }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 500);
+  assert.equal(body.error, "project_data_integrity_failed");
+});
+
 test("customer cannot enumerate or read shared project script drafts", async () => {
   const { env } = createProjectDraftEnv({ session: customerSession });
   const response = await worker.fetch(
