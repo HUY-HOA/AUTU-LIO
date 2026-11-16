@@ -118,7 +118,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         }
 
-        if (scriptName.isBlank() || namespace !in setOf("admin", "developer")) return false
+        if (scriptName.isBlank() || namespace !in setOf("admin", "developer", "customer")) return false
         val engine = executionEngine ?: return false
         val state = engine.snapshot().state
         if (state == ScriptExecutionState.RUNNING || state == ScriptExecutionState.STOPPING) return false
@@ -583,6 +583,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     private fun onEditAction() {
+        if (activeNamespace !in setOf("admin", "developer")) return
         val scriptName = activeScriptName ?: return
         val engine = executionEngine ?: return
         when (engine.snapshot().state) {
@@ -643,7 +644,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         primary.isEnabled = pendingProgram != null && !stopping
         primary.alpha = if (primary.isEnabled) 1f else 0.45f
         stop.visibility = if (!collapsed && (running || paused || stopping)) View.VISIBLE else View.GONE
-        edit.visibility = if (!collapsed && !activeScriptName.isNullOrBlank()) View.VISIBLE else View.GONE
+        edit.visibility = if (!collapsed && !activeScriptName.isNullOrBlank() && activeNamespace in setOf("admin", "developer")) View.VISIBLE else View.GONE
         primary.visibility = if (collapsed) View.GONE else View.VISIBLE
         status.visibility = if (collapsed) View.GONE else View.VISIBLE
         collapse.text = if (collapsed) "▴" else "▾"
