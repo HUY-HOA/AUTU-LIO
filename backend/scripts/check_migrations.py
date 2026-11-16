@@ -195,26 +195,26 @@ project_draft_columns = {
     row[1]
     for row in database.execute("PRAGMA table_info(script_drafts)")
 }
-required_project_draft_columns = {"source_ciphertext", "source_iv", "source_key_version"}
+required_project_draft_columns = {"source_ciphertext", "source_iv", "source_encrypted_data_key", "source_key_iv", "source_key_version"}
 if not required_project_draft_columns.issubset(project_draft_columns):
     raise SystemExit("Encrypted project script draft columns are incomplete")
 encrypted_script = database.execute(
-    "SELECT source, source_ciphertext, source_iv, source_key_version FROM script_drafts WHERE id = 'script-1'"
+    "SELECT source, source_ciphertext, source_iv, source_encrypted_data_key, source_key_iv, source_key_version FROM script_drafts WHERE id = 'script-1'"
 ).fetchone()
-if encrypted_script != ("", "encrypted-script", "random-iv", "V1"):
+if encrypted_script != ("", "encrypted-script", "random-iv", "wrapped-script-key", "script-key-iv", "V1"):
     raise SystemExit("New project script drafts must not store plaintext source")
 
 submission_columns = {
     row[1]
     for row in database.execute("PRAGMA table_info(change_submissions)")
 }
-required_submission_columns = {"snapshot_ciphertext", "snapshot_iv", "snapshot_key_version"}
+required_submission_columns = {"snapshot_ciphertext", "snapshot_iv", "snapshot_encrypted_data_key", "snapshot_key_iv", "snapshot_key_version"}
 if not required_submission_columns.issubset(submission_columns):
     raise SystemExit("Encrypted project submission columns are incomplete")
 encrypted_submission = database.execute(
-    "SELECT submitted_snapshot, snapshot_ciphertext, snapshot_iv, snapshot_key_version FROM change_submissions WHERE id = 'submission-1'"
+    "SELECT submitted_snapshot, snapshot_ciphertext, snapshot_iv, snapshot_encrypted_data_key, snapshot_key_iv, snapshot_key_version FROM change_submissions WHERE id = 'submission-1'"
 ).fetchone()
-if encrypted_submission != ("", "encrypted-snapshot", "random-iv", "V1"):
+if encrypted_submission != ("", "encrypted-snapshot", "random-iv", "wrapped-snapshot-key", "snapshot-key-iv", "V1"):
     raise SystemExit("New review submissions must not store plaintext snapshots")
 
 package_version_columns = {
