@@ -1,0 +1,5 @@
+Owner request: BUILD APK (debug test artifact).
+Build candidate: PR #33 head feature/floating-runner-secure-20261117.
+Source commit: 48d49c5f2bd2ea77a4df8046ac3270767ca21a02
+Requested variant: debug, selected by build workflow branch rule.
+Do not merge this branch or publish the artifact automatically.
