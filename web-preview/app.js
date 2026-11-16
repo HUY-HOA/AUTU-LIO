@@ -306,7 +306,7 @@ document.addEventListener("click",(event)=>{
  const role=event.target.closest("[data-role]");
  if(role){setRole(role.dataset.role);return;}
  const page=event.target.closest("[data-page]");
- if(page){const sub=page.dataset.sub;if(sub){state.adminSub=sub;state.page="more-sub";render();}else go(page.dataset.page);return;}
+ if(page){const target=page.dataset.page;const sub=page.dataset.sub;if(sub){state.adminSub=sub;state.page="more-sub";render();}else if(target==="theme"){state.theme=state.theme==="dark"?"light":"dark";render();}else if(target==="signout"){state.role=null;state.page="";render();}else if(["about","privacy","security"].includes(target)){toast("Đây là màn hình thông tin trong bản đối chiếu.");}else go(target);return;}
  const filter=event.target.closest("[data-filter]");
  if(filter){state.scriptFilter=filter.dataset.filter;render();return;}
  const template=event.target.closest("[data-template]");
