@@ -1,6 +1,7 @@
 package com.autulio.app.auth
 
 import android.content.Context
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -20,11 +21,18 @@ class SecureSessionStore(context: Context) {
         require(accessToken.isNotBlank())
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
-        val encrypted = cipher.doFinal(accessToken.toByteArray(Charsets.UTF_8))
-        preferences.edit()
-            .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .putString(KEY_DATA, Base64.encodeToString(encrypted, Base64.NO_WRAP))
-            .apply()
+        val plainBytes = accessToken.toByteArray(Charsets.UTF_8)
+        try {
+            val encrypted = cipher.doFinal(plainBytes)
+            check(
+                preferences.edit()
+                    .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+                    .putString(KEY_DATA, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                    .commit()
+            ) { "Unable to persist the encrypted session." }
+        } finally {
+            plainBytes.fill(0)
+        }
     }
 
     fun read(): String? {
@@ -54,9 +62,8 @@ class SecureSessionStore(context: Context) {
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
         (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
 
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
-        generator.init(
-            KeyGenParameterSpec.Builder(
+        fun generateKey(preferStrongBox: Boolean): SecretKey {
+            val builder = KeyGenParameterSpec.Builder(
                 KEY_ALIAS,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             )
@@ -64,9 +71,23 @@ class SecureSessionStore(context: Context) {
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256)
                 .setRandomizedEncryptionRequired(true)
-                .build()
-        )
-        return generator.generateKey()
+            if (preferStrongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                builder.setIsStrongBoxBacked(true)
+            }
+            return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
+                .apply { init(builder.build()) }
+                .generateKey()
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            try {
+                return generateKey(preferStrongBox = true)
+            } catch (_: Exception) {
+                keyStore.load(null)
+                if (keyStore.containsAlias(KEY_ALIAS)) keyStore.deleteEntry(KEY_ALIAS)
+            }
+        }
+        return generateKey(preferStrongBox = false)
     }
 
     private companion object {
