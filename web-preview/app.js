@@ -18,6 +18,7 @@ const customerTabs = [
 const state = {
   role:null, page:"", adminSub:"", previewChooser:false, theme:"dark", scriptFilter:"all", scriptQuery:"", inviteRole:"DEVELOPER", invites:[],
   libraryQuery:"", libraryCategory:"all", editorName:"", editorSource:"", drafts:[], modal:"", accent:"blue",
+  runnerVisible:false, runnerState:"IDLE", runnerCollapsed:false, runnerEditorOpen:false, runnerVariables:[], runnerPos:null,
   reviewerProject:"", statusMessage:""
 };
 const templates = [{"id":"single_tap","name":"Chạm một lần","description":"Chạm tại một tọa độ trên màn hình.","category":"actions","source":"// Thay tọa độ X và Y theo ứng dụng mục tiêu\nCHẠM(200, 400)"},{"id":"tap_sequence","name":"Chuỗi chạm có thời gian chờ","description":"Chạm vị trí thứ nhất, chờ 500 ms rồi chạm vị trí thứ hai.","category":"actions","source":"CHẠM(200, 400)\nCHỜ(500)\nCHẠM(500, 400)"},{"id":"long_press","name":"Nhấn giữ","description":"Nhấn giữ tại một vị trí trong 800 ms.","category":"actions","source":"NHẤN_GIỮ(200, 400, 800)"},{"id":"swipe_up","name":"Vuốt lên","description":"Vuốt từ dưới lên trên trong 450 ms.","category":"actions","source":"VUỐT(360, 850, 360, 350, 450)"},{"id":"repeat_tap","name":"Lặp thao tác chạm","description":"Lặp thao tác chạm theo số lần đã đặt.","category":"logic","source":"ĐẶT soLan = 3\nLẶP(soLan) {\n    CHẠM(200, 400)\n    CHỜ(500)\n}"},{"id":"if_battery","name":"Kiểm tra pin trước khi chạy","description":"Chỉ tiếp tục thao tác khi pin còn trên 20%.","category":"logic","source":"NẾU (PIN() > 20) {\n    CHẠM(200, 400)\n} NGƯỢC_LẠI {\n    CHỜ(1000)\n}"},{"id":"open_app","name":"Mở ứng dụng","description":"Mở ứng dụng bằng tên gói Android hợp lệ.","category":"actions","source":"MỞ_ỨNG_DỤNG(\"com.example.game\")"},{"id":"while_loop","name":"Lặp theo điều kiện","description":"Tăng biến đếm và dừng lặp khi đạt điều kiện.","category":"logic","source":"ĐẶT dem = 0\nLẶP_KHI (dem < 5) {\n    dem = dem + 1\n    CHẠM(200, 400)\n    CHỜ(300)\n}"},{"id":"wait_until_condition","name":"Chờ ứng dụng hoặc điều kiện sẵn sàng","description":"Kiểm tra điều kiện định kỳ và tự dừng khi hết thời hạn.","category":"logic","source":"CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ(\"com.example.game\"), 15000, 250)\nCHẠM(200, 400)"},{"id":"until_loop","name":"Lặp đến khi đạt mục tiêu","description":"Thực hiện thao tác cho đến khi biến đạt điều kiện dừng.","category":"logic","source":"ĐẶT dem = 0\nLẶP_ĐẾN_KHI(dem >= 5) {\n    dem = dem + 1\n    CHẠM(200, 400)\n    CHỜ(300)\n}"},{"id":"go_back","name":"Quay lại","description":"Thực hiện thao tác Quay lại của Android.","category":"system","source":"QUAY_LẠI()"},{"id":"go_home","name":"Về màn hình chính","description":"Đưa thiết bị về màn hình chính Android.","category":"system","source":"VỀ_MÀN_HÌNH_CHÍNH()"},{"id":"show_recents","name":"Mở ứng dụng gần đây","description":"Mở giao diện ứng dụng gần đây của Android.","category":"system","source":"ỨNG_DỤNG_GẦN_ĐÂY()"},{"id":"show_notifications","name":"Mở thông báo","description":"Mở ngăn thông báo Android.","category":"system","source":"MỞ_THÔNG_BÁO()"},{"id":"show_quick_settings","name":"Mở cài đặt nhanh","description":"Mở bảng cài đặt nhanh Android.","category":"system","source":"MỞ_CÀI_ĐẶT_NHANH()"},{"id":"show_power_dialog","name":"Hiện menu nguồn","description":"Mở menu nguồn bằng thao tác hệ thống Android.","category":"system","source":"HIỆN_MENU_NGUỒN()"},{"id":"lock_screen","name":"Khóa màn hình","description":"Khóa màn hình nếu phiên bản Android hỗ trợ.","category":"system","source":"KHÓA_MÀN_HÌNH()"},{"id":"split_screen","name":"Chia đôi màn hình","description":"Bật chế độ chia đôi nếu Android cung cấp thao tác này.","category":"system","source":"CHIA_MÀN_HÌNH()"}];
@@ -311,10 +312,73 @@ function renderModal(){
  }
  const backdrop=document.createElement("div");backdrop.className="modal-backdrop";backdrop.innerHTML=content;$("app").appendChild(backdrop);
 }
+function parseRunnerVariables(source){
+ const found=new Map();
+ const pattern=/ĐẶT\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(?:"([^"]*)"|'([^']*)'|(-?\\d+(?:\\.\\d+)?)|(ĐÚNG|SAI))/g;
+ let match;
+ while((match=pattern.exec(source||""))!==null){
+  const name=match[1];
+  if(found.has(name))continue;
+  if(match[2]!==undefined)found.set(name,{name,type:"string",value:match[2]});
+  else if(match[3]!==undefined)found.set(name,{name,type:"string",value:match[3]});
+  else if(match[4]!==undefined)found.set(name,{name,type:"number",value:match[4]});
+  else if(match[5]!==undefined)found.set(name,{name,type:"boolean",value:match[5]});
+ }
+ return [...found.values()];
+}
+function runnerStatus(){
+ if(state.runnerState==="RUNNING")return "Đang chạy · Mô phỏng Web";
+ if(state.runnerState==="PAUSED")return "Đã tạm dừng · Mô phỏng Web";
+ if(state.runnerState==="CANCELLED")return "Đã dừng · Có thể chạy lại";
+ if(state.runnerState==="COMPLETED")return "Hoàn tất · Có thể chạy lại";
+ return "Sẵn sàng · Chuyển sang ứng dụng cần thao tác rồi nhấn Chạy";
+}
+function runnerOverlay(){
+ if(!state.runnerVisible)return "";
+ const collapsed=state.runnerCollapsed;
+ const status=runnerStatus();
+ const pos=state.runnerPos?("left:"+state.runnerPos.x+"px;top:"+state.runnerPos.y+"px;right:auto;bottom:auto;"):"";
+ const editable=state.runnerState==="RUNNING"||state.runnerState==="PAUSED";
+ const variables=state.runnerVariables||[];
+ const parameterPanel=state.runnerEditorOpen?
+  '<section class="runner-params"><b>THAM SỐ KỊCH BẢN</b><p>Đây là giá trị mẫu lấy từ các lệnh ĐẶT; Web không chạy ScriptCompiler hay engine Android.</p>'+
+  (variables.length?variables.map(v=>'<label class="runner-var"><span>'+esc(v.name)+'</span><input data-runner-var="'+esc(v.name)+'" data-type="'+v.type+'" value="'+esc(v.value)+'" '+(v.type==="number"?'inputmode="decimal"':'')+'></label>').join(""):'<p class="muted">Kịch bản chưa có biến ĐẶT để minh họa.</p>')+
+  '<div class="actions two"><button class="btn primary" data-action="runner-apply" '+(!variables.length?"disabled":"")+'>Cập nhật</button><button class="btn outline" data-action="runner-editor-close">Đóng</button></div></section>':"";
+ return '<aside class="floating-runner '+(collapsed?"collapsed":"")+'" style="'+pos+'">'+
+  '<div class="runner-head" data-runner-drag><span class="runner-grip">⠿</span><span class="runner-brand"><i></i><b>AUTU-LIO</b><small>ĐIỀU KHIỂN</small></span>'+
+  '<button data-action="runner-collapse" aria-label="'+(collapsed?"Mở rộng":"Thu gọn")+'">'+(collapsed?"▴":"▾")+'</button>'+
+  '<button data-action="runner-close" aria-label="Đóng cửa sổ">×</button></div>'+
+  (collapsed?"":'<div class="runner-body"><div class="runner-status">'+esc(status)+'</div>'+
+   '<div class="runner-controls"><button class="runner-main" data-action="runner-primary">'+(state.runnerState==="RUNNING"?"Ⅱ":"▶")+'</button>'+
+   '<button class="runner-stop" data-action="runner-stop">■</button>'+
+   '<button class="runner-parameters" data-action="runner-params" '+(!editable?"disabled":"")+' title="Sửa tham số khi tạm dừng">⚙</button></div>'+
+   '<p class="runner-note">Bản xem trước chỉ mô phỏng cửa sổ nổi; không chạm, vuốt hay điều khiển ứng dụng khác.</p>'+parameterPanel+'</div>')+
+  '</aside>';
+}
+let runnerDrag=null;
+document.addEventListener("pointerdown",(event)=>{
+ const handle=event.target.closest("[data-runner-drag]");
+ if(!handle||event.target.closest("button"))return;
+ const panel=document.querySelector(".floating-runner");
+ if(!panel)return;
+ const rect=panel.getBoundingClientRect();
+ runnerDrag={panel,startX:event.clientX,startY:event.clientY,left:rect.left,top:rect.top};
+ try{handle.setPointerCapture(event.pointerId);}catch(_){}
+});
+document.addEventListener("pointermove",(event)=>{
+ if(!runnerDrag)return;
+ const panel=runnerDrag.panel;
+ const x=Math.max(0,Math.min(window.innerWidth-panel.offsetWidth,runnerDrag.left+event.clientX-runnerDrag.startX));
+ const y=Math.max(0,Math.min(window.innerHeight-panel.offsetHeight,runnerDrag.top+event.clientY-runnerDrag.startY));
+ panel.style.left=x+"px";panel.style.top=y+"px";panel.style.right="auto";panel.style.bottom="auto";
+});
+document.addEventListener("pointerup",()=>{
+ if(runnerDrag){const rect=runnerDrag.panel.getBoundingClientRect();state.runnerPos={x:rect.left,y:rect.top};runnerDrag=null;}
+});
 function render(){
  const root=$("app");
  if(!state.role){root.innerHTML=state.previewChooser?chooser():authScreen();document.body.classList.toggle("theme-light",state.theme==="light");return;}
- root.innerHTML='<div class="app">'+header()+'<main class="content"><div class="preview-warning"><strong>Chế độ đối chiếu giao diện Android.</strong> Đây không phải APK, không đăng nhập Google, không truy cập dữ liệu thật và không điều khiển ứng dụng khác.</div>'+renderBody()+'</main>'+navBar()+'</div>';
+ root.innerHTML='<div class="app">'+header()+'<main class="content"><div class="preview-warning"><strong>Chế độ đối chiếu giao diện Android.</strong> Đây không phải APK, không đăng nhập Google, không truy cập dữ liệu thật và không điều khiển ứng dụng khác.</div>'+renderBody()+'</main>'+navBar()+runnerOverlay()+'</div>';
  document.body.classList.toggle("theme-light",state.theme==="light");
  document.body.dataset.accent=state.accent;
 }
@@ -370,7 +434,38 @@ document.addEventListener("click",(event)=>{
  else if(a==="server-check"){toast("Máy chủ AUTU-LIO chưa được kết nối trong bản xem trước.");}
  else if(a==="sample-run"||a==="sample-pause"||a==="sample-stop"){toast("Đây chỉ là nút xem trước; không có thao tác nào được thực thi.");}
  else if(a==="check-code"){const node=$("editor-feedback");if(node)node.textContent="Chưa kiểm tra: bản Web không gọi ScriptCompiler của Android.";}
- else if(a==="prepare-run"){toast("Bản Web không khởi chạy AccessibilityService hoặc thao tác trên ứng dụng khác.");}
+ else if(a==="prepare-run"){
+   const src=$("editor-source");if(src)state.editorSource=src.value;
+   state.runnerVariables=parseRunnerVariables(state.editorSource);
+   state.runnerVisible=true;state.runnerState="IDLE";state.runnerCollapsed=false;state.runnerEditorOpen=false;state.runnerPos=null;render();
+ }
+ else if(a==="runner-primary"){
+   if(state.runnerState==="RUNNING")state.runnerState="PAUSED";
+   else state.runnerState="RUNNING";
+   state.runnerEditorOpen=false;render();
+ }
+ else if(a==="runner-stop"){state.runnerState="CANCELLED";state.runnerEditorOpen=false;render();}
+ else if(a==="runner-params"){
+   if(state.runnerState==="RUNNING")state.runnerState="PAUSED";
+   if(state.runnerState==="PAUSED"){state.runnerEditorOpen=true;render();}
+   else toast("Hãy nhấn Chạy trước khi mở phần tham số.");
+ }
+ else if(a==="runner-apply"){
+   const fields=[...document.querySelectorAll("[data-runner-var]")];
+   const values=[];
+   for(const field of fields){
+    const original=state.runnerVariables.find(v=>v.name===field.dataset.runnerVar);
+    let value=field.value;
+    if(original.type==="number"){const number=Number(value);if(!Number.isFinite(number)){toast("Giá trị số không hợp lệ.");return;}value=String(number);}
+    else if(original.type==="boolean"){const normalized=value.trim().toUpperCase();if(!["ĐÚNG","SAI"].includes(normalized)){toast("Giá trị đúng/sai phải là ĐÚNG hoặc SAI.");return;}value=normalized;}
+    else if(value.length>4096){toast("Chuỗi không được vượt quá 4.096 ký tự.");return;}
+    values.push({name:original.name,type:original.type,value});
+   }
+   state.runnerVariables=values;state.runnerEditorOpen=true;render();toast("Đã cập nhật giá trị trong bản mô phỏng Web.");
+ }
+ else if(a==="runner-editor-close"){state.runnerEditorOpen=false;render();}
+ else if(a==="runner-collapse"){state.runnerCollapsed=!state.runnerCollapsed;state.runnerEditorOpen=false;render();}
+ else if(a==="runner-close"){state.runnerVisible=false;state.runnerState="CANCELLED";state.runnerEditorOpen=false;render();}
  else if(a==="save-draft"){const src=$("editor-source");state.editorSource=src?src.value:state.editorSource;toast("Bản xem trước Web chưa lưu vào kho bản nháp Android.");}
  else if(a==="show-templates"){state.modal="templates";renderModal();}
  else if(a==="show-guide"){state.modal="guide";renderModal();}
