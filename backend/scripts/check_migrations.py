@@ -91,8 +91,8 @@ else:
 
 database.execute(
     "INSERT INTO script_drafts "
-    "(id, project_id, name, source, language_version, revision, created_by, updated_by, created_at, updated_at, source_ciphertext, source_iv, source_key_version) "
-    "VALUES ('script-1', 'project-1', 'Example', '', '0.1', 1, 'developer-1', 'developer-1', 1, 1, 'encrypted-script', 'random-iv', 'V1')"
+    "(id, project_id, name, source, language_version, revision, created_by, updated_by, created_at, updated_at, source_ciphertext, source_iv, source_encrypted_data_key, source_key_iv, source_key_version) "
+    "VALUES ('script-1', 'project-1', 'Example', '', '0.1', 1, 'developer-1', 'developer-1', 1, 1, 'encrypted-script', 'random-iv', 'wrapped-script-key', 'script-key-iv', 'V1')"
 )
 try:
     database.execute(
@@ -112,8 +112,8 @@ database.execute(
 )
 database.execute(
     "INSERT INTO change_submissions "
-    "(id, project_id, kind, item_id, revision, submitted_snapshot, submitted_by, status, created_at, snapshot_ciphertext, snapshot_iv, snapshot_key_version) "
-    "VALUES ('submission-1', 'project-1', 'SCRIPT', 'script-1', 1, '', 'developer-1', 'PENDING', 1, 'encrypted-snapshot', 'random-iv', 'V1')"
+    "(id, project_id, kind, item_id, revision, submitted_snapshot, submitted_by, status, created_at, snapshot_ciphertext, snapshot_iv, snapshot_encrypted_data_key, snapshot_key_iv, snapshot_key_version) "
+    "VALUES ('submission-1', 'project-1', 'SCRIPT', 'script-1', 1, '', 'developer-1', 'PENDING', 1, 'encrypted-snapshot', 'random-iv', 'wrapped-snapshot-key', 'snapshot-key-iv', 'V1')"
 )
 
 try:
