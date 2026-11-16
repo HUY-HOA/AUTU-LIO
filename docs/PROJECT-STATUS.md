@@ -1,107 +1,70 @@
-# AUTU-LIO — Trạng thái dự án
+# AUTU-LIO — Trạng thái phát triển ứng dụng Android
 
-**Cập nhật:** 15/11/2026, 18:10 (Asia/Ho_Chi_Minh)  
-**Nhánh chính:** `main`  
-**Repository:** [HUY-HOA-1/AUTU-LIO](https://github.com/HUY-HOA-1/AUTU-LIO)
+**Cập nhật:** 17/11/2026  
+**Repository:** `HUY-HOA-1/AUTU-LIO`  
+**Nhánh tích hợp:** `feature/floating-runner-secure-20261117` (PR #33)
 
-## 1. Mốc hiện tại
+## 1. Phạm vi sản phẩm
 
-- Quyết định kiến trúc mới: một APK, phân quyền trong ứng dụng; không dùng Firebase.
-- Tài liệu phân quyền: `docs/ONE-APP-ACCESS-CONTROL.md`.
-- Bộ chọn Admin/khách hàng trong Debug chỉ là preview, không phải đăng nhập hoặc xác minh quyền.
+- Chỉ phát triển **ứng dụng Android native**, một APK duy nhất: `com.autulio.app`.
+- Sản phẩm không có website, web dashboard, web app hoặc trang web xem trước.
+- `backend/` là Cloudflare Worker REST API để ứng dụng Android gọi; đây không phải giao diện web và cần được giữ lại cho đăng nhập, phân quyền, dự án, thiết bị và giấy phép.
+- Debug và Release cùng dùng luồng xác thực và xác minh vai trò; không cấp quyền bằng bộ chọn vai trò cục bộ.
 
-Dự án đã chuyển từ tài liệu thiết kế sang **prototype Android Kotlin/Jetpack Compose**. Đã chuyển dự án sang **một APK duy nhất** với application ID `com.autulio.app`. Các giao diện Admin và AutoClick là các khu vực trong cùng ứng dụng, được mở theo vai trò do máy chủ xác minh. Bản Debug hiện có bộ chọn giao diện thử nghiệm để kiểm tra bố cục; bộ chọn này không cấp quyền thật.
+## 2. Mã nguồn đã có trong nhánh tích hợp Android
 
-Các màn hình prototype có thể điều hướng và kiểm tra bố cục. Mã nguồn workspace cộng tác và Worker API đã có trong `main`; schema D1 cho workspace đã áp dụng. Bộ test Worker mới gồm 10 ca về health/config, xác thực, quyền OWNER-only, kiểm tra đầu vào và CORS đã chạy thành công trên nhánh PR và sau merge vào `main` (PR #13, commit `9fb9c5db`). Tài khoản Cloudflare đã có D1 nhưng danh sách Worker đang trống; Worker chưa deploy và Google OAuth chưa cấu hình, nên đăng nhập thật và đồng bộ giữa các tài khoản chưa hoạt động. PR #14 đã đưa AUTU-LIO Script 0.1 vào `main` ở commit `51460f66`: parser Kotlin tạo AST, chẩn đoán lỗi dòng/cột, giới hạn vòng lặp/số lệnh/thời lượng và nút Kiểm tra mã trong editor. GitHub Actions chạy `:app:testDebugUnitTest` thành công (12 test); đây là kiểm thử mã nguồn, không tạo APK. PR #17 đã hợp nhất vào main tại commit e1ee7cbe: interpreter tuần tự cho AST, trạng thái chạy/tạm dừng/tiếp tục/dừng, xác thực lại ngân sách runtime và 7 test cho engine. CI source checks run 43708433043 đã thành công. PR #18 đang phát triển AccessibilityService gesture dispatcher, cửa sổ điều khiển nổi và Activity trình soạn thảo riêng; chưa hợp nhất, chưa thử thiết bị thật và chưa tạo APK mới.
+### Ứng dụng và xác thực
+- Ứng dụng Kotlin/Jetpack Compose với một application ID.
+- Google Credential Manager lấy Google ID token; AuthRepository gọi API để máy chủ xác minh người dùng và trả về vai trò/quyền.
+- Session lưu bằng Android Keystore, có xác thực dữ liệu và cơ chế xóa phiên.
+- Màn hình được chọn theo vai trò OWNER, DEVELOPER, DESIGNER, REVIEWER hoặc CUSTOMER do máy chủ xác minh.
+- Source editor kiểm tra quyền máy chủ, giới hạn truy cập và bảo vệ nội dung bằng FLAG_SECURE.
 
-## 2. Bảo mật và ký APK
+### Quản trị và cộng tác
+- Trang quản trị khách hàng, thiết bị, giấy phép, thư viện, phát hành và nhật ký.
+- Mời cộng tác viên, chấp nhận lời mời, phân quyền và thu hồi quyền.
+- Workspace dự án dùng chung; bản nháp mã/UI có revision; gửi yêu cầu và quy trình duyệt.
+- Bản nháp cục bộ và dữ liệu dự án được mã hóa theo thiết kế bảo mật.
 
-- Trước thay đổi: workflow chỉ tạo Debug APK, chưa bật R8/minify và chưa có chữ ký Release ổn định.
-- Đã bổ sung cấu hình R8 và shrink resources cho variant Release; Android Manifest tắt cleartext traffic và giữ `allowBackup=false`.
-- Đã bổ sung mã hóa AES-256-GCM cho bản nháp cục bộ bằng Android Keystore, kèm chuyển đổi dữ liệu nháp cũ từ plaintext.
-- Đã chuẩn bị workflow tự chọn Release đã ký khi có đủ bốn GitHub Actions secrets; nếu chưa có secret thì chỉ tạo Debug APK thử nghiệm. Keystore tạm được xóa khỏi runner sau build.
-- Chưa thể ký Release cho tới khi chủ sở hữu tự tạo keystore và nhập bốn secrets. Không có khóa nào được lưu trong Git.
-- Bảo vệ bằng R8 là obfuscation/shrinking, không phải mã hóa tuyệt đối; xem `docs/SECURITY-AND-SIGNING.md`.
+### AUTU Script và chạy tự động
+- Parser/compiler tạo AST, báo lỗi theo dòng/cột và giới hạn tài nguyên.
+- Runtime có luồng thực thi riêng, trạng thái chạy/tạm dừng/tiếp tục/dừng và kiểm soát ngân sách thực thi.
+- Accessibility Service điều phối thao tác Android và cung cấp cửa sổ điều khiển nổi.
+- Nút chạy, tạm dừng, tiếp tục, dừng và mở trình soạn thảo được nối vào runtime; khi sửa script đang chạy, engine tạm dừng và chỉ thay script sau khi kiểm tra biên dịch thành công.
+- Hành vi thực tế của gesture, cửa sổ nổi và chạy nền vẫn phải được xác nhận trên thiết bị Android thật.
 
-## 3. Phần đã có trong mã nguồn
+## 3. Những điều kiện còn thiếu trước khi phát hành
 
-### Admin Studio
-- Trang tổng quan.
-- Danh sách kịch bản, tìm kiếm và lọc Bản nháp / Đã phát hành.
-- Tạo kịch bản, lưu tên và nội dung bản nháp trong vùng lưu trữ riêng; mã hóa AES-GCM bằng Android Keystore qua SecureScriptDraftStore.
-- Bản nháp chưa đồng bộ máy chủ.
-- Trang Khách hàng và Thiết bị.
-- Trang Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
-- Trang Quản lý cộng tác viên được nối API cho bản Release: tải danh sách, tạo lời mời, hiển thị mã một lần để sao chép/chia sẻ, đổi vai trò, thu hồi cộng tác viên và hủy lời mời đang chờ. Debug preview vẫn dùng bản nháp cục bộ.
-- Người dùng đã đăng nhập có thể dán mã lời mời trong Cài đặt; máy chủ kiểm tra đúng email Google, chấp nhận token một lần và app tải lại role. Chưa gửi email tự động.
-- Chuyển giao diện sáng / tối.
-- Trang Dự án cộng tác: chủ sở hữu tạo dự án, thêm/gỡ cộng tác viên đã chấp nhận lời mời.
-- Nhà phát triển có workspace lưu bản nháp mã kịch bản dùng chung theo revision và gửi duyệt.
-- Nhà thiết kế có trình chỉnh UI cơ bản với tiêu đề, mô tả, màu, thành phần và bản xem trước trực tiếp; lưu thiết kế dùng chung và gửi duyệt.
-- Người kiểm duyệt xem snapshot, duyệt/từ chối và ghi chú; không tự duyệt bản của mình.
-- API kiểm tra vai trò, quyền và membership phía Worker; xung đột revision trả HTTP 409.
+1. **Máy chủ:** triển khai Cloudflare Worker, áp dụng đầy đủ D1 migrations cần thiết, cấu hình secrets và kiểm tra endpoint thật.
+2. **Google OAuth:** tạo Web Client ID và Android Client ID đúng package name/chữ ký; cấu hình OAuth phía Worker và ứng dụng.
+3. **Dữ liệu thực:** kiểm thử đăng nhập chủ sở hữu, mời cộng tác viên, vai trò/quyền, đồng bộ workspace, thiết bị, giấy phép, thư viện và package với máy chủ.
+4. **Đóng gói kịch bản:** hoàn thiện quy trình ký, mã hóa, phát hành, tải xuống, xác minh quyền chạy, cập nhật và thu hồi package.
+5. **Kiểm thử thiết bị:** xác nhận thao tác chạm/vuốt, quyền Trợ năng, overlay, vòng đời service, dừng khẩn cấp và hành vi khi chuyển ứng dụng; ưu tiên kiểm tra Xiaomi/HyperOS cùng các Android phiên bản khác.
+6. **Chất lượng:** tất cả Android unit tests, lint, Worker tests và kiểm tra bảo mật phải đạt trước phát hành.
 
-### Giao diện người dùng
-- Màn hình đăng nhập prototype và chế độ xem trước.
-- Trang chủ.
-- Danh sách và chi tiết một kịch bản mẫu được ghi rõ là dữ liệu xem trước.
-- Các nút chạy mẫu của tài khoản khách hàng hiện vẫn chỉ là giao diện preview; không thao tác trên màn hình.
-- Trang Thiết bị / Giấy phép và Cài đặt.
+## 4. Bản build Release gần nhất
 
-## 4. Build
+GitHub Actions run [43972068339](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43972068339) đã hoàn tất thành công từ nhánh `build-requests/release-autulio-20261117`.
 
-- Đã có workflow `.github/workflows/build-apks.yml`.
-- Workflow được chỉnh để tạo một APK duy nhất: Release có R8 và chữ ký ổn định khi đã có secrets; nếu chưa có secrets thì tạo Debug test APK.
-- Trigger được thiết lập theo `workflow_dispatch` hoặc nhánh `build-requests/**`; push thông thường lên `main` không tự build.
-- PR #12 đã được hợp nhất vào `main` ở commit `941d9dbb`.
-- GitHub Actions đã xác nhận Kotlin compilation và Worker/D1 migration checks thành công trên commit PR trước khi merge; workflow kiểm tra Worker sau merge đang/đã chạy riêng.
-- Bộ kiểm tra Worker sau merge tại [GitHub Actions](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43671159108) đã thành công.
-- PR #14 đã hợp nhất tại commit `51460f660a55f91d4025e1d29b3ecbb90f10b948`; Android source checks và unit tests thành công tại [GitHub Actions](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43671662017).
-- Lượt build #1 đã thành công ngày 15/11/2026: `lintDebug`, `assembleDebug`, upload artifact `AUTU-LIO-Debug` đều thành công. Đây là bản Debug thử nghiệm, không có chữ ký phát hành ổn định.
-- Tuân thủ quy tắc mới: chỉ cần tin nhắn chủ ứng dụng có chứa cụm viết hoa `BUILD APK` là cho phép bắt đầu build; không yêu cầu đứng riêng một dòng.
+- Variant: Release.
+- APK: `AUTU-LIO-v0.1.10.apk`.
+- `:app:lintRelease` và `:app:assembleRelease` thành công.
+- `apksigner verify` xác nhận chữ ký APK hợp lệ theo APK Signature Scheme v2.
+- SHA-256 của APK: `b3e17afbc5f582c371c394c94981b9e51b6b20e2f05a038cf11fcbe4546c7b3e`.
+- Artifact: `AUTU-LIO-Release`; artifact ZIP SHA-256: `71af6297d250889ce5ea91949d9a575d7554e089a42ea8d23a0c76b01576983d`.
+- Build thành công không thay thế cho việc cấu hình máy chủ, OAuth và kiểm thử ứng dụng trên thiết bị Android thật.
 
-### Cấu hình build và kiểm tra nguồn
+## 5. Backend API
 
-- Android Gradle Plugin: `9.3.1`.
-- Kotlin Gradle Plugin và Compose Compiler plugin: `2.4.21`.
-- Gradle trong GitHub Actions: `9.6.0`.
-- JDK chạy build: `21`; bytecode ứng dụng vẫn đặt Java/Kotlin target `17`.
-- Android SDK: `compileSdk 37`, Build Tools `36.0.0`.
-- Tạm đặt `android.builtInKotlin=false` và `android.newDsl=false` để dùng Kotlin Android plugin 2.4.21 trong bộ phiên bản tương thích đã chọn. Đây là bước tương thích tạm thời; cần chuyển sang Kotlin tích hợp của AGP trước khi nâng AGP 10.
-- Cấu hình Android đã được kiểm chứng bằng tác vụ Gradle `:app:testDebugUnitTest` trong CI, bao gồm biên dịch Kotlin và chạy 12 unit test Script Compiler. Đây không chạy `assembleDebug`, không tạo APK và chưa thay thế lint hoặc kiểm thử trên thiết bị.
+- `backend/` chỉ chứa Cloudflare Worker REST API và D1 migrations để ứng dụng Android sử dụng.
+- Không triển khai giao diện web từ thư mục backend.
+- Không tạo lại website, dashboard trên web hoặc trang web xem trước.
 
-## 5. Phần chưa triển khai
+## 6. Quy tắc an toàn và phát hành
 
-- Android đã tích hợp Google Credential Manager 1.6.0 / Google ID 1.2.1, nonce, gọi Auth API, xác minh session trên máy chủ và lưu session mã hóa bằng Android Keystore; cần Google OAuth Client ID + Worker URL để bật đăng nhập thật.
-- Cloudflare D1 database `autu_lio_auth` ở APAC đã áp dụng ba migration `0001`, `0002`, `0003_shared_project_workspaces.sql`; có các bảng tài khoản, session, lời mời, quyền, nhật ký, dự án, thành viên dự án, bản nháp mã/UI và yêu cầu duyệt. `PRAGMA foreign_key_check` trả về rỗng.
-- Worker source và D1 binding đã có trong `main`, nhưng Worker chưa deploy.
-- Google OAuth Client ID và OWNER_EMAIL chưa được cấu hình; Worker chưa deploy nên đăng nhập thật và xác minh vai trò vẫn chưa hoạt động.
-- Các thao tác quản lý cộng tác viên, quyền chi tiết, workspace dự án, lưu bản nháp mã/UI và quy trình duyệt đã được hợp nhất vào `main`. App gọi API nhưng chỉ dùng trực tuyến được sau khi Worker deploy và cấu hình OAuth secrets.
-- Android lưu session bằng AES-GCM/Android Keystore; bản Release chỉ mở UI theo role xác minh, bản Debug có bộ chọn preview role riêng.
-- Developer/Designer/Reviewer có workspace riêng cho dự án được giao. API lưu nội dung lên D1 theo revision; giao diện mới đã biên dịch thành công nhưng chưa được thử với tài khoản Google thật do Worker chưa deploy.
-- Worker source có API xác thực, lời mời, quyền chi tiết, tạo dự án, membership, script/UI drafts, submission và review. Các endpoint chưa hoạt động công khai vì Worker chưa deploy và OAuth secrets chưa cấu hình.
-- Đồng bộ tài khoản, thiết bị, giấy phép và dữ liệu khách hàng.
-- Parser/validator AUTU-LIO Script 0.1 đã có; runtime core interpreter đang được bổ sung trong PR #17. Còn thiếu AccessibilityService dispatcher, nối UI điều khiển, bytecode/package, biến, điều kiện, hàm tự định nghĩa và thư viện.
-- AccessibilityService dispatcher để thực hiện thao tác AutoClick thật, overlay và kết nối điều khiển vòng đời tác vụ vào giao diện.
-- Đóng gói, ký, mã hóa và phân phối kịch bản thật.
-- Đã cấu hình bốn GitHub Actions secrets cho khóa ký Release riêng của AUTU-LIO; lượt build Release #2 đã xác thực chữ ký APK thành công. Không thay hoặc làm mất bản sao lưu keystore.
-- Cập nhật từ xa, nhật ký máy chủ và quy trình thu hồi package.
-- Xác nhận Gmail chính xác của chủ sở hữu và tạo OAuth Client IDs trong Google Cloud; cấu hình `GOOGLE_CLIENT_ID`, `OWNER_EMAIL`, `GOOGLE_ALLOWED_AZP` và Worker URL.
-- Deploy Worker, kiểm thử `/health`, đăng nhập Google thật, mời cộng tác viên, phân quyền, lưu bản nháp, xử lý revision conflict và duyệt submission.
-- Chạy lint/full Android checks, sau đó chỉ tạo APK khi nhận đúng lệnh `BUILD APK`; cài thử trên thiết bị thật.
-
-## 6. Việc tiếp theo
-
-1. Xác nhận Gmail Google chính xác của chủ sở hữu và tạo OAuth Web Client ID + Android Client ID trong Google Cloud.
-2. Cấu hình Worker secrets `GOOGLE_CLIENT_ID`, `OWNER_EMAIL`, `GOOGLE_ALLOWED_AZP`; deploy Worker và kiểm tra `/health`.
-3. Đặt `AUTU_LIO_AUTH_API_BASE_URL` và `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID` trong môi trường Gradle; thử đăng nhập chủ sở hữu, mời cộng tác viên và kiểm tra workspace trên điện thoại.
-4. Bổ sung test API/role, giới hạn tần suất đăng nhập, kiểm thử lời mời dùng một lần, thu hồi phiên và kiểm thử xung đột revision.
-5. Mở rộng ngôn ngữ AUTU-LIO (biến, điều kiện, hàm, thư viện); xây interpreter/runtime và engine Auto Click, sau đó xin quyền Android minh bạch.
-6. Hoàn thiện giấy phép, ký/mã hóa package, cập nhật từ xa và kiểm thử phát hành.
-
-## 7. Quy tắc báo cáo
-
-- Phân biệt rõ tài liệu thiết kế, prototype giao diện, chức năng đã hoạt động và chức năng máy chủ.
-- Không báo một chức năng đã hoạt động nếu mới chỉ có nút hoặc màn hình.
-- Không báo build thành công nếu chưa có workflow run thành công và APK artifact tải được.
-- Không tự động kích hoạt workflow; tuân thủ lệnh build độc lập trong `docs/GITHUB-WORKFLOW.md`.
+- Không báo một chức năng đã hoạt động nếu mới có giao diện hoặc chưa kiểm thử hành vi thật.
+- Không cấp quyền OWNER/DEVELOPER bằng lựa chọn cục bộ; quyền phải do máy chủ xác minh.
+- Không đưa token, mật khẩu, khóa riêng hoặc keystore vào Git.
+- Không phát hành APK Debug.
+- Chỉ chạy workflow tạo APK khi chủ ứng dụng gửi đúng cụm `BUILD APK`.
+- Chỉ xác nhận có APK khi workflow hoàn tất và artifact tải được.
