@@ -46,7 +46,13 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
 
     fun load(): ScriptDraftSnapshot {
         preferences.getString(dataKey, null)?.let { encrypted ->
-            return decryptSnapshot(encrypted)
+            val snapshot = decryptSnapshot(encrypted)
+            if (legacyPreferences.all.isNotEmpty()) {
+                check(legacyPreferences.edit().clear().commit()) {
+                    "Unable to remove legacy plaintext script drafts."
+                }
+            }
+            return snapshot
         }
 
         val namesJson = runCatching {
@@ -80,7 +86,9 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
 
         if (legacyPreferences.all.isNotEmpty()) {
             writeEncrypted(snapshot, synchronous = true)
-            legacyPreferences.edit().clear().commit()
+            check(legacyPreferences.edit().clear().commit()) {
+                "Unable to remove migrated plaintext script drafts."
+            }
         }
         return snapshot
     }
