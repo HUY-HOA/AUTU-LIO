@@ -1166,3 +1166,29 @@ test("Owner migration encrypts existing plaintext project source and submission 
   assert.equal(submissions[0].submitted_snapshot, "");
   assert.ok(submissions[0].snapshot_ciphertext);
 });
+
+
+test("project draft writes fail closed when the project encryption secret is missing", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  delete env.PROJECT_DRAFT_MASTER_KEY_V1;
+  const response = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${"Z".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: "Must stay protected",
+        source: "tap(1, 1)",
+        languageVersion: "0.1"
+      })
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 503);
+  assert.equal(body.error, "project_encryption_not_configured");
+  assert.equal(scripts.length, 0);
+});
