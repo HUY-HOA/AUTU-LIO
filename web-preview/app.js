@@ -64,7 +64,52 @@ function chooser(){
 }
 function header(){
  const role=roles.find(r=>r.id===state.role);
- return '<header class="topbar"><div class="brand"><div class="brand-mark">A</div><div><div class="brand-name">AUTU-LIO</div><div class="brand-sub">'+esc(role?role.title:"Bản xem trước")+'</div></div></div><span class="preview-label">WEB PREVIEW</span><button class="small-link" data-action="back-roles">Đổi vai trò xem thử</button></header>';
+ return '<header class="topbar"><div class="brand"><div class="brand-mark">A</div><div><div class="brand-name">AUTU-LIO</div><div class="brand-sub">'+esc(role?role.title:"Bản xem trước")+'</div></div></div><span class="preview-label">WEB PREVIEW</span><button class="small-link" data-action="open-android-map">Đối chiếu Android</button><button class="small-link" data-action="back-roles">Đổi vai trò xem thử</button></header>';
+}
+function androidMap(){
+ const groups=[
+  ["Chủ sở hữu",[
+   ["Tổng quan","MainActivity.kt · OverviewScreen","Có giao diện; số liệu thật cần phiên OWNER và API"],
+   ["AUTU / Kịch bản","MainActivity.kt · ScriptsScreen","Danh sách, tìm kiếm, lọc, tạo và mở bản nháp"],
+   ["Trình soạn thảo","MainActivity.kt · ScriptEditorActivity","Có editor riêng, thư viện mẫu, kiểm tra mã, lưu nháp và chuẩn bị chạy"],
+   ["Khách hàng","LiveManagementScreens.kt","Màn hình quản lý; dữ liệu cần API và phiên OWNER"],
+   ["Thiết bị","LiveManagementScreens.kt","Màn hình thiết bị; dữ liệu cần API và phiên OWNER"],
+   ["Cộng tác viên","CollaboratorsScreen.kt · CollaboratorsServerScreen.kt","Có luồng bản nháp cục bộ và luồng máy chủ"],
+   ["Dự án cộng tác","SharedProjectScreens.kt","Có workspace dự án và phân công; cần API hoạt động"],
+   ["Giấy phép / Gói AUTU","LiveManagementScreens.kt","Màn hình quản lý; cần dữ liệu máy chủ"],
+   ["Thư viện mẫu","AdminTemplateLibraryScreen.kt","Có thư viện mẫu trong Android"],
+   ["Phát hành / Nhật ký / Cài đặt","MainActivity.kt · AdminAuditLogsScreen.kt","Có các màn hình quản trị; thao tác máy chủ tùy cấu hình"]
+  ]],
+  ["Nhà phát triển",[
+   ["Không gian nhà phát triển","CollaboratorWorkspace.kt · DeveloperWorkspace","Bản nháp riêng, mã hóa cục bộ; quyền thật do máy chủ cấp"],
+   ["Trình soạn thảo riêng","MainActivity.kt · ScriptEditorActivity","Mở editor Android riêng; Web chỉ mô phỏng bố cục"],
+   ["Dự án cộng tác","SharedProjectScreens.kt","Dự án được giao và bản nháp dùng chung theo revision"]
+  ]],
+  ["Nhà thiết kế",[
+   ["Không gian thiết kế","CollaboratorWorkspace.kt · DesignerWorkspace","Chỉnh nội dung/màu và xem trước UI; không sửa mã kịch bản"],
+   ["Dự án cộng tác","SharedProjectScreens.kt","Dự án được giao theo quyền"]
+  ]],
+  ["Người kiểm duyệt",[
+   ["Hàng đợi kiểm duyệt","CollaboratorWorkspace.kt · ReviewerWorkspace","Xem bản gửi, quyền kiểm thử và duyệt/từ chối theo quyền"],
+   ["Dự án cộng tác","SharedProjectScreens.kt","Danh sách dự án được giao"]
+  ]],
+  ["Người dùng",[
+   ["Trang chủ / trạng thái giấy phép","MainActivity.kt · CustomerHome","Thông tin giấy phép cần tài khoản và API"],
+   ["Kho AUTU đã phát hành","MainActivity.kt · CustomerPackagesScreen","Tải gói theo giấy phép và thiết bị đã xác minh"],
+   ["Thiết bị và giấy phép","LiveManagementScreens.kt · CustomerDeviceLicenseScreen","Có luồng đăng ký thiết bị RSA-3072 và gỡ thiết bị; cần máy chủ"],
+   ["Cài đặt / mã lời mời / đăng xuất","MainActivity.kt · SettingsScreen","Nhập mã mời và quản lý phiên"]
+  ]],
+  ["Chức năng nền tảng",[
+   ["Đăng nhập và khôi phục phiên","auth/AuthenticatedAppHost.kt · AuthRepository.kt","Release dùng Google Sign-In; cần cấu hình OAuth và Worker"],
+   ["Ngôn ngữ AUTU-LIO Script","script/ScriptCompiler.kt","Có parser/AST, chẩn đoán lỗi và kiểm tra giới hạn"],
+   ["Bộ thực thi","runtime/ScriptExecutionEngine.kt","Có trạng thái chạy/tạm dừng/tiếp tục/dừng; cần kiểm thử thiết bị"],
+   ["Cửa sổ chạy nổi và thao tác Android","accessibility/AutoClickAccessibilityService.kt","Có AccessibilityService, cử chỉ và nút nổi; chưa xác nhận trên điện thoại thật"]
+  ]]
+ ];
+ const rows=groups.map(group=>'<section class="card"><div class="card-title">'+esc(group[0])+'</div>'+group[1].map(item=>'<div class="map-row"><b>'+esc(item[0])+'</b><small>'+esc(item[1])+'</small><p>'+esc(item[2])+'</p></div>').join("")+'</section>').join("");
+ return brandHeader(false)+button("← Quay lại màn hình trước","back-android-map","outline")+heading("Đối chiếu Android","Danh mục màn hình và mã nguồn Android hiện tại trên nhánh main.")+
+ notice("Phân biệt trạng thái","Có mã nguồn không đồng nghĩa đã kết nối máy chủ hoặc kiểm thử thành công trên điện thoại. Bản Web này chỉ phản chiếu giao diện, không chạy mã Android.","warn")+
+ rows+card("Quy tắc cập nhật","<p>Khi thêm hoặc đổi màn hình Android, phải cập nhật danh mục này và màn hình Web tương ứng. Mọi mục chưa có dữ liệu thật phải hiển thị trạng thái chờ cấu hình, không tự tạo dữ liệu giả.</p>");
 }
 function navBar(){
  const tabs=state.role==="OWNER"?adminTabs:state.role==="CUSTOMER"?customerTabs:[];
@@ -252,6 +297,7 @@ function editorScreen(){
   button("Lưu bản nháp trên thiết bị","save-draft","outline");
 }
 function renderBody(){
+ if(state.page==="android-map")return androidMap();
  if(state.role==="OWNER"){
   if(state.page==="overview")return adminOverview();
   if(state.page==="scripts")return adminScripts();
@@ -401,6 +447,8 @@ document.addEventListener("click",(event)=>{
  const action=event.target.closest("[data-action]");
  if(!action)return;
  const a=action.dataset.action;
+ if(a==="open-android-map"){state.page="android-map";render();}
+ else if(a==="back-android-map"){state.page=state.role==="OWNER"?"overview":state.role==="CUSTOMER"?"home":"workspace";render();}
  if(a==="back-roles"){state.role=null;state.page="";state.modal="";state.previewChooser=true;render();}
  else if(a==="open-role-chooser"){state.previewChooser=true;render();}
  else if(a==="back-auth"){state.previewChooser=false;render();}
