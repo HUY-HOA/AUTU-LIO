@@ -574,6 +574,14 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     }
 
+    fun hideRunnerWindowForEditing() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { hideRunnerWindowForEditing() }
+            return
+        }
+        removeFloatingWindow()
+    }
+
     private fun onEditAction() {
         val scriptName = activeScriptName ?: return
         val engine = executionEngine ?: return
@@ -583,10 +591,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             else -> Unit
         }
 
-        removeFloatingWindow()
         try {
-            val editorIntent = ScriptEditorActivity.intent(this, scriptName, activeNamespace)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val editorIntent = ScriptEditorActivity.floatingRunnerIntent(
+                this,
+                scriptName,
+                activeNamespace
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(editorIntent)
         } catch (_: Exception) {
             restoreRunnerWindow()
