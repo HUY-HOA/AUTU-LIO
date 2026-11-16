@@ -1151,7 +1151,7 @@ private fun CustomerScriptDetail(
                 Column {
                     Text(tr("Chưa sẵn sàng chạy", "Not ready to run"), fontWeight = FontWeight.SemiBold)
                     Text(
-                        tr("Runtime AutoClick và quyền trợ năng chưa được tích hợp.", "The AutoClick runtime and accessibility service are not integrated."),
+                        tr("Gói mẫu chưa chứa lệnh tự động hóa thật. Bộ thực thi, dịch vụ Trợ năng và cửa sổ chạy nổi đã có trong mã Android, nhưng chưa được xác nhận bằng kiểm thử trên thiết bị thật.", "This sample has no real automation commands. The execution engine, accessibility service and floating runner exist in the Android source, but have not yet been verified on a physical device."),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
