@@ -1,22 +1,34 @@
-# AUTU-LIO Web Mirror
+# AUTU-LIO Web Preview
 
-Bản Web này được xây dựng để đối chiếu giao diện AUTU-LIO Android theo mã nguồn hiện tại trên nhánh `main`.
+Bản xem trước này được đối chiếu với mã nguồn Android hiện có trên nhánh `main`.
 
-## Luồng màn hình được phản chiếu
-- Màn hình chọn 5 vai trò trong Debug preview: Chủ sở hữu, Nhà phát triển, Nhà thiết kế, Người kiểm duyệt và Người dùng.
-- Chủ sở hữu: Tổng quan, Kịch bản, Khách hàng, Thiết bị và Thêm.
-- Người dùng: Trang chủ, Kịch bản, Thiết bị và Cài đặt.
-- Nhà phát triển, Nhà thiết kế và Người kiểm duyệt: workspace riêng theo `CollaboratorWorkspace.kt`.
-- Trình soạn thảo AUTU, danh mục mẫu và hướng dẫn theo các màn hình trong mã Android.
+## Các giao diện được thể hiện
 
-## Nguyên tắc dữ liệu
-- Không tự tạo khách hàng, thiết bị, giấy phép, gói AUTU hoặc dự án giả để làm đẹp bản xem trước.
-- Khi không có phiên đăng nhập thật, màn hình sẽ thể hiện trạng thái chưa xác thực/chưa kết nối.
-- Bản Web không đọc được bản nháp đã mã hóa trong bộ nhớ Android Keystore và không tự đồng bộ dữ liệu riêng trên điện thoại.
-- Mẫu AUTU được lấy từ danh mục mẫu có trong mã nguồn Android.
+- Bộ chọn Debug Preview: Chủ sở hữu, Nhà phát triển, Nhà thiết kế, Người kiểm duyệt và Người dùng.
+- Chủ sở hữu: Tổng quan, Kịch bản, Khách hàng, Thiết bị và Thêm; mục Thêm gồm Cộng tác viên, Dự án cộng tác, Giấy phép, Thư viện mẫu AUTU, Gói AUTU, Phát hành, Nhật ký và Cài đặt.
+- Người dùng: Trang chủ, Kịch bản, Thiết bị và Cài đặt; có chi tiết kịch bản minh họa.
+- Nhà phát triển: bản nháp cục bộ, mở trình soạn thảo riêng, quyền đã cấp và dự án cộng tác.
+- Nhà thiết kế: bản xem trước UI, màu nhấn và quyền đã cấp.
+- Người kiểm duyệt: hàng đợi gửi duyệt, quyền kiểm duyệt và dự án cộng tác.
 
-## Giới hạn cần phân biệt
-Đây là bản phản chiếu giao diện trình duyệt, không phải bản APK chạy bên trong Chrome/Cốc Cốc. Các chức năng phụ thuộc Android như Accessibility Service, cửa sổ nổi, thao tác chạm/vuốt trên ứng dụng khác, Android Keystore và bộ thực thi trên thiết bị chỉ có thể kiểm tra trong APK. Trang Web không tuyên bố các thao tác đó chạy thật.
+## Giới hạn bắt buộc phải hiểu
 
-## Cập nhật bản xem trước
-Mã nguồn Web nằm trong nhánh `preview/web-live`. Sau khi sửa mã, cần triển khai lại Cloudflare Worker; sau đó tải lại trang Web để xem phiên bản mới.
+Đây là Web preview để so sánh bố cục/điều hướng, không phải app Android và không phải backend đang hoạt động. Nó không đăng nhập Google, không có dữ liệu tài khoản thật, không gọi Cloudflare Worker API, không chạy ScriptCompiler Android, không khởi chạy AccessibilityService và không tạo thao tác chạm/vuốt trên ứng dụng khác. Những form/nút mô phỏng chỉ thay đổi giao diện hoặc hiển thị thông báo.
+
+Số liệu hoặc trạng thái chưa có trong Android được giữ dưới dạng trạng thái trống/chưa kết nối; không bịa dữ liệu khách hàng, thiết bị, giấy phép hay package.
+
+## Kiểm tra
+
+GitHub Actions workflow `.github/workflows/web-preview-check.yml` kiểm tra cú pháp JavaScript và sự tồn tại của các tệp HTML/CSS/JS.
+
+## Nguồn Android tham chiếu
+
+- `MainActivity.kt`
+- `AuthenticatedAppHost.kt`
+- `CollaboratorWorkspace.kt`
+- `LiveManagementScreens.kt`
+- `SharedProjectScreens.kt`
+- `ScriptExecutionEngine.kt`
+- `ScriptCompiler.kt`
+
+Bất cứ khi nào cấu trúc Android thay đổi, cần đối chiếu lại Web preview. Hiện tại việc xuất bản Web lên Cloudflare được thực hiện sau khi cập nhật GitHub branch; GitHub push chưa tự động deploy do Git integration của Pages chưa hoạt động.
