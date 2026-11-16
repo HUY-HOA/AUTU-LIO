@@ -24,7 +24,9 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.autulio.app.ScriptEditorActivity
 import com.autulio.app.runtime.ScriptActionDispatcher
+import com.autulio.app.runtime.ScriptExecutionStartResult
 import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
 import com.autulio.app.runtime.ScriptExecutionState
@@ -52,11 +54,15 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var statusLabel: TextView? = null
     private var primaryButton: TextView? = null
     private var stopButton: TextView? = null
+    private var editButton: TextView? = null
     private var collapseButton: TextView? = null
     private var moveHandle: TextView? = null
     private var actionRow: LinearLayout? = null
     private var collapsed = false
     private var pendingProgram: ScriptProgram? = null
+    private var activeScriptName: String? = null
+    private var activeNamespace: String = "admin"
+    private var editedProgramPending = false
     private var latestSnapshot: ScriptExecutionSnapshot? = null
     @Volatile private var foregroundPackage: String? = null
 
@@ -85,16 +91,22 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         executionEngine = null
         removeFloatingWindow()
         pendingProgram = null
+        activeScriptName = null
+        editedProgramPending = false
         if (activeInstance === this) activeInstance = null
         super.onDestroy()
     }
 
-    fun prepareProgram(program: ScriptProgram): Boolean {
+    fun prepareProgram(
+        program: ScriptProgram,
+        scriptName: String,
+        namespace: String
+    ): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             val finished = CountDownLatch(1)
             val result = AtomicBoolean(false)
             if (!mainHandler.post {
-                    result.set(prepareProgram(program))
+                    result.set(prepareProgram(program, scriptName, namespace))
                     finished.countDown()
                 }
             ) return false
@@ -106,20 +118,49 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         }
 
-        if (executionEngine == null) return false
-        val state = executionEngine?.snapshot()?.state
-        if (state == ScriptExecutionState.RUNNING ||
-            state == ScriptExecutionState.PAUSED ||
-            state == ScriptExecutionState.STOPPING
-        ) return false
+        if (scriptName.isBlank() || namespace !in setOf("admin", "developer")) return false
+        val engine = executionEngine ?: return false
+        val state = engine.snapshot().state
+        if (state == ScriptExecutionState.RUNNING || state == ScriptExecutionState.STOPPING) return false
+
+        val previousProgram = pendingProgram
+        val previousScriptName = activeScriptName
+        val previousNamespace = activeNamespace
+        val previousEditedState = editedProgramPending
 
         pendingProgram = program
+        activeScriptName = scriptName
+        activeNamespace = namespace
+        editedProgramPending = state == ScriptExecutionState.PAUSED
+
         if (!showFloatingWindow()) {
-            pendingProgram = null
+            pendingProgram = previousProgram
+            activeScriptName = previousScriptName
+            activeNamespace = previousNamespace
+            editedProgramPending = previousEditedState
             return false
         }
-        renderSnapshot(executionEngine?.snapshot())
+
+        if (state == ScriptExecutionState.PAUSED && !engine.stop()) {
+            pendingProgram = previousProgram
+            activeScriptName = previousScriptName
+            activeNamespace = previousNamespace
+            editedProgramPending = previousEditedState
+            renderSnapshot(engine.snapshot())
+            return false
+        }
+
+        renderSnapshot(engine.snapshot())
         return true
+    }
+
+    fun restoreRunnerWindow() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { restoreRunnerWindow() }
+            return
+        }
+        if (executionEngine == null || pendingProgram == null) return
+        if (showFloatingWindow()) renderSnapshot(executionEngine?.snapshot())
     }
 
     fun pauseExecution(): Boolean = executionEngine?.pause() == true
@@ -415,6 +456,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val stop = controlButton("■", "Dừng kịch bản", 0xFFFF7777.toInt()) {
             executionEngine?.stop()
         }
+        val edit = controlButton("✎", "Sửa kịch bản", 0xFF8DD3FF.toInt()) {
+            onEditAction()
+        }
         val collapse = controlButton("▾", "Thu gọn cửa sổ", 0xFFE2E8F0.toInt()) {
             setCollapsed(!collapsed)
         }
@@ -427,6 +471,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         controls.addView(move)
         controls.addView(primary)
         controls.addView(stop)
+        controls.addView(edit)
         controls.addView(collapse)
         controls.addView(close)
         root.addView(status)
@@ -491,6 +536,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             statusLabel = status
             primaryButton = primary
             stopButton = stop
+            editButton = edit
             collapseButton = collapse
             moveHandle = move
             actionRow = controls
@@ -502,6 +548,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             statusLabel = null
             primaryButton = null
             stopButton = null
+            editButton = null
             collapseButton = null
             moveHandle = null
             actionRow = null
@@ -520,8 +567,29 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             ScriptExecutionState.CANCELLED,
             ScriptExecutionState.FAILED -> {
                 val program = pendingProgram ?: return
-                engine.start(program)
+                if (engine.start(program) == ScriptExecutionStartResult.Started) {
+                    editedProgramPending = false
+                }
             }
+        }
+    }
+
+    private fun onEditAction() {
+        val scriptName = activeScriptName ?: return
+        val engine = executionEngine ?: return
+        when (engine.snapshot().state) {
+            ScriptExecutionState.RUNNING -> if (!engine.pause()) return
+            ScriptExecutionState.STOPPING -> return
+            else -> Unit
+        }
+
+        removeFloatingWindow()
+        try {
+            val editorIntent = ScriptEditorActivity.intent(this, scriptName, activeNamespace)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(editorIntent)
+        } catch (_: Exception) {
+            restoreRunnerWindow()
         }
     }
 
@@ -530,6 +598,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val status = statusLabel ?: return
         val primary = primaryButton ?: return
         val stop = stopButton ?: return
+        val edit = editButton ?: return
         val collapse = collapseButton ?: return
         val current = snapshot ?: latestSnapshot
         val state = current?.state ?: ScriptExecutionState.IDLE
@@ -541,9 +610,13 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 "Đang chạy · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0}"
             ScriptExecutionState.PAUSED ->
                 "Đã tạm dừng · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0}"
-            ScriptExecutionState.STOPPING -> "Đang dừng…"
+            ScriptExecutionState.STOPPING ->
+                if (editedProgramPending) "Đang dừng phiên cũ để áp dụng bản sửa…"
+                else "Đang dừng…"
             ScriptExecutionState.COMPLETED -> "Hoàn tất · Có thể chạy lại"
-            ScriptExecutionState.CANCELLED -> "Đã dừng · Có thể chạy lại"
+            ScriptExecutionState.CANCELLED ->
+                if (editedProgramPending) "Bản sửa đã sẵn sàng · nhấn Chạy để chạy lại từ đầu"
+                else "Đã dừng · Có thể chạy lại"
             ScriptExecutionState.FAILED ->
                 "Lỗi · ${current?.message ?: current?.errorCode ?: "Không xác định"}"
         }
@@ -560,6 +633,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         primary.isEnabled = pendingProgram != null && !stopping
         primary.alpha = if (primary.isEnabled) 1f else 0.45f
         stop.visibility = if (!collapsed && (running || paused || stopping)) View.VISIBLE else View.GONE
+        edit.visibility = if (!collapsed && !activeScriptName.isNullOrBlank()) View.VISIBLE else View.GONE
         primary.visibility = if (collapsed) View.GONE else View.VISIBLE
         status.visibility = if (collapsed) View.GONE else View.VISIBLE
         collapse.text = if (collapsed) "▴" else "▾"
@@ -579,6 +653,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         statusLabel = null
         primaryButton = null
         stopButton = null
+        editButton = null
         collapseButton = null
         moveHandle = null
         actionRow = null
