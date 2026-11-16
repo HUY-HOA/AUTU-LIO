@@ -1,6 +1,7 @@
 package com.autulio.app
 
 import android.content.Context
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -152,9 +153,8 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
         (keyStore.getKey(keyAlias, null) as? SecretKey)?.let { return it }
 
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
-        generator.init(
-            KeyGenParameterSpec.Builder(
+        fun generateKey(preferStrongBox: Boolean): SecretKey {
+            val builder = KeyGenParameterSpec.Builder(
                 keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             )
@@ -162,9 +162,23 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256)
                 .setRandomizedEncryptionRequired(true)
-                .build()
-        )
-        return generator.generateKey()
+            if (preferStrongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                builder.setIsStrongBoxBacked(true)
+            }
+            return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
+                .apply { init(builder.build()) }
+                .generateKey()
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            try {
+                return generateKey(preferStrongBox = true)
+            } catch (_: Exception) {
+                keyStore.load(null)
+                if (keyStore.containsAlias(keyAlias)) keyStore.deleteEntry(keyAlias)
+            }
+        }
+        return generateKey(preferStrongBox = false)
     }
 
     private companion object {
