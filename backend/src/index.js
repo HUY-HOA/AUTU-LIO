@@ -1684,6 +1684,61 @@ async function downloadCustomerPackage(request, env, session, packageId) {
   }, 200, env);
 }
 
+async function authorizeCustomerPackageRun(request, env, session, packageId) {
+  await requireRole(session, ["CUSTOMER"]);
+  if (!PROJECT_ID_PATTERN.test(packageId)) {
+    throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  }
+
+  const body = await readBody(request, 2_000);
+  const fingerprint = typeof body.deviceFingerprint === "string"
+    ? body.deviceFingerprint.trim().toLowerCase()
+    : "";
+  const version = Number(body.version);
+  if (!/^[a-f0-9]{64}$/.test(fingerprint)) {
+    throw new HttpError(400, "invalid_device_fingerprint", "A registered device fingerprint is required.");
+  }
+  if (!Number.isSafeInteger(version) || version < 1) {
+    throw new HttpError(400, "invalid_package_version", "A valid package version is required.");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const license = await getActiveLicense(env, session.user_id, now);
+  if (!license) {
+    throw new HttpError(403, "active_license_required", "An active license is required to run AUTUs.");
+  }
+
+  const device = await env.DB.prepare(
+    "SELECT id FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'"
+  ).bind(session.user_id, fingerprint).first();
+  if (!device) {
+    throw new HttpError(403, "active_device_required", "This device is not registered or has been revoked.");
+  }
+
+  const item = await env.DB.prepare(
+    "SELECT p.id, p.latest_version, p.status, v.version " +
+    "FROM script_packages p JOIN script_package_versions v ON v.package_id = p.id AND v.version = ? " +
+    "WHERE p.id = ? AND p.status = 'ACTIVE'"
+  ).bind(version, packageId).first();
+  if (!item) {
+    throw new HttpError(403, "package_not_available_for_run", "This AUTU package is no longer available.");
+  }
+  if (Number(item.latest_version) !== version) {
+    throw new HttpError(409, "package_version_superseded", "A newer AUTU package version is available. Download it again.");
+  }
+
+  await env.DB.prepare(
+    "UPDATE devices SET last_seen_at = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
+  ).bind(now, device.id, session.user_id).run();
+
+  return response(request, {
+    authorized: true,
+    serverTime: now,
+    expiresAt: now + 45,
+    leaseSeconds: 45
+  }, 200, env);
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -1738,6 +1793,10 @@ async function route(request, env) {
   const customerPackageDownloadMatch = path.match(/^\/api\/customer\/packages\/([0-9a-f-]{36})\/download$/i);
   if (customerPackageDownloadMatch && method === "GET") {
     return await downloadCustomerPackage(request, env, session, customerPackageDownloadMatch[1]);
+  }
+  const customerPackageRunMatch = path.match(/^\/api\/customer\/packages\/([0-9a-f-]{36})\/authorize-run$/i);
+  if (customerPackageRunMatch && method === "POST") {
+    return await authorizeCustomerPackageRun(request, env, session, customerPackageRunMatch[1]);
   }
   if (method === "POST" && path === "/api/customer/devices/challenge") {
     return await createCustomerDeviceChallenge(request, env, session);
