@@ -68,10 +68,16 @@ function scriptListEmpty(){
 function renderOwner(){
  switch(state.page){
  case "overview":
-  return heading("OWNER · TỔNG QUAN","Tổng quan","Quản lý kịch bản, khách hàng, thiết bị, giấy phép và gói AUTU.")+
-   '<div class="status-note"><b>Chưa có phiên đăng nhập thật.</b><br>Đang xem vai trò Owner ở chế độ Debug Preview. Dữ liệu khách hàng, thiết bị, giấy phép và gói chỉ tải khi có phiên đăng nhập hợp lệ và máy chủ hoạt động.</div>'+
-   '<div class="grid"><div class="metric"><small>Khách hàng</small><strong>—</strong></div><div class="metric"><small>Thiết bị</small><strong>—</strong></div><div class="metric"><small>Giấy phép hoạt động</small><strong>—</strong></div><div class="metric"><small>Gói AUTU hoạt động</small><strong>—</strong></div></div>'+
-   card("Truy cập nhanh",'<div class="action-list">'+actionRow("＋","Tạo AUTU","Mở danh sách kịch bản để tạo mới","scripts")+actionRow("▤","Kịch bản","Mở các bản nháp được lưu trên thiết bị","scripts")+actionRow("♙","Khách hàng","Quản lý tài khoản khách hàng","customers")+actionRow("▣","Thiết bị","Quản lý thiết bị Android đã đăng ký","devices")+actionRow("✓","Giấy phép","Cấp, gia hạn hoặc thu hồi quyền","licenses")+actionRow("⇧","Phát hành gói","Quản lý gói AUTU","packages")+'</div>');
+  return heading("OWNER · TỔNG QUAN","Tổng quan","Số liệu quản lý được đồng bộ trực tiếp từ máy chủ.")+
+   card("",'<strong>Chưa có phiên đăng nhập thật</strong><p style="margin-top:6px">Số liệu quản lý sẽ được tải sau khi đăng nhập bằng tài khoản chủ sở hữu.</p>', '<button class="btn" disabled title="Chỉ hoạt động khi có phiên đăng nhập">↻</button>')+
+   card("Truy cập nhanh",'<div class="grid">'+
+    actionRow("＋","Tạo AUTU","Tạo kịch bản mới","scripts")+
+    actionRow("▤","Kịch bản","Quản lý các AUTU","scripts")+
+    actionRow("♙","Khách hàng","Quản lý tài khoản","customers")+
+    actionRow("▣","Thiết bị","Quản lý thiết bị Android","devices")+
+    actionRow("✓","Giấy phép","Quản lý quyền sử dụng","licenses")+
+    actionRow("⇧","Phát hành gói","Quản lý và phát hành gói","packages")+
+   '</div>');
  case "scripts":
   return heading("OWNER · KỊCH BẢN","Kịch bản","Tạo, tìm kiếm và quản lý các bản nháp AUTU.")+
    '<div class="btn-row"><button class="btn primary full" data-page="editor">＋ Thêm AUTU</button></div>'+
@@ -171,21 +177,38 @@ function renderCollaborator(){
 function renderCustomer(){
  switch(state.page){
  case "home":
-  return heading("AUTU-LIO · CUSTOMER","Trang chủ","Các gói AUTU được Chủ sở hữu phát hành cho tài khoản.")+
-   '<div class="status-note">Tài khoản xem thử · Chưa có phiên đăng nhập thật. Dữ liệu gói và giấy phép cần Google Sign-In và Auth API.</div>'+
-   card("Gói AUTU của bạn",'<div class="empty-state"><div class="empty-icon">⌘</div><strong>Chưa tải được gói AUTU</strong><p>Đăng nhập thật trong APK để đồng bộ gói đã được cấp.</p></div>')+
-   '<div class="btn-row"><button class="btn primary" data-page="scripts">Mở kho AUTU</button><button class="btn" data-page="device">Thiết bị và giấy phép</button></div>';
+  return heading("AUTU-LIO · CUSTOMER","Xin chào!","Trung tâm sử dụng AUTU-LIO.")+
+   card("Trạng thái giấy phép",'<div class="status-note">Chưa được cấp giấy phép.</div>')+
+   '<h3 style="font-size:15px;margin:18px 0 8px">Gói AUTU của bạn</h3>'+
+   '<p class="page-sub">Chỉ các gói đã phát hành, có giấy phép hợp lệ và được cấp cho thiết bị này mới có thể tải và chạy.</p>'+
+   '<div class="action-list"><button class="btn primary full" data-page="scripts">Mở kho AUTU</button><button class="btn full" data-page="device">Thiết bị và giấy phép</button></div>'+
+   '<p style="text-align:center;color:var(--muted);font-size:11px;margin-top:18px">Tài khoản xem thử</p>';
  case "scripts":
   return heading("CUSTOMER · KỊCH BẢN","Kịch bản","Các kịch bản do Chủ sở hữu cung cấp.")+
-   unavailable("Kho kịch bản chưa kết nối","Danh sách AUTU được tải từ máy chủ theo quyền tài khoản. Bản xem thử không hiển thị package mẫu giả.");
+   '<div class="card"><span class="pill info">MẪU XEM TRƯỚC · KHÔNG PHẢI GÓI THẬT</span><div class="card-head" style="margin-top:12px"><strong>Kịch bản minh họa</strong><span>›</span></div><p>Màn hình mẫu để kiểm tra luồng xem chi tiết và các nút điều khiển. Không chứa thao tác tự động hóa thật.</p><div class="btn-row"><button class="btn full" data-page="sample-detail">Xem chi tiết mẫu</button></div></div>'+
+   card("",'<div class="status-note">Kho kịch bản chưa kết nối</div><p>Kịch bản thật sẽ xuất hiện sau khi đăng nhập và đồng bộ giấy phép.</p>');
+ case "sample-detail":
+  return heading("CUSTOMER · CHI TIẾT","Kịch bản minh họa","Chi tiết bản xem trước.")+
+   '<div class="btn-row"><button class="btn" data-page="scripts">← Quay lại danh sách</button></div>'+
+   card("Mô tả",'<span class="pill info">CHỈ XEM TRƯỚC</span><p style="margin-top:10px">Đây là nội dung minh họa để kiểm tra bố cục. Chưa có package được phát hành hoặc tải về thiết bị.</p>')+
+   card("",'<div class="status-note">Chưa sẵn sàng chạy</div><p>Runtime AutoClick và quyền trợ năng chưa được tích hợp theo trạng thái màn hình này.</p>')+
+   '<h3 style="font-size:15px;margin:18px 0 8px">Bảng điều khiển</h3>'+
+   '<div class="action-list"><button class="btn primary full" data-action="sample-run">▶ Thử nút chạy (không thực thi)</button><div class="grid"><button class="btn full" data-action="sample-pause">Ⅱ Tạm dừng mẫu</button><button class="btn full" data-action="sample-stop">■ Dừng mẫu</button></div></div>'+
+   '<p style="color:var(--muted);font-size:11px;line-height:1.5;margin-top:12px">Các nút trên chỉ kiểm tra giao diện và thông báo. Chúng không chạm, vuốt hoặc điều khiển ứng dụng khác.</p>';
  case "device":
-  return heading("CUSTOMER · THIẾT BỊ","Thiết bị và giấy phép","Thông tin đăng ký thiết bị, giới hạn và thời hạn sử dụng.")+
-   unavailable("Chưa có phiên đăng nhập thật","Đăng ký thiết bị và kiểm tra giấy phép thực cần tài khoản đã xác thực và sự đồng ý của người dùng.");
+  return heading("CUSTOMER · THIẾT BỊ","Thiết bị và giấy phép","Thông tin đăng ký của tài khoản.")+
+   card("",'<div class="status-note">Chưa đăng nhập thật</div><p>Đây là chế độ xem trước. Chưa có dữ liệu thiết bị hoặc giấy phép được truy xuất.</p>')+
+   '<h3 style="font-size:15px;margin:18px 0 8px">Thiết bị hiện tại</h3>'+
+   card("Thông tin thiết bị",'<p>Chỉ hiển thị sau khi đăng nhập và đồng ý cung cấp dữ liệu cần thiết.</p>')+
+   '<h3 style="font-size:15px;margin:18px 0 8px">Giấy phép</h3>'+
+   unavailable("Chưa có thông tin giấy phép","Gói sử dụng, thời hạn và giới hạn thiết bị sẽ hiển thị sau khi máy chủ xác minh tài khoản.");
  case "settings":
-  return heading("CUSTOMER · CÀI ĐẶT","Cài đặt","Tùy chọn giao diện, lời mời và tài khoản.")+
-   card("Giao diện",'<div class="btn-row"><button class="btn" data-action="theme">◐ Chuyển giao diện sáng / tối</button></div>')+
-   card("Lời mời cộng tác",'<label class="field"><span>Mã lời mời</span><input placeholder="Dán mã lời mời tại đây"></label><div class="status-note">Chế độ xem thử không thể chấp nhận lời mời thật. Trong APK, máy chủ sẽ kiểm tra email Google và token một lần.</div>')+
-   card("Tài khoản",'<p>Tài khoản xem thử</p>');
+  return heading("CUSTOMER · CÀI ĐẶT","Cài đặt","Tùy chỉnh AUTU-LIO.")+
+   card("Giao diện",'<button class="btn full" data-action="theme">◐ Chuyển đổi sáng và tối</button>')+
+   card("Thông tin ứng dụng",'<p>AUTU-LIO v0.1.0</p>')+
+   card("Quyền riêng tư",'<p>Vai trò và giấy phép được máy chủ xác minh.</p>')+
+   card("Bạn có mã lời mời cộng tác viên?",'<p>Đăng nhập bằng đúng Gmail đã nhận lời mời, sau đó nhập mã bên dưới để chấp nhận và nhận vai trò.</p><label class="field"><span>Mã lời mời</span><textarea id="invite-token" rows="2" placeholder="Nhập mã lời mời"></textarea></label><button class="btn primary full" disabled>Chấp nhận lời mời</button>')+
+   '<div class="btn-row"><button class="btn full" data-action="back-roles">Đăng xuất / Quay lại</button></div>';
  default:return heading("CUSTOMER","Trang chủ","Chọn mục bên dưới.");
  }
 }
@@ -208,6 +231,9 @@ document.addEventListener("click",event=>{
   if(action.dataset.action==="theme")toggleTheme();
   else if(action.dataset.action==="check-code")notify("Kiểm tra cú pháp thật dùng ScriptCompiler trong APK Android.");
   else if(action.dataset.action==="back-roles"){state.role=null;state.page="";render();}
+  else if(action.dataset.action==="sample-run")notify("Đây chỉ là nút xem trước. Không có thao tác nào được thực thi.");
+  else if(action.dataset.action==="sample-pause")notify("Mẫu xem trước không chạy nên không có tiến trình để tạm dừng.");
+  else if(action.dataset.action==="sample-stop")notify("Mẫu xem trước không chạy nên không có tiến trình để dừng.");
   return;
  }
  const scriptFilter=event.target.closest("[data-script-filter]");
