@@ -769,6 +769,12 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
           if (sql.includes("FROM projects WHERE id = ?")) return project;
           if (sql.includes("FROM project_memberships")) return { allowed: 1 };
           if (sql.includes("FROM permission_overrides")) return null;
+          if (sql.includes("COUNT(*) AS total") && sql.includes("FROM script_drafts")) {
+            return { total: scripts.filter(item => item.source && !item.source_ciphertext).length };
+          }
+          if (sql.includes("COUNT(*) AS total") && sql.includes("FROM change_submissions")) {
+            return { total: submissions.filter(item => item.submitted_snapshot && !item.snapshot_ciphertext).length };
+          }
           if (sql.includes("FROM script_drafts WHERE id = ?")) {
             return scripts.find(item => item.id === this.values[0]) || null;
           }
@@ -776,6 +782,9 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
         },
         async all() {
           if (sql.includes("FROM audit_logs")) return { results: [] };
+          if (sql.includes("FROM script_drafts") && sql.includes("WHERE source <> ''")) {
+            return { results: scripts.filter(item => item.source && !item.source_ciphertext).map(item => ({ ...item })) };
+          }
           if (sql.includes("FROM script_drafts")) {
             if (sql.includes("source_ciphertext")) {
               return { results: scripts.map(item => ({ ...item })) };
@@ -792,6 +801,9 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
                 updated_at: item.updated_at
               }))
             };
+          }
+          if (sql.includes("FROM change_submissions") && sql.includes("WHERE submitted_snapshot <> ''")) {
+            return { results: submissions.filter(item => item.submitted_snapshot && !item.snapshot_ciphertext).map(item => ({ ...item })) };
           }
           if (sql.includes("FROM change_submissions s JOIN users u")) {
             return {
@@ -846,6 +858,24 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
               snapshot_iv: snapshotIv,
               snapshot_key_version: snapshotKeyVersion
             });
+          } else if (sql.startsWith("UPDATE script_drafts SET source = ''")) {
+            const [ciphertext, iv, keyVersion, id, projectId] = this.values;
+            const draft = scripts.find(item => item.id === id && item.project_id === projectId);
+            if (draft && draft.source && !draft.source_ciphertext) {
+              draft.source = "";
+              draft.source_ciphertext = ciphertext;
+              draft.source_iv = iv;
+              draft.source_key_version = keyVersion;
+            }
+          } else if (sql.startsWith("UPDATE change_submissions SET submitted_snapshot = ''")) {
+            const [ciphertext, iv, keyVersion, id, projectId] = this.values;
+            const submission = submissions.find(item => item.id === id && item.project_id === projectId);
+            if (submission && submission.submitted_snapshot && !submission.snapshot_ciphertext) {
+              submission.submitted_snapshot = "";
+              submission.snapshot_ciphertext = ciphertext;
+              submission.snapshot_iv = iv;
+              submission.snapshot_key_version = keyVersion;
+            }
           }
           return { meta: { changes: 1 } };
         }
@@ -945,7 +975,7 @@ test("customer cannot enumerate or read shared project script drafts", async () 
   assert.equal(JSON.stringify(body).includes("source"), false);
 });
 
-test("reviewer can list submission metadata without receiving draft source", async () => {
+test("reviewer can list script metadata without receiving draft source", async () => {
   const reviewer = { ...ownerSession, role: "REVIEWER", user_id: "reviewer-user" };
   const { env, scripts, queries } = createProjectDraftEnv({ session: reviewer });
   const response = await worker.fetch(
@@ -1070,4 +1100,69 @@ test("tampered encrypted review submission fails integrity verification", async 
 
   assert.equal(listed.status, 500);
   assert.equal(body.error, "project_data_integrity_failed");
+});
+
+
+test("Owner migration encrypts existing plaintext project source and submission snapshots", async () => {
+  const { env, scripts, submissions } = createProjectDraftEnv();
+  const legacySource = "tap(555, 666)\nwait(100)";
+  const legacySnapshot = JSON.stringify({
+    id: "script-legacy",
+    name: "Legacy",
+    source: legacySource,
+    languageVersion: "0.1",
+    revision: 2
+  });
+  scripts.push({
+    id: "script-legacy",
+    project_id: PROJECT_TEST_ID,
+    name: "Legacy",
+    source: legacySource,
+    language_version: "0.1",
+    revision: 2,
+    created_by: ownerSession.user_id,
+    updated_by: ownerSession.user_id,
+    created_at: 1,
+    updated_at: 1,
+    source_ciphertext: null,
+    source_iv: null,
+    source_key_version: null
+  });
+  submissions.push({
+    id: "submission-legacy",
+    project_id: PROJECT_TEST_ID,
+    kind: "SCRIPT",
+    item_id: "script-legacy",
+    revision: 2,
+    submitted_snapshot: legacySnapshot,
+    submitted_by: ownerSession.user_id,
+    status: "PENDING",
+    review_note: "",
+    reviewed_by: null,
+    created_at: 1,
+    reviewed_at: null,
+    snapshot_ciphertext: null,
+    snapshot_iv: null,
+    snapshot_key_version: null
+  });
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/security/migrate-project-data", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${"Y".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.migratedDrafts, 1);
+  assert.equal(body.migratedSubmissions, 1);
+  assert.equal(body.remainingDrafts, 0);
+  assert.equal(body.remainingSubmissions, 0);
+  assert.equal(body.complete, true);
+  assert.equal(scripts[0].source, "");
+  assert.ok(scripts[0].source_ciphertext);
+  assert.equal(submissions[0].submitted_snapshot, "");
+  assert.ok(submissions[0].snapshot_ciphertext);
 });
