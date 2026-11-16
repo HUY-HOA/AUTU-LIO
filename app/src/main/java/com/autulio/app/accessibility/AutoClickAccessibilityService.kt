@@ -88,6 +88,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     override fun onInterrupt() {
+        closeParameterEditor()
         executionEngine?.stop()
     }
 
@@ -783,6 +784,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val stopping = state == ScriptExecutionState.STOPPING
         parameters.isEnabled = running || paused
         parameters.alpha = if (parameters.isEnabled) 1f else 0.45f
+        parameters.visibility = if (collapsed) View.GONE else View.VISIBLE
         primary.text = if (running) "Ⅱ" else "▶"
         primary.contentDescription = when {
             running -> "Tạm dừng kịch bản"
