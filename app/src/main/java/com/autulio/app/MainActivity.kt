@@ -1504,7 +1504,7 @@ class ScriptEditorActivity : ComponentActivity() {
                                         )
                                     }
                                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                } else if (service.prepareProgram(compilation.program!!)) {
+                                } else if (service.prepareProgram(compilation.program!!, scriptName, namespace)) {
                                     scope.launch {
                                         host.showSnackbar(
                                             tr(
@@ -1527,5 +1527,10 @@ class ScriptEditorActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        if (isFinishing) AutoClickAccessibilityService.current()?.restoreRunnerWindow()
+        super.onDestroy()
     }
 }
