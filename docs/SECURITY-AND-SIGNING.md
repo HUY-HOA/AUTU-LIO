@@ -79,7 +79,7 @@ Các cột `source_ciphertext/source_iv/source_encrypted_data_key/source_key_iv/
 
 Khóa dự án độc lập với khóa package: `PROJECT_DRAFT_MASTER_KEY_V1` là Worker Secret 32 byte ngẫu nhiên, không có trong APK, Git hay D1. Biến `PROJECT_DRAFT_MASTER_KEY_VERSION` chọn version đang hoạt động. Giữ lại mọi version cũ cho đến khi không còn bản ghi nào tham chiếu tới. Không xoay khóa bằng cách thay secret tại cùng một version.
 
-Sau khi áp dụng cả các migration 0004 và 0005 và 0005 rồi deploy Worker, OWNER gọi `POST /api/admin/security/migrate-project-data` lặp lại đến khi `complete=true`. Mỗi lần xử lý tối đa 50 bản nháp và 50 snapshot. Endpoint kiểm tra role OWNER; các bản ghi cũ cũng được chuyển đổi lười khi được đọc hợp lệ. Nếu secret thiếu, thao tác mã hóa mới fail closed thay vì ghi thêm plaintext.
+Sau khi áp dụng các migration 0004 và 0005 rồi deploy Worker, OWNER gọi `POST /api/admin/security/migrate-project-data` lặp lại đến khi `complete=true`. Mỗi lần xử lý tối đa 50 bản nháp và 50 snapshot. Endpoint kiểm tra role OWNER; các bản ghi cũ cũng được chuyển đổi lười khi được đọc hợp lệ. Nếu secret thiếu, thao tác mã hóa mới fail closed thay vì ghi thêm plaintext.
 
 Worker chỉ giải mã source khi quyền dự án và `EDIT_SCRIPTS` hợp lệ. REVIEWER không có `EDIT_SCRIPTS` chỉ nhận metadata; CUSTOMER không được truy cập dự án. Snapshot chỉ được giải mã sau khi kiểm tra quyền `REVIEW_RELEASE`.
 
