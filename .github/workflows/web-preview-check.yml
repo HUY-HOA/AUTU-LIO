@@ -1,0 +1,35 @@
+name: AUTU-LIO Web Preview Check
+
+on:
+  push:
+    branches:
+      - preview/web-live
+    paths:
+      - "web-preview/**"
+      - ".github/workflows/web-preview-check.yml"
+  pull_request:
+    paths:
+      - "web-preview/**"
+      - ".github/workflows/web-preview-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax
+        run: node --check web-preview/app.js
+      - name: Check required preview files
+        run: |
+          test -s web-preview/index.html
+          test -s web-preview/styles.css
+          test -s web-preview/app.js
