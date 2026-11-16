@@ -246,7 +246,7 @@ function collaboratorProjects(){
 }
 function editorScreen(){
  return brandHeader(true)+button("← Quay lại","editor-back","outline")+
-  heading(state.editorName||"Kịch bản mới","Bản nháp · Lưu trên thiết bị")+
+  heading(state.editorName||"Kịch bản mới","Bản nháp · Lưu trên thiết bị · AUTU-LIO Script 0.3")+
   '<p class="muted">Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. Android hiện có ScriptCompiler và trình soạn thảo riêng.</p>'+
   '<div class="actions two">'+button("Mẫu có sẵn","show-templates","outline")+button("Hướng dẫn","show-guide","outline")+'</div>'+
   '<div class="field"><label>Mã nguồn</label><textarea id="editor-source" placeholder="Nhập mã kịch bản hoặc chọn một mẫu...">'+esc(state.editorSource)+'</textarea></div>'+
