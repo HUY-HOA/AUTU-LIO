@@ -71,8 +71,15 @@ jobs:
           AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == refs/heads/build-requests/debug-* ]]; then
-            REQUESTED_BUILD_VARIANT="debug"
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if [[ "$GITHUB_REF" == refs/heads/build-requests/debug-* ]]; then
+              REQUESTED_BUILD_VARIANT="debug"
+            elif [[ "$GITHUB_REF" == refs/heads/build-requests/release-* ]]; then
+              REQUESTED_BUILD_VARIANT="release"
+            else
+              echo "::error::Build request branch must start with build-requests/release- or build-requests/debug-."
+              exit 1
+            fi
           fi
           values=(
             "$AUTU_LIO_RELEASE_KEYSTORE_BASE64"
