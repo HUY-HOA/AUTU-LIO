@@ -734,3 +734,211 @@ test("audit log endpoint rejects an invalid or excessive limit", async () => {
   assert.equal((await json(response)).error, "invalid_audit_limit");
   assert.equal(queries.some(sql => sql.includes("FROM audit_logs")), false);
 });
+
+
+const PROJECT_TEST_ID = "11111111-1111-4111-8111-111111111111";
+
+function createProjectDraftEnv({ session = ownerSession } = {}) {
+  const scripts = [];
+  const queries = [];
+  const project = {
+    id: PROJECT_TEST_ID,
+    name: "Protected project",
+    description: "",
+    status: "ACTIVE",
+    created_by: ownerSession.user_id,
+    created_at: 1,
+    updated_at: 1
+  };
+  const key = crypto.getRandomValues(new Uint8Array(32));
+  const masterKey = Buffer.from(key).toString("base64url");
+  key.fill(0);
+
+  const DB = {
+    prepare(sql) {
+      queries.push(sql);
+      const statement = {
+        values: [],
+        bind(...values) {
+          this.values = values;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM sessions s JOIN users u")) return session;
+          if (sql.includes("FROM projects WHERE id = ?")) return project;
+          if (sql.includes("FROM project_memberships")) return { allowed: 1 };
+          if (sql.includes("FROM permission_overrides")) return null;
+          return null;
+        },
+        async all() {
+          if (sql.includes("FROM audit_logs")) return { results: [] };
+          if (sql.includes("FROM script_drafts")) {
+            if (sql.includes("source_ciphertext")) {
+              return { results: scripts.map(item => ({ ...item })) };
+            }
+            return {
+              results: scripts.map(item => ({
+                id: item.id,
+                name: item.name,
+                language_version: item.language_version,
+                revision: item.revision,
+                created_by: item.created_by,
+                updated_by: item.updated_by,
+                created_at: item.created_at,
+                updated_at: item.updated_at
+              }))
+            };
+          }
+          return { results: [] };
+        },
+        async run() {
+          if (sql.startsWith("INSERT INTO script_drafts")) {
+            const [
+              id, projectId, name, languageVersion, createdBy, updatedBy,
+              createdAt, updatedAt, sourceCiphertext, sourceIv, sourceKeyVersion
+            ] = this.values;
+            scripts.push({
+              id,
+              project_id: projectId,
+              name,
+              source: "",
+              language_version: languageVersion,
+              revision: 1,
+              created_by: createdBy,
+              updated_by: updatedBy,
+              created_at: createdAt,
+              updated_at: updatedAt,
+              source_ciphertext: sourceCiphertext,
+              source_iv: sourceIv,
+              source_key_version: sourceKeyVersion
+            });
+          }
+          return { meta: { changes: 1 } };
+        }
+      };
+      return statement;
+    },
+    async batch() {
+      return [];
+    }
+  };
+  return {
+    env: {
+      DB,
+      PROJECT_DRAFT_MASTER_KEY_VERSION: "V1",
+      PROJECT_DRAFT_MASTER_KEY_V1: masterKey
+    },
+    scripts,
+    queries
+  };
+}
+
+test("shared project script source is encrypted in D1 and returned only after permission checks", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"P".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const source = "tap(321, 654)\nwait(500)";
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Protected script", source, languageVersion: "0.1" })
+    }),
+    env
+  );
+  const createdBody = await json(created);
+
+  assert.equal(created.status, 201);
+  assert.equal(createdBody.script.source, source);
+  assert.equal(scripts.length, 1);
+  assert.equal(scripts[0].source, "");
+  assert.ok(scripts[0].source_ciphertext);
+  assert.notEqual(scripts[0].source_ciphertext, source);
+  assert.equal(scripts[0].source_ciphertext.includes("tap(321"), false);
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, { headers }),
+    env
+  );
+  const listedBody = await json(listed);
+
+  assert.equal(listed.status, 200);
+  assert.equal(listedBody.scripts[0].source, source);
+  assert.equal(Object.hasOwn(listedBody.scripts[0], "source_ciphertext"), false);
+});
+
+test("tampered encrypted project source fails integrity verification", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"Q".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Tamper test", source: "tap(1, 2)", languageVersion: "0.1" })
+    }),
+    env
+  );
+  assert.equal(created.status, 201);
+  scripts[0].source_ciphertext = scripts[0].source_ciphertext.slice(0, -1) + "A";
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, { headers }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 500);
+  assert.equal(body.error, "project_data_integrity_failed");
+});
+
+test("customer cannot enumerate or read shared project script drafts", async () => {
+  const { env } = createProjectDraftEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      headers: { Authorization: `Bearer ${"R".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 404);
+  assert.equal(body.error, "project_not_found");
+  assert.equal(JSON.stringify(body).includes("source"), false);
+});
+
+test("reviewer can list submission metadata without receiving draft source", async () => {
+  const reviewer = { ...ownerSession, role: "REVIEWER", user_id: "reviewer-user" };
+  const { env, scripts, queries } = createProjectDraftEnv({ session: reviewer });
+  const response = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      headers: { Authorization: `Bearer ${"S".repeat(48)}` }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await json(response);
+  assert.equal(JSON.stringify(body).includes("source"), false);
+  assert.equal(queries.some(sql => sql.includes("source_ciphertext")), false);
+  assert.equal(scripts.length, 0);
+});
+
+test("customer cannot trigger owner-only legacy project encryption migration", async () => {
+  const { env } = createProjectDraftEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/security/migrate-project-data", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${"T".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 403);
+  assert.equal(body.error, "insufficient_permissions");
+});
