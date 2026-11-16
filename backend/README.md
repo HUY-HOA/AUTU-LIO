@@ -17,7 +17,7 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Owner-managed project roster; only active Developer, Designer and Reviewer accounts can be added.
 - UI design drafts store title, subtitle, button label, accent color and selected components as JSON; Android provides a form editor and live preview.
 - Server-backed script drafts and UI design drafts with revision checks to prevent silent overwrites.
-- Script draft source and immutable review snapshots are encrypted with AES-256-GCM before D1 writes; project, item, revision and key version are authenticated as AAD.
+- Script draft source and immutable review snapshots are envelope-encrypted before D1 writes: each record uses a fresh random AES-256-GCM data key, and the versioned Worker master key wraps that data key with AES-GCM. Project, item, revision and key version are authenticated as AAD.
 - Owner-only, batched migration endpoint converts legacy plaintext script drafts and submission snapshots to encrypted rows.
 - D1 schema migrations and local migration validation.
 - Owner-only publication of immutable AUTU package versions.
@@ -36,7 +36,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001_identity_and_collaborators.sql`, `0002_single_owner.sql`, and `0003_shared_project_workspaces.sql` were applied to the connected D1 database. Migration `0004_encrypt_project_source.sql` adds ciphertext, nonce and key-version columns for shared script drafts and review snapshots; it remains pending until applied remotely. Run `wrangler d1 migrations list autu_lio_auth` and apply the pending migration before deploying this Worker version. Keep every SQL migration in source control as the schema history.
+Migrations `0001_identity_and_collaborators.sql`, `0002_single_owner.sql`, and `0003_shared_project_workspaces.sql` were applied to the connected D1 database. Migrations `0004_encrypt_project_source.sql` and `0005_project_data_envelope_keys.sql` add ciphertext, nonce, wrapped per-record data-key and key-version columns for shared script drafts and review snapshots; they remain pending until applied remotely. Run `wrangler d1 migrations list autu_lio_auth` and apply both pending migrations before deploying this Worker version. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
@@ -72,7 +72,7 @@ From this directory:
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
 
-The repository contains Worker source and D1 binding configuration. Check the live database with `wrangler d1 migrations list` and apply all pending migrations, including `0004_encrypt_project_source.sql`, before deploying. The Worker has not been deployed and Google OAuth has not been configured, so live sign-in and package delivery are not yet active. Package APIs fail closed until `PACKAGE_MASTER_KEY_V1` is configured; shared script draft writes and review submission creation fail closed until `PROJECT_DRAFT_MASTER_KEY_V1` is configured. Existing plaintext draft data is not automatically migrated by a Git commit: after deploying the new Worker and applying migration 0004, an OWNER must call `POST /api/admin/security/migrate-project-data` repeatedly until the response says `complete: true`. Read operations also migrate individual legacy records when they are first accessed.
+The repository contains Worker source and D1 binding configuration. Check the live database with `wrangler d1 migrations list` and apply all pending migrations, including `0004_encrypt_project_source.sql` and `0005_project_data_envelope_keys.sql`, before deploying. The Worker has not been deployed and Google OAuth has not been configured, so live sign-in and package delivery are not yet active. Package APIs fail closed until `PACKAGE_MASTER_KEY_V1` is configured; shared script draft writes and review submission creation fail closed until `PROJECT_DRAFT_MASTER_KEY_V1` is configured. Existing plaintext draft data is not automatically migrated by a Git commit: after deploying the new Worker and applying migration 0004, an OWNER must call `POST /api/admin/security/migrate-project-data` repeatedly until the response says `complete: true`. Read operations also migrate individual legacy records when they are first accessed.
 
 ## API
 
@@ -138,7 +138,7 @@ RSA-OAEP SHA-1/MGF1-SHA1 is used only to wrap the 32-byte AES data key for compa
 - `GET /api/projects/:projectId/submissions` — list submissions; requires `REVIEW_RELEASE`
 - `PATCH /api/projects/:projectId/submissions/:submissionId` — approve/reject a pending submission; requires `REVIEW_RELEASE` and forbids self-review
 
-Shared script source and review snapshots are AES-256-GCM encrypted in D1 with fresh 96-bit nonces and AAD binding the record to its project, ID, revision and key version. UI JSON remains design metadata, not AUTU script source. Script source and UI JSON are size-limited. Every project API checks project membership and the relevant account permission. Script and UI updates use expected revisions, returning HTTP 409 when another collaborator has saved a newer revision. Submission records keep the submitted snapshot even if the draft is edited later.
+Shared script source and review snapshots use envelope encryption in D1: fresh random 256-bit per-record data keys encrypt content with AES-256-GCM and 96-bit nonces; the Worker master key separately wraps each data key with AES-256-GCM and its own 96-bit nonce. AAD binds both operations to the purpose, project, record ID, revision and key version. UI JSON remains design metadata, not AUTU script source. Script source and UI JSON are size-limited. Every project API checks project membership and the relevant account permission. Script and UI updates use expected revisions, returning HTTP 409 when another collaborator has saved a newer revision. Submission records keep the submitted snapshot even if the draft is edited later.
 
 The permission API returns only permissions configurable for the selected role. The Worker rejects permissions outside that role's allowlist. A role change clears previous overrides to avoid carrying permissions into an incompatible role.
 
