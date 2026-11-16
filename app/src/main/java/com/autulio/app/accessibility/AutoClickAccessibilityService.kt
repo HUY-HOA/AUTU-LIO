@@ -427,7 +427,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             val input = EditText(this).apply {
                 setText(valueText)
                 textSize = 12f
-                singleLine = true
+                setSingleLine(true)
                 setTextColor(0xFFF1F5F9.toInt())
                 setPadding(dp(7), 0, dp(7), 0)
                 filters = arrayOf(InputFilter.LengthFilter(4_096))
