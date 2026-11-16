@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const state = { role:null, page:"", theme:"dark", editorSource:"", selectedTemplate:"", toastTimer:null };
+const state = { role:null, page:"", theme:"dark", editorSource:"", selectedTemplate:"", toastTimer:null, scriptFilter:"all", scriptQuery:"", libraryCategory:"all", libraryQuery:"" };
 const roles = {
   owner:{label:"Chủ sở hữu",subtitle:"Quản trị ứng dụng, kịch bản và quyền sử dụng",icon:"⌂"},
   developer:{label:"Nhà phát triển",subtitle:"Workspace mã và dự án được phân công",icon:"⌘"},
@@ -60,6 +60,11 @@ function renderShell(){
  if(tabs){$("bottom-nav").classList.remove("hidden");$("bottom-nav").innerHTML=navMarkup(tabs);}
  else {$("bottom-nav").classList.add("hidden");$("bottom-nav").innerHTML="";}
 }
+function scriptListEmpty(){
+ if((state.scriptQuery||"").trim())return unavailable("Không tìm thấy kịch bản phù hợp","Không có bản nháp Android nào được chia sẻ sang trình duyệt.");
+ if(state.scriptFilter==="published")return unavailable("Chưa có kịch bản phát hành","Các kịch bản đã phát hành sẽ xuất hiện tại đây sau khi được kết nối.");
+ return unavailable("Chưa có kịch bản nào hiển thị","Tạo kịch bản đầu tiên trong APK Android để bắt đầu. Các bản nháp đã lưu trên điện thoại không được đọc từ Web.");
+}
 function renderOwner(){
  switch(state.page){
  case "overview":
@@ -68,10 +73,12 @@ function renderOwner(){
    '<div class="grid"><div class="metric"><small>Khách hàng</small><strong>—</strong></div><div class="metric"><small>Thiết bị</small><strong>—</strong></div><div class="metric"><small>Giấy phép hoạt động</small><strong>—</strong></div><div class="metric"><small>Gói AUTU hoạt động</small><strong>—</strong></div></div>'+
    card("Truy cập nhanh",'<div class="action-list">'+actionRow("＋","Tạo AUTU","Mở danh sách kịch bản để tạo mới","scripts")+actionRow("▤","Kịch bản","Mở các bản nháp được lưu trên thiết bị","scripts")+actionRow("♙","Khách hàng","Quản lý tài khoản khách hàng","customers")+actionRow("▣","Thiết bị","Quản lý thiết bị Android đã đăng ký","devices")+actionRow("✓","Giấy phép","Cấp, gia hạn hoặc thu hồi quyền","licenses")+actionRow("⇧","Phát hành gói","Quản lý gói AUTU","packages")+'</div>');
  case "scripts":
-  return heading("OWNER · KỊCH BẢN","Kịch bản","Tạo kịch bản, mở trình soạn thảo và quản lý bản nháp AUTU.")+
-   '<div class="status-note blue">Android lưu bản nháp cục bộ bằng SecureScriptDraftStore. Bản Web không thể đọc các bản nháp đã mã hóa bên trong điện thoại.</div>'+
-   card("Bản nháp trên thiết bị",'<div class="empty-state"><div class="empty-icon">▤</div><strong>Không có bản nháp Android hiển thị ở đây</strong><p>Hãy mở mục Kịch bản trong APK để xem dữ liệu thực đang lưu trên thiết bị.</p></div>')+
-   '<div class="btn-row"><button class="btn primary" data-page="editor">＋ Xem giao diện tạo AUTU</button><button class="btn" data-page="library">Mẫu có sẵn</button></div>';
+  return heading("OWNER · KỊCH BẢN","Kịch bản","Tạo, tìm kiếm và quản lý các bản nháp AUTU.")+
+   '<div class="btn-row"><button class="btn primary full" data-page="editor">＋ Thêm AUTU</button></div>'+
+   '<label class="field"><span>Tìm kiếm kịch bản</span><input id="script-search" value="'+esc(state.scriptQuery||"")+'" placeholder="Tìm kiếm kịch bản"></label>'+
+   '<div class="color-row" style="margin:8px 0 12px">'+[["all","Tất cả"],["draft","Bản nháp"],["published","Đã phát hành"]].map(x=>'<button class="color-chip" data-script-filter="'+x[0]+'" style="'+(state.scriptFilter===x[0]?'border-color:var(--blue);color:#a9c7ff':'')+'">'+x[1]+'</button>').join("")+'</div>'+
+   '<div class="status-note blue">Bản nháp được lưu trên thiết bị Android này; chưa đồng bộ máy chủ. Web không truy cập được dữ liệu đã mã hóa trong điện thoại.</div>'+
+   '<div id="script-list">'+scriptListEmpty()+'</div>'; 
  case "customers":
   return heading("OWNER · KHÁCH HÀNG","Khách hàng","Theo dõi tài khoản, giấy phép và quyền sử dụng.")+
    unavailable("Chưa có phiên đăng nhập thật","Màn hình Android lấy danh sách từ Auth API. Bản Debug xem thử đang dùng accessToken = null nên không có dữ liệu khách hàng trực tiếp.");
@@ -95,8 +102,10 @@ function renderOwner(){
    unavailable("Chưa có phiên đăng nhập thật","Danh sách gói đã phát hành chỉ hiển thị sau khi kết nối API và xác thực Owner.");
  case "settings": return heading("OWNER · CÀI ĐẶT","Cài đặt","Giao diện, bảo mật và kết nối máy chủ.")+
    card("Giao diện",'<div class="btn-row"><button class="btn" data-action="theme">◐ Chuyển giao diện sáng / tối</button></div>')+
+   card("Thông tin ứng dụng",'<p>AUTU-LIO · 0.1.0</p>')+
    card("Bảo mật",'<p>Vai trò và quyền được xác minh từ máy chủ. Bản Debug có bộ chọn xem trước; bộ chọn này không cấp quyền Admin ở bản phát hành.</p>')+
-   card("Kết nối máy chủ",'<div class="status-note">Chưa có phiên đăng nhập thật. Kiểm tra máy chủ trong Web không xác minh được phiên trên Android.</div>');
+   card("Kết nối máy chủ",'<div class="status-note">Chưa có phiên đăng nhập thật. Kiểm tra máy chủ trong Web không xác minh được phiên trên Android.</div>')+
+   '<div class="btn-row"><button class="btn" data-action="back-roles">Đăng xuất / Quay lại chọn vai trò</button></div>';
  default:return heading("OWNER","Màn hình chưa chọn","Chọn mục từ thanh điều hướng.");
  }
 }
@@ -124,7 +133,7 @@ function libraryCards(){
  const query=(state.libraryQuery||"").trim().toLocaleLowerCase("vi");
  const list=templates.map((t,i)=>({t,i,cat:categoryMap[i]})).filter(x=>(state.libraryCategory==="all"||x.cat===state.libraryCategory)&&(!query||x.t.join(" ").toLocaleLowerCase("vi").includes(query)));
  if(!list.length)return '<div class="empty-state"><div class="empty-icon">⌕</div><strong>Không tìm thấy mẫu phù hợp</strong><p>Thử từ khóa hoặc nhóm khác.</p></div>';
- return list.map(x=>'<div class="template"><div class="card-head"><strong>'+esc(x.t[0])+'</strong><span class="pill info">AUTU Script 0.1</span></div><small>'+esc(x.t[1])+'</small><pre style="white-space:pre-wrap;color:#a8c9ff;font:11px/1.5 ui-monospace,monospace;margin:10px 0">'+esc(x.t[2])+'</pre><button class="btn primary full" data-template-library="'+x.i+'">Mở và chỉnh sửa mẫu</button></div>').join("");
+ return list.map(x=>'<div class="template"><div class="card-head"><strong>'+esc(x.t[0])+'</strong><span class="pill info">Mẫu có sẵn</span></div><small>'+esc(x.t[1])+'</small><pre style="white-space:pre-wrap;color:#a8c9ff;font:11px/1.5 ui-monospace,monospace;margin:10px 0">'+esc(x.t[2])+'</pre><button class="btn primary full" data-template-library="'+x.i+'">Mở và chỉnh sửa mẫu</button></div>').join("");
 }
 function renderLibrary(){
  state.libraryCategory=state.libraryCategory||"all";
@@ -198,8 +207,11 @@ document.addEventListener("click",event=>{
  if(action){
   if(action.dataset.action==="theme")toggleTheme();
   else if(action.dataset.action==="check-code")notify("Kiểm tra cú pháp thật dùng ScriptCompiler trong APK Android.");
+  else if(action.dataset.action==="back-roles"){state.role=null;state.page="";render();}
   return;
  }
+ const scriptFilter=event.target.closest("[data-script-filter]");
+ if(scriptFilter){state.scriptFilter=scriptFilter.dataset.scriptFilter;render();return;}
  const category=event.target.closest("[data-category]");
  if(category){state.libraryCategory=category.dataset.category;render();return;}
  const libraryTemplate=event.target.closest("[data-template-library]");
@@ -211,5 +223,5 @@ document.addEventListener("click",event=>{
 });
 $("back-to-roles").addEventListener("click",()=>{state.role=null;state.page="";render();});
 $("theme-toggle").addEventListener("click",toggleTheme);
-$("screen").addEventListener("input",event=>{if(event.target.id==="editor-source")state.editorSource=event.target.value;if(event.target.id==="library-search"){state.libraryQuery=event.target.value;const list=$("library-results");if(list)list.innerHTML=libraryCards();}});
+$("screen").addEventListener("input",event=>{if(event.target.id==="editor-source")state.editorSource=event.target.value;if(event.target.id==="library-search"){state.libraryQuery=event.target.value;const list=$("library-results");if(list)list.innerHTML=libraryCards();}if(event.target.id==="script-search"){state.scriptQuery=event.target.value;const list=$("script-list");if(list)list.innerHTML=scriptListEmpty();}});
 render();
