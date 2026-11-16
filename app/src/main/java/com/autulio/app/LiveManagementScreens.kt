@@ -941,7 +941,7 @@ internal fun CustomerPackagesScreen(
                                             "The package was downloaded and verified. Enable AUTU-LIO under Settings > Accessibility, return here and tap Prepare to run again."
                                         )
                                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                    } else if (service.prepareProgram(compilation.program)) {
+                                    } else if (service.prepareProgram(compilation.program, item.name, "customer")) {
                                         notice = tr(
                                             "Đã giải mã, kiểm tra toàn vẹn và chuẩn bị AUTU. Chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.",
                                             "AUTU was decrypted, integrity-checked and prepared. Switch to the target app and press Run on the floating controller."
