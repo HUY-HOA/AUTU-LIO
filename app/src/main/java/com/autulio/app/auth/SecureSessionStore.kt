@@ -20,7 +20,7 @@ class SecureSessionStore(context: Context) {
     fun save(accessToken: String) {
         require(accessToken.isNotBlank())
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey(CURRENT_KEY_ALIAS))
         cipher.updateAAD(SESSION_AAD)
         val plainBytes = accessToken.toByteArray(Charsets.UTF_8)
         try {
@@ -67,22 +67,39 @@ class SecureSessionStore(context: Context) {
         }
 
         val token = try {
-            decrypt(encrypted, iv, useAad = useAad)
+            decrypt(
+                encrypted,
+                iv,
+                useAad = useAad,
+                keyAlias = if (useAad) CURRENT_KEY_ALIAS else LEGACY_KEY_ALIAS
+            )
         } catch (_: Exception) {
             clear()
             return null
         }
         if (!useAad) {
-            runCatching { save(token) }
+            try {
+                save(token)
+                deleteKey(LEGACY_KEY_ALIAS)
+            } catch (_: Exception) {
+                clear()
+                runCatching { deleteKey(LEGACY_KEY_ALIAS) }
+                return null
+            }
         }
         return token
     }
 
-    private fun decrypt(encrypted: ByteArray, iv: ByteArray, useAad: Boolean): String {
+    private fun decrypt(
+        encrypted: ByteArray,
+        iv: ByteArray,
+        useAad: Boolean,
+        keyAlias: String
+    ): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(
             Cipher.DECRYPT_MODE,
-            getOrCreateKey(),
+            getOrCreateKey(keyAlias),
             GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv)
         )
         if (useAad) cipher.updateAAD(SESSION_AAD)
@@ -99,13 +116,13 @@ class SecureSessionStore(context: Context) {
         preferences.edit().clear().apply()
     }
 
-    private fun getOrCreateKey(): SecretKey {
+    private fun getOrCreateKey(keyAlias: String): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
-        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        (keyStore.getKey(keyAlias, null) as? SecretKey)?.let { return it }
 
         fun generateKey(preferStrongBox: Boolean): SecretKey {
             val builder = KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
+                keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -131,9 +148,15 @@ class SecureSessionStore(context: Context) {
         return generateKey(preferStrongBox = false)
     }
 
+    private fun deleteKey(keyAlias: String) {
+        val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
+        if (keyStore.containsAlias(keyAlias)) keyStore.deleteEntry(keyAlias)
+    }
+
     private companion object {
         const val ANDROID_KEY_STORE = "AndroidKeyStore"
-        const val KEY_ALIAS = "autulio_session_aes_gcm_v1"
+        const val LEGACY_KEY_ALIAS = "autulio_session_aes_gcm_v1"
+        const val CURRENT_KEY_ALIAS = "autulio_session_aes_gcm_v2"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val GCM_TAG_LENGTH_BITS = 128
         const val GCM_IV_LENGTH_BYTES = 12
