@@ -1,6 +1,7 @@
 package com.autulio.app.auth
 
 import android.content.Context
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -26,26 +27,42 @@ class SecureDeviceIdentityStore(context: Context) {
     fun getOrCreate(): DeviceIdentity {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         if (!keyStore.containsAlias(KEY_ALIAS)) {
-            val generator = KeyPairGenerator.getInstance(
-                KeyProperties.KEY_ALGORITHM_RSA,
-                ANDROID_KEYSTORE
-            )
-            val spec = KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
-                KeyProperties.PURPOSE_DECRYPT or KeyProperties.PURPOSE_SIGN
-            )
-                .setKeySize(3072)
-                .setDigests(
-                    KeyProperties.DIGEST_SHA256,
-                    KeyProperties.DIGEST_SHA1
+            fun generateKeyPair(preferStrongBox: Boolean) {
+                val builder = KeyGenParameterSpec.Builder(
+                    KEY_ALIAS,
+                    KeyProperties.PURPOSE_DECRYPT or KeyProperties.PURPOSE_SIGN
                 )
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
-                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-                .setRandomizedEncryptionRequired(true)
-                .setUserAuthenticationRequired(false)
-                .build()
-            generator.initialize(spec)
-            generator.generateKeyPair()
+                    .setKeySize(3072)
+                    .setDigests(
+                        KeyProperties.DIGEST_SHA256,
+                        KeyProperties.DIGEST_SHA1
+                    )
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+                    .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                    .setRandomizedEncryptionRequired(true)
+                    .setUserAuthenticationRequired(false)
+                if (preferStrongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    builder.setIsStrongBoxBacked(true)
+                }
+                KeyPairGenerator.getInstance(
+                    KeyProperties.KEY_ALGORITHM_RSA,
+                    ANDROID_KEYSTORE
+                ).apply {
+                    initialize(builder.build())
+                }.generateKeyPair()
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                try {
+                    generateKeyPair(preferStrongBox = true)
+                } catch (_: Exception) {
+                    keyStore.load(null)
+                    if (keyStore.containsAlias(KEY_ALIAS)) keyStore.deleteEntry(KEY_ALIAS)
+                    generateKeyPair(preferStrongBox = false)
+                }
+            } else {
+                generateKeyPair(preferStrongBox = false)
+            }
         }
 
         val publicKey: PublicKey = keyStore.getCertificate(KEY_ALIAS)?.publicKey
