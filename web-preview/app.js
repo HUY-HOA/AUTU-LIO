@@ -15,6 +15,8 @@ const moreItems = [
   ["licenses","Giấy phép","Cấp, gia hạn và thu hồi quyền sử dụng","✓"],
   ["library","Thư viện mẫu AUTU","Quản lý và chọn mẫu AUTU có sẵn","▤"],
   ["packages","Gói AUTU","Mã hóa, phát hành phiên bản và phân phối AUTU","⌘"],
+  ["release","Phát hành","Quản lý phiên bản và phân phối","⇧"],
+  ["logs","Nhật ký","Theo dõi sự kiện và lỗi hệ thống","◷"],
   ["settings","Cài đặt","Giao diện, bảo mật và kết nối máy chủ","⚙"]
 ];
 const templates = [
@@ -81,10 +83,13 @@ function renderOwner(){
    '<div class="action-list">'+moreItems.map(x=>actionRow(x[3],x[1],x[2],x[0])).join("")+'</div>'+
    card("Giao diện và tài khoản",'<div class="action-list">'+actionRow("◐","Chuyển giao diện sáng / tối","Đổi màu giao diện của bản Web xem trước","theme")+'</div><div class="status-note blue">Đăng xuất thật cần phiên Google đã xác thực. Bản xem thử không tạo tài khoản hoặc phiên đăng nhập.</div>');
  case "editor": return renderEditor();
- case "library": return renderTemplates();
+ case "library": return renderLibrary();
+ case "script-templates": return renderScriptTemplates();
  case "collaborators": return heading("OWNER · CỘNG TÁC VIÊN","Cộng tác viên","Mời và phân quyền nhà phát triển, nhà thiết kế và người kiểm duyệt.")+unavailable("Chưa kết nối phiên máy chủ","Giao diện và API quản lý cộng tác viên có trong mã Android. Cần đăng nhập thật và cấu hình Auth API để đọc hoặc thay đổi dữ liệu.");
  case "projects": return heading("OWNER · DỰ ÁN","Dự án cộng tác","Tạo dự án và thêm các cộng tác viên đã được mời.")+unavailable("Chưa có dự án trực tuyến","Workspace dự án lưu dữ liệu qua Worker/D1. Bản Web này chưa đăng nhập và không đọc D1.");
  case "licenses": return heading("OWNER · GIẤY PHÉP","Giấy phép","Cấp, gia hạn và thu hồi quyền sử dụng.")+unavailable("Chưa có dữ liệu giấy phép","Màn hình Android cần phiên xác thực và phản hồi từ máy chủ. Không hiển thị bản ghi minh họa.");
+ case "release": return heading("OWNER · PHÁT HÀNH","Phát hành","Quản lý phiên bản và phân phối gói AUTU.")+card("Quy trình phát hành",'<p>Kiểm tra · Tăng phiên bản · Ghi chú · Chọn kênh · Xác nhận · Phân phối.</p>')+unavailable("Chưa có bản phát hành","Chỉ phát hành khi gói đã được kiểm tra và ký xác thực.");
+ case "logs": return heading("OWNER · NHẬT KÝ","Nhật ký","Theo dõi sự kiện và lỗi hệ thống.")+unavailable("Cần đăng nhập OWNER","Nhật ký được tải từ máy chủ theo tài khoản Owner.");
  case "packages": return heading("OWNER · GÓI AUTU","Gói AUTU","Quản lý bản nháp, mã hóa và phát hành phiên bản AUTU.")+
    '<div class="status-note blue">Mã Android có màn hình quản lý gói và quy trình phát hành. Bản Web không tạo, mã hóa, ký hoặc phân phối package thật.</div>'+
    unavailable("Chưa có phiên đăng nhập thật","Danh sách gói đã phát hành chỉ hiển thị sau khi kết nối API và xác thực Owner.");
@@ -99,11 +104,11 @@ function renderEditor(){
  return heading("AUTU SCRIPT EDITOR","Trình soạn thảo AUTU","Màn hình riêng để viết mã, chọn mẫu, kiểm tra cú pháp và chuẩn bị chạy.")+
   '<div class="status-note blue">Đây là bản phản chiếu. Compiler Kotlin ScriptCompiler và bộ thực thi Android không chạy bên trong trình duyệt này.</div>'+
   card("Mã nguồn",'<textarea id="editor-source" class="code-area" spellcheck="false" placeholder="Nhập mã kịch bản hoặc chọn một mẫu...">'+esc(state.editorSource)+'</textarea>'+
-  '<div class="btn-row"><button class="btn" data-page="library">Mẫu có sẵn</button><button class="btn" data-page="guide">Hướng dẫn</button></div>'+
+  '<div class="btn-row"><button class="btn" data-page="script-templates">Mẫu có sẵn</button><button class="btn" data-page="guide">Hướng dẫn</button></div>'+
   '<div class="btn-row"><button class="btn primary" data-action="check-code">✓ Kiểm tra mã</button><button class="btn" disabled>Chuẩn bị chạy · Chỉ trong Android</button></div>'+
   '<div class="status-note">Bản nháp Android được lưu trên thiết bị. Web không ghi vào SecureScriptDraftStore hoặc Android Keystore.</div>');
 }
-function renderTemplates(){
+function renderScriptTemplates(){
  return heading("AUTU SCRIPT · TEMPLATES","Mẫu có sẵn","Các mẫu được khai báo trong ScriptTemplateCatalog.kt.")+
  templates.map((t,i)=>'<div class="template"><div class="card-head"><strong>'+t[0]+'</strong><button class="btn" data-template="'+i+'">Dùng mẫu</button></div><small>'+t[1]+'</small><pre style="white-space:pre-wrap;color:#a8c9ff;font:11px/1.5 ui-monospace,monospace;margin:10px 0 0">'+esc(t[2])+'</pre></div>').join("")+
  '<div class="btn-row"><button class="btn" data-page="editor">← Quay lại trình soạn thảo</button></div>';
@@ -114,8 +119,27 @@ function renderGuide(){
   card("Các lệnh đang hỗ trợ",'<div class="action-list">'+commands.map(c=>'<div class="template"><strong>'+esc(c)+'</strong></div>').join("")+'</div>')+
   '<div class="btn-row"><button class="btn" data-page="editor">← Quay lại trình soạn thảo</button></div>';
 }
+function libraryCards(){
+ const categoryMap=["actions","actions","actions","actions","logic","logic","actions","logic","logic","logic","system","system","system","system","system","system","system","system"];
+ const query=(state.libraryQuery||"").trim().toLocaleLowerCase("vi");
+ const list=templates.map((t,i)=>({t,i,cat:categoryMap[i]})).filter(x=>(state.libraryCategory==="all"||x.cat===state.libraryCategory)&&(!query||x.t.join(" ").toLocaleLowerCase("vi").includes(query)));
+ if(!list.length)return '<div class="empty-state"><div class="empty-icon">⌕</div><strong>Không tìm thấy mẫu phù hợp</strong><p>Thử từ khóa hoặc nhóm khác.</p></div>';
+ return list.map(x=>'<div class="template"><div class="card-head"><strong>'+esc(x.t[0])+'</strong><span class="pill info">AUTU Script 0.1</span></div><small>'+esc(x.t[1])+'</small><pre style="white-space:pre-wrap;color:#a8c9ff;font:11px/1.5 ui-monospace,monospace;margin:10px 0">'+esc(x.t[2])+'</pre><button class="btn primary full" data-template-library="'+x.i+'">Mở và chỉnh sửa mẫu</button></div>').join("");
+}
+function renderLibrary(){
+ state.libraryCategory=state.libraryCategory||"all";
+ return heading("OWNER · THƯ VIỆN MẪU","Thư viện mẫu AUTU",templates.length+" mẫu lệnh có thể mở trực tiếp trong trình soạn thảo.")+
+  card("Tương thích AUTU Script 0.1",'<p>Mỗi mẫu được kiểm tra cú pháp trong mã Android trước khi đưa vào thư viện.</p>')+
+  '<label class="field"><span>Tìm theo tên, mô tả hoặc lệnh</span><input id="library-search" value="'+esc(state.libraryQuery||"")+'" placeholder="Tìm mẫu AUTU"></label>'+
+  '<div class="color-row" style="margin:10px 0 14px">'+[["all","Tất cả"],["actions","Thao tác"],["logic","Điều kiện và vòng lặp"],["system","Android"]].map(x=>'<button class="color-chip" data-category="'+x[0]+'" style="'+(state.libraryCategory===x[0]?'border-color:var(--blue);color:#a9c7ff':'')+'">'+x[1]+'</button>').join("")+'</div>'+
+  '<div class="eyebrow" style="margin:0 0 8px">MẪU CÓ SẴN</div><div id="library-results">'+libraryCards()+'</div>'+
+  '<div class="btn-row"><button class="btn" data-page="more">← Quay lại</button></div>';
+}
+
 function renderCollaborator(){
  if(state.page==="editor")return renderEditor();
+ if(state.page==="script-templates")return renderScriptTemplates();
+ if(state.page==="guide")return renderGuide();
  if(state.page==="projects")return heading("DỰ ÁN CỘNG TÁC","Dự án được phân công","Các dự án hiển thị theo membership và quyền tài khoản.")+unavailable("Chưa tải được dự án","Bản xem thử không có access token hoặc kết nối phiên Worker đang hoạt động.");
  if(state.role==="developer"){
   return heading("DEVELOPER WORKSPACE","Không gian Nhà phát triển","Soạn thảo kịch bản và làm việc trong dự án được giao.")+
@@ -162,7 +186,7 @@ function render(){
  if(state.role==="owner")$("screen").innerHTML=renderOwner();
  else if(state.role==="customer")$("screen").innerHTML=renderCustomer();
  else $("screen").innerHTML=renderCollaborator();
- const top=state.page==="overview"?"Tổng quan":state.page==="scripts"?"Kịch bản":state.page==="customers"?"Khách hàng":state.page==="devices"?"Thiết bị":state.page==="more"?"Thêm":state.page==="home"?"Trang chủ":state.page==="device"?"Thiết bị":state.page==="settings"?"Cài đặt":state.page==="editor"?"Trình soạn thảo":state.page==="library"?"Thư viện mẫu":state.page==="guide"?"Hướng dẫn":state.page==="projects"?"Dự án cộng tác":(moreItems.find(x=>x[0]===state.page)||[])[1]||roles[state.role].label;
+ const top=state.page==="overview"?"Tổng quan":state.page==="scripts"?"Kịch bản":state.page==="customers"?"Khách hàng":state.page==="devices"?"Thiết bị":state.page==="more"?"Thêm":state.page==="home"?"Trang chủ":state.page==="device"?"Thiết bị":state.page==="settings"?"Cài đặt":state.page==="editor"?"Trình soạn thảo":state.page==="script-templates"?"Mẫu có sẵn":state.page==="library"?"Thư viện mẫu AUTU":state.page==="guide"?"Hướng dẫn":state.page==="projects"?"Dự án cộng tác":(moreItems.find(x=>x[0]===state.page)||[])[1]||roles[state.role].label;
  $("top-title").textContent=top;
 }
 function changePage(page){if(page==="theme"){toggleTheme();return;}state.page=page;render();}
@@ -176,6 +200,10 @@ document.addEventListener("click",event=>{
   else if(action.dataset.action==="check-code")notify("Kiểm tra cú pháp thật dùng ScriptCompiler trong APK Android.");
   return;
  }
+ const category=event.target.closest("[data-category]");
+ if(category){state.libraryCategory=category.dataset.category;render();return;}
+ const libraryTemplate=event.target.closest("[data-template-library]");
+ if(libraryTemplate){const item=templates[Number(libraryTemplate.dataset.templateLibrary)];if(item){state.editorSource=item[2];state.page="editor";render();}return;}
  const template=event.target.closest("[data-template]");
  if(template){const item=templates[Number(template.dataset.template)];if(item){state.editorSource=item[2];state.page="editor";render();}return;}
  const color=event.target.closest("[data-color]");
@@ -183,5 +211,5 @@ document.addEventListener("click",event=>{
 });
 $("back-to-roles").addEventListener("click",()=>{state.role=null;state.page="";render();});
 $("theme-toggle").addEventListener("click",toggleTheme);
-$("screen").addEventListener("input",event=>{if(event.target.id==="editor-source")state.editorSource=event.target.value;});
+$("screen").addEventListener("input",event=>{if(event.target.id==="editor-source")state.editorSource=event.target.value;if(event.target.id==="library-search"){state.libraryQuery=event.target.value;const list=$("library-results");if(list)list.innerHTML=libraryCards();}});
 render();
