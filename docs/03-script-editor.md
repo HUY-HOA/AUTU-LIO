@@ -68,6 +68,7 @@ Bộ phân tích tạo cây lệnh có cấu trúc (AST), đếm số lệnh sau
 - Nút **Kiểm tra mã** gọi ScriptCompiler 0.1 và hiển thị lỗi theo dòng/cột hoặc số lệnh/thời lượng tĩnh.
 - Nút **Chuẩn bị chạy** chỉ biên dịch kịch bản và yêu cầu AccessibilityService hiển thị cửa sổ nổi ở trạng thái chờ. Nó không tự chạy thao tác.
 - Người dùng chuyển sang ứng dụng mục tiêu, sau đó chủ động nhấn **Chạy** trên cửa sổ nổi. Cửa sổ có Tạm dừng/Tiếp tục, Dừng, thu nhỏ, di chuyển và đóng.
+- Khi kịch bản đang chạy hoặc đã tạm dừng, nút **Tham số** trên cửa sổ nổi yêu cầu dừng tại ranh giới lệnh an toàn. Sau khi engine xác nhận đã tạm dừng, người dùng có thể sửa giá trị của các biến đã khai báo bằng `ĐẶT`; hỗ trợ số hữu hạn, chuỗi tối đa 4.096 ký tự và `ĐÚNG`/`SAI`. Thay đổi được kiểm tra và áp dụng theo một lần cập nhật nguyên tử; người dùng phải chủ động nhấn **Tiếp tục** để chạy tiếp. Không thể thêm biến mới hoặc thay cấu trúc kịch bản trong lúc chạy.
 - Runtime core chạy tuần tự ở worker riêng; dispatcher gửi gesture qua Android `AccessibilityService.dispatchGesture()`.
 - Kiểm tra mã không yêu cầu quyền Trợ năng và không gửi thao tác lên màn hình.
 
