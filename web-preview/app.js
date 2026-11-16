@@ -16,16 +16,29 @@ const customerTabs = [
   ["home","⌂","Trang chủ"],["scripts","☷","Kịch bản"],["device","▣","Thiết bị"],["settings","⚙","Cài đặt"]
 ];
 const state = {
-  role:null, page:"", adminSub:"", theme:"dark", scriptFilter:"all", scriptQuery:"",
+  role:null, page:"", adminSub:"", theme:"dark", scriptFilter:"all", scriptQuery:"", inviteRole:"DEVELOPER", invites:[],
   libraryQuery:"", editorName:"", editorSource:"", drafts:[], modal:"", accent:"blue",
   reviewerProject:"", statusMessage:""
 };
 const templates = [
-  {name:"Chạm một lần",source:"CHẠM(120, 480)\n"},
-  {name:"Chạm theo chuỗi",source:"CHẠM(120, 480)\nCHỜ(500)\nCHẠM(240, 600)\n"},
-  {name:"Nhấn giữ",source:"NHẤN_GIỮ(300, 700, 800)\n"},
-  {name:"Vuốt",source:"VUỐT(500, 900, 500, 300, 450)\n"},
-  {name:"Lặp thao tác",source:"LẶP(3) {\n    CHẠM(120, 480)\n    CHỜ(250)\n}\n"}
+  {name:"Chạm một lần",source:"CHẠM(200, 400)"},
+  {name:"Chuỗi chạm có thời gian chờ",source:"CHẠM(200, 400)\nCHỜ(500)\nCHẠM(500, 400)"},
+  {name:"Nhấn giữ",source:"NHẤN_GIỮ(200, 400, 800)"},
+  {name:"Vuốt lên",source:"VUỐT(360, 850, 360, 350, 450)"},
+  {name:"Lặp thao tác chạm",source:"ĐẶT soLan = 3\nLẶP(soLan) {\n    CHẠM(200, 400)\n    CHỜ(500)\n}"},
+  {name:"Kiểm tra pin trước khi chạy",source:"NẾU (PIN() > 20) {\n    CHẠM(200, 400)\n} NGƯỢC_LẠI {\n    CHỜ(1000)\n}"},
+  {name:"Mở ứng dụng",source:"MỞ_ỨNG_DỤNG(\"com.example.game\")"},
+  {name:"Lặp theo điều kiện",source:"ĐẶT dem = 0\nLẶP_KHI (dem < 5) {\n    dem = dem + 1\n    CHẠM(200, 400)\n    CHỜ(300)\n}"},
+  {name:"Chờ ứng dụng hoặc điều kiện sẵn sàng",source:"CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ(\"com.example.game\"), 15000, 250)\nCHẠM(200, 400)"},
+  {name:"Lặp đến khi đạt mục tiêu",source:"ĐẶT dem = 0\nLẶP_ĐẾN_KHI(dem >= 5) {\n    dem = dem + 1\n    CHẠM(200, 400)\n    CHỜ(300)\n}"},
+  {name:"Quay lại",source:"QUAY_LẠI()"},
+  {name:"Về màn hình chính",source:"VỀ_MÀN_HÌNH_CHÍNH()"},
+  {name:"Mở ứng dụng gần đây",source:"ỨNG_DỤNG_GẦN_ĐÂY()"},
+  {name:"Mở thông báo",source:"MỞ_THÔNG_BÁO()"},
+  {name:"Mở cài đặt nhanh",source:"MỞ_CÀI_ĐẶT_NHANH()"},
+  {name:"Hiện menu nguồn",source:"HIỆN_MENU_NGUỒN()"},
+  {name:"Khóa màn hình",source:"KHÓA_MÀN_HÌNH()"},
+  {name:"Chia đôi màn hình",source:"CHIA_MÀN_HÌNH()"}
 ];
 function toast(message){
   const node=$("toast"); if(!node)return;
@@ -129,11 +142,17 @@ function nestedAdmin(){
  const n=names[state.adminSub]||["Quản lý","Công cụ quản trị AUTU-LIO"];
  let body="";
  if(state.adminSub==="collaborators"){
-   body=notice("Bản xem trước lời mời","Trong Android Debug, lời mời được lưu thành bản nháp cục bộ. Chưa gửi lời mời và chưa cấp quyền vì máy chủ chưa kết nối.","warn")+
+   body=card("Bản nháp trên thiết bị",'<p>Các Gmail bên dưới chỉ được lưu thành bản nháp trên điện thoại. Chưa gửi lời mời và chưa cấp quyền cho bất kỳ ai vì máy chủ chưa kết nối.</p>')+
    '<div class="field"><label>Địa chỉ Gmail</label><input id="invite-email" placeholder="name@gmail.com"></div>'+
-   '<div class="field"><label>Chọn vai trò</label><select id="invite-role"><option>Nhà phát triển</option><option>Nhà thiết kế</option><option>Người kiểm duyệt</option></select></div>'+
+   '<div class="section-title">Chọn vai trò</div>'+
+   '<div class="role-drafts">'+[
+     ["DEVELOPER","Nhà phát triển","Viết, sửa và kiểm thử mã kịch bản; gửi để duyệt"],
+     ["DESIGNER","Nhà thiết kế","Thiết kế giao diện, tài nguyên và xem trước"],
+     ["REVIEWER","Người kiểm duyệt","Kiểm tra, duyệt hoặc từ chối bản phát hành"]
+   ].map(x=>'<button class="role-draft '+((state.inviteRole||"DEVELOPER")===x[0]?"selected":"")+'" data-invite-role="'+x[0]+'"><span class="radio-dot"></span><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span></button>').join("")+'</div>'+
    button("＋  Thêm bản nháp lời mời","invite-draft","primary")+
-   '<div class="section-title">Danh sách cộng tác viên dự kiến</div>'+empty("♙","Chưa có bản nháp","Thêm Gmail ở trên để chuẩn bị phân quyền.");
+   '<div class="section-title">Danh sách cộng tác viên dự kiến ('+(state.invites||[]).length+')</div>'+
+   ((state.invites||[]).length?(state.invites||[]).map((x,i)=>card('<div class="row between"><b>'+esc(x.email)+'</b><span class="status warn">Chưa gửi</span></div>','<p>'+esc(x.role)+'</p>'+button("Xóa","remove-invite:"+i,"outline"))).join(""):'<p class="muted">Chưa có bản nháp. Thêm Gmail ở trên để chuẩn bị phân quyền.</p>');
  }else if(state.adminSub==="projects"){
    body=notice("Chưa có phiên đăng nhập","Đăng nhập lại để quản lý dự án cộng tác trên máy chủ.","warn")+empty("▤","Chưa có dự án","Dự án và thành viên chỉ xuất hiện sau khi dịch vụ xác thực và API được kết nối.");
  }else if(state.adminSub==="licenses"){
@@ -313,6 +332,8 @@ document.addEventListener("click",(event)=>{
  if(template){const t=templates[Number(template.dataset.template)];if(t){state.editorSource=t.source;state.modal="";state.page="editor";render();}return;}
  const color=event.target.closest("[data-color]");
  if(color){state.accent=color.dataset.color;render();return;}
+ const inviteRole=event.target.closest("[data-invite-role]");
+ if(inviteRole){state.inviteRole=inviteRole.dataset.inviteRole;render();return;}
  const action=event.target.closest("[data-action]");
  if(!action)return;
  const a=action.dataset.action;
@@ -322,7 +343,7 @@ document.addEventListener("click",(event)=>{
  else if(a==="close-modal"){state.modal="";renderModal();}
  else if(a==="more"){state.page="more";state.adminSub="";render();}
  else if(a==="go-collaborators"){state.adminSub="collaborators";state.page="more-sub";render();}
- else if(a==="open-draft:"+a.split(":")[1] || a.startsWith("open-draft:")){
+ else if(a.startsWith("open-draft:")){
    const i=Number(a.split(":")[1]);const d=state.drafts[i];if(d){state.editorName=d.name;state.editorSource=d.source;state.page="editor";render();}
  }
  else if(a==="customer-detail"){state.page="customer-detail";render();}
@@ -339,7 +360,14 @@ document.addEventListener("click",(event)=>{
  else if(a==="developer-editor"){const n=$("developer-script-name");state.editorName=n&&n.value.trim()?n.value.trim():"Kịch bản mới";state.editorSource="";state.page="developer-editor";render();}
  else if(a==="collaborator-projects"){state.page="collaborator-projects";render();}
  else if(a==="back-workspace"){state.page="workspace";render();}
- else if(a==="invite-draft"){toast("Bản Web chưa gửi lời mời hoặc cấp quyền thật.");}
+ else if(a==="invite-draft"){
+   const input=$("invite-email"),email=input?input.value.trim():"";
+   const valid=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+   if(!valid)toast("Vui lòng nhập Gmail hợp lệ.");
+   else if((state.invites||[]).some(x=>x.email.toLowerCase()===email.toLowerCase()))toast("Gmail này đã có trong danh sách bản nháp.");
+   else{state.invites.push({email,role:state.inviteRole==="DEVELOPER"?"Nhà phát triển":state.inviteRole==="DESIGNER"?"Nhà thiết kế":"Người kiểm duyệt"});render();toast("Đã thêm bản nháp trong phiên xem Web; chưa gửi lời mời thật.");}
+ }
+ else if(a.startsWith("remove-invite:")){const i=Number(a.split(":")[1]);if(Number.isInteger(i)&&i>=0){state.invites.splice(i,1);render();}}
  else if(a==="accept-invite"){toast("Chức năng này yêu cầu đăng nhập Google và API thật.");}
  else if(a==="signout"){state.role=null;state.page="";render();}
  else if(a==="about"||a==="privacy"||a==="security"){toast("Đây là màn hình thông tin trong bản đối chiếu.");}
