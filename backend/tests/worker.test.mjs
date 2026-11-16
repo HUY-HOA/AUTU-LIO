@@ -1173,7 +1173,7 @@ test("tampered encrypted review submission fails integrity verification", async 
 
 
 test("Owner migration encrypts existing plaintext project source and submission snapshots", async () => {
-  const { env, scripts, submissions } = createProjectDraftEnv();
+  const { env, scripts, submissions, queries } = createProjectDraftEnv();
   const legacySource = "tap(555, 666)\nwait(100)";
   const legacySnapshot = JSON.stringify({
     id: "script-legacy",
@@ -1230,6 +1230,7 @@ test("Owner migration encrypts existing plaintext project source and submission 
   assert.equal(body.remainingDrafts, 0);
   assert.equal(body.remainingSubmissions, 0);
   assert.equal(body.complete, true);
+  assert.ok(queries.some(sql => sql.includes("INSERT INTO audit_logs")));
   assert.equal(scripts[0].source, "");
   assert.ok(scripts[0].source_ciphertext);
   assert.ok(scripts[0].source_encrypted_data_key);
