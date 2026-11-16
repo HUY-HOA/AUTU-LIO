@@ -819,7 +819,7 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
           if (sql.startsWith("INSERT INTO script_drafts")) {
             const [
               id, projectId, name, languageVersion, createdBy, updatedBy,
-              createdAt, updatedAt, sourceCiphertext, sourceIv, sourceKeyVersion
+              createdAt, updatedAt, sourceCiphertext, sourceIv, sourceEncryptedDataKey, sourceKeyIv, sourceKeyVersion
             ] = this.values;
             scripts.push({
               id,
@@ -834,12 +834,14 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
               updated_at: updatedAt,
               source_ciphertext: sourceCiphertext,
               source_iv: sourceIv,
+              source_encrypted_data_key: sourceEncryptedDataKey,
+              source_key_iv: sourceKeyIv,
               source_key_version: sourceKeyVersion
             });
           } else if (sql.startsWith("INSERT INTO change_submissions")) {
             const [
               id, projectId, kind, itemId, revision, submittedBy,
-              createdAt, snapshotCiphertext, snapshotIv, snapshotKeyVersion
+              createdAt, snapshotCiphertext, snapshotIv, snapshotEncryptedDataKey, snapshotKeyIv, snapshotKeyVersion
             ] = this.values;
             submissions.push({
               id,
@@ -856,24 +858,30 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
               reviewed_at: null,
               snapshot_ciphertext: snapshotCiphertext,
               snapshot_iv: snapshotIv,
+              snapshot_encrypted_data_key: snapshotEncryptedDataKey,
+              snapshot_key_iv: snapshotKeyIv,
               snapshot_key_version: snapshotKeyVersion
             });
           } else if (sql.startsWith("UPDATE script_drafts SET source = ''")) {
-            const [ciphertext, iv, keyVersion, id, projectId] = this.values;
+            const [ciphertext, iv, encryptedDataKey, keyIv, keyVersion, id, projectId] = this.values;
             const draft = scripts.find(item => item.id === id && item.project_id === projectId);
             if (draft && draft.source && !draft.source_ciphertext) {
               draft.source = "";
               draft.source_ciphertext = ciphertext;
               draft.source_iv = iv;
+              draft.source_encrypted_data_key = encryptedDataKey;
+              draft.source_key_iv = keyIv;
               draft.source_key_version = keyVersion;
             }
           } else if (sql.startsWith("UPDATE change_submissions SET submitted_snapshot = ''")) {
-            const [ciphertext, iv, keyVersion, id, projectId] = this.values;
+            const [ciphertext, iv, encryptedDataKey, keyIv, keyVersion, id, projectId] = this.values;
             const submission = submissions.find(item => item.id === id && item.project_id === projectId);
             if (submission && submission.submitted_snapshot && !submission.snapshot_ciphertext) {
               submission.submitted_snapshot = "";
               submission.snapshot_ciphertext = ciphertext;
               submission.snapshot_iv = iv;
+              submission.snapshot_encrypted_data_key = encryptedDataKey;
+              submission.snapshot_key_iv = keyIv;
               submission.snapshot_key_version = keyVersion;
             }
           }
@@ -919,6 +927,8 @@ test("shared project script source is encrypted in D1 and returned only after pe
   assert.equal(scripts.length, 1);
   assert.equal(scripts[0].source, "");
   assert.ok(scripts[0].source_ciphertext);
+  assert.ok(scripts[0].source_encrypted_data_key);
+  assert.ok(scripts[0].source_key_iv);
   assert.notEqual(scripts[0].source_ciphertext, source);
   assert.equal(scripts[0].source_ciphertext.includes("tap(321"), false);
 
@@ -1045,6 +1055,8 @@ test("review submission snapshots are encrypted at rest and decrypted only for r
   assert.equal(submissions.length, 1);
   assert.equal(submissions[0].submitted_snapshot, "");
   assert.ok(submissions[0].snapshot_ciphertext);
+  assert.ok(submissions[0].snapshot_encrypted_data_key);
+  assert.ok(submissions[0].snapshot_key_iv);
   assert.equal(submissions[0].snapshot_ciphertext.includes("tap(12"), false);
 
   const listed = await worker.fetch(
@@ -1163,8 +1175,12 @@ test("Owner migration encrypts existing plaintext project source and submission 
   assert.equal(body.complete, true);
   assert.equal(scripts[0].source, "");
   assert.ok(scripts[0].source_ciphertext);
+  assert.ok(scripts[0].source_encrypted_data_key);
+  assert.ok(scripts[0].source_key_iv);
   assert.equal(submissions[0].submitted_snapshot, "");
   assert.ok(submissions[0].snapshot_ciphertext);
+  assert.ok(submissions[0].snapshot_encrypted_data_key);
+  assert.ok(submissions[0].snapshot_key_iv);
 });
 
 
