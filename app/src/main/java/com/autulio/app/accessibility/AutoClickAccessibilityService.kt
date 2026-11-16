@@ -171,6 +171,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         authorizationGeneration += 1
         authorizationJob?.cancel()
         authorizationJob = null
+        if (authorizationChecking) authorizationStatusMessage = null
         authorizationChecking = false
         return executionEngine?.stop() == true
     }
