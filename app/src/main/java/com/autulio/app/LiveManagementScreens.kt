@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.CustomerPackageRunContext
 import com.autulio.app.auth.AutuPackageRecord
 import com.autulio.app.auth.EncryptedAutuPackageDecryptor
 import com.autulio.app.auth.CustomerAccountOverview
@@ -941,7 +942,15 @@ internal fun CustomerPackagesScreen(
                                             "The package was downloaded and verified. Enable AUTU-LIO under Settings > Accessibility, return here and tap Prepare to run again."
                                         )
                                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                    } else if (service.prepareProgram(compilation.program)) {
+                                    } else if (service.prepareProgram(
+                                        compilation.program,
+                                        CustomerPackageRunContext(
+                                            accessToken = token,
+                                            packageId = encryptedPackage.id,
+                                            packageVersion = encryptedPackage.version,
+                                            deviceFingerprint = deviceIdentity.fingerprintSha256
+                                        )
+                                    )) {
                                         notice = tr(
                                             "Đã giải mã, kiểm tra toàn vẹn và chuẩn bị AUTU. Chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.",
                                             "AUTU was decrypted, integrity-checked and prepared. Switch to the target app and press Run on the floating controller."
