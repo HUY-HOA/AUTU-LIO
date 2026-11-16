@@ -1439,7 +1439,7 @@ class ScriptEditorActivity : ComponentActivity() {
             return
         }
 
-        if (BuildConfig.DEBUG) {
+        if (BuildConfig.DEBUG && BuildConfig.ALLOW_OFFLINE_DEBUG_EDITOR) {
             showEditor(scriptName, namespace, allowTest = true)
             return
         }
