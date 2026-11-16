@@ -688,7 +688,7 @@ async function listProjectScripts(request, env, session, projectId) {
   }
   const result = await env.DB.prepare(
     "SELECT id, name, language_version, revision, created_by, updated_by, created_at, updated_at" +
-    (canEdit ? ", source, source_ciphertext, source_iv, source_key_version" : "") +
+    (canEdit ? ", source, source_ciphertext, source_iv, source_encrypted_data_key, source_key_iv, source_key_version" : "") +
     " FROM script_drafts WHERE project_id = ? ORDER BY updated_at DESC"
   ).bind(projectId).all();
   if (!canEdit) return response(request, { scripts: result.results || [] }, 200, env);
@@ -727,12 +727,12 @@ async function createProjectScript(request, env, session, projectId) {
   const encrypted = await encryptProjectData(env, "SCRIPT_DRAFT", projectId, scriptId, 1, source);
   try {
     await env.DB.prepare(
-      "INSERT INTO script_drafts (id, project_id, name, source, language_version, revision, created_by, updated_by, created_at, updated_at, source_ciphertext, source_iv, source_key_version) " +
-      "VALUES (?, ?, ?, '', ?, 1, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO script_drafts (id, project_id, name, source, language_version, revision, created_by, updated_by, created_at, updated_at, source_ciphertext, source_iv, source_encrypted_data_key, source_key_iv, source_key_version) " +
+      "VALUES (?, ?, ?, '', ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(
       scriptId, projectId, name, languageVersion || "0.1",
       session.user_id, session.user_id, now, now,
-      encrypted.ciphertext, encrypted.iv, encrypted.keyVersion
+      encrypted.ciphertext, encrypted.iv, encrypted.encryptedDataKey, encrypted.wrappingIv, encrypted.keyVersion
     ).run();
   } catch (error) {
     if (String(error?.message || "").toLowerCase().includes("unique")) {
@@ -779,11 +779,11 @@ async function updateProjectScript(request, env, session, projectId, scriptId) {
   const now = Math.floor(Date.now() / 1000);
   try {
     const result = await env.DB.prepare(
-      "UPDATE script_drafts SET name = ?, source = '', language_version = ?, revision = revision + 1, updated_by = ?, updated_at = ?, source_ciphertext = ?, source_iv = ?, source_key_version = ? " +
+      "UPDATE script_drafts SET name = ?, source = '', language_version = ?, revision = revision + 1, updated_by = ?, updated_at = ?, source_ciphertext = ?, source_iv = ?, source_encrypted_data_key = ?, source_key_iv = ?, source_key_version = ? " +
       "WHERE id = ? AND project_id = ? AND revision = ?"
     ).bind(
       name, languageVersion || "0.1", session.user_id, now,
-      encrypted.ciphertext, encrypted.iv, encrypted.keyVersion,
+      encrypted.ciphertext, encrypted.iv, encrypted.encryptedDataKey, encrypted.wrappingIv, encrypted.keyVersion,
       scriptId, projectId, expectedRevision
     ).run();
     if (result.meta?.changes !== 1) {
@@ -910,7 +910,7 @@ async function createProjectSubmission(request, env, session, projectId) {
   if (kind === "SCRIPT") {
     if (!PROJECT_ID_PATTERN.test(itemId)) throw new HttpError(400, "invalid_item_id", "Script ID is invalid.");
     const draft = await env.DB.prepare(
-      "SELECT id, name, source, source_ciphertext, source_iv, source_key_version, language_version, revision FROM script_drafts WHERE id = ? AND project_id = ?"
+      "SELECT id, name, source, source_ciphertext, source_iv, source_encrypted_data_key, source_key_iv, source_key_version, language_version, revision FROM script_drafts WHERE id = ? AND project_id = ?"
     ).bind(itemId, projectId).first();
     if (!draft) throw new HttpError(404, "draft_not_found", "The draft to submit was not found.");
     if (draft.revision !== revision) {
@@ -942,11 +942,12 @@ async function createProjectSubmission(request, env, session, projectId) {
   );
   const now = Math.floor(Date.now() / 1000);
   await env.DB.prepare(
-    "INSERT INTO change_submissions (id, project_id, kind, item_id, revision, submitted_snapshot, submitted_by, status, created_at, snapshot_ciphertext, snapshot_iv, snapshot_key_version) " +
-    "VALUES (?, ?, ?, ?, ?, '', ?, 'PENDING', ?, ?, ?, ?)"
+    "INSERT INTO change_submissions (id, project_id, kind, item_id, revision, submitted_snapshot, submitted_by, status, created_at, snapshot_ciphertext, snapshot_iv, snapshot_encrypted_data_key, snapshot_key_iv, snapshot_key_version) " +
+    "VALUES (?, ?, ?, ?, ?, '', ?, 'PENDING', ?, ?, ?, ?, ?, ?)"
   ).bind(
     submissionId, projectId, kind, itemId, revision, session.user_id, now,
-    encryptedSnapshot.ciphertext, encryptedSnapshot.iv, encryptedSnapshot.keyVersion
+    encryptedSnapshot.ciphertext, encryptedSnapshot.iv, encryptedSnapshot.encryptedDataKey,
+    encryptedSnapshot.wrappingIv, encryptedSnapshot.keyVersion
   ).run();
   await audit(env, session.user_id, "project.change_submitted", "submission", submissionId, {
     projectId, kind, itemId, revision
@@ -958,7 +959,7 @@ async function listProjectSubmissions(request, env, session, projectId) {
   await requireProjectAccess(env, session, projectId);
   await requirePermission(env, session, "REVIEW_RELEASE");
   const result = await env.DB.prepare(
-    "SELECT s.id, s.project_id, s.kind, s.item_id, s.revision, s.submitted_snapshot, s.snapshot_ciphertext, s.snapshot_iv, s.snapshot_key_version, s.submitted_by, " +
+    "SELECT s.id, s.project_id, s.kind, s.item_id, s.revision, s.submitted_snapshot, s.snapshot_ciphertext, s.snapshot_iv, s.snapshot_encrypted_data_key, s.snapshot_key_iv, s.snapshot_key_version, s.submitted_by, " +
     "u.email AS submitter_email, s.status, s.review_note, s.reviewed_by, s.created_at, s.reviewed_at " +
     "FROM change_submissions s JOIN users u ON u.id = s.submitted_by " +
     "WHERE s.project_id = ? ORDER BY CASE s.status WHEN 'PENDING' THEN 0 ELSE 1 END, s.created_at DESC"
@@ -1456,55 +1457,94 @@ function projectDataContext(purpose, projectId, recordId, revision, keyVersion) 
 
 async function encryptProjectData(env, purpose, projectId, recordId, revision, plaintext) {
   const keyVersion = String(env.PROJECT_DRAFT_MASTER_KEY_VERSION || "V1").trim().toUpperCase();
-  const key = await projectDraftMasterKey(env, keyVersion);
-  const iv = randomBytes(12);
+  const masterKey = await projectDraftMasterKey(env, keyVersion);
+  const dataKeyBytes = randomBytes(32);
+  const contentIv = randomBytes(12);
+  const wrappingIv = randomBytes(12);
+  const context = projectDataContext(purpose, projectId, recordId, revision, keyVersion);
   const plaintextBytes = encoder.encode(plaintext);
   try {
+    const contentKey = await crypto.subtle.importKey(
+      "raw", dataKeyBytes, { name: "AES-GCM" }, false, ["encrypt"]
+    );
     const ciphertext = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: contentIv, additionalData: encoder.encode(context), tagLength: 128 },
+      contentKey,
+      plaintextBytes
+    );
+    const encryptedDataKey = await crypto.subtle.encrypt(
       {
         name: "AES-GCM",
-        iv,
-        additionalData: encoder.encode(projectDataContext(purpose, projectId, recordId, revision, keyVersion)),
+        iv: wrappingIv,
+        additionalData: encoder.encode(context + "|DATA_KEY"),
         tagLength: 128
       },
-      key,
-      plaintextBytes
+      masterKey,
+      dataKeyBytes
     );
     return {
       ciphertext: base64UrlEncode(new Uint8Array(ciphertext)),
-      iv: base64UrlEncode(iv),
+      iv: base64UrlEncode(contentIv),
+      encryptedDataKey: base64UrlEncode(new Uint8Array(encryptedDataKey)),
+      wrappingIv: base64UrlEncode(wrappingIv),
       keyVersion
     };
   } finally {
     plaintextBytes.fill(0);
+    dataKeyBytes.fill(0);
   }
 }
 
-async function decryptProjectData(env, purpose, projectId, recordId, revision, ciphertextText, ivText, keyVersion) {
+async function decryptProjectData(
+  env, purpose, projectId, recordId, revision,
+  ciphertextText, ivText, encryptedDataKeyText, wrappingIvText, keyVersion
+) {
   if (typeof ciphertextText !== "string" || !ciphertextText ||
       typeof ivText !== "string" || !ivText ||
+      typeof encryptedDataKeyText !== "string" || !encryptedDataKeyText ||
+      typeof wrappingIvText !== "string" || !wrappingIvText ||
       typeof keyVersion !== "string" || !/^V[1-9][0-9]*$/.test(keyVersion)) {
     throw new HttpError(500, "project_data_integrity_failed", "Stored project data failed integrity verification.");
   }
-  const iv = base64UrlDecode(ivText);
-  if (iv.length !== 12) throw new HttpError(500, "project_data_integrity_failed", "Stored project data failed integrity verification.");
-  const key = await projectDraftMasterKey(env, keyVersion);
+  const contentIv = base64UrlDecode(ivText);
+  const wrappingIv = base64UrlDecode(wrappingIvText);
+  if (contentIv.length !== 12 || wrappingIv.length !== 12) {
+    throw new HttpError(500, "project_data_integrity_failed", "Stored project data failed integrity verification.");
+  }
+  const masterKey = await projectDraftMasterKey(env, keyVersion);
+  const context = projectDataContext(purpose, projectId, recordId, revision, keyVersion);
+  let dataKeyBytes;
   let plaintextBytes;
   try {
+    dataKeyBytes = new Uint8Array(await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: wrappingIv,
+        additionalData: encoder.encode(context + "|DATA_KEY"),
+        tagLength: 128
+      },
+      masterKey,
+      base64UrlDecode(encryptedDataKeyText)
+    ));
+    if (dataKeyBytes.length !== 32) throw new Error("Invalid project data key length.");
+    const contentKey = await crypto.subtle.importKey(
+      "raw", dataKeyBytes, { name: "AES-GCM" }, false, ["decrypt"]
+    );
     plaintextBytes = new Uint8Array(await crypto.subtle.decrypt(
       {
         name: "AES-GCM",
-        iv,
-        additionalData: encoder.encode(projectDataContext(purpose, projectId, recordId, revision, keyVersion)),
+        iv: contentIv,
+        additionalData: encoder.encode(context),
         tagLength: 128
       },
-      key,
+      contentKey,
       base64UrlDecode(ciphertextText)
     ));
     return new TextDecoder("utf-8", { fatal: true }).decode(plaintextBytes);
   } catch {
     throw new HttpError(500, "project_data_integrity_failed", "Stored project data failed integrity verification.");
   } finally {
+    dataKeyBytes?.fill(0);
     plaintextBytes?.fill(0);
   }
 }
@@ -1513,7 +1553,7 @@ async function loadProjectDraftSource(env, projectId, row) {
   if (typeof row.source_ciphertext === "string" && row.source_ciphertext) {
     return await decryptProjectData(
       env, "SCRIPT_DRAFT", projectId, row.id, Number(row.revision),
-      row.source_ciphertext, row.source_iv, row.source_key_version
+      row.source_ciphertext, row.source_iv, row.source_encrypted_data_key, row.source_key_iv, row.source_key_version
     );
   }
   const legacySource = typeof row.source === "string" ? row.source : "";
@@ -1522,10 +1562,10 @@ async function loadProjectDraftSource(env, projectId, row) {
     env, "SCRIPT_DRAFT", projectId, row.id, Number(row.revision), legacySource
   );
   await env.DB.prepare(
-    "UPDATE script_drafts SET source = '', source_ciphertext = ?, source_iv = ?, source_key_version = ? " +
+    "UPDATE script_drafts SET source = '', source_ciphertext = ?, source_iv = ?, source_encrypted_data_key = ?, source_key_iv = ?, source_key_version = ? " +
     "WHERE id = ? AND project_id = ? AND revision = ? AND (source_ciphertext IS NULL OR source_ciphertext = '')"
   ).bind(
-    encrypted.ciphertext, encrypted.iv, encrypted.keyVersion,
+    encrypted.ciphertext, encrypted.iv, encrypted.encryptedDataKey, encrypted.wrappingIv, encrypted.keyVersion,
     row.id, projectId, row.revision
   ).run();
   return legacySource;
@@ -1535,7 +1575,7 @@ async function loadProjectSubmissionSnapshot(env, projectId, row) {
   if (typeof row.snapshot_ciphertext === "string" && row.snapshot_ciphertext) {
     const serialized = await decryptProjectData(
       env, "SUBMISSION", projectId, row.id, Number(row.revision),
-      row.snapshot_ciphertext, row.snapshot_iv, row.snapshot_key_version
+      row.snapshot_ciphertext, row.snapshot_iv, row.snapshot_encrypted_data_key, row.snapshot_key_iv, row.snapshot_key_version
     );
     try {
       return JSON.parse(serialized);
@@ -1557,10 +1597,10 @@ async function loadProjectSubmissionSnapshot(env, projectId, row) {
     env, "SUBMISSION", projectId, row.id, Number(row.revision), legacySnapshot
   );
   await env.DB.prepare(
-    "UPDATE change_submissions SET submitted_snapshot = '', snapshot_ciphertext = ?, snapshot_iv = ?, snapshot_key_version = ? " +
+    "UPDATE change_submissions SET submitted_snapshot = '', snapshot_ciphertext = ?, snapshot_iv = ?, snapshot_encrypted_data_key = ?, snapshot_key_iv = ?, snapshot_key_version = ? " +
     "WHERE id = ? AND project_id = ? AND (snapshot_ciphertext IS NULL OR snapshot_ciphertext = '')"
   ).bind(
-    encrypted.ciphertext, encrypted.iv, encrypted.keyVersion,
+    encrypted.ciphertext, encrypted.iv, encrypted.encryptedDataKey, encrypted.wrappingIv, encrypted.keyVersion,
     row.id, projectId
   ).run();
   return parsed;
@@ -1580,10 +1620,10 @@ async function migrateLegacyProjectData(request, env, session) {
       env, "SCRIPT_DRAFT", row.project_id, row.id, Number(row.revision), row.source
     );
     const result = await env.DB.prepare(
-      "UPDATE script_drafts SET source = '', source_ciphertext = ?, source_iv = ?, source_key_version = ? " +
+      "UPDATE script_drafts SET source = '', source_ciphertext = ?, source_iv = ?, source_encrypted_data_key = ?, source_key_iv = ?, source_key_version = ? " +
       "WHERE id = ? AND project_id = ? AND revision = ? AND source <> '' AND (source_ciphertext IS NULL OR source_ciphertext = '')"
     ).bind(
-      encrypted.ciphertext, encrypted.iv, encrypted.keyVersion,
+      encrypted.ciphertext, encrypted.iv, encrypted.encryptedDataKey, encrypted.wrappingIv, encrypted.keyVersion,
       row.id, row.project_id, row.revision
     ).run();
     if (result.meta?.changes === 1) migratedDrafts += 1;
@@ -1600,10 +1640,10 @@ async function migrateLegacyProjectData(request, env, session) {
       env, "SUBMISSION", row.project_id, row.id, Number(row.revision), row.submitted_snapshot
     );
     const result = await env.DB.prepare(
-      "UPDATE change_submissions SET submitted_snapshot = '', snapshot_ciphertext = ?, snapshot_iv = ?, snapshot_key_version = ? " +
+      "UPDATE change_submissions SET submitted_snapshot = '', snapshot_ciphertext = ?, snapshot_iv = ?, snapshot_encrypted_data_key = ?, snapshot_key_iv = ?, snapshot_key_version = ? " +
       "WHERE id = ? AND project_id = ? AND submitted_snapshot <> '' AND (snapshot_ciphertext IS NULL OR snapshot_ciphertext = '')"
     ).bind(
-      encrypted.ciphertext, encrypted.iv, encrypted.keyVersion,
+      encrypted.ciphertext, encrypted.iv, encrypted.encryptedDataKey, encrypted.wrappingIv, encrypted.keyVersion,
       row.id, row.project_id
     ).run();
     if (result.meta?.changes === 1) migratedSubmissions += 1;
