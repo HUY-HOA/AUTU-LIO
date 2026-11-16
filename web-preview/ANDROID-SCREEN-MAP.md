@@ -1,37 +1,49 @@
 # AUTU-LIO Android screen map
 
-This map is based on the Android source currently on `main`. It is the reference for maintaining the Web preview.
+**Đối chiếu với mã nguồn:** nhánh `main` của repository `HUY-HOA-1/AUTU-LIO`.
 
-| Android entry / role | Screen or navigation | Android implementation | Web preview |
-|---|---|---|---|
-| Release entry | Google sign-in / session restore | `AuthenticatedAppHost.kt`, `AuthScreen` | Default page |
-| Debug entry | Five-role preview chooser | `MainActivity.kt`, `RolePreviewChooser` | Explicit preview chooser |
-| Owner | Overview | `MainActivity.kt`, `OverviewScreen` | Overview |
-| Owner | AUTU list, search, filters, draft open/create | `MainActivity.kt`, `ScriptsScreen` | Scripts |
-| Owner | Customers | `LiveManagementScreens.kt`, `CustomersAdminScreen` | Customers empty state until API/session |
-| Owner | Devices | `LiveManagementScreens.kt`, `DevicesAdminScreen` | Devices empty state until API/session |
-| Owner | Collaborator invitation drafts or server collaborators | `CollaboratorsScreen.kt`, `CollaboratorsServerScreen.kt` | Collaborators preview |
-| Owner | Shared projects | `SharedProjectScreens.kt`, `ProjectsAdminScreen` | Projects empty state until API/session |
-| Owner | Licenses | `LiveManagementScreens.kt`, `LicensesAdminScreen` | Licenses empty state until API/session |
-| Owner | Template library | `AdminTemplateLibraryScreen.kt` | Template list |
-| Owner | AUTU packages | `LiveManagementScreens.kt`, `AdminPackagesScreen` | Package empty state until API/session |
-| Owner | Release overview | `MainActivity.kt`, `MoreScreen` | Release placeholder |
-| Owner | Audit logs | `AdminAuditLogsScreen.kt` | Logs empty state until API/session |
-| Owner | Settings | `MainActivity.kt`, `MoreScreen` | Settings |
-| Owner | Script editor, templates, help, compile, save, prepare run | `ScriptEditorActivity.kt`, `MainActivity.kt`, `ScriptCompiler.kt` | Editor UI; compile/run are deliberately not executed in Web |
-| Customer | Home / license status | `MainActivity.kt`, `CustomerHome` | Customer home |
-| Customer | Published AUTU package library | `MainActivity.kt`, `CustomerPackagesScreen` | Customer package library; no fabricated package data without live session |
-| Customer | Device/license overview, register RSA-3072 device, remove this device | `LiveManagementScreens.kt`, `CustomerDeviceLicenseScreen`, `SecureDeviceIdentityStore.kt` | Device/license live-session empty state |
-| Customer | Settings / invitation token / sign-out | `MainActivity.kt`, `SettingsScreen` | Customer settings |
-| Developer | Private encrypted local drafts and separate editor | `CollaboratorWorkspace.kt`, `SecureScriptDraftStore.kt`, `ScriptEditorActivity.kt` | Developer workspace/editor |
-| Designer | Local UI preview and accent selection | `CollaboratorWorkspace.kt` | Designer workspace |
-| Reviewer | Review queue and granted permission summary | `CollaboratorWorkspace.kt` | Reviewer workspace |
-| Collaborators | Project list and role-specific project workflow | `SharedProjectScreens.kt`, `CollaboratorProjectsWorkspace` | Shared-project empty state until API/session |
+## Luồng ứng dụng
 
-## Important implementation distinctions
+| Luồng | Điểm vào | Trạng thái |
+|---|---|---|
+| Release | `auth/AuthenticatedAppHost.kt`, `auth/AuthRepository.kt` | Google Sign-In và khôi phục phiên đã có mã; cần cấu hình OAuth và Worker để đăng nhập thật |
+| Debug | `MainActivity.kt`, `RolePreviewChooser` | Bộ chọn 5 vai trò chỉ để xem giao diện, không xác minh quyền |
 
-- Debug role selection is not authentication. Release starts at the authentication/session host.
-- Server-supplied permissions may be narrower than the defaults in `AccessRole.kt`; Web labels are defaults, not live account permissions.
-- Android has a script compiler, interpreter engine, Accessibility Service gesture dispatcher and floating runner. Their operation still requires Android permissions and physical-device validation.
-- The active Customer navigation uses `CustomerPackagesScreen` and `CustomerDeviceLicenseScreen`; obsolete sample-script and placeholder device composables were removed. Published package download verifies license/device, decrypts the device-wrapped AES key in Android Keystore, checks the source hash, compiles the source and prepares the floating runner.
-- Web state is not Android state. It must not claim to persist encrypted app drafts or perform gestures.
+## Màn hình theo vai trò
+
+| Vai trò | Màn hình | Mã Android |
+|---|---|---|
+| Chủ sở hữu | Tổng quan | `MainActivity.kt`, `OverviewScreen` |
+| Chủ sở hữu | AUTU / danh sách kịch bản, tìm kiếm, lọc, tạo và mở bản nháp | `MainActivity.kt`, `ScriptsScreen` |
+| Chủ sở hữu | Trình soạn thảo, thư viện mẫu, kiểm tra mã, lưu và chuẩn bị chạy | `MainActivity.kt`, `ScriptEditorActivity`, `script/ScriptCompiler.kt` |
+| Chủ sở hữu | Khách hàng, thiết bị, giấy phép, gói AUTU | `LiveManagementScreens.kt` |
+| Chủ sở hữu | Cộng tác viên | `CollaboratorsScreen.kt`, `CollaboratorsServerScreen.kt` |
+| Chủ sở hữu | Dự án cộng tác | `SharedProjectScreens.kt` |
+| Chủ sở hữu | Thư viện mẫu | `AdminTemplateLibraryScreen.kt` |
+| Chủ sở hữu | Phát hành, nhật ký, cài đặt | `MainActivity.kt`, `AdminAuditLogsScreen.kt` |
+| Nhà phát triển | Không gian riêng, bản nháp mã hóa, editor riêng | `CollaboratorWorkspace.kt`, `SecureScriptDraftStore.kt`, `MainActivity.kt` |
+| Nhà thiết kế | Không gian thiết kế và xem trước UI | `CollaboratorWorkspace.kt` |
+| Người kiểm duyệt | Hàng đợi và thao tác duyệt/từ chối | `CollaboratorWorkspace.kt`, `SharedProjectScreens.kt` |
+| Các cộng tác viên | Dự án được giao và bản nháp dùng chung theo revision | `SharedProjectScreens.kt` |
+| Người dùng | Trang chủ và trạng thái giấy phép | `MainActivity.kt`, `CustomerHome` |
+| Người dùng | Kho AUTU đã phát hành | `MainActivity.kt`, `CustomerPackagesScreen` |
+| Người dùng | Thiết bị và giấy phép; đăng ký/gỡ thiết bị | `LiveManagementScreens.kt`, `SecureDeviceIdentityStore.kt` |
+| Người dùng | Cài đặt, nhập mã lời mời, đăng xuất | `MainActivity.kt`, `SettingsScreen` |
+
+## Nền tảng thực thi
+
+| Thành phần | Mã nguồn | Trạng thái cần hiểu đúng |
+|---|---|---|
+| Parser/compiler | `script/ScriptCompiler.kt` | Có parser/AST, chẩn đoán cú pháp và giới hạn chương trình |
+| Interpreter | `runtime/ScriptExecutionEngine.kt` | Có vòng đời chạy, tạm dừng, tiếp tục, dừng và xử lý lỗi |
+| Android gestures / floating runner | `accessibility/AutoClickAccessibilityService.kt` | Có AccessibilityService, dispatcher cử chỉ và cửa sổ điều khiển nổi; cần cấp quyền và kiểm thử trên thiết bị thật |
+| Mã hóa bản nháp | `SecureScriptDraftStore.kt` | Lưu bản nháp riêng bằng Android Keystore |
+| Xác thực / API | `auth/AuthenticatedAppHost.kt`, Worker source | Cần cấu hình OAuth, Worker URL và secrets; không được coi giao diện là đăng nhập thật |
+
+## Quy tắc đối chiếu Web
+
+- Web có trang **Đối chiếu Android** để tra danh sách màn hình, vai trò và tệp Kotlin tương ứng.
+- Web không đọc kho dữ liệu Android, không đồng bộ bản nháp Android, không gọi compiler/interpreter Kotlin và không thực hiện thao tác chạm/vuốt trên ứng dụng khác.
+- Các nút mô phỏng trên Web chỉ thay đổi trạng thái trong trình duyệt; không được hiểu là kiểm thử chức năng Android.
+- Khi thêm, xóa hoặc đổi màn hình Android, phải cập nhật bảng này và giao diện Web trong cùng đợt thay đổi.
+- Chỉ đánh dấu một tính năng là hoạt động thực tế sau khi đã có kiểm thử phù hợp; riêng Accessibility/overlay cần kiểm thử trên điện thoại thật.
