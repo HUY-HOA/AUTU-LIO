@@ -47,6 +47,7 @@ Nếu người dùng chỉ lưu bản nháp rồi quay lại mà không chọn c
 | Biên dịch bản sửa | Bản mới được kiểm tra trước khi thay thế chương trình chờ |
 | Áp dụng bản sửa | Phiên cũ được dừng; cửa sổ nổi hiển thị yêu cầu chạy phiên bản mới từ đầu |
 | Chỉ lưu bản nháp | Phiên cũ vẫn tạm dừng, có thể tiếp tục |
+| Mở trình sửa từ cửa sổ nổi ở Release | Xác minh phiên đăng nhập và quyền Owner/Developer với máy chủ; không xác minh được thì từ chối mở |
 | Tắt Accessibility Service | Không tiếp tục thao tác; bộ thực thi bị dừng khi dịch vụ bị ngắt |
 | Lỗi quyền/thao tác | Hiển thị trạng thái lỗi; không giả lập thành công |
 
