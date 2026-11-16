@@ -24,7 +24,14 @@ const ownerSession = {
   email_verified: 1
 };
 
-function createEnv({ session = null, allowedOrigins = "*", auditRows = [] } = {}) {
+function createEnv({
+  session = null,
+  allowedOrigins = "*",
+  auditRows = [],
+  license = null,
+  device = null,
+  packageRow = null
+} = {}) {
   const queries = [];
   const DB = {
     prepare(sql) {
@@ -38,6 +45,9 @@ function createEnv({ session = null, allowedOrigins = "*", auditRows = [] } = {}
         },
         async first() {
           if (sql.includes("FROM sessions s JOIN users u")) return session;
+          if (sql.includes("FROM licenses WHERE user_id = ? AND status = 'ACTIVE'")) return license;
+          if (sql.includes("FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'")) return device;
+          if (sql.includes("FROM script_packages p JOIN script_package_versions v")) return packageRow;
           return null;
         },
         async all() {
@@ -677,6 +687,110 @@ test("customer without an active registered device cannot download a published A
 });
 
 
+
+test("customer package run authorization grants a short lease only for an active license, registered device and current package version", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const packageId = "123e4567-e89b-42d3-a456-426614174000";
+  const fingerprint = "c".repeat(64);
+  const { env } = createEnv({
+    session: customerSession,
+    license: {
+      id: "license-run",
+      user_id: customerSession.user_id,
+      plan_code: "MONTHLY",
+      status: "ACTIVE",
+      starts_at: now - 60,
+      expires_at: now + 86400,
+      max_devices: 1
+    },
+    device: { id: "device-run" },
+    packageRow: { id: packageId, latest_version: 3, status: "ACTIVE", version: 3 }
+  });
+  const response = await worker.fetch(
+    makeRequest("/api/customer/packages/" + packageId + "/authorize-run", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "R".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ deviceFingerprint: fingerprint, version: 3 })
+    }),
+    env
+  );
+  const body = await json(response);
+  assert.equal(response.status, 200);
+  assert.equal(body.authorized, true);
+  assert.equal(body.leaseSeconds, 45);
+  assert.ok(body.expiresAt > body.serverTime);
+});
+
+test("customer package run authorization rejects a revoked or expired license", async () => {
+  const packageId = "123e4567-e89b-42d3-a456-426614174000";
+  const { env, queries } = createEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/customer/packages/" + packageId + "/authorize-run", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "R".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ deviceFingerprint: "c".repeat(64), version: 1 })
+    }),
+    env
+  );
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "active_license_required");
+  assert.equal(queries.some(sql => sql.includes("FROM devices")), false);
+  assert.equal(queries.some(sql => sql.includes("FROM script_packages")), false);
+});
+
+test("customer package run authorization rejects a removed device and a superseded package version", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const packageId = "123e4567-e89b-42d3-a456-426614174000";
+  const license = {
+    id: "license-run",
+    user_id: customerSession.user_id,
+    plan_code: "MONTHLY",
+    status: "ACTIVE",
+    starts_at: now - 60,
+    expires_at: now + 86400,
+    max_devices: 1
+  };
+  const { env: missingDeviceEnv } = createEnv({ session: customerSession, license });
+  const missingDevice = await worker.fetch(
+    makeRequest("/api/customer/packages/" + packageId + "/authorize-run", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "R".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ deviceFingerprint: "c".repeat(64), version: 1 })
+    }),
+    missingDeviceEnv
+  );
+  assert.equal(missingDevice.status, 403);
+  assert.equal((await json(missingDevice)).error, "active_device_required");
+
+  const { env: oldVersionEnv } = createEnv({
+    session: customerSession,
+    license,
+    device: { id: "device-run" },
+    packageRow: { id: packageId, latest_version: 2, status: "ACTIVE", version: 1 }
+  });
+  const oldVersion = await worker.fetch(
+    makeRequest("/api/customer/packages/" + packageId + "/authorize-run", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "R".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ deviceFingerprint: "c".repeat(64), version: 1 })
+    }),
+    oldVersionEnv
+  );
+  assert.equal(oldVersion.status, 409);
+  assert.equal((await json(oldVersion)).error, "package_version_superseded");
+});
 
 test("owner can read newest audit logs with parsed metadata and actor details", async () => {
   const auditRows = [{
