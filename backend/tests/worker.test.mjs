@@ -838,8 +838,8 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
             });
           } else if (sql.startsWith("INSERT INTO change_submissions")) {
             const [
-              id, projectId, kind, itemId, revision, submittedSnapshot,
-              submittedBy, createdAt, snapshotCiphertext, snapshotIv, snapshotKeyVersion
+              id, projectId, kind, itemId, revision, submittedBy,
+              createdAt, snapshotCiphertext, snapshotIv, snapshotKeyVersion
             ] = this.values;
             submissions.push({
               id,
@@ -847,7 +847,7 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
               kind,
               item_id: itemId,
               revision,
-              submitted_snapshot: submittedSnapshot,
+              submitted_snapshot: "",
               submitted_by: submittedBy,
               status: "PENDING",
               review_note: "",
