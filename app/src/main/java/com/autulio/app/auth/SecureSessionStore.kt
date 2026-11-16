@@ -142,7 +142,7 @@ class SecureSessionStore(context: Context) {
                 return generateKey(preferStrongBox = true)
             } catch (_: Exception) {
                 keyStore.load(null)
-                if (keyStore.containsAlias(KEY_ALIAS)) keyStore.deleteEntry(KEY_ALIAS)
+                if (keyStore.containsAlias(keyAlias)) keyStore.deleteEntry(keyAlias)
             }
         }
         return generateKey(preferStrongBox = false)
