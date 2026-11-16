@@ -1,43 +1,34 @@
 # AUTU-LIO Web Preview
 
-Bản xem trước này được dựng để đối chiếu giao diện với mã Android trên nhánh `main`. Danh mục màn hình được ghi lại tại `ANDROID-SCREEN-MAP.md`.
+Bản xem trước trên trình duyệt điện thoại dùng để đối chiếu các vai trò và màn hình với mã Android trên nhánh `main`.
 
-## Luồng mở ứng dụng
+## Mở và đối chiếu
 
-- Màn hình đầu tiên mô phỏng `AuthScreen` của bản Android Release: đăng nhập Google để máy chủ xác minh vai trò.
-- Nút đăng nhập hiện bị khóa vì Auth API URL và Google Server Client ID chưa được cấu hình trong môi trường hiện tại.
-- Bộ chọn 5 vai trò chỉ là Debug Preview. Nó giúp xem các giao diện Owner, Developer, Designer, Reviewer và Customer; không phải cách cấp quyền hay đăng nhập thật trong bản Release.
+- Màn hình đầu mô phỏng điểm vào Release: Google Sign-In và khôi phục phiên.
+- Nút chọn 5 vai trò là chế độ Debug Preview, chỉ để xem bố cục; không cấp quyền và không xác thực tài khoản.
+- Sau khi chọn vai trò, dùng nút **Đối chiếu Android** trên thanh đầu trang để xem danh mục màn hình, tên tệp Kotlin và trạng thái triển khai.
+- Trang đối chiếu là danh mục kiểm kê; nó không phải màn hình trong APK.
 
-## Giao diện Android được phản chiếu
+## Các vai trò được phản chiếu
 
-- **Chủ sở hữu:** Tổng quan, AUTU/kịch bản, Khách hàng, Thiết bị, Thêm; trong Thêm có Cộng tác viên, Dự án cộng tác, Giấy phép, Thư viện mẫu AUTU, Gói AUTU, Phát hành, Nhật ký và Cài đặt.
-- **Người dùng:** Trang chủ, Kho AUTU đã phát hành, Thiết bị và giấy phép, Cài đặt và nhập mã lời mời. Kho thật yêu cầu phiên đăng nhập, giấy phép đang hiệu lực và thiết bị đã đăng ký.
-- **Nhà phát triển:** Không gian nhà phát triển, danh sách bản nháp riêng, mở trình soạn thảo riêng, quyền sửa/kiểm thử/gửi duyệt và dự án cộng tác.
-- **Nhà thiết kế:** Không gian thiết kế, xem trước giao diện, chọn màu nhấn, quyền thiết kế/xem trước/gửi duyệt và dự án cộng tác.
-- **Người kiểm duyệt:** Hàng đợi gửi duyệt, quyền kiểm thử/duyệt và dự án cộng tác.
+- **Chủ sở hữu:** Tổng quan, AUTU/kịch bản, trình soạn thảo, Khách hàng, Thiết bị, Cộng tác viên, Dự án cộng tác, Giấy phép, Thư viện mẫu, Gói AUTU, Phát hành, Nhật ký và Cài đặt.
+- **Nhà phát triển:** Không gian riêng, bản nháp, trình soạn thảo riêng và dự án được giao.
+- **Nhà thiết kế:** Không gian thiết kế, chỉnh màu và xem trước UI.
+- **Người kiểm duyệt:** Hàng đợi kiểm duyệt và dự án được giao.
+- **Người dùng:** Trang chủ, kho AUTU phát hành, thiết bị/giấy phép và cài đặt/mã lời mời.
 
-## Trạng thái cần phân biệt
+## Phân biệt trạng thái
 
-- Trên Android, bản nháp Chủ sở hữu và Nhà phát triển được lưu cục bộ riêng; bản nháp Nhà phát triển được mã hóa bằng Android Keystore.
-- Web preview chỉ dùng trạng thái trong phiên trình duyệt. Nó không đọc hoặc ghi kho bản nháp Android.
-- Android đã có `ScriptCompiler`, `ScriptExecutionEngine`, `AutoClickAccessibilityService` và cửa sổ chạy nổi. Gói kịch bản mẫu của Customer vẫn chỉ là mẫu giao diện, không có lệnh tự động hóa thật.
-- Các màn hình quản lý khách hàng, thiết bị, giấy phép, package và dự án cần phiên đăng nhập hợp lệ cùng API/Worker được cấu hình. Web preview không dùng dữ liệu tài khoản thật.
+- Bản Web chỉ dùng trạng thái trong phiên trình duyệt; không đọc/ghi bản nháp Android.
+- Các thao tác Chạy/Tạm dừng/Dừng trong Web chỉ mô phỏng trạng thái; không gọi interpreter Kotlin, AccessibilityService hoặc thao tác ứng dụng khác.
+- Android có parser/compiler, interpreter, AccessibilityService và cửa sổ chạy nổi trong mã nguồn. Việc chạy thật cần quyền Android và kiểm thử trên điện thoại.
+- Các màn hình cần tài khoản, giấy phép, thiết bị hoặc dữ liệu cộng tác phải được kiểm tra với Worker/API thật; không tạo dữ liệu mẫu giả để thay thế dữ liệu máy chủ.
+- Vai trò Debug Preview không phải quyền Release. Quyền thực tế phải do máy chủ xác minh.
 
-## Giới hạn
+## Cập nhật
 
-Đây không phải APK và không phải bản Web vận hành backend. Web không đăng nhập Google, không gọi Cloudflare Worker API, không chạy ScriptCompiler Android, không khởi chạy AccessibilityService và không thực hiện chạm/vuốt trên ứng dụng khác. Các nút mô phỏng chỉ thay đổi giao diện hoặc hiện thông báo.
+Mỗi lần thay đổi màn hình hoặc điều hướng Android, phải rà soát `ANDROID-SCREEN-MAP.md`, cập nhật Web tương ứng, chạy kiểm tra cú pháp và triển khai Worker preview. GitHub–Cloudflare Git integration hiện chưa tự động deploy; việc push code không tự cập nhật trang cho đến khi Worker được triển khai lại.
 
-Các màn hình Web được cập nhật thủ công sau khi đối chiếu mã Kotlin; không tự động sinh từ Compose. Vì vậy, mỗi thay đổi điều hướng hoặc UI Android phải được rà soát và đồng bộ lại tại đây.
+## Kiểm tra
 
-## Kiểm tra và triển khai
-
-GitHub Actions `.github/workflows/web-preview-check.yml` kiểm tra cú pháp JavaScript và sự tồn tại của HTML/CSS/JS. Sau khi cập nhật nhánh `preview/web-live`, bản Worker preview cần được triển khai lại thủ công; GitHub push chưa tự động deploy vì Git integration của Cloudflare Pages chưa hoạt động.
-
-## Nguồn Android tham chiếu
-
-- `MainActivity.kt` và `AuthenticatedAppHost.kt`
-- `AccessRole.kt` và `CollaboratorWorkspace.kt`
-- `CollaboratorsScreen.kt` và `CollaboratorsServerScreen.kt`
-- `LiveManagementScreens.kt` và `SharedProjectScreens.kt`
-- `ScriptEditorActivity.kt`, `ScriptCompiler.kt`, `ScriptExecutionEngine.kt`
-- `AutoClickAccessibilityService.kt`
+Workflow `.github/workflows/web-preview-check.yml` kiểm tra cú pháp JavaScript và sự tồn tại của HTML/CSS/JS. Đây không phải kiểm thử Android và không tạo APK.
