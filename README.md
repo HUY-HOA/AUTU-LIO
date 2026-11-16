@@ -28,6 +28,7 @@
 - [Cấu hình đăng nhập Google và Cloudflare](docs/GOOGLE-SIGNIN-SETUP.md)
 - [Quy trình GitHub](docs/GITHUB-WORKFLOW.md)
 - [Bảo mật mã nguồn, APK và khóa ký](docs/SECURITY-AND-SIGNING.md)
+- [Cửa sổ chạy nổi và chỉnh sửa kịch bản khi chạy](docs/08-floating-runner-and-edit.md)
 - [Hướng dẫn kiểm thử prototype Android](docs/ANDROID-PROTOTYPE.md)
 
 ## Build
