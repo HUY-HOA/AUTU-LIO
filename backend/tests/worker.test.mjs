@@ -900,6 +900,7 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
       PROJECT_DRAFT_MASTER_KEY_VERSION: "V1",
       PROJECT_DRAFT_MASTER_KEY_V1: masterKey
     },
+    session,
     scripts,
     submissions,
     queries
@@ -1207,4 +1208,53 @@ test("project draft writes fail closed when the project encryption secret is mis
   assert.equal(response.status, 503);
   assert.equal(body.error, "project_encryption_not_configured");
   assert.equal(scripts.length, 0);
+});
+
+
+test("reviewer can review script submission metadata without receiving AUTU source", async () => {
+  const reviewerSession = { ...ownerSession };
+  const { env, session, scripts, submissions } = createProjectDraftEnv({ session: reviewerSession });
+  const headers = {
+    Authorization: `Bearer ${"M".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const source = "tap(998, 776)\nwait(350)";
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Reviewer visibility", source, languageVersion: "0.1" })
+    }),
+    env
+  );
+  const createdBody = await json(created);
+  assert.equal(created.status, 201);
+
+  const submitted = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ kind: "SCRIPT", itemId: createdBody.script.id, revision: 1 })
+    }),
+    env
+  );
+  assert.equal(submitted.status, 201);
+  assert.equal(submissions[0].submitted_snapshot, "");
+
+  session.role = "REVIEWER";
+  session.user_id = "reviewer-user";
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      headers: { Authorization: `Bearer ${"N".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 200);
+  assert.equal(body.submissions.length, 1);
+  assert.equal(body.submissions[0].snapshot.name, "Reviewer visibility");
+  assert.equal(body.submissions[0].snapshot.revision, 1);
+  assert.equal(Object.hasOwn(body.submissions[0].snapshot, "source"), false);
 });
