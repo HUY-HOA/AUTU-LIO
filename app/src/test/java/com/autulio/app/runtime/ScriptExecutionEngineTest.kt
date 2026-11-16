@@ -124,6 +124,38 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
+    fun replacementProgramStartsOnlyAfterPausedRunIsCancelled() {
+        val dispatcher = RecordingDispatcher()
+        val firstAction = CountDownLatch(1)
+        val cancelled = CountDownLatch(1)
+        val replacementCompleted = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.completedInstructions == 1L) firstAction.countDown()
+            if (it.state == ScriptExecutionState.CANCELLED) cancelled.countDown()
+            if (it.state == ScriptExecutionState.COMPLETED) replacementCompleted.countDown()
+        }
+        try {
+            val oldProgram = compile("CHẠM(1, 1)\nCHỜ(60000)\nCHẠM(2, 2)")
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(oldProgram))
+            assertTrue(firstAction.await(2, TimeUnit.SECONDS))
+            assertTrue(engine.pause())
+            assertEquals(ScriptExecutionState.PAUSED, engine.snapshot().state)
+
+            assertTrue(engine.stop())
+            assertTrue(cancelled.await(2, TimeUnit.SECONDS))
+            assertEquals(ScriptExecutionState.CANCELLED, engine.snapshot().state)
+            assertEquals(listOf("tap:1,1"), dispatcher.actions)
+
+            val replacement = compile("CHẠM(9, 9)")
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(replacement))
+            assertTrue(replacementCompleted.await(2, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:1,1", "tap:9,9"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
     fun pauseFreezesWaitAndResumeContinuesTheProgram() {
         val actions = RecordingDispatcher()
         val firstAction = CountDownLatch(1)
