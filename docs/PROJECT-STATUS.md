@@ -2,14 +2,14 @@
 
 **Cập nhật:** 17/11/2026  
 **Repository:** `HUY-HOA-1/AUTU-LIO`  
-**Nhánh tích hợp đang làm việc:** `feature/floating-runner-secure-20261117` (PR #33)
+**Nhánh tích hợp:** `feature/floating-runner-secure-20261117` (PR #33)
 
 ## 1. Phạm vi sản phẩm
 
 - Chỉ phát triển **ứng dụng Android native**, một APK duy nhất: `com.autulio.app`.
-- Không làm website, web dashboard, web app hoặc trang web preview.
-- `backend/` là Cloudflare Worker REST API để ứng dụng Android gọi; không phải giao diện web và không được xóa vì app cần nó cho đăng nhập, phân quyền, dự án, thiết bị và giấy phép.
-- Debug và Release cùng dùng luồng xác thực thật; không cho phép chọn vai trò giả trên thiết bị.
+- Sản phẩm không có website, web dashboard, web app hoặc trang web xem trước.
+- `backend/` là Cloudflare Worker REST API để ứng dụng Android gọi; đây không phải giao diện web và cần được giữ lại cho đăng nhập, phân quyền, dự án, thiết bị và giấy phép.
+- Debug và Release cùng dùng luồng xác thực và xác minh vai trò; không cấp quyền bằng bộ chọn vai trò cục bộ.
 
 ## 2. Mã nguồn đã có trong nhánh tích hợp Android
 
@@ -39,17 +39,26 @@
 2. **Google OAuth:** tạo Web Client ID và Android Client ID đúng package name/chữ ký; cấu hình OAuth phía Worker và ứng dụng.
 3. **Dữ liệu thực:** kiểm thử đăng nhập chủ sở hữu, mời cộng tác viên, vai trò/quyền, đồng bộ workspace, thiết bị, giấy phép, thư viện và package với máy chủ.
 4. **Đóng gói kịch bản:** hoàn thiện quy trình ký, mã hóa, phát hành, tải xuống, xác minh quyền chạy, cập nhật và thu hồi package.
-5. **Ký APK:** tạo và lưu an toàn keystore phát hành; cấu hình đủ bốn GitHub Actions secrets. Không dùng chứng thư Android Debug để phân phối người dùng.
-6. **Kiểm thử thiết bị:** xác nhận thao tác chạm/vuốt, quyền Trợ năng, overlay, vòng đời service, dừng khẩn cấp và hành vi khi chuyển ứng dụng; ưu tiên kiểm tra Xiaomi/HyperOS cùng các Android phiên bản khác.
-7. **Chất lượng:** tất cả Android unit tests, lint, Worker tests và kiểm tra bảo mật phải đạt trước phát hành.
+5. **Kiểm thử thiết bị:** xác nhận thao tác chạm/vuốt, quyền Trợ năng, overlay, vòng đời service, dừng khẩn cấp và hành vi khi chuyển ứng dụng; ưu tiên kiểm tra Xiaomi/HyperOS cùng các Android phiên bản khác.
+6. **Chất lượng:** tất cả Android unit tests, lint, Worker tests và kiểm tra bảo mật phải đạt trước phát hành.
 
-## 4. Bản build gần nhất
+## 4. Bản build Release gần nhất
 
-GitHub Actions run #9 đã tạo artifact `AUTU-LIO-Debug`, phiên bản `0.1.9`. Log xác nhận APK Debug được ký bằng chứng thư **Android Debug**; bước build Release đã bị bỏ qua. Đây chỉ là kết quả kiểm tra quy trình build, **không phải APK phát hành** và không được dùng để phân phối khách hàng.
+GitHub Actions run [43972068339](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43972068339) đã hoàn tất thành công từ nhánh `build-requests/release-autulio-20261117`.
 
-## 5. Web
+- Variant: Release.
+- APK: `AUTU-LIO-v0.1.10.apk`.
+- `:app:lintRelease` và `:app:assembleRelease` thành công.
+- `apksigner verify` xác nhận chữ ký APK hợp lệ theo APK Signature Scheme v2.
+- SHA-256 của APK: `b3e17afbc5f582c371c394c94981b9e51b6b20e2f05a038cf11fcbe4546c7b3e`.
+- Artifact: `AUTU-LIO-Release`; artifact ZIP SHA-256: `71af6297d250889ce5ea91949d9a575d7554e089a42ea8d23a0c76b01576983d`.
+- Build thành công không thay thế cho việc cấu hình máy chủ, OAuth và kiểm thử ứng dụng trên thiết bị Android thật.
 
-Phần `web-preview/` và workflow `web-preview-check.yml` đã bị loại khỏi nhánh `preview/web-live`. Sản phẩm tiếp tục được phát triển trong ứng dụng Android; không xây dựng lại phiên bản web. Cloudflare Worker vẫn được giữ lại vì đây là API backend của ứng dụng.
+## 5. Backend API
+
+- `backend/` chỉ chứa Cloudflare Worker REST API và D1 migrations để ứng dụng Android sử dụng.
+- Không triển khai giao diện web từ thư mục backend.
+- Không tạo lại website, dashboard trên web hoặc trang web xem trước.
 
 ## 6. Quy tắc an toàn và phát hành
 
