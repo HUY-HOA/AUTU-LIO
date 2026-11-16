@@ -115,7 +115,10 @@ class SecureSessionStore(context: Context) {
     }
 
     fun clear() {
-        preferences.edit().clear().apply()
+        val cleared = preferences.edit().clear().commit()
+        runCatching { deleteKey(CURRENT_KEY_ALIAS) }
+        runCatching { deleteKey(LEGACY_KEY_ALIAS) }
+        check(cleared) { "Unable to clear the stored session." }
     }
 
     private fun getOrCreateKey(keyAlias: String): SecretKey {
