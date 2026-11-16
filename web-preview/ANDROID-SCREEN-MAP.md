@@ -20,8 +20,8 @@ This map is based on the Android source currently on `main`. It is the reference
 | Owner | Settings | `MainActivity.kt`, `MoreScreen` | Settings |
 | Owner | Script editor, templates, help, compile, save, prepare run | `ScriptEditorActivity.kt`, `MainActivity.kt`, `ScriptCompiler.kt` | Editor UI; compile/run are deliberately not executed in Web |
 | Customer | Home / license status | `MainActivity.kt`, `CustomerHome` | Customer home |
-| Customer | AUTU library and sample detail | `MainActivity.kt`, `CustomerScriptsScreen`, `CustomerScriptDetail` | Customer scripts / detail |
-| Customer | Device and license | `MainActivity.kt`, `CustomerDeviceLicensePage` | Device and license |
+| Customer | Published AUTU package library | `MainActivity.kt`, `CustomerPackagesScreen` | Customer package library; no fabricated package data without live session |
+| Customer | Device/license overview, register RSA-3072 device, remove this device | `LiveManagementScreens.kt`, `CustomerDeviceLicenseScreen`, `SecureDeviceIdentityStore.kt` | Device/license live-session empty state |
 | Customer | Settings / invitation token / sign-out | `MainActivity.kt`, `SettingsScreen` | Customer settings |
 | Developer | Private encrypted local drafts and separate editor | `CollaboratorWorkspace.kt`, `SecureScriptDraftStore.kt`, `ScriptEditorActivity.kt` | Developer workspace/editor |
 | Designer | Local UI preview and accent selection | `CollaboratorWorkspace.kt` | Designer workspace |
@@ -33,5 +33,5 @@ This map is based on the Android source currently on `main`. It is the reference
 - Debug role selection is not authentication. Release starts at the authentication/session host.
 - Server-supplied permissions may be narrower than the defaults in `AccessRole.kt`; Web labels are defaults, not live account permissions.
 - Android has a script compiler, interpreter engine, Accessibility Service gesture dispatcher and floating runner. Their operation still requires Android permissions and physical-device validation.
-- The Customer sample is a preview-only package. Its Run/Pause/Stop controls do not execute the engine.
+- The active Customer navigation uses `CustomerPackagesScreen` and `CustomerDeviceLicenseScreen`; obsolete sample-script and placeholder device composables were removed. Published package download verifies license/device, decrypts the device-wrapped AES key in Android Keystore, checks the source hash, compiles the source and prepares the floating runner.
 - Web state is not Android state. It must not claim to persist encrypted app drafts or perform gestures.
