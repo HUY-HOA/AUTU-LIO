@@ -24,11 +24,23 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.CustomerPackageRunContext
 import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
+import com.autulio.app.runtime.ScriptExecutionStartResult
 import com.autulio.app.runtime.ScriptExecutionState
 import com.autulio.app.script.ScriptProgram
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -58,6 +70,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var collapsed = false
     private var pendingProgram: ScriptProgram? = null
     private var latestSnapshot: ScriptExecutionSnapshot? = null
+    private val authorizationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var authorizationJob: Job? = null
+    @Volatile private var packageRunContext: CustomerPackageRunContext? = null
+    @Volatile private var authorizationStatusMessage: String? = null
+    @Volatile private var authorizationChecking = false
+    @Volatile private var authorizationGeneration = 0L
     @Volatile private var foregroundPackage: String? = null
 
     override fun onServiceConnected() {
@@ -77,24 +95,32 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     override fun onInterrupt() {
-        executionEngine?.stop()
+        stopExecution()
     }
 
     override fun onDestroy() {
+        authorizationGeneration += 1
+        authorizationJob?.cancel()
+        authorizationJob = null
+        authorizationScope.cancel()
         executionEngine?.close()
         executionEngine = null
         removeFloatingWindow()
         pendingProgram = null
+        packageRunContext = null
         if (activeInstance === this) activeInstance = null
         super.onDestroy()
     }
 
-    fun prepareProgram(program: ScriptProgram): Boolean {
+    fun prepareProgram(
+        program: ScriptProgram,
+        customerRunContext: CustomerPackageRunContext? = null
+    ): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             val finished = CountDownLatch(1)
             val result = AtomicBoolean(false)
             if (!mainHandler.post {
-                    result.set(prepareProgram(program))
+                    result.set(prepareProgram(program, customerRunContext))
                     finished.countDown()
                 }
             ) return false
@@ -113,9 +139,16 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             state == ScriptExecutionState.STOPPING
         ) return false
 
+        authorizationGeneration += 1
+        authorizationJob?.cancel()
+        authorizationJob = null
+        authorizationChecking = false
+        authorizationStatusMessage = null
+        packageRunContext = customerRunContext
         pendingProgram = program
         if (!showFloatingWindow()) {
             pendingProgram = null
+            packageRunContext = null
             return false
         }
         renderSnapshot(executionEngine?.snapshot())
@@ -124,9 +157,23 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     fun pauseExecution(): Boolean = executionEngine?.pause() == true
 
-    fun resumeExecution(): Boolean = executionEngine?.resume() == true
+    fun resumeExecution(): Boolean {
+        val engine = executionEngine ?: return false
+        val program = pendingProgram ?: return false
+        val context = packageRunContext
+        return if (context == null) engine.resume() else {
+            authorizeAndRun(context, program, resume = true)
+            true
+        }
+    }
 
-    fun stopExecution(): Boolean = executionEngine?.stop() == true
+    fun stopExecution(): Boolean {
+        authorizationGeneration += 1
+        authorizationJob?.cancel()
+        authorizationJob = null
+        authorizationChecking = false
+        return executionEngine?.stop() == true
+    }
 
     override fun tap(x: Int, y: Int): Boolean =
         dispatchPointGesture(x, y, TAP_DURATION_MS)
@@ -413,14 +460,16 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             onPrimaryAction()
         }
         val stop = controlButton("■", "Dừng kịch bản", 0xFFFF7777.toInt()) {
-            executionEngine?.stop()
+            stopExecution()
         }
         val collapse = controlButton("▾", "Thu gọn cửa sổ", 0xFFE2E8F0.toInt()) {
             setCollapsed(!collapsed)
         }
         val close = controlButton("×", "Đóng cửa sổ và dừng kịch bản", 0xFFFFAAAA.toInt()) {
-            executionEngine?.stop()
+            stopExecution()
             pendingProgram = null
+            packageRunContext = null
+            authorizationStatusMessage = null
             removeFloatingWindow()
         }
 
@@ -511,16 +560,106 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private fun onPrimaryAction() {
         val engine = executionEngine ?: return
+        if (authorizationChecking) return
         when (engine.snapshot().state) {
             ScriptExecutionState.RUNNING -> engine.pause()
-            ScriptExecutionState.PAUSED -> engine.resume()
+            ScriptExecutionState.PAUSED -> {
+                val program = pendingProgram ?: return
+                val context = packageRunContext
+                if (context == null) engine.resume()
+                else authorizeAndRun(context, program, resume = true)
+            }
             ScriptExecutionState.STOPPING -> Unit
             ScriptExecutionState.IDLE,
             ScriptExecutionState.COMPLETED,
             ScriptExecutionState.CANCELLED,
             ScriptExecutionState.FAILED -> {
                 val program = pendingProgram ?: return
-                engine.start(program)
+                val context = packageRunContext
+                if (context == null) {
+                    authorizationStatusMessage = null
+                    engine.start(program)
+                } else {
+                    authorizeAndRun(context, program, resume = false)
+                }
+            }
+        }
+    }
+
+    private fun authorizeAndRun(
+        context: CustomerPackageRunContext,
+        program: ScriptProgram,
+        resume: Boolean
+    ) {
+        if (authorizationChecking) return
+        authorizationGeneration += 1
+        val generation = authorizationGeneration
+        authorizationJob?.cancel()
+        authorizationChecking = true
+        authorizationStatusMessage = "Đang xác minh quyền chạy AUTU…"
+        renderSnapshot(executionEngine?.snapshot())
+
+        authorizationJob = authorizationScope.launch {
+            try {
+                val repository = AuthRepository(applicationContext)
+                var hasStarted = false
+                while (isActive && generation == authorizationGeneration && packageRunContext == context) {
+                    val expiresAt = repository.authorizeCustomerPackageRun(
+                        context.accessToken,
+                        context.packageId,
+                        context.packageVersion,
+                        context.deviceFingerprint
+                    )
+                    if (expiresAt <= System.currentTimeMillis() / 1000L) {
+                        throw IOException("Quyền chạy AUTU đã hết hạn.")
+                    }
+
+                    if (!hasStarted) {
+                        if (resume) {
+                            if (!executionEngine!!.resume()) {
+                                throw IOException("Không thể tiếp tục kịch bản.")
+                            }
+                        } else {
+                            when (val result = executionEngine!!.start(program)) {
+                                ScriptExecutionStartResult.Started -> Unit
+                                ScriptExecutionStartResult.AlreadyRunning ->
+                                    throw IOException("Kịch bản đang chạy.")
+                                is ScriptExecutionStartResult.Rejected ->
+                                    throw IOException(result.message)
+                            }
+                        }
+                        hasStarted = true
+                        authorizationChecking = false
+                        authorizationStatusMessage = null
+                        mainHandler.post {
+                            if (generation == authorizationGeneration) {
+                                renderSnapshot(executionEngine?.snapshot())
+                            }
+                        }
+                    }
+
+                    delay(15_000L)
+                    val state = executionEngine?.snapshot()?.state ?: break
+                    if (state != ScriptExecutionState.RUNNING && state != ScriptExecutionState.PAUSED) break
+                }
+            } catch (exception: Exception) {
+                if (generation == authorizationGeneration) {
+                    authorizationChecking = false
+                    authorizationStatusMessage =
+                        "Quyền chạy đã bị thu hồi hoặc không thể xác minh. Gói AUTU đã bị khóa."
+                    pendingProgram = null
+                    packageRunContext = null
+                    executionEngine?.let { engine ->
+                        if (engine.snapshot().state == ScriptExecutionState.RUNNING ||
+                            engine.snapshot().state == ScriptExecutionState.PAUSED
+                        ) engine.stop()
+                    }
+                    mainHandler.post {
+                        if (generation == authorizationGeneration) {
+                            renderSnapshot(executionEngine?.snapshot())
+                        }
+                    }
+                }
             }
         }
     }
@@ -534,7 +673,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val current = snapshot ?: latestSnapshot
         val state = current?.state ?: ScriptExecutionState.IDLE
 
-        status.text = when (state) {
+        status.text = authorizationStatusMessage ?: when (state) {
             ScriptExecutionState.IDLE ->
                 "Sẵn sàng · Chuyển sang ứng dụng cần thao tác rồi nhấn Chạy"
             ScriptExecutionState.RUNNING ->
@@ -553,11 +692,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val stopping = state == ScriptExecutionState.STOPPING
         primary.text = if (running) "Ⅱ" else "▶"
         primary.contentDescription = when {
+            authorizationChecking -> "Đang xác minh quyền chạy AUTU"
             running -> "Tạm dừng kịch bản"
             paused -> "Tiếp tục kịch bản"
             else -> "Chạy kịch bản"
         }
-        primary.isEnabled = pendingProgram != null && !stopping
+        primary.isEnabled = pendingProgram != null && !stopping && !authorizationChecking
         primary.alpha = if (primary.isEnabled) 1f else 0.45f
         stop.visibility = if (!collapsed && (running || paused || stopping)) View.VISIBLE else View.GONE
         primary.visibility = if (collapsed) View.GONE else View.VISIBLE
