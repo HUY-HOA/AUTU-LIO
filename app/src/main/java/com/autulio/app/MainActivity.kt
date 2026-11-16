@@ -1415,6 +1415,7 @@ class ScriptEditorActivity : ComponentActivity() {
         private const val EXTRA_SCRIPT_NAME = "com.autulio.app.extra.SCRIPT_NAME"
         private const val EXTRA_NAMESPACE = "com.autulio.app.extra.SCRIPT_NAMESPACE"
         private const val EXTRA_INITIAL_SOURCE = "com.autulio.app.extra.INITIAL_SOURCE"
+        private const val EXTRA_FROM_FLOATING_RUNNER = "com.autulio.app.extra.FROM_FLOATING_RUNNER"
 
         fun intent(
             context: Context,
@@ -1426,10 +1427,17 @@ class ScriptEditorActivity : ComponentActivity() {
                 .putExtra(EXTRA_SCRIPT_NAME, scriptName)
                 .putExtra(EXTRA_NAMESPACE, namespace)
                 .putExtra(EXTRA_INITIAL_SOURCE, initialSource)
+
+        fun floatingRunnerIntent(context: Context, scriptName: String, namespace: String): Intent =
+            intent(context, scriptName, namespace)
+                .putExtra(EXTRA_FROM_FLOATING_RUNNER, true)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra(EXTRA_FROM_FLOATING_RUNNER, false)) {
+            AutoClickAccessibilityService.current()?.hideRunnerWindowForEditing()
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
 
         val scriptName = intent.getStringExtra(EXTRA_SCRIPT_NAME)?.trim().orEmpty()
@@ -1555,7 +1563,7 @@ class ScriptEditorActivity : ComponentActivity() {
                                         )
                                     }
                                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                } else if (service.prepareProgram(compilation.program!!)) {
+                                } else if (service.prepareProgram(compilation.program!!, scriptName, namespace)) {
                                     scope.launch {
                                         host.showSnackbar(
                                             tr(
@@ -1579,4 +1587,10 @@ class ScriptEditorActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        if (isFinishing) AutoClickAccessibilityService.current()?.restoreRunnerWindow()
+        super.onDestroy()
+    }
+
 }
