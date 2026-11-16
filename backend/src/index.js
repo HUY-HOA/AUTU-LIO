@@ -958,6 +958,7 @@ async function createProjectSubmission(request, env, session, projectId) {
 async function listProjectSubmissions(request, env, session, projectId) {
   await requireProjectAccess(env, session, projectId);
   await requirePermission(env, session, "REVIEW_RELEASE");
+  const canViewScriptSource = await hasPermission(env, session, "EDIT_SCRIPTS");
   const result = await env.DB.prepare(
     "SELECT s.id, s.project_id, s.kind, s.item_id, s.revision, s.submitted_snapshot, s.snapshot_ciphertext, s.snapshot_iv, s.snapshot_encrypted_data_key, s.snapshot_key_iv, s.snapshot_key_version, s.submitted_by, " +
     "u.email AS submitter_email, s.status, s.review_note, s.reviewed_by, s.created_at, s.reviewed_at " +
@@ -966,6 +967,9 @@ async function listProjectSubmissions(request, env, session, projectId) {
   ).bind(projectId).all();
   const submissions = await Promise.all((result.results || []).map(async item => {
     const snapshot = await loadProjectSubmissionSnapshot(env, projectId, item);
+    if (item.kind === "SCRIPT" && !canViewScriptSource && snapshot && typeof snapshot === "object") {
+      delete snapshot.source;
+    }
     return {
       id: item.id,
       kind: item.kind,
