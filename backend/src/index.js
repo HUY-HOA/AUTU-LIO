@@ -1659,12 +1659,20 @@ async function migrateLegacyProjectData(request, env, session) {
   const remainingSubmissions = await env.DB.prepare(
     "SELECT COUNT(*) AS total FROM change_submissions WHERE submitted_snapshot <> '' AND (snapshot_ciphertext IS NULL OR snapshot_ciphertext = '')"
   ).first();
-  return response(request, {
+
+  const migrationSummary = {
     migratedDrafts,
     migratedSubmissions,
     remainingDrafts: Number(remainingDrafts?.total || 0),
-    remainingSubmissions: Number(remainingSubmissions?.total || 0),
-    complete: Number(remainingDrafts?.total || 0) === 0 && Number(remainingSubmissions?.total || 0) === 0
+    remainingSubmissions: Number(remainingSubmissions?.total || 0)
+  };
+  await audit(env, session.user_id, "security.project_data_migrated", "project_data", "legacy", {
+    ...migrationSummary,
+    complete: migrationSummary.remainingDrafts === 0 && migrationSummary.remainingSubmissions === 0
+  });
+  return response(request, {
+    ...migrationSummary,
+    complete: migrationSummary.remainingDrafts === 0 && migrationSummary.remainingSubmissions === 0
   }, 200, env);
 }
 
