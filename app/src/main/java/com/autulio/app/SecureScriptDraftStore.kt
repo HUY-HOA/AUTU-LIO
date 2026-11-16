@@ -99,7 +99,12 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
         cipher.updateAAD(associatedData)
-        val encrypted = cipher.doFinal(root.toString().toByteArray(Charsets.UTF_8))
+        val plainBytes = root.toString().toByteArray(Charsets.UTF_8)
+        val encrypted = try {
+            cipher.doFinal(plainBytes)
+        } finally {
+            plainBytes.fill(0)
+        }
         val iv = cipher.iv
         require(iv.size == GCM_IV_LENGTH_BYTES)
 
@@ -128,7 +133,12 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
             GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv)
         )
         cipher.updateAAD(associatedData)
-        val root = JSONObject(cipher.doFinal(ciphertext).toString(Charsets.UTF_8))
+        val plainBytes = cipher.doFinal(ciphertext)
+        val root = try {
+            JSONObject(plainBytes.toString(Charsets.UTF_8))
+        } finally {
+            plainBytes.fill(0)
+        }
 
         val namesJson = root.optJSONArray("names") ?: JSONArray()
         val names = buildList<String> {
