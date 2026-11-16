@@ -91,8 +91,8 @@ else:
 
 database.execute(
     "INSERT INTO script_drafts "
-    "(id, project_id, name, source, language_version, revision, created_by, updated_by, created_at, updated_at) "
-    "VALUES ('script-1', 'project-1', 'Example', 'tap(10, 20)', '0.1', 1, 'developer-1', 'developer-1', 1, 1)"
+    "(id, project_id, name, source, language_version, revision, created_by, updated_by, created_at, updated_at, source_ciphertext, source_iv, source_key_version) "
+    "VALUES ('script-1', 'project-1', 'Example', '', '0.1', 1, 'developer-1', 'developer-1', 1, 1, 'encrypted-script', 'random-iv', 'V1')"
 )
 try:
     database.execute(
@@ -112,8 +112,8 @@ database.execute(
 )
 database.execute(
     "INSERT INTO change_submissions "
-    "(id, project_id, kind, item_id, revision, submitted_snapshot, submitted_by, status, created_at) "
-    "VALUES ('submission-1', 'project-1', 'SCRIPT', 'script-1', 1, '{\"name\":\"Example\"}', 'developer-1', 'PENDING', 1)"
+    "(id, project_id, kind, item_id, revision, submitted_snapshot, submitted_by, status, created_at, snapshot_ciphertext, snapshot_iv, snapshot_key_version) "
+    "VALUES ('submission-1', 'project-1', 'SCRIPT', 'script-1', 1, '', 'developer-1', 'PENDING', 1, 'encrypted-snapshot', 'random-iv', 'V1')"
 )
 
 try:
@@ -190,6 +190,32 @@ except sqlite3.IntegrityError:
     pass
 else:
     raise SystemExit("Database accepted a duplicate package version")
+
+project_draft_columns = {
+    row[1]
+    for row in database.execute("PRAGMA table_info(script_drafts)")
+}
+required_project_draft_columns = {"source_ciphertext", "source_iv", "source_key_version"}
+if not required_project_draft_columns.issubset(project_draft_columns):
+    raise SystemExit("Encrypted project script draft columns are incomplete")
+encrypted_script = database.execute(
+    "SELECT source, source_ciphertext, source_iv, source_key_version FROM script_drafts WHERE id = 'script-1'"
+).fetchone()
+if encrypted_script != ("", "encrypted-script", "random-iv", "V1"):
+    raise SystemExit("New project script drafts must not store plaintext source")
+
+submission_columns = {
+    row[1]
+    for row in database.execute("PRAGMA table_info(change_submissions)")
+}
+required_submission_columns = {"snapshot_ciphertext", "snapshot_iv", "snapshot_key_version"}
+if not required_submission_columns.issubset(submission_columns):
+    raise SystemExit("Encrypted project submission columns are incomplete")
+encrypted_submission = database.execute(
+    "SELECT submitted_snapshot, snapshot_ciphertext, snapshot_iv, snapshot_key_version FROM change_submissions WHERE id = 'submission-1'"
+).fetchone()
+if encrypted_submission != ("", "encrypted-snapshot", "random-iv", "V1"):
+    raise SystemExit("New review submissions must not store plaintext snapshots")
 
 package_version_columns = {
     row[1]
