@@ -23,6 +23,8 @@ Các lớp bảo vệ được sử dụng:
 
 R8 là làm rối và thu gọn mã, không phải mã hóa tuyệt đối. Mã giải mã và nội dung cần chạy vẫn có thể xuất hiện trong bộ nhớ khi ứng dụng hoạt động.
 
+Bản Debug tiêu chuẩn cũng phải xác minh phiên đăng nhập, vai trò và `EDIT_SCRIPTS` từ Worker trước khi mở editor. Cơ chế mở editor ngoại tuyến chỉ được bật có chủ đích cho máy phát triển bằng Gradle property `-PAUTU_LIO_ALLOW_OFFLINE_DEBUG_EDITOR=true`; mặc định là `false`. Không bật tùy chọn này trong APK gửi khách hàng hoặc bản phân phối.
+
 ## 3. Android Release signing
 
 ### GitHub Actions secrets bắt buộc
