@@ -48,7 +48,7 @@ function renderChooser(){
  const list=Object.entries(roles).map(([key,r])=>'<button type="button" class="role-card" data-role="'+key+'"><span class="action-icon">'+r.icon+'</span><span><strong>'+r.label+'</strong><small>'+r.subtitle+'</small></span><span class="action-arrow">›</span></button>').join("");
  $("screen").innerHTML='<div style="padding-top:10px"><div class="brand-mark" style="width:54px;height:54px;font-size:23px;margin-bottom:20px">A</div><div class="eyebrow">ANDROID · DEBUG PREVIEW</div><h1 class="page-title" style="font-size:29px;margin-top:8px">AUTU-LIO</h1><p class="page-sub">Một ứng dụng duy nhất. Giao diện được mở theo vai trò tài khoản.</p><div class="status-note blue">Đây là màn hình chọn vai trò xem trước trong bản Debug Android. Bản phát hành thật phải xác minh vai trò từ máy chủ, không tự cấp quyền tại đây.</div><h3 style="font-size:14px;margin:23px 0 10px">Chọn giao diện để đối chiếu</h3><div class="role-grid">'+list+'</div></div>';
 }
-function navMarkup(tabs){return tabs.map(([key,label,icon])=>'<button type="button" class="nav-btn '+(state.page===key?'active':'')+'" data-page="'+key+'"><span class="nav-icon">'+icon+'</span><span>'+label+'</span></button>').join("");}
+function navMarkup(tabs){return tabs.map(([key,label,icon])=>{const active=state.page===key||(state.role==="owner"&&key==="more"&&!ownerTabs.some(t=>t[0]===state.page));return '<button type="button" class="nav-btn '+(active?'active':'')+'" data-page="'+key+'"><span class="nav-icon">'+icon+'</span><span>'+label+'</span></button>';}).join("");}
 function setRole(role){state.role=role;state.page=role==="owner"?"overview":role==="customer"?"home":"workspace";render();}
 function renderShell(){
  $("topbar").classList.remove("hidden");$("top-title").textContent=state.role==="owner"?"AUTU-LIO · Chủ sở hữu":roles[state.role].label;
@@ -115,6 +115,7 @@ function renderGuide(){
   '<div class="btn-row"><button class="btn" data-page="editor">← Quay lại trình soạn thảo</button></div>';
 }
 function renderCollaborator(){
+ if(state.page==="editor")return renderEditor();
  if(state.page==="projects")return heading("DỰ ÁN CỘNG TÁC","Dự án được phân công","Các dự án hiển thị theo membership và quyền tài khoản.")+unavailable("Chưa tải được dự án","Bản xem thử không có access token hoặc kết nối phiên Worker đang hoạt động.");
  if(state.role==="developer"){
   return heading("DEVELOPER WORKSPACE","Không gian Nhà phát triển","Soạn thảo kịch bản và làm việc trong dự án được giao.")+
