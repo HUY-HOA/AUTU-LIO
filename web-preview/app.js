@@ -377,7 +377,7 @@ function setRole(role){
 function go(page){
  if(["collaborators","projects","licenses","library","packages","release","logs","settings"].includes(page)){
    state.adminSub=page;state.page="more-sub";
- }else if(page==="customer-detail"){state.page=page;}
+ }
  else {state.page=page;state.adminSub="";}
  render();
 }
@@ -413,11 +413,11 @@ document.addEventListener("click",(event)=>{
  else if(a.startsWith("open-draft:")){
    const i=Number(a.split(":")[1]);const d=state.drafts[i];if(d){state.editorName=d.name;state.editorSource=d.source;state.page="editor";render();}
  }
- else if(a==="customer-detail"){state.page="customer-detail";render();}
+ 
  else if(a==="scripts"){state.page="scripts";render();}
  else if(a==="device"){state.page="device";render();}
  else if(a==="server-check"){toast("Máy chủ AUTU-LIO chưa được kết nối trong bản xem trước.");}
- else if(a==="sample-run"||a==="sample-pause"||a==="sample-stop"){toast("Đây chỉ là nút xem trước; không có thao tác nào được thực thi.");}
+ 
  else if(a==="check-code"){const node=$("editor-feedback");if(node)node.textContent="Chưa kiểm tra: bản Web không gọi ScriptCompiler của Android.";}
  else if(a==="prepare-run"){
    const src=$("editor-source");if(src)state.editorSource=src.value;
