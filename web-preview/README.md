@@ -11,7 +11,7 @@ Bản xem trước này được dựng để đối chiếu giao diện với m
 ## Giao diện Android được phản chiếu
 
 - **Chủ sở hữu:** Tổng quan, AUTU/kịch bản, Khách hàng, Thiết bị, Thêm; trong Thêm có Cộng tác viên, Dự án cộng tác, Giấy phép, Thư viện mẫu AUTU, Gói AUTU, Phát hành, Nhật ký và Cài đặt.
-- **Người dùng:** Trang chủ, Kịch bản, chi tiết kịch bản mẫu, Thiết bị và giấy phép, Cài đặt và nhập mã lời mời.
+- **Người dùng:** Trang chủ, Kho AUTU đã phát hành, Thiết bị và giấy phép, Cài đặt và nhập mã lời mời. Kho thật yêu cầu phiên đăng nhập, giấy phép đang hiệu lực và thiết bị đã đăng ký.
 - **Nhà phát triển:** Không gian nhà phát triển, danh sách bản nháp riêng, mở trình soạn thảo riêng, quyền sửa/kiểm thử/gửi duyệt và dự án cộng tác.
 - **Nhà thiết kế:** Không gian thiết kế, xem trước giao diện, chọn màu nhấn, quyền thiết kế/xem trước/gửi duyệt và dự án cộng tác.
 - **Người kiểm duyệt:** Hàng đợi gửi duyệt, quyền kiểm thử/duyệt và dự án cộng tác.
