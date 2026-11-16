@@ -740,6 +740,7 @@ const PROJECT_TEST_ID = "11111111-1111-4111-8111-111111111111";
 
 function createProjectDraftEnv({ session = ownerSession } = {}) {
   const scripts = [];
+  const submissions = [];
   const queries = [];
   const project = {
     id: PROJECT_TEST_ID,
@@ -768,6 +769,9 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
           if (sql.includes("FROM projects WHERE id = ?")) return project;
           if (sql.includes("FROM project_memberships")) return { allowed: 1 };
           if (sql.includes("FROM permission_overrides")) return null;
+          if (sql.includes("FROM script_drafts WHERE id = ?")) {
+            return scripts.find(item => item.id === this.values[0]) || null;
+          }
           return null;
         },
         async all() {
@@ -786,6 +790,14 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
                 updated_by: item.updated_by,
                 created_at: item.created_at,
                 updated_at: item.updated_at
+              }))
+            };
+          }
+          if (sql.includes("FROM change_submissions s JOIN users u")) {
+            return {
+              results: submissions.map(item => ({
+                ...item,
+                submitter_email: ownerSession.email
               }))
             };
           }
@@ -812,6 +824,28 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
               source_iv: sourceIv,
               source_key_version: sourceKeyVersion
             });
+          } else if (sql.startsWith("INSERT INTO change_submissions")) {
+            const [
+              id, projectId, kind, itemId, revision, submittedSnapshot,
+              submittedBy, createdAt, snapshotCiphertext, snapshotIv, snapshotKeyVersion
+            ] = this.values;
+            submissions.push({
+              id,
+              project_id: projectId,
+              kind,
+              item_id: itemId,
+              revision,
+              submitted_snapshot: submittedSnapshot,
+              submitted_by: submittedBy,
+              status: "PENDING",
+              review_note: "",
+              reviewed_by: null,
+              created_at: createdAt,
+              reviewed_at: null,
+              snapshot_ciphertext: snapshotCiphertext,
+              snapshot_iv: snapshotIv,
+              snapshot_key_version: snapshotKeyVersion
+            });
           }
           return { meta: { changes: 1 } };
         }
@@ -829,10 +863,10 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
       PROJECT_DRAFT_MASTER_KEY_V1: masterKey
     },
     scripts,
+    submissions,
     queries
   };
 }
-
 test("shared project script source is encrypted in D1 and returned only after permission checks", async () => {
   const { env, scripts } = createProjectDraftEnv();
   const headers = {
@@ -884,7 +918,7 @@ test("tampered encrypted project source fails integrity verification", async () 
     env
   );
   assert.equal(created.status, 201);
-  scripts[0].source_ciphertext = scripts[0].source_ciphertext.slice(0, -1) + "A";
+  scripts[0].source_ciphertext = (scripts[0].source_ciphertext[0] === "A" ? "B" : "A") + scripts[0].source_ciphertext.slice(1);
 
   const listed = await worker.fetch(
     makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, { headers }),
@@ -941,4 +975,99 @@ test("customer cannot trigger owner-only legacy project encryption migration", a
 
   assert.equal(response.status, 403);
   assert.equal(body.error, "insufficient_permissions");
+});
+
+
+test("review submission snapshots are encrypted at rest and decrypted only for reviewers", async () => {
+  const { env, scripts, submissions } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"U".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const source = "tap(12, 34)\nwait(250)";
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Reviewable script", source, languageVersion: "0.1" })
+    }),
+    env
+  );
+  const createdBody = await json(created);
+  assert.equal(created.status, 201);
+
+  const submitted = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        kind: "SCRIPT",
+        itemId: createdBody.script.id,
+        revision: 1
+      })
+    }),
+    env
+  );
+  const submittedBody = await json(submitted);
+
+  assert.equal(submitted.status, 201);
+  assert.equal(submittedBody.submitted, true);
+  assert.equal(submissions.length, 1);
+  assert.equal(submissions[0].submitted_snapshot, "");
+  assert.ok(submissions[0].snapshot_ciphertext);
+  assert.equal(submissions[0].snapshot_ciphertext.includes("tap(12"), false);
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      headers: { Authorization: `Bearer ${"V".repeat(48)}` }
+    }),
+    env
+  );
+  const listedBody = await json(listed);
+
+  assert.equal(listed.status, 200);
+  assert.equal(listedBody.submissions[0].snapshot.source, source);
+  assert.equal(Object.hasOwn(listedBody.submissions[0], "submitted_snapshot"), false);
+});
+
+test("tampered encrypted review submission fails integrity verification", async () => {
+  const { env, scripts, submissions } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"W".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Tampered submission", source: "tap(2, 3)", languageVersion: "0.1" })
+    }),
+    env
+  );
+  const createdBody = await json(created);
+  assert.equal(created.status, 201);
+
+  const submitted = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ kind: "SCRIPT", itemId: createdBody.script.id, revision: 1 })
+    }),
+    env
+  );
+  assert.equal(submitted.status, 201);
+  submissions[0].snapshot_ciphertext =
+    (submissions[0].snapshot_ciphertext[0] === "A" ? "B" : "A") +
+    submissions[0].snapshot_ciphertext.slice(1);
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      headers: { Authorization: `Bearer ${"X".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 500);
+  assert.equal(body.error, "project_data_integrity_failed");
 });
