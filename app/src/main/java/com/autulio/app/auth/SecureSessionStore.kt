@@ -46,15 +46,17 @@ class SecureSessionStore(context: Context) {
             return null
         }
 
-        val formatVersion = if (!preferences.contains(KEY_FORMAT_VERSION)) {
-            LEGACY_FORMAT_VERSION
-        } else {
+        val hasFormatVersion = preferences.contains(KEY_FORMAT_VERSION)
+        val formatVersion = if (hasFormatVersion) {
             runCatching { preferences.getString(KEY_FORMAT_VERSION, null) }.getOrNull()
+        } else {
+            null
         }
-        val useAad = when (formatVersion) {
-            CURRENT_FORMAT_VERSION -> true
-            LEGACY_FORMAT_VERSION -> false
-            else -> {
+        val sessionFormat = resolveSecureSessionFormat(hasFormatVersion, formatVersion)
+        val useAad = when (sessionFormat) {
+            SecureSessionFormat.CURRENT_V2 -> true
+            SecureSessionFormat.LEGACY_V1 -> false
+            null -> {
                 clear()
                 return null
             }
@@ -166,5 +168,23 @@ class SecureSessionStore(context: Context) {
         const val CURRENT_FORMAT_VERSION = "2"
         const val KEY_IV = "session_iv"
         const val KEY_DATA = "session_ciphertext"
+    }
+}
+
+
+internal enum class SecureSessionFormat {
+    LEGACY_V1,
+    CURRENT_V2
+}
+
+internal fun resolveSecureSessionFormat(
+    hasVersionMetadata: Boolean,
+    storedVersion: String?
+): SecureSessionFormat? {
+    if (!hasVersionMetadata) return SecureSessionFormat.LEGACY_V1
+    return when (storedVersion) {
+        "1" -> SecureSessionFormat.LEGACY_V1
+        "2" -> SecureSessionFormat.CURRENT_V2
+        else -> null
     }
 }
