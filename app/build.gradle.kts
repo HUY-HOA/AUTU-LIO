@@ -23,6 +23,11 @@ val releaseSigningConfigured = listOf(
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
 
+val allowOfflineDebugEditor = providers.gradleProperty("AUTU_LIO_ALLOW_OFFLINE_DEBUG_EDITOR")
+    .orNull
+    ?.toBooleanStrictOrNull()
+    ?: false
+
 android {
     namespace = "com.autulio.app"
     compileSdk = 37
@@ -43,6 +48,7 @@ android {
         val escapedGoogleServerClientId = googleServerClientId.replace("\\", "\\\\").replace("\"", "\\\"")
         buildConfigField("String", "AUTH_API_BASE_URL", "\"$escapedAuthApiBaseUrl\"")
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$escapedGoogleServerClientId\"")
+        buildConfigField("boolean", "ALLOW_OFFLINE_DEBUG_EDITOR", allowOfflineDebugEditor.toString())
     }
 
     signingConfigs {
@@ -87,6 +93,7 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.activity.compose)
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.google.identity.googleid)

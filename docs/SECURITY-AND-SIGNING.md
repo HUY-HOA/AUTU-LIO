@@ -16,11 +16,14 @@ Các lớp bảo vệ được sử dụng:
 1. Repository GitHub để chế độ private và giới hạn người có quyền truy cập.
 2. Bản Release bật R8: shrink, optimize và obfuscate tên class/method/field; bật shrink resources.
 3. Không nhúng khóa mã hóa chung, signing key, mật khẩu hoặc bí mật máy chủ vào APK.
-4. Logic quyết định quyền, chủ sở hữu, license và phát hành phải được kiểm tra ở Worker/máy chủ; không tin cờ quyền do client tự gửi.
-5. Bản nháp kịch bản trên thiết bị được mã hóa AES-256-GCM; khóa AES được tạo và giữ trong Android Keystore.
-6. Khi triển khai phân phối kịch bản: lưu ciphertext AES-256-GCM, khóa duy nhất theo gói/đối tượng và cấp quyền giải mã sau khi máy chủ xác minh giấy phép. Không dùng một khóa tĩnh nhúng trong APK.
+4. Logic quyết định quyền, chủ sở hữu, license và phát hành phải được kiểm tra ở Worker/máy chủ; không tin cờ quyền do client tự gửi. Activity editor Release xác minh lại phiên, role và `EDIT_SCRIPTS` với máy chủ mỗi lần mở; quyền kiểm thử cũng lấy từ dữ liệu máy chủ, không lấy từ Intent.
+5. Bản nháp trên thiết bị được mã hóa AES-256-GCM; khóa AES được tạo và giữ trong Android Keystore, ưu tiên StrongBox trên thiết bị hỗ trợ và tự fallback về Android Keystore thông thường nếu StrongBox không khả dụng.
+6. Gói AUTU phát hành được mã hóa AES-256-GCM từng phiên bản; data key chỉ được Worker bọc cho RSA-3072 public key của thiết bị đã đăng ký.
+7. Bản nháp dự án cộng tác và snapshot gửi duyệt dùng envelope encryption: mỗi bản ghi có khóa dữ liệu AES-256 ngẫu nhiên riêng để mã hóa nội dung bằng AES-256-GCM; khóa dữ liệu lại được bọc bằng master key riêng trong Worker Secret. AAD gắn cả nội dung và khóa bọc với purpose, dự án, bản ghi, revision và version khóa.
 
 R8 là làm rối và thu gọn mã, không phải mã hóa tuyệt đối. Mã giải mã và nội dung cần chạy vẫn có thể xuất hiện trong bộ nhớ khi ứng dụng hoạt động.
+
+Bản Debug tiêu chuẩn cũng phải xác minh phiên đăng nhập, vai trò và `EDIT_SCRIPTS` từ Worker trước khi mở editor. Cơ chế mở editor ngoại tuyến chỉ được bật có chủ đích cho máy phát triển bằng Gradle property `-PAUTU_LIO_ALLOW_OFFLINE_DEBUG_EDITOR=true`; mặc định là `false`. Không bật tùy chọn này trong APK gửi khách hàng hoặc bản phân phối.
 
 ## 3. Android Release signing
 
@@ -68,11 +71,23 @@ Chỉ nhập chuỗi Base64 vào `AUTU_LIO_RELEASE_KEYSTORE_BASE64`; nhập riê
 
 ## 4. Mã hóa bản nháp trên thiết bị
 
-`SecureScriptDraftStore` sử dụng AES/GCM/NoPadding với khóa AES-256 sinh bởi Android Keystore. Tên kịch bản và nội dung nháp được mã hóa chung thành một payload; dữ liệu bản nháp cũ dạng plaintext được chuyển sang định dạng mã hóa ở lần đọc đầu tiên rồi mới xóa bản cũ sau khi ghi thành công.
+`SecureScriptDraftStore` sử dụng AES/GCM/NoPadding với khóa AES-256 sinh bởi Android Keystore. Trên Android 9/API 28 trở lên, ứng dụng thử tạo khóa trong StrongBox trước; nếu thiết bị không hỗ trợ thuật toán hoặc StrongBox không khả dụng, khóa được tạo trong Android Keystore thông thường. Tên kịch bản và nội dung nháp được mã hóa chung thành một payload; dữ liệu bản nháp cũ dạng plaintext được chuyển sang định dạng mã hóa ở lần đọc đầu tiên rồi mới xóa bản cũ sau khi ghi thành công. Mã nguồn trong cửa sổ editor được che khỏi screenshot và bản xem trước ứng dụng gần đây bằng `FLAG_SECURE`.
 
 Dữ liệu cần ở dạng plaintext trong editor khi chủ sở hữu chỉnh sửa; thiết bị đã root hoặc tiến trình bị hook vẫn có thể đọc nội dung lúc đang mở. Mã hóa lưu trữ giúp bảo vệ dữ liệu khi file preferences bị lấy riêng lẻ, không chống được mọi hình thức tấn công trên thiết bị đã bị kiểm soát.
 
-## 5. Mã hóa và phân phối gói AUTU
+`SecureSessionStore` lưu bearer session bằng AES-256-GCM và AAD `AUTU-LIO|SESSION|v2`. Session mới dùng khóa Android Keystore riêng phiên bản 2. Khi đọc session cũ chưa có metadata hoặc phiên bản 1, ứng dụng chỉ dùng khóa legacy phiên bản 1 để giải mã, ghi lại dưới khóa phiên bản 2 rồi xóa khóa legacy. Metadata phiên bản không hợp lệ và lỗi xác thực phiên bản 2 đều fail closed; không thử lại bằng cơ chế giải mã legacy.
+
+## 5. Mã hóa bản nháp cộng tác và snapshot duyệt ở máy chủ
+
+Các cột `source_ciphertext/source_iv/source_encrypted_data_key/source_key_iv/source_key_version` trong `script_drafts` và `snapshot_ciphertext/snapshot_iv/snapshot_encrypted_data_key/snapshot_key_iv/snapshot_key_version` trong `change_submissions` giữ envelope đã mã hóa. Mỗi bản ghi được sinh một data key AES-256 ngẫu nhiên mới; data key mã hóa nội dung bằng AES-256-GCM với nonce 96-bit, sau đó master key trong Worker Secret bọc data key bằng AES-256-GCM với nonce 96-bit thứ hai. Cả hai thao tác dùng tag 128-bit và AAD ràng buộc purpose, project ID, record ID, revision và key version. D1 chỉ nhận source/snapshot rỗng ở bản ghi mới.
+
+Khóa dự án độc lập với khóa package: `PROJECT_DRAFT_MASTER_KEY_V1` là Worker Secret 32 byte ngẫu nhiên, không có trong APK, Git hay D1. Biến `PROJECT_DRAFT_MASTER_KEY_VERSION` chọn version đang hoạt động. Giữ lại mọi version cũ cho đến khi không còn bản ghi nào tham chiếu tới. Không xoay khóa bằng cách thay secret tại cùng một version.
+
+Sau khi áp dụng các migration 0004 và 0005 rồi deploy Worker, OWNER gọi `POST /api/admin/security/migrate-project-data` lặp lại đến khi `complete=true`. Mỗi lần xử lý tối đa 50 bản nháp và 50 snapshot. Endpoint kiểm tra role OWNER; các bản ghi cũ cũng được chuyển đổi lười khi được đọc hợp lệ. Nếu secret thiếu, thao tác mã hóa mới fail closed thay vì ghi thêm plaintext.
+
+Worker chỉ giải mã source khi quyền dự án và `EDIT_SCRIPTS` hợp lệ. REVIEWER không có `EDIT_SCRIPTS` chỉ nhận metadata; CUSTOMER không được truy cập dự án. Snapshot chỉ được giải mã sau khi kiểm tra quyền `REVIEW_RELEASE`.
+
+## 6. Mã hóa và phân phối gói AUTU
 
 Worker hiện có mã nguồn cho quy trình phát hành gói AUTU theo phiên bản; API chỉ hoạt động sau khi Worker được triển khai, D1 migration và secret được cấu hình.
 
@@ -88,11 +103,13 @@ RSA-OAEP SHA-1/MGF1-SHA1 hiện chỉ dùng để bọc khóa AES 32 byte nhằm
 
 Không có khóa giải mã chung trong APK. Tuy nhiên, khi script được giải mã và chạy, nội dung sẽ có trong bộ nhớ tiến trình; không thể bảo đảm chống sao chép tuyệt đối trên thiết bị đã bị kiểm soát. R8 chỉ shrink/obfuscate mã APK, không phải mã hóa tuyệt đối.
 
-## 6. Điều kiện trước khi phát hành thật
+## 7. Điều kiện trước khi phát hành thật
 
 - Worker chưa được deploy; cần cấu hình Google OAuth và D1 migrations còn thiếu.
-- Cần đặt GOOGLE_CLIENT_ID, OWNER_EMAIL và PACKAGE_MASTER_KEY_V1 bằng Worker secrets. Không đưa các giá trị này vào Git, chat hoặc APK.
+- Cần đặt GOOGLE_CLIENT_ID, OWNER_EMAIL, PACKAGE_MASTER_KEY_V1 và PROJECT_DRAFT_MASTER_KEY_V1 bằng Worker secrets. Không đưa các giá trị này vào Git, chat hoặc APK.
+- Cần áp dụng migration 0004 và chạy endpoint chuyển đổi dữ liệu cũ đến khi hoàn tất trước khi coi dữ liệu dự án đã được mã hóa toàn bộ.
 - Cần kiểm thử đăng nhập thật, cấp license, đăng ký thiết bị, phát hành, tải/giải mã và thu hồi trên thiết bị Android thật.
 - Cần tạo keystore ký Release riêng cho AUTU-LIO, lưu bản sao lưu an toàn và cấu hình đủ bốn GitHub Actions secrets.
 - Kiểm thử cài đặt/cập nhật Release bằng cùng một chữ ký ổn định; không tự động xoay hoặc thay signing key sau khi đã phát hành.
+- Cần chạy Android source checks và Worker checks; sau khi deploy còn cần xác nhận migration/secret ở môi trường thật. Kiểm thử trên thiết bị Android thật để xác nhận StrongBox/TEE, khóa thiết bị, screenshot blocking và luồng editor.
 - Tiếp tục bổ sung kiểm thử runtime và chống giả mạo phù hợp; không xem R8 hay mã hóa package là ranh giới bảo mật duy nhất.

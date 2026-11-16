@@ -1,6 +1,7 @@
 package com.autulio.app
 
 import android.content.Context
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -45,7 +46,13 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
 
     fun load(): ScriptDraftSnapshot {
         preferences.getString(dataKey, null)?.let { encrypted ->
-            return decryptSnapshot(encrypted)
+            val snapshot = decryptSnapshot(encrypted)
+            if (legacyPreferences.all.isNotEmpty()) {
+                check(legacyPreferences.edit().clear().commit()) {
+                    "Unable to remove legacy plaintext script drafts."
+                }
+            }
+            return snapshot
         }
 
         val namesJson = runCatching {
@@ -79,7 +86,9 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
 
         if (legacyPreferences.all.isNotEmpty()) {
             writeEncrypted(snapshot, synchronous = true)
-            legacyPreferences.edit().clear().commit()
+            check(legacyPreferences.edit().clear().commit()) {
+                "Unable to remove migrated plaintext script drafts."
+            }
         }
         return snapshot
     }
@@ -98,7 +107,12 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
         cipher.updateAAD(associatedData)
-        val encrypted = cipher.doFinal(root.toString().toByteArray(Charsets.UTF_8))
+        val plainBytes = root.toString().toByteArray(Charsets.UTF_8)
+        val encrypted = try {
+            cipher.doFinal(plainBytes)
+        } finally {
+            plainBytes.fill(0)
+        }
         val iv = cipher.iv
         require(iv.size == GCM_IV_LENGTH_BYTES)
 
@@ -127,7 +141,12 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
             GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv)
         )
         cipher.updateAAD(associatedData)
-        val root = JSONObject(cipher.doFinal(ciphertext).toString(Charsets.UTF_8))
+        val plainBytes = cipher.doFinal(ciphertext)
+        val root = try {
+            JSONObject(plainBytes.toString(Charsets.UTF_8))
+        } finally {
+            plainBytes.fill(0)
+        }
 
         val namesJson = root.optJSONArray("names") ?: JSONArray()
         val names = buildList<String> {
@@ -152,9 +171,8 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
         (keyStore.getKey(keyAlias, null) as? SecretKey)?.let { return it }
 
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
-        generator.init(
-            KeyGenParameterSpec.Builder(
+        fun generateKey(preferStrongBox: Boolean): SecretKey {
+            val builder = KeyGenParameterSpec.Builder(
                 keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             )
@@ -162,9 +180,23 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256)
                 .setRandomizedEncryptionRequired(true)
-                .build()
-        )
-        return generator.generateKey()
+            if (preferStrongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                builder.setIsStrongBoxBacked(true)
+            }
+            return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
+                .apply { init(builder.build()) }
+                .generateKey()
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            try {
+                return generateKey(preferStrongBox = true)
+            } catch (_: Exception) {
+                keyStore.load(null)
+                if (keyStore.containsAlias(keyAlias)) keyStore.deleteEntry(keyAlias)
+            }
+        }
+        return generateKey(preferStrongBox = false)
     }
 
     private companion object {

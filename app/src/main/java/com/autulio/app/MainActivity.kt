@@ -5,11 +5,14 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -36,10 +39,13 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.util.Locale
+import com.autulio.app.access.AccessPermission
 import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.access.defaultPermissions
+import com.autulio.app.auth.AuthApiException
 import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.SecureSessionStore
 import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptTemplate
@@ -1408,33 +1414,78 @@ class ScriptEditorActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_SCRIPT_NAME = "com.autulio.app.extra.SCRIPT_NAME"
         private const val EXTRA_NAMESPACE = "com.autulio.app.extra.SCRIPT_NAMESPACE"
-        private const val EXTRA_ALLOW_TEST = "com.autulio.app.extra.ALLOW_TEST"
         private const val EXTRA_INITIAL_SOURCE = "com.autulio.app.extra.INITIAL_SOURCE"
 
         fun intent(
             context: Context,
             scriptName: String,
             namespace: String = "admin",
-            allowTest: Boolean = true,
             initialSource: String? = null
         ): Intent =
             Intent(context, ScriptEditorActivity::class.java)
                 .putExtra(EXTRA_SCRIPT_NAME, scriptName)
                 .putExtra(EXTRA_NAMESPACE, namespace)
-                .putExtra(EXTRA_ALLOW_TEST, allowTest)
                 .putExtra(EXTRA_INITIAL_SOURCE, initialSource)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+
         val scriptName = intent.getStringExtra(EXTRA_SCRIPT_NAME)?.trim().orEmpty()
         val namespace = intent.getStringExtra(EXTRA_NAMESPACE) ?: "admin"
-        val allowTest = intent.getBooleanExtra(EXTRA_ALLOW_TEST, false)
         if (scriptName.isBlank() || namespace !in setOf("admin", "developer")) {
             finish()
             return
         }
 
+        if (BuildConfig.DEBUG && BuildConfig.ALLOW_OFFLINE_DEBUG_EDITOR) {
+            showEditor(scriptName, namespace, allowTest = true)
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                val accessToken = SecureSessionStore(this@ScriptEditorActivity).read()
+                if (accessToken.isNullOrBlank()) {
+                    denyEditorAccess()
+                    return@launch
+                }
+                val user = AuthRepository(this@ScriptEditorActivity).currentUser(accessToken)
+                val roleAllowed = when (namespace) {
+                    "admin" -> user.role == AccessRole.OWNER
+                    "developer" -> user.role == AccessRole.DEVELOPER
+                    else -> false
+                }
+                val canEdit = AccessPermission.EDIT_SCRIPTS in user.permissions
+                if (!roleAllowed || !canEdit) {
+                    denyEditorAccess()
+                    return@launch
+                }
+                showEditor(
+                    scriptName = scriptName,
+                    namespace = namespace,
+                    allowTest = AccessPermission.TEST_SCRIPTS in user.permissions
+                )
+            } catch (error: Exception) {
+                if (error is AuthApiException && error.statusCode in 401..403) {
+                    SecureSessionStore(this@ScriptEditorActivity).clear()
+                }
+                denyEditorAccess()
+            }
+        }
+    }
+
+    private fun denyEditorAccess() {
+        Toast.makeText(
+            this,
+            tr("Không thể xác minh quyền sửa mã nguồn. Vui lòng đăng nhập lại hoặc liên hệ Chủ sở hữu.", "Script editing permission could not be verified. Sign in again or contact the Owner."),
+            Toast.LENGTH_LONG
+        ).show()
+        finish()
+    }
+
+    private fun showEditor(scriptName: String, namespace: String, allowTest: Boolean) {
         val store = SecureScriptDraftStore(this, namespace)
         val initial = store.load()
         val initialNames = (initial.names + scriptName).distinctBy { it.lowercase(Locale.ROOT) }

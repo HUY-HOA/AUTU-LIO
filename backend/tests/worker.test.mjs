@@ -734,3 +734,584 @@ test("audit log endpoint rejects an invalid or excessive limit", async () => {
   assert.equal((await json(response)).error, "invalid_audit_limit");
   assert.equal(queries.some(sql => sql.includes("FROM audit_logs")), false);
 });
+
+
+const PROJECT_TEST_ID = "11111111-1111-4111-8111-111111111111";
+
+function createProjectDraftEnv({ session = ownerSession } = {}) {
+  const scripts = [];
+  const submissions = [];
+  const queries = [];
+  const project = {
+    id: PROJECT_TEST_ID,
+    name: "Protected project",
+    description: "",
+    status: "ACTIVE",
+    created_by: ownerSession.user_id,
+    created_at: 1,
+    updated_at: 1
+  };
+  const key = crypto.getRandomValues(new Uint8Array(32));
+  const masterKey = Buffer.from(key).toString("base64url");
+  key.fill(0);
+
+  const DB = {
+    prepare(sql) {
+      queries.push(sql);
+      const statement = {
+        values: [],
+        bind(...values) {
+          this.values = values;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM sessions s JOIN users u")) return session;
+          if (sql.includes("FROM projects WHERE id = ?")) return project;
+          if (sql.includes("FROM project_memberships")) return { allowed: 1 };
+          if (sql.includes("FROM permission_overrides")) return null;
+          if (sql.includes("COUNT(*) AS total") && sql.includes("FROM script_drafts")) {
+            return { total: scripts.filter(item => item.source && !item.source_ciphertext).length };
+          }
+          if (sql.includes("COUNT(*) AS total") && sql.includes("FROM change_submissions")) {
+            return { total: submissions.filter(item => item.submitted_snapshot && !item.snapshot_ciphertext).length };
+          }
+          if (sql.includes("FROM script_drafts WHERE id = ?")) {
+            return scripts.find(item => item.id === this.values[0]) || null;
+          }
+          return null;
+        },
+        async all() {
+          if (sql.includes("FROM audit_logs")) return { results: [] };
+          if (sql.includes("FROM script_drafts") && sql.includes("WHERE source <> ''")) {
+            return { results: scripts.filter(item => item.source && !item.source_ciphertext).map(item => ({ ...item })) };
+          }
+          if (sql.includes("FROM script_drafts")) {
+            if (sql.includes("source_ciphertext")) {
+              return { results: scripts.map(item => ({ ...item })) };
+            }
+            return {
+              results: scripts.map(item => ({
+                id: item.id,
+                name: item.name,
+                language_version: item.language_version,
+                revision: item.revision,
+                created_by: item.created_by,
+                updated_by: item.updated_by,
+                created_at: item.created_at,
+                updated_at: item.updated_at
+              }))
+            };
+          }
+          if (sql.includes("FROM change_submissions") && sql.includes("WHERE submitted_snapshot <> ''")) {
+            return { results: submissions.filter(item => item.submitted_snapshot && !item.snapshot_ciphertext).map(item => ({ ...item })) };
+          }
+          if (sql.includes("FROM change_submissions s JOIN users u")) {
+            return {
+              results: submissions.map(item => ({
+                ...item,
+                submitter_email: ownerSession.email
+              }))
+            };
+          }
+          return { results: [] };
+        },
+        async run() {
+          if (sql.startsWith("INSERT INTO script_drafts")) {
+            const [
+              id, projectId, name, languageVersion, createdBy, updatedBy,
+              createdAt, updatedAt, sourceCiphertext, sourceIv, sourceEncryptedDataKey, sourceKeyIv, sourceKeyVersion
+            ] = this.values;
+            scripts.push({
+              id,
+              project_id: projectId,
+              name,
+              source: "",
+              language_version: languageVersion,
+              revision: 1,
+              created_by: createdBy,
+              updated_by: updatedBy,
+              created_at: createdAt,
+              updated_at: updatedAt,
+              source_ciphertext: sourceCiphertext,
+              source_iv: sourceIv,
+              source_encrypted_data_key: sourceEncryptedDataKey,
+              source_key_iv: sourceKeyIv,
+              source_key_version: sourceKeyVersion
+            });
+          } else if (sql.startsWith("INSERT INTO change_submissions")) {
+            const [
+              id, projectId, kind, itemId, revision, submittedBy,
+              createdAt, snapshotCiphertext, snapshotIv, snapshotEncryptedDataKey, snapshotKeyIv, snapshotKeyVersion
+            ] = this.values;
+            submissions.push({
+              id,
+              project_id: projectId,
+              kind,
+              item_id: itemId,
+              revision,
+              submitted_snapshot: "",
+              submitted_by: submittedBy,
+              status: "PENDING",
+              review_note: "",
+              reviewed_by: null,
+              created_at: createdAt,
+              reviewed_at: null,
+              snapshot_ciphertext: snapshotCiphertext,
+              snapshot_iv: snapshotIv,
+              snapshot_encrypted_data_key: snapshotEncryptedDataKey,
+              snapshot_key_iv: snapshotKeyIv,
+              snapshot_key_version: snapshotKeyVersion
+            });
+          } else if (sql.startsWith("UPDATE script_drafts SET source = ''")) {
+            const [ciphertext, iv, encryptedDataKey, keyIv, keyVersion, id, projectId] = this.values;
+            const draft = scripts.find(item => item.id === id && item.project_id === projectId);
+            if (draft && draft.source && !draft.source_ciphertext) {
+              draft.source = "";
+              draft.source_ciphertext = ciphertext;
+              draft.source_iv = iv;
+              draft.source_encrypted_data_key = encryptedDataKey;
+              draft.source_key_iv = keyIv;
+              draft.source_key_version = keyVersion;
+            }
+          } else if (sql.startsWith("UPDATE change_submissions SET submitted_snapshot = ''")) {
+            const [ciphertext, iv, encryptedDataKey, keyIv, keyVersion, id, projectId] = this.values;
+            const submission = submissions.find(item => item.id === id && item.project_id === projectId);
+            if (submission && submission.submitted_snapshot && !submission.snapshot_ciphertext) {
+              submission.submitted_snapshot = "";
+              submission.snapshot_ciphertext = ciphertext;
+              submission.snapshot_iv = iv;
+              submission.snapshot_encrypted_data_key = encryptedDataKey;
+              submission.snapshot_key_iv = keyIv;
+              submission.snapshot_key_version = keyVersion;
+            }
+          }
+          return { meta: { changes: 1 } };
+        }
+      };
+      return statement;
+    },
+    async batch() {
+      return [];
+    }
+  };
+  return {
+    env: {
+      DB,
+      PROJECT_DRAFT_MASTER_KEY_VERSION: "V1",
+      PROJECT_DRAFT_MASTER_KEY_V1: masterKey
+    },
+    session,
+    scripts,
+    submissions,
+    queries
+  };
+}
+test("shared project script source is encrypted in D1 and returned only after permission checks", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"P".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const source = "tap(321, 654)\nwait(500)";
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Protected script", source, languageVersion: "0.1" })
+    }),
+    env
+  );
+  const createdBody = await json(created);
+
+  assert.equal(created.status, 201);
+  assert.equal(createdBody.script.source, source);
+  assert.equal(scripts.length, 1);
+  assert.equal(scripts[0].source, "");
+  assert.ok(scripts[0].source_ciphertext);
+  assert.ok(scripts[0].source_encrypted_data_key);
+  assert.ok(scripts[0].source_key_iv);
+  assert.notEqual(scripts[0].source_ciphertext, source);
+  assert.equal(scripts[0].source_ciphertext.includes("tap(321"), false);
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, { headers }),
+    env
+  );
+  const listedBody = await json(listed);
+
+  assert.equal(listed.status, 200);
+  assert.equal(listedBody.scripts[0].source, source);
+  assert.equal(Object.hasOwn(listedBody.scripts[0], "source_ciphertext"), false);
+});
+
+test("tampered encrypted project source fails integrity verification", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"Q".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Tamper test", source: "tap(1, 2)", languageVersion: "0.1" })
+    }),
+    env
+  );
+  assert.equal(created.status, 201);
+  scripts[0].source_ciphertext = (scripts[0].source_ciphertext[0] === "A" ? "B" : "A") + scripts[0].source_ciphertext.slice(1);
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, { headers }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 500);
+  assert.equal(body.error, "project_data_integrity_failed");
+});
+
+test("encrypted project source is bound to its record revision", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"R".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Revision binding", source: "tap(20, 30)", languageVersion: "0.1" })
+    }),
+    env
+  );
+  assert.equal(created.status, 201);
+  scripts[0].revision += 1;
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, { headers }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 500);
+  assert.equal(body.error, "project_data_integrity_failed");
+});
+
+test("tampered wrapped project data key fails integrity verification", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"S".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Wrapped key tamper", source: "tap(40, 50)", languageVersion: "0.1" })
+    }),
+    env
+  );
+  assert.equal(created.status, 201);
+  scripts[0].source_encrypted_data_key =
+    (scripts[0].source_encrypted_data_key[0] === "A" ? "B" : "A") +
+    scripts[0].source_encrypted_data_key.slice(1);
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, { headers }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 500);
+  assert.equal(body.error, "project_data_integrity_failed");
+});
+
+test("customer cannot enumerate or read shared project script drafts", async () => {
+  const { env } = createProjectDraftEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      headers: { Authorization: `Bearer ${"R".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 404);
+  assert.equal(body.error, "project_not_found");
+  assert.equal(JSON.stringify(body).includes("source"), false);
+});
+
+test("reviewer can list script metadata without receiving draft source", async () => {
+  const reviewer = { ...ownerSession, role: "REVIEWER", user_id: "reviewer-user" };
+  const { env, scripts, queries } = createProjectDraftEnv({ session: reviewer });
+  const response = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      headers: { Authorization: `Bearer ${"S".repeat(48)}` }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await json(response);
+  assert.equal(JSON.stringify(body).includes("source"), false);
+  assert.equal(queries.some(sql => sql.includes("source_ciphertext")), false);
+  assert.equal(scripts.length, 0);
+});
+
+test("customer cannot trigger owner-only legacy project encryption migration", async () => {
+  const { env } = createProjectDraftEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/security/migrate-project-data", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${"T".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 403);
+  assert.equal(body.error, "insufficient_permissions");
+});
+
+
+test("review submission snapshots are encrypted at rest and decrypted only for reviewers", async () => {
+  const { env, scripts, submissions } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"U".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const source = "tap(12, 34)\nwait(250)";
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Reviewable script", source, languageVersion: "0.1" })
+    }),
+    env
+  );
+  const createdBody = await json(created);
+  assert.equal(created.status, 201);
+
+  const submitted = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        kind: "SCRIPT",
+        itemId: createdBody.script.id,
+        revision: 1
+      })
+    }),
+    env
+  );
+  const submittedBody = await json(submitted);
+
+  assert.equal(submitted.status, 201);
+  assert.equal(submittedBody.submitted, true);
+  assert.equal(submissions.length, 1);
+  assert.equal(submissions[0].submitted_snapshot, "");
+  assert.ok(submissions[0].snapshot_ciphertext);
+  assert.ok(submissions[0].snapshot_encrypted_data_key);
+  assert.ok(submissions[0].snapshot_key_iv);
+  assert.equal(submissions[0].snapshot_ciphertext.includes("tap(12"), false);
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      headers: { Authorization: `Bearer ${"V".repeat(48)}` }
+    }),
+    env
+  );
+  const listedBody = await json(listed);
+
+  assert.equal(listed.status, 200);
+  assert.equal(listedBody.submissions[0].snapshot.source, source);
+  assert.equal(Object.hasOwn(listedBody.submissions[0], "submitted_snapshot"), false);
+});
+
+test("tampered encrypted review submission fails integrity verification", async () => {
+  const { env, scripts, submissions } = createProjectDraftEnv();
+  const headers = {
+    Authorization: `Bearer ${"W".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Tampered submission", source: "tap(2, 3)", languageVersion: "0.1" })
+    }),
+    env
+  );
+  const createdBody = await json(created);
+  assert.equal(created.status, 201);
+
+  const submitted = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ kind: "SCRIPT", itemId: createdBody.script.id, revision: 1 })
+    }),
+    env
+  );
+  assert.equal(submitted.status, 201);
+  submissions[0].snapshot_ciphertext =
+    (submissions[0].snapshot_ciphertext[0] === "A" ? "B" : "A") +
+    submissions[0].snapshot_ciphertext.slice(1);
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      headers: { Authorization: `Bearer ${"X".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 500);
+  assert.equal(body.error, "project_data_integrity_failed");
+});
+
+
+test("Owner migration encrypts existing plaintext project source and submission snapshots", async () => {
+  const { env, scripts, submissions, queries } = createProjectDraftEnv();
+  const legacySource = "tap(555, 666)\nwait(100)";
+  const legacySnapshot = JSON.stringify({
+    id: "script-legacy",
+    name: "Legacy",
+    source: legacySource,
+    languageVersion: "0.1",
+    revision: 2
+  });
+  scripts.push({
+    id: "script-legacy",
+    project_id: PROJECT_TEST_ID,
+    name: "Legacy",
+    source: legacySource,
+    language_version: "0.1",
+    revision: 2,
+    created_by: ownerSession.user_id,
+    updated_by: ownerSession.user_id,
+    created_at: 1,
+    updated_at: 1,
+    source_ciphertext: null,
+    source_iv: null,
+    source_key_version: null
+  });
+  submissions.push({
+    id: "submission-legacy",
+    project_id: PROJECT_TEST_ID,
+    kind: "SCRIPT",
+    item_id: "script-legacy",
+    revision: 2,
+    submitted_snapshot: legacySnapshot,
+    submitted_by: ownerSession.user_id,
+    status: "PENDING",
+    review_note: "",
+    reviewed_by: null,
+    created_at: 1,
+    reviewed_at: null,
+    snapshot_ciphertext: null,
+    snapshot_iv: null,
+    snapshot_key_version: null
+  });
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/security/migrate-project-data", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${"Y".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.migratedDrafts, 1);
+  assert.equal(body.migratedSubmissions, 1);
+  assert.equal(body.remainingDrafts, 0);
+  assert.equal(body.remainingSubmissions, 0);
+  assert.equal(body.complete, true);
+  assert.ok(queries.some(sql => sql.includes("INSERT INTO audit_logs")));
+  assert.equal(scripts[0].source, "");
+  assert.ok(scripts[0].source_ciphertext);
+  assert.ok(scripts[0].source_encrypted_data_key);
+  assert.ok(scripts[0].source_key_iv);
+  assert.equal(submissions[0].submitted_snapshot, "");
+  assert.ok(submissions[0].snapshot_ciphertext);
+  assert.ok(submissions[0].snapshot_encrypted_data_key);
+  assert.ok(submissions[0].snapshot_key_iv);
+});
+
+
+test("project draft writes fail closed when the project encryption secret is missing", async () => {
+  const { env, scripts } = createProjectDraftEnv();
+  delete env.PROJECT_DRAFT_MASTER_KEY_V1;
+  const response = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${"Z".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: "Must stay protected",
+        source: "tap(1, 1)",
+        languageVersion: "0.1"
+      })
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 503);
+  assert.equal(body.error, "project_encryption_not_configured");
+  assert.equal(scripts.length, 0);
+});
+
+
+test("reviewer can review script submission metadata without receiving AUTU source", async () => {
+  const reviewerSession = { ...ownerSession };
+  const { env, session, scripts, submissions } = createProjectDraftEnv({ session: reviewerSession });
+  const headers = {
+    Authorization: `Bearer ${"M".repeat(48)}`,
+    "Content-Type": "application/json"
+  };
+  const source = "tap(998, 776)\nwait(350)";
+  const created = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/scripts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Reviewer visibility", source, languageVersion: "0.1" })
+    }),
+    env
+  );
+  const createdBody = await json(created);
+  assert.equal(created.status, 201);
+
+  const submitted = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ kind: "SCRIPT", itemId: createdBody.script.id, revision: 1 })
+    }),
+    env
+  );
+  assert.equal(submitted.status, 201);
+  assert.equal(submissions[0].submitted_snapshot, "");
+
+  session.role = "REVIEWER";
+  session.user_id = "reviewer-user";
+
+  const listed = await worker.fetch(
+    makeRequest(`/api/projects/${PROJECT_TEST_ID}/submissions`, {
+      headers: { Authorization: `Bearer ${"N".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(listed);
+
+  assert.equal(listed.status, 200);
+  assert.equal(body.submissions.length, 1);
+  assert.equal(body.submissions[0].snapshot.name, "Reviewer visibility");
+  assert.equal(body.submissions[0].snapshot.revision, 1);
+  assert.equal(Object.hasOwn(body.submissions[0].snapshot, "source"), false);
+});
