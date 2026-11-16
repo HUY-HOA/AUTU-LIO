@@ -241,6 +241,13 @@ data class EncryptedAutuPackage(
     val sourceSha256: String
 )
 
+data class CustomerPackageRunContext(
+    val accessToken: String,
+    val packageId: String,
+    val packageVersion: Int,
+    val deviceFingerprint: String
+)
+
 class AuthRepository(context: Context) {
     private val appContext = context.applicationContext
     private val credentialManager = CredentialManager.create(appContext)
@@ -974,6 +981,30 @@ class AuthRepository(context: Context) {
             wrappedKey = wrappedKey,
             sourceSha256 = sourceSha256.lowercase(Locale.ROOT)
         )
+    }
+
+    suspend fun authorizeCustomerPackageRun(
+        accessToken: String,
+        packageId: String,
+        packageVersion: Int,
+        deviceFingerprint: String
+    ): Long {
+        require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(packageVersion > 0)
+        require(deviceFingerprint.matches(Regex("^[a-fA-F0-9]{64}$")))
+        val result = apiRequest(
+            "/api/customer/packages/$packageId/authorize-run",
+            "POST",
+            JSONObject()
+                .put("deviceFingerprint", deviceFingerprint.lowercase(Locale.ROOT))
+                .put("version", packageVersion),
+            accessToken
+        )
+        val expiresAt = result.optLong("expiresAt")
+        if (!result.optBoolean("authorized") || expiresAt <= System.currentTimeMillis() / 1000L) {
+            throw AuthApiException(403, "Máy chủ không cấp quyền chạy gói AUTU này.")
+        }
+        return expiresAt
     }
 
     suspend fun listAdminPackages(accessToken: String): List<AutuPackageRecord> {
