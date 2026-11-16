@@ -17,7 +17,8 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Owner-managed project roster; only active Developer, Designer and Reviewer accounts can be added.
 - UI design drafts store title, subtitle, button label, accent color and selected components as JSON; Android provides a form editor and live preview.
 - Server-backed script drafts and UI design drafts with revision checks to prevent silent overwrites.
-- Immutable snapshots for review submissions, review decisions and audit records.
+- Script draft source and immutable review snapshots are encrypted with AES-256-GCM before D1 writes; project, item, revision and key version are authenticated as AAD.
+- Owner-only, batched migration endpoint converts legacy plaintext script drafts and submission snapshots to encrypted rows.
 - D1 schema migrations and local migration validation.
 - Owner-only publication of immutable AUTU package versions.
 - AES-256-GCM encryption with a fresh random 256-bit data key and 96-bit nonce for every published version; only ciphertext is stored in D1.
@@ -35,7 +36,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001_identity_and_collaborators.sql`, `0002_single_owner.sql`, and `0003_shared_project_workspaces.sql` have been applied to the connected D1 database and recorded in `d1_migrations`. The five workspace tables are present and `PRAGMA foreign_key_check` returned no errors. Keep every SQL migration in source control as the schema history.
+Migrations `0001_identity_and_collaborators.sql`, `0002_single_owner.sql`, and `0003_shared_project_workspaces.sql` were applied to the connected D1 database. Migration `0004_encrypt_project_source.sql` adds ciphertext, nonce and key-version columns for shared script drafts and review snapshots; it remains pending until applied remotely. Run `wrangler d1 migrations list autu_lio_auth` and apply the pending migration before deploying this Worker version. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
@@ -43,13 +44,17 @@ Set these only after the values have been confirmed:
 
 - `GOOGLE_CLIENT_ID`: Google OAuth Web/server client ID used as the expected ID-token audience.
 - `OWNER_EMAIL`: exact Google email that is allowed to become the first OWNER after Google verifies the account.
-- `PACKAGE_MASTER_KEY_V1`: base64-encoded cryptographically random 32-byte key. Generate it securely and set it as a Worker secret; never commit it, send it through chat or put it in the APK.
+- `PACKAGE_MASTER_KEY_V1`: base64-encoded cryptographically random 32-byte key for published package data keys.
+- `PROJECT_DRAFT_MASTER_KEY_V1`: a separate, independently generated base64url-encoded cryptographically random 32-byte key for shared project draft source and review snapshots. Never reuse the package key.
 
 Worker variables:
-- `PACKAGE_MASTER_KEY_VERSION`: active package master-key version, set to `V1` in `wrangler.jsonc`. The matching secret is `PACKAGE_MASTER_KEY_V1`.
+- `PACKAGE_MASTER_KEY_VERSION`: active package master-key version, set to `V1` in `wrangler.jsonc`.
+- `PROJECT_DRAFT_MASTER_KEY_VERSION`: active shared-project-data master-key version, set to `V1` in `wrangler.jsonc`.
 - `GOOGLE_ALLOWED_AZP`: optional comma-separated allowlist of Android OAuth Client IDs that may appear in the Google ID token `azp` (authorized presenter) claim. The `aud` claim must still exactly match `GOOGLE_CLIENT_ID`; an arbitrary `azp` is rejected.
 
 For key rotation, add `PACKAGE_MASTER_KEY_V2`, change `PACKAGE_MASTER_KEY_VERSION` to `V2`, and keep the previous versioned secret available while package versions still reference it. Each encrypted package version records the key version used. Do not delete an older master key until every package encrypted with it has been re-encrypted and verified.
+
+For project-data key rotation, add a separately generated `PROJECT_DRAFT_MASTER_KEY_V2` and change `PROJECT_DRAFT_MASTER_KEY_VERSION` to `V2`. Existing draft and submission rows retain their own `source_key_version` or `snapshot_key_version`; keep older secrets until all records using them have been re-encrypted and verified. Never use the package master key for project drafts.
 
 Do not place either value in Git. Never place a client secret or Cloudflare API token in the Android APK. Android Google Sign-In should use Credential Manager and request an ID token for the server client ID.
 
@@ -63,11 +68,11 @@ From this directory:
 2. Run `npx wrangler types` after reviewing the D1 binding in `wrangler.jsonc`.
 3. Run `npm run check`.
 4. Set GOOGLE_CLIENT_ID and OWNER_EMAIL with npx wrangler secret put after verifying the correct OAuth client and owner account.
-5. Generate a separate 32-byte random package master key and set it with npx wrangler secret put PACKAGE_MASTER_KEY_V1. Do not use a password or reuse the Android signing key.
+5. Generate two independent random 32-byte keys and set them separately with `npx wrangler secret put PACKAGE_MASTER_KEY_V1` and `npx wrangler secret put PROJECT_DRAFT_MASTER_KEY_V1`. Never reuse a password, Android signing key, or the other Worker master key.
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
 
-The repository contains Worker source and D1 binding configuration. Check the live database with `wrangler d1 migrations list` and apply any pending migrations, including the customer/device and encrypted-package migrations, before deploying. The Worker has not been deployed and Google OAuth has not been configured, so live sign-in and package delivery are not yet active. Encrypted package publishing/download also fails closed until the versioned `PACKAGE_MASTER_KEY_V1` secret is configured.
+The repository contains Worker source and D1 binding configuration. Check the live database with `wrangler d1 migrations list` and apply all pending migrations, including `0004_encrypt_project_source.sql`, before deploying. The Worker has not been deployed and Google OAuth has not been configured, so live sign-in and package delivery are not yet active. Package APIs fail closed until `PACKAGE_MASTER_KEY_V1` is configured; shared script draft writes and review submission creation fail closed until `PROJECT_DRAFT_MASTER_KEY_V1` is configured. Existing plaintext draft data is not automatically migrated by a Git commit: after deploying the new Worker and applying migration 0004, an OWNER must call `POST /api/admin/security/migrate-project-data` repeatedly until the response says `complete: true`. Read operations also migrate individual legacy records when they are first accessed.
 
 ## API
 
@@ -133,7 +138,7 @@ RSA-OAEP SHA-1/MGF1-SHA1 is used only to wrap the 32-byte AES data key for compa
 - `GET /api/projects/:projectId/submissions` — list submissions; requires `REVIEW_RELEASE`
 - `PATCH /api/projects/:projectId/submissions/:submissionId` — approve/reject a pending submission; requires `REVIEW_RELEASE` and forbids self-review
 
-Script source and UI JSON are size-limited. Every project API checks project membership and the relevant account permission. Script and UI updates use expected revisions, returning HTTP 409 when another collaborator has saved a newer revision. Submission records keep the submitted snapshot even if the draft is edited later.
+Shared script source and review snapshots are AES-256-GCM encrypted in D1 with fresh 96-bit nonces and AAD binding the record to its project, ID, revision and key version. UI JSON remains design metadata, not AUTU script source. Script source and UI JSON are size-limited. Every project API checks project membership and the relevant account permission. Script and UI updates use expected revisions, returning HTTP 409 when another collaborator has saved a newer revision. Submission records keep the submitted snapshot even if the draft is edited later.
 
 The permission API returns only permissions configurable for the selected role. The Worker rejects permissions outside that role's allowlist. A role change clears previous overrides to avoid carrying permissions into an incompatible role.
 
@@ -141,4 +146,4 @@ The Worker returns a one-time invitation token for the owner to copy and share m
 
 ## Local validation
 
-`npm run check` checks Worker JavaScript syntax, runs 23 Node.js API behavior tests with a mocked D1 binding, and executes every SQL migration against an in-memory SQLite database. The API tests cover health/config reporting, the unconfigured Google challenge gate, unauthenticated access denial, OWNER-only collaborator and package operations, missing package encryption secrets, package encryption/decryption round-trip, license/device enforcement, malformed/oversized request bodies and CORS origin rules. Migration validation checks the single-owner constraint, foreign keys, project membership, case-insensitive script/package-name uniqueness, UI draft storage, allowed submission kinds, immutable package versions and encrypted-only package columns. These are source-level tests; they do not deploy the Worker, call the live D1 database or validate a live Google OAuth client.
+`npm run check` checks Worker JavaScript syntax, runs 28 Node.js API behavior tests with a mocked D1 binding, and executes every SQL migration against an in-memory SQLite database. The API tests cover health/config reporting, the unconfigured Google challenge gate, unauthenticated access denial, OWNER-only collaborator and package operations, missing package encryption secrets, package encryption/decryption round-trip, license/device enforcement, malformed/oversized request bodies and CORS origin rules. Migration validation checks the single-owner constraint, foreign keys, project membership, case-insensitive script/package-name uniqueness, UI draft storage, allowed submission kinds, immutable package versions and encrypted-only package columns. These are source-level tests; they do not deploy the Worker, call the live D1 database or validate a live Google OAuth client.
