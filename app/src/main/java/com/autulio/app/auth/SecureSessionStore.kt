@@ -27,6 +27,7 @@ class SecureSessionStore(context: Context) {
             val encrypted = cipher.doFinal(plainBytes)
             check(
                 preferences.edit()
+                    .putString(KEY_FORMAT_VERSION, CURRENT_FORMAT_VERSION)
                     .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
                     .putString(KEY_DATA, Base64.encodeToString(encrypted, Base64.NO_WRAP))
                     .commit()
@@ -37,8 +38,25 @@ class SecureSessionStore(context: Context) {
     }
 
     fun read(): String? {
-        val ivText = preferences.getString(KEY_IV, null) ?: return null
-        val dataText = preferences.getString(KEY_DATA, null) ?: return null
+        val ivText = preferences.getString(KEY_IV, null)
+        val dataText = preferences.getString(KEY_DATA, null)
+        if (ivText == null && dataText == null) return null
+        if (ivText.isNullOrBlank() || dataText.isNullOrBlank()) {
+            clear()
+            return null
+        }
+
+        val formatVersion = runCatching {
+            preferences.getString(KEY_FORMAT_VERSION, LEGACY_FORMAT_VERSION)
+        }.getOrNull()
+        val useAad = when (formatVersion) {
+            CURRENT_FORMAT_VERSION -> true
+            LEGACY_FORMAT_VERSION, null -> false
+            else -> {
+                clear()
+                return null
+            }
+        }
         val iv = runCatching { Base64.decode(ivText, Base64.NO_WRAP) }.getOrNull()
         val encrypted = runCatching { Base64.decode(dataText, Base64.NO_WRAP) }.getOrNull()
         if (iv == null || encrypted == null || iv.size != GCM_IV_LENGTH_BYTES) {
@@ -46,18 +64,16 @@ class SecureSessionStore(context: Context) {
             return null
         }
 
-        return try {
-            decrypt(encrypted, iv, useAad = true)
+        val token = try {
+            decrypt(encrypted, iv, useAad = useAad)
         } catch (_: Exception) {
-            try {
-                val legacyToken = decrypt(encrypted, iv, useAad = false)
-                save(legacyToken)
-                legacyToken
-            } catch (_: Exception) {
-                clear()
-                null
-            }
+            clear()
+            return null
         }
+        if (!useAad) {
+            runCatching { save(token) }
+        }
+        return token
     }
 
     private fun decrypt(encrypted: ByteArray, iv: ByteArray, useAad: Boolean): String {
@@ -120,6 +136,9 @@ class SecureSessionStore(context: Context) {
         const val GCM_TAG_LENGTH_BITS = 128
         const val GCM_IV_LENGTH_BYTES = 12
         val SESSION_AAD = "AUTU-LIO|SESSION|v2".toByteArray(Charsets.UTF_8)
+        const val KEY_FORMAT_VERSION = "session_format_version"
+        const val LEGACY_FORMAT_VERSION = "1"
+        const val CURRENT_FORMAT_VERSION = "2"
         const val KEY_IV = "session_iv"
         const val KEY_DATA = "session_ciphertext"
     }
