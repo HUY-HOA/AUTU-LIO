@@ -73,6 +73,8 @@ Chỉ nhập chuỗi Base64 vào `AUTU_LIO_RELEASE_KEYSTORE_BASE64`; nhập riê
 
 Dữ liệu cần ở dạng plaintext trong editor khi chủ sở hữu chỉnh sửa; thiết bị đã root hoặc tiến trình bị hook vẫn có thể đọc nội dung lúc đang mở. Mã hóa lưu trữ giúp bảo vệ dữ liệu khi file preferences bị lấy riêng lẻ, không chống được mọi hình thức tấn công trên thiết bị đã bị kiểm soát.
 
+`SecureSessionStore` lưu bearer session bằng AES-256-GCM và AAD `AUTU-LIO|SESSION|v2`. Session mới dùng khóa Android Keystore riêng phiên bản 2. Khi đọc session cũ chưa có metadata hoặc phiên bản 1, ứng dụng chỉ dùng khóa legacy phiên bản 1 để giải mã, ghi lại dưới khóa phiên bản 2 rồi xóa khóa legacy. Metadata phiên bản không hợp lệ và lỗi xác thực phiên bản 2 đều fail closed; không thử lại bằng cơ chế giải mã legacy.
+
 ## 5. Mã hóa bản nháp cộng tác và snapshot duyệt ở máy chủ
 
 Các cột `source_ciphertext/source_iv/source_encrypted_data_key/source_key_iv/source_key_version` trong `script_drafts` và `snapshot_ciphertext/snapshot_iv/snapshot_encrypted_data_key/snapshot_key_iv/snapshot_key_version` trong `change_submissions` giữ envelope đã mã hóa. Mỗi bản ghi được sinh một data key AES-256 ngẫu nhiên mới; data key mã hóa nội dung bằng AES-256-GCM với nonce 96-bit, sau đó master key trong Worker Secret bọc data key bằng AES-256-GCM với nonce 96-bit thứ hai. Cả hai thao tác dùng tag 128-bit và AAD ràng buộc purpose, project ID, record ID, revision và key version. D1 chỉ nhận source/snapshot rỗng ở bản ghi mới.
