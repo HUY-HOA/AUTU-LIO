@@ -135,7 +135,13 @@ class ScriptExecutionEngineTest {
             if (it.state == ScriptExecutionState.COMPLETED) replacementCompleted.countDown()
         }
         try {
-            val oldProgram = compile("CHẠM(1, 1)\nCHỜ(60000)\nCHẠM(2, 2)")
+            val oldProgram = compile(
+                """
+                CHẠM(1, 1)
+                CHỜ(60000)
+                CHẠM(2, 2)
+                """
+            )
             assertEquals(ScriptExecutionStartResult.Started, engine.start(oldProgram))
             assertTrue(firstAction.await(2, TimeUnit.SECONDS))
             assertTrue(engine.pause())
