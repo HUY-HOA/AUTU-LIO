@@ -21,6 +21,7 @@ class SecureSessionStore(context: Context) {
         require(accessToken.isNotBlank())
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+        cipher.updateAAD(SESSION_AAD)
         val plainBytes = accessToken.toByteArray(Charsets.UTF_8)
         try {
             val encrypted = cipher.doFinal(plainBytes)
@@ -38,19 +39,41 @@ class SecureSessionStore(context: Context) {
     fun read(): String? {
         val ivText = preferences.getString(KEY_IV, null) ?: return null
         val dataText = preferences.getString(KEY_DATA, null) ?: return null
-        return try {
-            val iv = Base64.decode(ivText, Base64.NO_WRAP)
-            val encrypted = Base64.decode(dataText, Base64.NO_WRAP)
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(
-                Cipher.DECRYPT_MODE,
-                getOrCreateKey(),
-                GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv)
-            )
-            cipher.doFinal(encrypted).toString(Charsets.UTF_8).takeIf { it.isNotBlank() }
-        } catch (_: Exception) {
+        val iv = runCatching { Base64.decode(ivText, Base64.NO_WRAP) }.getOrNull()
+        val encrypted = runCatching { Base64.decode(dataText, Base64.NO_WRAP) }.getOrNull()
+        if (iv == null || encrypted == null || iv.size != GCM_IV_LENGTH_BYTES) {
             clear()
-            null
+            return null
+        }
+
+        return try {
+            decrypt(encrypted, iv, useAad = true)
+        } catch (_: Exception) {
+            try {
+                val legacyToken = decrypt(encrypted, iv, useAad = false)
+                save(legacyToken)
+                legacyToken
+            } catch (_: Exception) {
+                clear()
+                null
+            }
+        }
+    }
+
+    private fun decrypt(encrypted: ByteArray, iv: ByteArray, useAad: Boolean): String {
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            getOrCreateKey(),
+            GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv)
+        )
+        if (useAad) cipher.updateAAD(SESSION_AAD)
+        val plainBytes = cipher.doFinal(encrypted)
+        return try {
+            plainBytes.toString(Charsets.UTF_8).takeIf { it.isNotBlank() }
+                ?: throw IllegalStateException("The stored session is empty.")
+        } finally {
+            plainBytes.fill(0)
         }
     }
 
@@ -95,6 +118,8 @@ class SecureSessionStore(context: Context) {
         const val KEY_ALIAS = "autulio_session_aes_gcm_v1"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val GCM_TAG_LENGTH_BITS = 128
+        const val GCM_IV_LENGTH_BYTES = 12
+        val SESSION_AAD = "AUTU-LIO|SESSION|v2".toByteArray(Charsets.UTF_8)
         const val KEY_IV = "session_iv"
         const val KEY_DATA = "session_ciphertext"
     }
