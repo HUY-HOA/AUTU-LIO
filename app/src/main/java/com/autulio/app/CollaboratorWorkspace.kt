@@ -154,8 +154,7 @@ private fun DeveloperWorkspace(
                                 ScriptEditorActivity.intent(
                                     context = context,
                                     scriptName = cleanName,
-                                    namespace = "developer",
-                                    allowTest = canTestScripts
+                                    namespace = "developer"
                                 )
                             )
                         }
