@@ -46,12 +46,14 @@ class SecureSessionStore(context: Context) {
             return null
         }
 
-        val formatVersion = runCatching {
-            preferences.getString(KEY_FORMAT_VERSION, LEGACY_FORMAT_VERSION)
-        }.getOrNull()
+        val formatVersion = if (!preferences.contains(KEY_FORMAT_VERSION)) {
+            LEGACY_FORMAT_VERSION
+        } else {
+            runCatching { preferences.getString(KEY_FORMAT_VERSION, null) }.getOrNull()
+        }
         val useAad = when (formatVersion) {
             CURRENT_FORMAT_VERSION -> true
-            LEGACY_FORMAT_VERSION, null -> false
+            LEGACY_FORMAT_VERSION -> false
             else -> {
                 clear()
                 return null
