@@ -152,7 +152,7 @@ jobs:
 
       - name: Run Debug checks
         if: steps.signing.outputs.configured != 'true'
-        run: gradle --no-daemon :app:lintDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon :app:lintDebug -PAUTU_LIO_ALLOW_OFFLINE_DEBUG_EDITOR=true -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Build signed Release APK
         if: steps.signing.outputs.configured == 'true'
@@ -165,7 +165,7 @@ jobs:
 
       - name: Build Debug test APK
         if: steps.signing.outputs.configured != 'true'
-        run: gradle --no-daemon :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon :app:assembleDebug -PAUTU_LIO_ALLOW_OFFLINE_DEBUG_EDITOR=true -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Name AUTU-LIO APK with version
         env:
