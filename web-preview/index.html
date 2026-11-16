@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0a1020">
+  <meta name="description" content="AUTU-LIO — bản xem trước giao diện trên trình duyệt.">
+  <title>AUTU-LIO · Preview</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="AUTU-LIO trang chủ">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span><b>AUTU-LIO</b><small>CONTROL STUDIO</small></span>
+      </a>
+      <div class="workspace-label">KHÔNG GIAN LÀM VIỆC</div>
+      <nav id="side-nav" class="side-nav" aria-label="Điều hướng chính"></nav>
+      <div class="sidebar-bottom">
+        <div class="cloud-status"><i></i><span><b>Bản xem trước</b><small>Chỉ mô phỏng giao diện</small></span></div>
+        <div class="version">WEB PREVIEW · 0.1</div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="mobile-brand">
+          <span class="brand-mark small"><span></span><span></span><span></span></span>
+          <b>AUTU-LIO</b>
+        </div>
+        <div class="breadcrumb"><span>Không gian làm việc</span><b>/</b><strong id="page-crumb">Tổng quan</strong></div>
+        <div class="top-actions">
+          <span class="preview-pill"><i></i> PREVIEW</span>
+          <label class="role-picker"><span>Vai trò</span>
+            <select id="role-select" aria-label="Chọn vai trò">
+              <option value="owner">Chủ sở hữu</option>
+              <option value="developer">Nhà phát triển</option>
+              <option value="designer">Nhà thiết kế</option>
+              <option value="reviewer">Người kiểm duyệt</option>
+              <option value="customer">Người dùng</option>
+            </select>
+          </label>
+          <button class="icon-button" id="floating-open" title="Mở cửa sổ nổi mô phỏng" aria-label="Mở cửa sổ nổi">▣</button>
+          <div class="avatar">H</div>
+        </div>
+      </header>
+
+      <section class="content" id="content" aria-live="polite"></section>
+
+      <nav id="mobile-nav" class="mobile-nav" aria-label="Điều hướng điện thoại"></nav>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head"><div><span class="eyebrow">AUTU-LIO STUDIO</span><h2 id="modal-title">Tạo kịch bản mới</h2></div><button class="icon-button" data-close-modal aria-label="Đóng">×</button></div>
+      <label class="field-label" for="script-name">Tên kịch bản</label>
+      <input id="script-name" class="text-input" placeholder="Ví dụ: Auto Farm">
+      <label class="field-label" for="script-note">Mô tả</label>
+      <textarea id="script-note" class="text-input" rows="3" placeholder="Mô tả ngắn về kịch bản"></textarea>
+      <div class="modal-actions"><button class="btn ghost" data-close-modal>Hủy</button><button class="btn primary" id="create-script">Tạo bản nháp</button></div>
+    </section>
+  </div>
+
+  <div class="floating-panel hidden" id="floating-panel">
+    <div class="float-head" id="float-drag">
+      <span class="float-brand"><i></i> AUTU-LIO <small>RUNNER</small></span>
+      <button class="float-mini" id="float-collapse" aria-label="Thu nhỏ">—</button>
+      <button class="float-mini" id="float-close" aria-label="Đóng">×</button>
+    </div>
+    <div class="float-body" id="float-body">
+      <div class="float-script"><span class="dot-pulse"></span><div><b id="float-script-name">Auto Farm · Demo</b><small id="float-status">Sẵn sàng chạy thử giao diện</small></div></div>
+      <div class="float-progress"><span id="float-progress"></span></div>
+      <div class="float-meta"><span id="float-step">0 / 12 bước</span><span id="float-time">00:00</span></div>
+      <div class="float-controls">
+        <button class="float-btn run" id="float-run">▶ Chạy</button>
+        <button class="float-btn pause" id="float-pause">Ⅱ</button>
+        <button class="float-btn stop" id="float-stop">■</button>
+      </div>
+      <button class="float-edit" id="float-edit">⚙ Chỉnh thông số mô phỏng</button>
+      <p class="float-note">Đây là mô phỏng trên web, không điều khiển ứng dụng Android.</p>
+    </div>
+    <button class="float-bubble hidden" id="float-expand" aria-label="Mở bảng điều khiển">A</button>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
