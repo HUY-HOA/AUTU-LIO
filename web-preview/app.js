@@ -17,29 +17,10 @@ const customerTabs = [
 ];
 const state = {
   role:null, page:"", adminSub:"", previewChooser:false, theme:"dark", scriptFilter:"all", scriptQuery:"", inviteRole:"DEVELOPER", invites:[],
-  libraryQuery:"", editorName:"", editorSource:"", drafts:[], modal:"", accent:"blue",
+  libraryQuery:"", libraryCategory:"all", editorName:"", editorSource:"", drafts:[], modal:"", accent:"blue",
   reviewerProject:"", statusMessage:""
 };
-const templates = [
-  {name:"Chạm một lần",source:"CHẠM(200, 400)"},
-  {name:"Chuỗi chạm có thời gian chờ",source:"CHẠM(200, 400)\nCHỜ(500)\nCHẠM(500, 400)"},
-  {name:"Nhấn giữ",source:"NHẤN_GIỮ(200, 400, 800)"},
-  {name:"Vuốt lên",source:"VUỐT(360, 850, 360, 350, 450)"},
-  {name:"Lặp thao tác chạm",source:"ĐẶT soLan = 3\nLẶP(soLan) {\n    CHẠM(200, 400)\n    CHỜ(500)\n}"},
-  {name:"Kiểm tra pin trước khi chạy",source:"NẾU (PIN() > 20) {\n    CHẠM(200, 400)\n} NGƯỢC_LẠI {\n    CHỜ(1000)\n}"},
-  {name:"Mở ứng dụng",source:"MỞ_ỨNG_DỤNG(\"com.example.game\")"},
-  {name:"Lặp theo điều kiện",source:"ĐẶT dem = 0\nLẶP_KHI (dem < 5) {\n    dem = dem + 1\n    CHẠM(200, 400)\n    CHỜ(300)\n}"},
-  {name:"Chờ ứng dụng hoặc điều kiện sẵn sàng",source:"CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ(\"com.example.game\"), 15000, 250)\nCHẠM(200, 400)"},
-  {name:"Lặp đến khi đạt mục tiêu",source:"ĐẶT dem = 0\nLẶP_ĐẾN_KHI(dem >= 5) {\n    dem = dem + 1\n    CHẠM(200, 400)\n    CHỜ(300)\n}"},
-  {name:"Quay lại",source:"QUAY_LẠI()"},
-  {name:"Về màn hình chính",source:"VỀ_MÀN_HÌNH_CHÍNH()"},
-  {name:"Mở ứng dụng gần đây",source:"ỨNG_DỤNG_GẦN_ĐÂY()"},
-  {name:"Mở thông báo",source:"MỞ_THÔNG_BÁO()"},
-  {name:"Mở cài đặt nhanh",source:"MỞ_CÀI_ĐẶT_NHANH()"},
-  {name:"Hiện menu nguồn",source:"HIỆN_MENU_NGUỒN()"},
-  {name:"Khóa màn hình",source:"KHÓA_MÀN_HÌNH()"},
-  {name:"Chia đôi màn hình",source:"CHIA_MÀN_HÌNH()"}
-];
+const templates = [{"id":"single_tap","name":"Chạm một lần","description":"Chạm tại một tọa độ trên màn hình.","category":"actions","source":"// Thay tọa độ X và Y theo ứng dụng mục tiêu\nCHẠM(200, 400)"},{"id":"tap_sequence","name":"Chuỗi chạm có thời gian chờ","description":"Chạm vị trí thứ nhất, chờ 500 ms rồi chạm vị trí thứ hai.","category":"actions","source":"CHẠM(200, 400)\nCHỜ(500)\nCHẠM(500, 400)"},{"id":"long_press","name":"Nhấn giữ","description":"Nhấn giữ tại một vị trí trong 800 ms.","category":"actions","source":"NHẤN_GIỮ(200, 400, 800)"},{"id":"swipe_up","name":"Vuốt lên","description":"Vuốt từ dưới lên trên trong 450 ms.","category":"actions","source":"VUỐT(360, 850, 360, 350, 450)"},{"id":"repeat_tap","name":"Lặp thao tác chạm","description":"Lặp thao tác chạm theo số lần đã đặt.","category":"logic","source":"ĐẶT soLan = 3\nLẶP(soLan) {\n    CHẠM(200, 400)\n    CHỜ(500)\n}"},{"id":"if_battery","name":"Kiểm tra pin trước khi chạy","description":"Chỉ tiếp tục thao tác khi pin còn trên 20%.","category":"logic","source":"NẾU (PIN() > 20) {\n    CHẠM(200, 400)\n} NGƯỢC_LẠI {\n    CHỜ(1000)\n}"},{"id":"open_app","name":"Mở ứng dụng","description":"Mở ứng dụng bằng tên gói Android hợp lệ.","category":"actions","source":"MỞ_ỨNG_DỤNG(\"com.example.game\")"},{"id":"while_loop","name":"Lặp theo điều kiện","description":"Tăng biến đếm và dừng lặp khi đạt điều kiện.","category":"logic","source":"ĐẶT dem = 0\nLẶP_KHI (dem < 5) {\n    dem = dem + 1\n    CHẠM(200, 400)\n    CHỜ(300)\n}"},{"id":"wait_until_condition","name":"Chờ ứng dụng hoặc điều kiện sẵn sàng","description":"Kiểm tra điều kiện định kỳ và tự dừng khi hết thời hạn.","category":"logic","source":"CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ(\"com.example.game\"), 15000, 250)\nCHẠM(200, 400)"},{"id":"until_loop","name":"Lặp đến khi đạt mục tiêu","description":"Thực hiện thao tác cho đến khi biến đạt điều kiện dừng.","category":"logic","source":"ĐẶT dem = 0\nLẶP_ĐẾN_KHI(dem >= 5) {\n    dem = dem + 1\n    CHẠM(200, 400)\n    CHỜ(300)\n}"},{"id":"go_back","name":"Quay lại","description":"Thực hiện thao tác Quay lại của Android.","category":"system","source":"QUAY_LẠI()"},{"id":"go_home","name":"Về màn hình chính","description":"Đưa thiết bị về màn hình chính Android.","category":"system","source":"VỀ_MÀN_HÌNH_CHÍNH()"},{"id":"show_recents","name":"Mở ứng dụng gần đây","description":"Mở giao diện ứng dụng gần đây của Android.","category":"system","source":"ỨNG_DỤNG_GẦN_ĐÂY()"},{"id":"show_notifications","name":"Mở thông báo","description":"Mở ngăn thông báo Android.","category":"system","source":"MỞ_THÔNG_BÁO()"},{"id":"show_quick_settings","name":"Mở cài đặt nhanh","description":"Mở bảng cài đặt nhanh Android.","category":"system","source":"MỞ_CÀI_ĐẶT_NHANH()"},{"id":"show_power_dialog","name":"Hiện menu nguồn","description":"Mở menu nguồn bằng thao tác hệ thống Android.","category":"system","source":"HIỆN_MENU_NGUỒN()"},{"id":"lock_screen","name":"Khóa màn hình","description":"Khóa màn hình nếu phiên bản Android hỗ trợ.","category":"system","source":"KHÓA_MÀN_HÌNH()"},{"id":"split_screen","name":"Chia đôi màn hình","description":"Bật chế độ chia đôi nếu Android cung cấp thao tác này.","category":"system","source":"CHIA_MÀN_HÌNH()"}];
 function toast(message){
   const node=$("toast"); if(!node)return;
   node.textContent=message; node.classList.add("show");
@@ -137,6 +118,20 @@ function adminMore(){
  ];
  return brandHeader(true)+heading("Quản lý khác","Công cụ quản trị AUTU-LIO")+'<div class="menu-list">'+items.map(x=>menuItem(x[0],x[1],x[2],x[3])).join("")+'</div>'+button("◐  Chuyển giao diện sáng / tối","theme","outline");
 }
+function libraryFiltered(){
+ const query=state.libraryQuery.trim().toLowerCase();
+ return templates.filter(t=>(state.libraryCategory==="all"||t.category===state.libraryCategory)&&
+  (!query||[t.name,t.description,t.source].join(" ").toLowerCase().includes(query)));
+}
+function libraryCountLabel(){return "Đang hiển thị "+libraryFiltered().length+"/"+templates.length+" mẫu";}
+function libraryCards(){
+ const items=libraryFiltered();
+ if(!items.length)return empty("⌕","Không tìm thấy mẫu phù hợp","Thử từ khóa hoặc nhóm khác.");
+ return items.map(t=>{
+  const index=templates.findIndex(item=>item.id===t.id);
+  return '<section class="template-card"><div class="row between"><b>'+esc(t.name)+'</b><span class="status ok">Script 0.3</span></div><p>'+esc(t.description)+'</p><pre>'+esc(t.source)+'</pre>'+button("Mở và chỉnh sửa mẫu","open-template:"+index,"primary")+'</section>';
+ }).join("");
+}
 function nestedAdmin(){
  const names={
  collaborators:["Cộng tác viên","Mời và phân quyền nhà phát triển, nhà thiết kế, người kiểm duyệt"],
@@ -164,11 +159,17 @@ function nestedAdmin(){
    ((state.invites||[]).length?(state.invites||[]).map((x,i)=>card('<div class="row between"><b>'+esc(x.email)+'</b><span class="status warn">Chưa gửi</span></div>','<p>'+esc(x.role)+'</p>'+button("Xóa","remove-invite:"+i,"outline"))).join(""):'<p class="muted">Chưa có bản nháp. Thêm Gmail ở trên để chuẩn bị phân quyền.</p>');
  }else if(state.adminSub==="projects"){
    body=notice("Chưa có phiên đăng nhập","Đăng nhập lại để quản lý dự án cộng tác trên máy chủ.","warn")+empty("▤","Chưa có dự án","Dự án và thành viên chỉ xuất hiện sau khi dịch vụ xác thực và API được kết nối.");
+ }else if(state.adminSub==="projects"){
+   body=notice("Chưa có phiên đăng nhập","Đăng nhập lại để quản lý dự án cộng tác.","warn")+
+    empty("▤","Chưa có dự án","Đăng nhập lại để tải dự án và thành viên từ máy chủ.");
  }else if(state.adminSub==="licenses"){
    body=card("Thông tin giấy phép",'<p>Khách hàng · Gói sử dụng · Thời hạn · Giới hạn thiết bị · Trạng thái</p>')+empty("◇","Chưa có giấy phép","Dữ liệu giấy phép sẽ xuất hiện sau khi kết nối máy chủ.");
  }else if(state.adminSub==="library"){
-   body='<div class="field"><input id="library-search" placeholder="Tìm theo tên, mô tả hoặc lệnh"></div>'+
-    '<div class="section-title">Mẫu AUTU-LIO có sẵn</div>'+templates.map((t,i)=>'<button class="menu-item" data-template="'+i+'"><span class="mi-icon">⌘</span><span class="grow"><b>'+esc(t.name)+'</b><small>Mẫu mã nguồn để chèn vào trình soạn thảo</small></span><span class="chevron">›</span></button>').join("");
+   body=card("Tương thích AUTU Script 0.3",'<p>18 mẫu lệnh có thể mở trực tiếp trong trình soạn thảo. Mỗi mẫu được kiểm tra cú pháp trước khi đưa vào thư viện Android.</p>')+
+    '<div class="field"><input id="library-search" placeholder="Tìm theo tên, mô tả hoặc lệnh" value="'+esc(state.libraryQuery)+'"></div>'+
+    '<div class="filter-row">'+[["all","Tất cả"],["actions","Thao tác"],["logic","Điều kiện và vòng lặp"],["system","Android"]].map(x=>'<button class="filter '+(state.libraryCategory===x[0]?"active":"")+'" data-category="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>'+
+    '<p class="muted" id="library-count">'+libraryCountLabel()+'</p>'+
+    '<div id="library-results">'+libraryCards()+'</div>';
  }else if(state.adminSub==="packages"){
    body=notice("Chưa có phiên đăng nhập thật","Gói AUTU được tải và quản lý qua API sau khi xác thực chủ sở hữu.","warn")+empty("⌘","Chưa có gói AUTU","Chưa có package được phát hành hoặc phân phối.");
  }else if(state.adminSub==="release"){
@@ -339,7 +340,11 @@ document.addEventListener("click",(event)=>{
  const filter=event.target.closest("[data-filter]");
  if(filter){state.scriptFilter=filter.dataset.filter;render();return;}
  const template=event.target.closest("[data-template]");
- if(template){const t=templates[Number(template.dataset.template)];if(t){state.editorSource=t.source;state.modal="";state.page="editor";render();}return;}
+ if(template){const t=templates[Number(template.dataset.template)];if(t){state.editorName="Mẫu - "+t.name;state.editorSource=t.source;state.modal="";state.page="editor";render();}return;}
+ const category=event.target.closest("[data-category]");
+ if(category){state.libraryCategory=category.dataset.category;render();return;}
+ const templateAction=event.target.closest("[data-action^='open-template:']");
+ if(templateAction){const index=Number(templateAction.dataset.action.split(":")[1]);const t=templates[index];if(t){state.editorName="Mẫu - "+t.name;state.editorSource=t.source;state.page="editor";render();}return;}
  const color=event.target.closest("[data-color]");
  if(color){state.accent=color.dataset.color;render();return;}
  const inviteRole=event.target.closest("[data-invite-role]");
@@ -388,6 +393,11 @@ document.addEventListener("click",(event)=>{
 document.addEventListener("input",(event)=>{
  if(event.target.id==="script-search"){state.scriptQuery=event.target.value;const pos=event.target.selectionStart;const root=$("app");const main=root.querySelector(".content");if(main){main.innerHTML=renderBody();const input=$("script-search");if(input){input.focus();input.setSelectionRange(pos,pos);}}}
  if(event.target.id==="editor-source")state.editorSource=event.target.value;
+ if(event.target.id==="library-search"){
+  state.libraryQuery=event.target.value;
+  const list=$("library-results");if(list)list.innerHTML=libraryCards();
+  const count=$("library-count");if(count)count.textContent=libraryCountLabel();
+ }
 });
 document.addEventListener("submit",(event)=>{
  if(event.target.id==="create-form"){
