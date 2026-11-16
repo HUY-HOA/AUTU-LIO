@@ -59,8 +59,10 @@
 - Chỉ nói đã kiểm thử khi thực sự có kết quả kiểm thử.
 
 ## 8. Trạng thái hiện tại
-- Repository có prototype Android Kotlin/Jetpack Compose trong một APK duy nhất, có giao diện theo vai trò.
-- Đã tích hợp mã nguồn Google Credential Manager, Cloudflare Worker API, phân quyền cộng tác viên, workspace dự án dùng chung và kiểm duyệt; các kiểm tra Kotlin compilation và Worker/D1 đã đạt trên PR.
-- D1 migrations `0001`–`0003` đã áp dụng; Worker chưa deploy và Google OAuth chưa cấu hình nên đăng nhập/API thật chưa hoạt động.
-- Không lưu keystore, mật khẩu hoặc khóa riêng trong repository. Release signing chỉ sử dụng GitHub Actions secrets có tên quy định trong `docs/SECURITY-AND-SIGNING.md`.
+- Sản phẩm là ứng dụng Android native một APK; không có website, web dashboard hoặc web preview.
+- Thư mục `backend/` là Cloudflare Worker REST API phục vụ ứng dụng Android, không phải frontend web.
+- Debug và Release cùng dùng luồng xác thực máy chủ; không cho phép chọn vai trò xem thử cục bộ.
+- Nhánh tích hợp Android có mã nguồn cho đăng nhập Google, phân quyền, workspace, AUTU Script runtime và Accessibility Service. Các chức năng phụ thuộc máy chủ cần Worker/OAuth cấu hình; thao tác Android cần kiểm thử trên thiết bị thật.
+- Không phát hành APK Debug. Release chỉ được ký bằng keystore phát hành cố định và bốn GitHub Actions secrets; không lưu khóa trong repository.
+- Web preview và workflow kiểm tra web đã được xóa khỏi nhánh preview riêng.
 - Chưa có giấy phép thật, compiler/runtime AUTU-LIO hoặc engine Auto Click.
