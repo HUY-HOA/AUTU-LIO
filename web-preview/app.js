@@ -192,26 +192,12 @@ function customerHome(){
   '<p class="muted center">Tài khoản xem thử</p>';
 }
 function customerScripts(){
- return brandHeader(false)+heading("Kịch bản","Các kịch bản do chủ ứng dụng cung cấp")+
-  card('<span class="status warn">MẪU XEM TRƯỚC · KHÔNG PHẢI GÓI THẬT</span>'+
-   '<div class="row between"><b>Kịch bản minh họa</b><span class="chevron">›</span></div>',
-   '<p>Màn hình mẫu để kiểm tra luồng xem chi tiết và các nút điều khiển. Không chứa thao tác tự động hóa thật.</p>'+button("Xem chi tiết mẫu","customer-detail","outline"))+
-  notice("Kho kịch bản chưa kết nối","Kịch bản thật sẽ xuất hiện sau khi đăng nhập và đồng bộ giấy phép.","warn");
-}
-function customerDetail(){
- return brandHeader(false)+button("← Quay lại danh sách","scripts","outline")+heading("Kịch bản minh họa","Chi tiết bản xem trước")+
-  card('<span class="status warn">CHỈ XEM TRƯỚC</span><div class="section-title">Mô tả</div>',
-   '<p>Đây là nội dung minh họa để kiểm tra bố cục. Chưa có package được phát hành hoặc tải về thiết bị.</p>')+
-  notice("Gói mẫu chưa thể chạy","Android đã có ScriptCompiler, ScriptExecutionEngine, AccessibilityService và cửa sổ chạy nổi. Riêng gói mẫu này chưa có lệnh tự động hóa thật và chưa được kiểm thử trên thiết bị thật.","warn")+
-  '<div class="section-title">Bảng điều khiển</div>'+button("▶  Thử nút chạy (không thực thi)","sample-run","primary")+
-  '<div class="actions two">'+button("Ⅱ  Tạm dừng mẫu","sample-pause","outline")+button("■  Dừng mẫu","sample-stop","outline")+'</div>'+
-  '<p class="muted">Các nút trên chỉ kiểm tra giao diện và thông báo. Chúng không chạm, vuốt hoặc điều khiển ứng dụng khác.</p>';
+ return brandHeader(false)+heading("Kho AUTU đã phát hành","Gói được máy chủ xác minh giấy phép và mã hóa riêng cho thiết bị này.")+
+  notice("Chưa có phiên đăng nhập thật","Chức năng này cần máy chủ và tài khoản đã được xác minh. Chế độ xem trước không hiển thị dữ liệu mẫu giả.","warn");
 }
 function customerDevice(){
- return brandHeader(false)+heading("Thiết bị và giấy phép","Thông tin đăng ký của tài khoản")+
-  notice("Chưa đăng nhập thật","Đây là chế độ xem trước. Chưa có dữ liệu thiết bị hoặc giấy phép được truy xuất.","warn")+
-  '<div class="section-title">Thiết bị hiện tại</div>'+card("▣  Thông tin thiết bị",'<p>Chỉ hiển thị sau khi đăng nhập và đồng ý cung cấp dữ liệu cần thiết.</p>')+
-  '<div class="section-title">Giấy phép</div>'+empty("◇","Chưa có thông tin giấy phép","Gói sử dụng, thời hạn và giới hạn thiết bị sẽ hiển thị sau khi máy chủ xác minh tài khoản.");
+ return brandHeader(false)+heading("Thiết bị và giấy phép","Thông tin được xác minh trực tiếp từ máy chủ")+
+  notice("Chưa có phiên đăng nhập thật","Chức năng này cần máy chủ và tài khoản đã được xác minh. Chế độ xem trước không hiển thị dữ liệu mẫu giả.","warn");
 }
 function customerSettings(){
  return brandHeader(false)+heading("Cài đặt","Tùy chỉnh AUTU-LIO")+
@@ -280,7 +266,6 @@ function renderBody(){
  if(state.role==="CUSTOMER"){
   if(state.page==="home")return customerHome();
   if(state.page==="scripts")return customerScripts();
-  if(state.page==="customer-detail")return customerDetail();
   if(state.page==="device")return customerDevice();
   if(state.page==="settings")return customerSettings();
  }
