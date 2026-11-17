@@ -123,7 +123,7 @@ async function verifySignedSessionRequest(request, session, env) {
   const timestampText = request.headers.get("X-AUTU-Timestamp") || "";
   const nonce = request.headers.get("X-AUTU-Nonce") || "";
   const signature = request.headers.get("X-AUTU-Signature") || "";
-  if (!/^\\d{10}$/.test(timestampText) ||
+  if (!/^\d{10}$/.test(timestampText) ||
       !/^[A-Za-z0-9_-]{32,100}$/.test(nonce) ||
       signature.length < 300 || signature.length > 1000) {
     throw new HttpError(401, "signed_request_required", "A valid device-signed request is required.");
@@ -151,7 +151,7 @@ async function verifySignedSessionRequest(request, session, env) {
     timestampText,
     nonce,
     await sha256(bodyText)
-  ].join("\\n");
+  ].join("\n");
 
   const imported = await importDevicePublicKey(session.device_public_key_spki);
   const valid = await verifyDeviceSignature(
