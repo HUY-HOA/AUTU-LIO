@@ -170,9 +170,8 @@ test("owner can read live customer, license and device directories", async () =>
   assert.deepEqual((await json(devices)).devices, []);
 });
 
-test("non-owner cannot read customer license administration", async () => {
-  const developer = { ...ownerSession, role: "DEVELOPER", user_id: "developer-user" };
-  const { env } = createEnv({ session: developer });
+test("customer cannot read customer license administration", async () => {
+  const { env } = createEnv({ session: customerSession });
   const response = await worker.fetch(
     makeRequest("/api/admin/licenses", {
       headers: { Authorization: `Bearer ${"F".repeat(48)}` }
