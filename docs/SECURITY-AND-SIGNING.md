@@ -36,7 +36,14 @@ Các lớp bảo vệ:
 
 R8 là làm rối và thu gọn mã, không phải mã hóa tuyệt đối. Khi script được giải mã để chạy, nội dung vẫn xuất hiện trong bộ nhớ tiến trình.
 
-## 4. Release signing
+## 4. Phiên đăng nhập gắn với thiết bị
+- Khi đăng nhập, Android ký nonce một lần bằng khóa RSA-3072 trong Android Keystore; Worker lưu khóa công khai theo phiên.
+- Mọi API có Bearer session phải kèm chữ ký trên method, path/query, thời gian, nonce và SHA-256 body.
+- Worker chỉ chấp nhận thời gian lệch tối đa 120 giây và nonce chưa dùng; yêu cầu phát lại bị từ chối.
+- Phải áp dụng migration `0007_device_bound_signed_sessions.sql` trước khi deploy. Phiên cũ phải đăng nhập lại.
+- Cơ chế này chống sao chép token và phát lại yêu cầu; không chứng minh APK nguyên bản tuyệt đối và không thay thế kiểm thử chống hook.
+
+## 5. Release signing
 
 GitHub Actions cần đủ bốn Repository secrets:
 
@@ -49,10 +56,10 @@ Keystore phải do chủ sở hữu tạo và sao lưu an toàn. Không commit k
 
 Khi đủ secrets, workflow giải mã keystore tạm trên runner, chạy lint Release, assemble Release, xác minh chữ ký bằng apksigner, xóa keystore tạm rồi upload artifact `AUTU-LIO-Release`. Nhánh Release thiếu bất kỳ secret nào phải thất bại; không được hạ xuống Debug.
 
-## 5. Backend và điều kiện phát hành
+## 6. Backend và điều kiện phát hành
 
 - Worker AUTU-LIO chưa deploy; Google OAuth và các cấu hình cần thiết chưa hoàn tất.
-- Migration `0006_single_owner_customer_only.sql` đã thêm vào repository, nhưng chưa xác nhận đã áp dụng vào D1 production.
+- Migration `0006_single_owner_customer_only.sql` và `0007_device_bound_signed_sessions.sql` phải được áp dụng vào D1 trước khi deploy Worker.
 - D1 sau migration phải chỉ có một OWNER theo email cấu hình; tất cả người khác là CUSTOMER; không còn invitation, permission override hoặc bảng shared-workspace.
 - Phải kiểm thử đăng nhập đúng OWNER, đăng nhập CUSTOMER, API phân quyền, license, đăng ký thiết bị, tải package mã hóa và revoke thiết bị.
 - Phải kiểm thử trên thiết bị Android thật việc bật/tắt Trợ năng, cửa sổ nổi, gesture, chuyển ứng dụng, dừng khẩn cấp và hành vi Xiaomi/HyperOS.
