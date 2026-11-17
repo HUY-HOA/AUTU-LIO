@@ -35,7 +35,7 @@ function response(request, data, status = 200, env = {}) {
   };
   if (originAllowed) {
     headers["Access-Control-Allow-Origin"] = allowed.includes("*") ? "*" : origin || "null";
-    headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
+    headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-AUTU-Timestamp, X-AUTU-Nonce, X-AUTU-Signature";
     headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
     headers["Access-Control-Max-Age"] = "600";
   }
@@ -73,6 +73,105 @@ async function sha256(value) {
 async function sha256Bytes(bytes) {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function importDevicePublicKey(publicKeySpki) {
+  if (typeof publicKeySpki !== "string" ||
+      publicKeySpki.length < 300 || publicKeySpki.length > 8192 ||
+      !/^[A-Za-z0-9+/_=-]+$/.test(publicKeySpki)) {
+    throw new HttpError(400, "invalid_device_public_key", "A valid device public key is required.");
+  }
+  try {
+    const bytes = base64UrlDecode(publicKeySpki);
+    const key = await crypto.subtle.importKey(
+      "spki",
+      bytes,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+    const bits = key.algorithm?.modulusLength;
+    if (!Number.isInteger(bits) || bits < 3072 || bits > 4096) {
+      throw new HttpError(400, "weak_device_public_key", "The device key must use RSA 3072 to 4096 bits.");
+    }
+    return { key, canonicalSpki: base64UrlEncode(bytes) };
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(400, "invalid_device_public_key", "The device public key could not be imported.");
+  }
+}
+
+async function verifyDeviceSignature(publicKey, signatureText, message) {
+  if (typeof signatureText !== "string" ||
+      signatureText.length < 300 || signatureText.length > 1000 ||
+      !/^[A-Za-z0-9_-]+$/.test(signatureText)) return false;
+  try {
+    return await crypto.subtle.verify(
+      { name: "RSASSA-PKCS1-v1_5" },
+      publicKey,
+      base64UrlDecode(signatureText),
+      message
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function verifySignedSessionRequest(request, session, env) {
+  if (env.AUTH_REQUIRE_DEVICE_SIGNATURE === "false") return;
+
+  const timestampText = request.headers.get("X-AUTU-Timestamp") || "";
+  const nonce = request.headers.get("X-AUTU-Nonce") || "";
+  const signature = request.headers.get("X-AUTU-Signature") || "";
+  if (!/^\\d{10}$/.test(timestampText) ||
+      !/^[A-Za-z0-9_-]{32,100}$/.test(nonce) ||
+      signature.length < 300 || signature.length > 1000) {
+    throw new HttpError(401, "signed_request_required", "A valid device-signed request is required.");
+  }
+  if (!session.device_public_key_spki) {
+    throw new HttpError(401, "device_reenrollment_required", "Sign in again to bind this session to this device.");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const timestamp = Number(timestampText);
+  if (!Number.isSafeInteger(timestamp) || Math.abs(now - timestamp) > 120) {
+    throw new HttpError(401, "signed_request_expired", "The device request is outside the allowed time window.");
+  }
+
+  const bodyText = await request.clone().text();
+  if (bodyText.length > 100000) {
+    throw new HttpError(413, "signed_request_too_large", "The signed request body is too large.");
+  }
+  const url = new URL(request.url);
+  const requestTarget = url.pathname + url.search;
+  const canonical = [
+    "AUTU-LIO-REQUEST-V1",
+    request.method.toUpperCase(),
+    requestTarget,
+    timestampText,
+    nonce,
+    await sha256(bodyText)
+  ].join("\\n");
+
+  const imported = await importDevicePublicKey(session.device_public_key_spki);
+  const valid = await verifyDeviceSignature(
+    imported.key,
+    signature,
+    encoder.encode(canonical)
+  );
+  if (!valid) {
+    throw new HttpError(401, "invalid_device_signature", "The device signature is invalid.");
+  }
+
+  const inserted = await env.DB.prepare(
+    "INSERT OR IGNORE INTO session_request_nonces (session_id, nonce, expires_at) VALUES (?, ?, ?)"
+  ).bind(session.session_id, nonce, now + 300).run();
+  if (inserted.meta?.changes !== 1) {
+    throw new HttpError(409, "request_replayed", "This signed request has already been used.");
+  }
+  await env.DB.prepare(
+    "DELETE FROM session_request_nonces WHERE expires_at <= ?"
+  ).bind(now).run();
 }
 
 function parseJson(value) {
@@ -189,7 +288,7 @@ async function getSession(request, env) {
   const tokenHash = await sha256(match[1]);
   const now = Math.floor(Date.now() / 1000);
   const session = await env.DB.prepare(
-    "SELECT s.id AS session_id, s.user_id, s.expires_at, u.email, u.display_name, " +
+    "SELECT s.id AS session_id, s.user_id, s.expires_at, s.device_public_key_spki, u.email, u.display_name, " +
     "CASE WHEN lower(u.email) = ? THEN 'OWNER' ELSE 'CUSTOMER' END AS role, " +
     "u.status, u.email_verified " +
     "FROM sessions s JOIN users u ON u.id = s.user_id " +
@@ -198,6 +297,7 @@ async function getSession(request, env) {
   if (!session || session.status !== "ACTIVE" || session.email_verified !== 1) {
     throw new HttpError(401, "invalid_session", "Session is expired or no longer active.");
   }
+  await verifySignedSessionRequest(request, session, env);
   return session;
 }
 
@@ -264,6 +364,16 @@ async function googleLogin(request, env) {
   if (!nonce || (await sha256(nonce)) !== challenge.nonce_hash) {
     throw new HttpError(401, "invalid_challenge_nonce", "Sign-in challenge nonce is invalid.");
   }
+  const deviceProof = typeof body.deviceProof === "string" ? body.deviceProof : "";
+  const deviceKey = await importDevicePublicKey(body.devicePublicKeySpki);
+  const deviceProofValid = await verifyDeviceSignature(
+    deviceKey.key,
+    deviceProof,
+    encoder.encode(body.challengeId + "." + nonce)
+  );
+  if (!deviceProofValid) {
+    throw new HttpError(401, "invalid_device_proof", "The device did not prove ownership of its private key.");
+  }
   const identity = await verifyGoogleIdToken(body.idToken, nonce, env);
   const consumed = await env.DB.prepare(
     "UPDATE auth_challenges SET consumed_at = ? WHERE id = ? AND nonce_hash = ? AND consumed_at IS NULL AND expires_at > ?"
@@ -311,8 +421,11 @@ async function googleLogin(request, env) {
   const sessionId = crypto.randomUUID();
   const deviceLabel = typeof body.deviceLabel === "string" ? body.deviceLabel.trim().slice(0, 100) : null;
   await env.DB.prepare(
-    "INSERT INTO sessions (id, user_id, token_hash, created_at, expires_at, last_seen_at, device_label) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).bind(sessionId, user.id, await sha256(rawSession), now, expiresAt, now, deviceLabel).run();
+    "INSERT INTO sessions (id, user_id, token_hash, created_at, expires_at, last_seen_at, device_label, device_public_key_spki) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(
+    sessionId, user.id, await sha256(rawSession), now, expiresAt, now, deviceLabel, deviceKey.canonicalSpki
+  ).run();
   await audit(env, user.id, "auth.google_sign_in", "session", sessionId);
   return response(request, {
     accessToken: rawSession,
