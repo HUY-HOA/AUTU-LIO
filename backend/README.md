@@ -7,6 +7,8 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Google ID token signature validation against Google's published signing keys.
 - Issuer, audience, expiry, verified-email and one-time nonce checks.
 - Short-lived sign-in challenge and hashed bearer sessions.
+- Each login proves possession of an RSA-3072 Android Keystore key; the public key is bound to the session.
+- Every authenticated API request is signed over method, path/query, timestamp, one-time nonce and body hash; the Worker enforces a 120-second window and rejects nonce replay.
 - Server-side role lookup on every protected request.
 - One-owner bootstrap by an exact, verified Google email configured as a Worker secret.
 - Owner-only invitation creation, invitation preview and single-use acceptance tied to the signed-in Google email.
@@ -72,7 +74,7 @@ From this directory:
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
 
-The repository contains Worker source and D1 binding configuration. Check the live database with `wrangler d1 migrations list` and apply all pending migrations, including `0004_encrypt_project_source.sql` and `0005_project_data_envelope_keys.sql`, before deploying. The Worker has not been deployed and Google OAuth has not been configured, so live sign-in and package delivery are not yet active. Package APIs fail closed until `PACKAGE_MASTER_KEY_V1` is configured; shared script draft writes and review submission creation fail closed until `PROJECT_DRAFT_MASTER_KEY_V1` is configured. Existing plaintext draft data is not automatically migrated by a Git commit: after deploying the new Worker and applying migrations 0004 and 0005, an OWNER must call `POST /api/admin/security/migrate-project-data` repeatedly until the response says `complete: true`. Read operations also migrate individual legacy records when they are first accessed.
+The repository contains Worker source and D1 binding configuration. Check the live database with `wrangler d1 migrations list` and apply all pending migrations, including `0004_encrypt_project_source.sql` and `0005_project_data_envelope_keys.sql`, before deploying. The Worker has not been deployed and Google OAuth has not been configured, so live sign-in and package delivery are not yet active. Apply migration `0007_device_bound_signed_sessions.sql` before deploying the signed-session enforcement. Package APIs fail closed until `PACKAGE_MASTER_KEY_V1` is configured; shared script draft writes and review submission creation fail closed until `PROJECT_DRAFT_MASTER_KEY_V1` is configured. Existing plaintext draft data is not automatically migrated by a Git commit: after deploying the new Worker and applying migrations 0004 and 0005, an OWNER must call `POST /api/admin/security/migrate-project-data` repeatedly until the response says `complete: true`. Read operations also migrate individual legacy records when they are first accessed.
 
 ## API
 
@@ -81,7 +83,7 @@ The repository contains Worker source and D1 binding configuration. Check the li
 - `GET /health`
 - `POST /api/auth/challenge`
 - `POST /api/auth/google`
-- `GET /api/auth/me`
+- `GET /api/auth/me` — requires a device-signed request after login.
 - `POST /api/auth/logout`
 
 ### Customer licenses, devices and AUTU packages
