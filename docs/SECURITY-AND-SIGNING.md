@@ -29,6 +29,7 @@ Không thể bảo đảm mã Kotlin/Dex hoặc script đã giải mã trên And
 Các lớp bảo vệ:
 1. GitHub repository ở chế độ private và giới hạn quyền truy cập.
 2. Release bật R8 để shrink/optimize/obfuscate mã và shrink resources.
+3. Release ghim SHA-256 của chứng chỉ ký APK; ứng dụng từ chối khởi động và gọi API nếu chữ ký cài đặt không trùng. Workflow lấy fingerprint trực tiếp từ keystore dùng để ký APK.
 3. Không nhúng signing key, mật khẩu hoặc Worker secret vào APK.
 4. Editor dùng `FLAG_SECURE` để hạn chế screenshot và hiển thị trong Recent Apps.
 5. Bản nháp script cục bộ được mã hóa AES-256-GCM; khóa nằm trong Android Keystore.
@@ -54,7 +55,7 @@ GitHub Actions cần đủ bốn Repository secrets:
 
 Keystore phải do chủ sở hữu tạo và sao lưu an toàn. Không commit keystore, mật khẩu hoặc private key lên Git. Mất keystore có thể khiến không thể cập nhật đè APK Release đã cài.
 
-Khi đủ secrets, workflow giải mã keystore tạm trên runner, chạy lint Release, assemble Release, xác minh chữ ký bằng apksigner, xóa keystore tạm rồi upload artifact `AUTU-LIO-Release`. Nhánh Release thiếu bất kỳ secret nào phải thất bại; không được hạ xuống Debug.
+Khi đủ secrets, workflow giải mã keystore tạm trên runner, lấy SHA-256 chứng chỉ ký và đưa vào BuildConfig, chạy lint Release, assemble Release, xác minh chữ ký bằng apksigner, xóa keystore tạm rồi upload artifact `AUTU-LIO-Release`. Nhánh Release thiếu bất kỳ secret nào phải thất bại; không được hạ xuống Debug.
 
 ## 6. Backend và điều kiện phát hành
 
