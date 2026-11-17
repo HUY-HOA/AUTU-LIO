@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.autulio.app.AdminApp
 import com.autulio.app.CustomerApp
 import com.autulio.app.access.AccessRole
@@ -45,6 +47,16 @@ internal fun AuthenticatedAppHost() {
         ActivityResultContracts.StartActivityForResult()
     ) {
         automationPermissionGranted = hasAutomationAccessibilityPermission(context)
+    }
+
+    DisposableEffect(activity) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                automationPermissionGranted = hasAutomationAccessibilityPermission(context)
+            }
+        }
+        activity?.lifecycle?.addObserver(observer)
+        onDispose { activity?.lifecycle?.removeObserver(observer) }
     }
 
     suspend fun restoreSession() {
