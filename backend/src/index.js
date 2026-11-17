@@ -1,4 +1,5 @@
 const encoder = new TextEncoder();
+const UUID_PATTERN = /^[0-9a-f-]{36}$/i;
 const ALL_PERMISSION_NAMES = [
   "VIEW_ADMIN_WORKSPACE",
   "MANAGE_CUSTOMERS_AND_LICENSES",
@@ -376,7 +377,7 @@ async function createCustomerLicense(request, env, session) {
   const expiresAt = Number(body.expiresAt);
   const maxDevices = Number(body.maxDevices ?? 1);
 
-  if (!PROJECT_ID_PATTERN.test(userId)) {
+  if (!UUID_PATTERN.test(userId)) {
     throw new HttpError(400, "invalid_customer_id", "A valid customer ID is required.");
   }
   if (!/^[A-Z0-9_-]{2,32}$/.test(planCode)) {
@@ -429,7 +430,7 @@ async function createCustomerLicense(request, env, session) {
 
 async function updateCustomerLicense(request, env, session, licenseId) {
   await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
-  if (!PROJECT_ID_PATTERN.test(licenseId)) throw new HttpError(400, "invalid_license_id", "License ID is invalid.");
+  if (!UUID_PATTERN.test(licenseId)) throw new HttpError(400, "invalid_license_id", "License ID is invalid.");
   const body = await readBody(request);
   const current = await env.DB.prepare(
     "SELECT id, user_id, plan_code, status, starts_at, expires_at, max_devices FROM licenses WHERE id = ?"
@@ -497,7 +498,7 @@ async function listAdminDevices(request, env, session) {
 
 async function revokeCustomerDevice(request, env, session, deviceId) {
   await requirePermission(env, session, "MANAGE_CUSTOMERS_AND_LICENSES");
-  if (!PROJECT_ID_PATTERN.test(deviceId)) throw new HttpError(400, "invalid_device_id", "Device ID is invalid.");
+  if (!UUID_PATTERN.test(deviceId)) throw new HttpError(400, "invalid_device_id", "Device ID is invalid.");
   const device = await env.DB.prepare(
     "SELECT id, user_id, status FROM devices WHERE id = ?"
   ).bind(deviceId).first();
@@ -569,7 +570,7 @@ async function registerCustomerDevice(request, env, session) {
       !/^[A-Za-z0-9+/=_-]+$/.test(publicKeySpki)) {
     throw new HttpError(400, "invalid_device_public_key", "A valid Android Keystore public key is required.");
   }
-  if (!PROJECT_ID_PATTERN.test(challengeId) || nonce.length < 32 || nonce.length > 128 ||
+  if (!UUID_PATTERN.test(challengeId) || nonce.length < 32 || nonce.length > 128 ||
       signatureText.length < 300 || signatureText.length > 600 ||
       !/^[A-Za-z0-9_+\\/=-]+$/.test(signatureText)) {
     throw new HttpError(400, "invalid_device_proof", "A valid one-time device enrollment proof is required.");
@@ -686,7 +687,7 @@ async function registerCustomerDevice(request, env, session) {
 
 async function removeOwnDevice(request, env, session, deviceId) {
   await requireRole(session, ["CUSTOMER"]);
-  if (!PROJECT_ID_PATTERN.test(deviceId)) throw new HttpError(400, "invalid_device_id", "Device ID is invalid.");
+  if (!UUID_PATTERN.test(deviceId)) throw new HttpError(400, "invalid_device_id", "Device ID is invalid.");
   const now = Math.floor(Date.now() / 1000);
   const result = await env.DB.prepare(
     "UPDATE devices SET status = 'REVOKED', revoked_at = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
@@ -924,7 +925,7 @@ async function createAdminPackage(request, env, session) {
 
 async function createAdminPackageVersion(request, env, session, packageId) {
   await requireRole(session, ["OWNER"]);
-  if (!PROJECT_ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  if (!UUID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
   const body = await readBody(request, 128_000);
   const metadata = validatePackageMetadata(body);
   const current = await env.DB.prepare(
@@ -969,7 +970,7 @@ async function createAdminPackageVersion(request, env, session, packageId) {
 
 async function updateAdminPackage(request, env, session, packageId) {
   await requireRole(session, ["OWNER"]);
-  if (!PROJECT_ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  if (!UUID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
   const body = await readBody(request, 4_000);
   const status = String(body.status || "").toUpperCase();
   if (!["ACTIVE", "ARCHIVED"].includes(status)) throw new HttpError(400, "invalid_package_status", "Package status must be ACTIVE or ARCHIVED.");
@@ -1006,7 +1007,7 @@ async function listCustomerPackages(request, env, session) {
 
 async function downloadCustomerPackage(request, env, session, packageId) {
   await requireRole(session, ["CUSTOMER"]);
-  if (!PROJECT_ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  if (!UUID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
   const now = Math.floor(Date.now() / 1000);
   const license = await getActiveLicense(env, session.user_id, now);
   if (!license) throw new HttpError(403, "active_license_required", "An active license is required to download AUTUs.");
