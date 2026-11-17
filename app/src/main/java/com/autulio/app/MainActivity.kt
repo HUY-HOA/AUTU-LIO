@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -40,6 +41,7 @@ import org.json.JSONArray
 import java.util.Locale
 import com.autulio.app.access.AccessPermission
 import com.autulio.app.access.AccessRole
+import com.autulio.app.access.hasAutomationAccessibilityPermission
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.auth.AuthApiException
 import com.autulio.app.auth.AuthRepository
@@ -92,13 +94,6 @@ private val adminTabs = listOf(
     Tab("more", "Thêm", "More", Icons.Outlined.MoreHoriz)
 )
 
-private val customerTabs = listOf(
-    Tab("home", "Trang chủ", "Home", Icons.Outlined.Home),
-    Tab("scripts", "Kịch bản", "Scripts", Icons.Outlined.ListAlt),
-    Tab("device", "Thiết bị", "Device", Icons.Outlined.Smartphone),
-    Tab("settings", "Cài đặt", "Settings", Icons.Outlined.Settings)
-)
-
 @Composable
 internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
     val context = LocalContext.current
@@ -124,6 +119,30 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
             scripts.addAll(updated.names)
             draftContents.clear()
             draftContents.putAll(updated.contents)
+        }
+    }
+    var pendingEditorIntent by remember { mutableStateOf<Intent?>(null) }
+    val permissionSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        val pending = pendingEditorIntent
+        pendingEditorIntent = null
+        if (pending != null) {
+            if (hasAutomationAccessibilityPermission(context)) {
+                editorLauncher.launch(pending)
+            } else {
+                scope.launch {
+                    host.showSnackbar(tr("Cần bật quyền Trợ năng để tạo hoặc sửa kịch bản.", "Enable Accessibility access before creating or editing scripts."))
+                }
+            }
+        }
+    }
+    fun launchProtectedEditor(intent: Intent) {
+        if (hasAutomationAccessibilityPermission(context)) {
+            editorLauncher.launch(intent)
+        } else {
+            pendingEditorIntent = intent
+            permissionSettingsLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
     }
 
@@ -156,9 +175,8 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     scripts = scripts,
                     onCreate = { createDialog = true },
                     onOpen = { name ->
-                        editorLauncher.launch(ScriptEditorActivity.intent(context, name))
+                        launchProtectedEditor(ScriptEditorActivity.intent(context, name))
                     },
-                    onPermissions = { page = "collaborators" }
                 )
                 "customers" -> CustomersAdminScreen(
                     accessToken = accessToken,
@@ -178,7 +196,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     accessToken = accessToken,
                     onOpenTemplate = { template ->
                         val draftName = "Mẫu - " + tr(template.nameVi, template.nameEn)
-                        editorLauncher.launch(
+                        launchProtectedEditor(
                             ScriptEditorActivity.intent(
                                 context = context,
                                 scriptName = draftName,
@@ -203,7 +221,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     draftStore.save(scripts.toList(), draftContents.toMap())
                     page = "scripts"
                     createDialog = false
-                    editorLauncher.launch(ScriptEditorActivity.intent(context, name))
+                    launchProtectedEditor(ScriptEditorActivity.intent(context, name))
                 }
             }
         )
@@ -211,67 +229,34 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 }
 
 @Composable
-internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit, onRoleUpdated: () -> Unit) {
-    var dark by rememberSaveable { mutableStateOf(true) }
-    var page by rememberSaveable { mutableStateOf("home") }
-    val context = LocalContext.current
-    val authRepository = remember(context) { AuthRepository(context) }
-    val host = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
+internal fun CustomerApp(accessToken: String?, email: String) {
+    var showDeviceSetup by rememberSaveable { mutableStateOf(false) }
+    var deviceRegistrationVersion by rememberSaveable { mutableStateOf(0) }
 
-    AppTheme(dark) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            snackbarHost = { SnackbarHost(host) },
-            bottomBar = {
-                NavigationBar {
-                    customerTabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = page == tab.key,
-                            onClick = { page = tab.key },
-                            icon = { Icon(tab.icon, contentDescription = tr(tab.vi, tab.en)) },
-                            label = { Text(tr(tab.vi, tab.en), fontSize = 10.sp) }
-                        )
-                    }
-                }
-            }
-        ) { padding ->
-            when (page) {
-                "home" -> CustomerHome(
-                    modifier = Modifier.padding(padding),
-                    email = email,
+    AppTheme(dark = true) {
+        Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+            CustomerPackagesScreen(
+                accessToken = accessToken,
+                modifier = Modifier.padding(padding),
+                onOpenDevices = { showDeviceSetup = true },
+                deviceRegistrationVersion = deviceRegistrationVersion
+            )
+        }
+    }
+
+    if (showDeviceSetup) {
+        Dialog(onDismissRequest = { showDeviceSetup = false }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                CustomerDeviceLicenseScreen(
                     accessToken = accessToken,
-                    onScripts = { page = "scripts" },
-                    onDevices = { page = "device" }
-                )
-                "scripts" -> CustomerPackagesScreen(
-                    accessToken = accessToken,
-                    modifier = Modifier.padding(padding),
-                    onOpenDevices = { page = "device" }
-                )
-                "device" -> CustomerDeviceLicenseScreen(
-                    accessToken = accessToken,
-                    modifier = Modifier.padding(padding)
-                )
-                else -> SettingsScreen(
-                    Modifier.padding(padding),
-                    accessToken = accessToken,
-                    onTheme = { dark = !dark },
-                    onLogout = onLogout,
-                    onAcceptInvitation = { invitationToken ->
-                        if (accessToken.isNullOrBlank()) {
-                            scope.launch { host.showSnackbar(tr("Phiên đăng nhập không hợp lệ. Hãy đăng nhập lại.", "The sign-in session is invalid. Please sign in again.")) }
-                        } else {
-                            scope.launch {
-                                try {
-                                    authRepository.acceptInvitation(accessToken, invitationToken)
-                                    host.showSnackbar(tr("Đã chấp nhận lời mời. Đang cập nhật quyền tài khoản…", "Invitation accepted. Refreshing account access…"))
-                                    onRoleUpdated()
-                                } catch (error: Exception) {
-                                    host.showSnackbar(error.message ?: tr("Không chấp nhận được lời mời.", "Could not accept invitation."))
-                                }
-                            }
-                        }
+                    modifier = Modifier.fillMaxWidth(),
+                    onRegistered = {
+                        deviceRegistrationVersion += 1
+                        showDeviceSetup = false
                     }
                 )
             }
@@ -402,8 +387,7 @@ private fun ScriptsScreen(
     modifier: Modifier,
     scripts: List<String>,
     onCreate: () -> Unit,
-    onOpen: (String) -> Unit,
-    onPermissions: () -> Unit
+    onOpen: (String) -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
@@ -432,15 +416,6 @@ private fun ScriptsScreen(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-            OutlinedButton(
-                onClick = onPermissions,
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-                modifier = Modifier.height(42.dp)
-            ) {
-                Icon(Icons.Outlined.Security, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(5.dp))
-                Text(tr("Quyền", "Access"), fontSize = 12.sp)
             }
             FilledIconButton(
                 onClick = onCreate,
@@ -740,20 +715,7 @@ private fun MoreScreen(
         )
         return
     }
-    if (page == "projects") {
-        if (!accessToken.isNullOrBlank()) {
-            ProjectsAdminScreen(accessToken, modifier = modifier, onBack = { onSelect("more") })
-        } else {
-            Column(modifier.fillMaxSize().padding(16.dp)) {
-                TextButton(onClick = { onSelect("more") }) { Text(tr("← Quay lại", "← Back")) }
-                EmptyState(Icons.Outlined.CloudOff, tr("Chưa có phiên đăng nhập", "No signed-in session"), tr("Đăng nhập lại để quản lý dự án.", "Sign in again to manage projects."))
-            }
-        }
-        return
-    }
     val items = listOf(
-        Triple("collaborators", tr("Cộng tác viên", "Collaborators"), Icons.Outlined.PersonAdd),
-        Triple("projects", tr("Dự án cộng tác", "Shared projects"), Icons.Outlined.FolderOpen),
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện mẫu AUTU", "AUTU template library"), Icons.Outlined.ListAlt),
         Triple("packages", tr("Gói AUTU", "AUTU packages"), Icons.Outlined.Code),
@@ -795,7 +757,6 @@ private fun MoreScreen(
             Heading(
                 selected?.second ?: tr("Quản lý", "Management"),
                 when (page) {
-                    "collaborators" -> tr("Mời và phân quyền nhà phát triển, nhà thiết kế, người kiểm duyệt", "Invite and assign developers, designers and reviewers")
                     "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
                     "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
                     "packages" -> tr("Mã hóa, phát hành phiên bản và phân phối AUTU cho khách hàng", "Encrypt, publish and distribute AUTU versions to customers")
@@ -805,7 +766,6 @@ private fun MoreScreen(
                 }
             )
             when (page) {
-                "collaborators" -> CollaboratorsContent(accessToken = accessToken, onBack = { onSelect("more") })
                 "licenses" -> {
                     CardBox {
                         Text(tr("Thông tin giấy phép", "License information"), fontWeight = FontWeight.SemiBold)
@@ -1179,7 +1139,13 @@ class ScriptEditorActivity : ComponentActivity() {
 
         val scriptName = intent.getStringExtra(EXTRA_SCRIPT_NAME)?.trim().orEmpty()
         val namespace = intent.getStringExtra(EXTRA_NAMESPACE) ?: "admin"
-        if (scriptName.isBlank() || namespace !in setOf("admin", "developer")) {
+        if (scriptName.isBlank() || namespace != "admin") {
+            finish()
+            return
+        }
+        if (!hasAutomationAccessibilityPermission(this)) {
+            Toast.makeText(this, tr("Cần cấp quyền Trợ năng trước khi chỉnh sửa hoặc chạy script.", "Accessibility access is required before editing or running scripts."), Toast.LENGTH_LONG).show()
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             finish()
             return
         }
@@ -1197,11 +1163,7 @@ class ScriptEditorActivity : ComponentActivity() {
                     return@launch
                 }
                 val user = AuthRepository(this@ScriptEditorActivity).currentUser(accessToken)
-                val roleAllowed = when (namespace) {
-                    "admin" -> user.role == AccessRole.OWNER
-                    "developer" -> user.role == AccessRole.DEVELOPER
-                    else -> false
-                }
+                val roleAllowed = namespace == "admin" && user.role == AccessRole.OWNER
                 val canEdit = AccessPermission.EDIT_SCRIPTS in user.permissions
                 if (!roleAllowed || !canEdit) {
                     denyEditorAccess()
@@ -1277,6 +1239,13 @@ class ScriptEditorActivity : ComponentActivity() {
                         allowTest = allowTest,
                         onPrepareRun = { source ->
                             if (!allowTest) return@EditorScreen
+                            if (!hasAutomationAccessibilityPermission(this@ScriptEditorActivity)) {
+                                scope.launch {
+                                    host.showSnackbar(tr("Quyền Trợ năng đã bị tắt. Hãy cấp lại quyền trước khi chạy script.", "Accessibility access was disabled. Grant it again before running scripts."))
+                                }
+                                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                return@EditorScreen
+                            }
                             store.save(initialNames, initial.contents + (scriptName to source))
                             setResult(Activity.RESULT_OK)
                             val compilation = ScriptCompiler.compile(source)
