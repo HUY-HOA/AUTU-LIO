@@ -1075,7 +1075,6 @@ class ScriptEditorActivity : ComponentActivity() {
         private const val EXTRA_SCRIPT_NAME = "com.autulio.app.extra.SCRIPT_NAME"
         private const val EXTRA_NAMESPACE = "com.autulio.app.extra.SCRIPT_NAMESPACE"
         private const val EXTRA_INITIAL_SOURCE = "com.autulio.app.extra.INITIAL_SOURCE"
-        private const val EXTRA_FROM_FLOATING_RUNNER = "com.autulio.app.extra.FROM_FLOATING_RUNNER"
 
         fun intent(
             context: Context,
@@ -1088,9 +1087,6 @@ class ScriptEditorActivity : ComponentActivity() {
                 .putExtra(EXTRA_NAMESPACE, namespace)
                 .putExtra(EXTRA_INITIAL_SOURCE, initialSource)
 
-        fun floatingRunnerIntent(context: Context, scriptName: String, namespace: String): Intent =
-            intent(context, scriptName, namespace)
-                .putExtra(EXTRA_FROM_FLOATING_RUNNER, true)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -1259,8 +1255,26 @@ class ScriptEditorActivity : ComponentActivity() {
         }
     }
 
+    private var accessibilityRegrantRequested = false
+
+    override fun onResume() {
+        super.onResume()
+        if (!hasAutomationAccessibilityPermission(this) && !isFinishing && !accessibilityRegrantRequested) {
+            accessibilityRegrantRequested = true
+            Toast.makeText(
+                this,
+                tr("Quyền Trợ năng đã bị tắt. AUTU-LIO yêu cầu cấp lại trước khi tiếp tục chỉnh sửa.", "Accessibility access was disabled. AUTU-LIO requires it again before editing can continue."),
+                Toast.LENGTH_LONG
+            ).show()
+            finish()
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        } else if (hasAutomationAccessibilityPermission(this)) {
+            accessibilityRegrantRequested = false
+        }
+    }
+
     override fun onDestroy() {
-        if (isFinishing) AutoClickAccessibilityService.current()?.restoreRunnerWindow()
+        if (isFinishing) AutoClickAccessibilityService.current()?.finishEditing()
         super.onDestroy()
     }
 
