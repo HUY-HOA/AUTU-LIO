@@ -20,9 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import com.autulio.app.accessibility.AutoClickAccessibilityService
+import com.autulio.app.access.hasAutomationAccessibilityPermission
+import com.autulio.app.access.openAutomationAccessibilitySettings
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AutuPackageRecord
 import com.autulio.app.auth.EncryptedAutuPackageDecryptor
@@ -388,7 +391,8 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
 @Composable
 internal fun CustomerDeviceLicenseScreen(
     accessToken: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRegistered: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -541,6 +545,7 @@ internal fun CustomerDeviceLicenseScreen(
                                 notice = tr("Đã đăng ký thiết bị với máy chủ.", "Device registered with the server.")
                                 showRegistrationConsent = false
                                 refresh()
+                                onRegistered()
                             } catch (exception: Exception) {
                                 error = exception.message ?: tr("Không đăng ký được thiết bị.", "Could not register this device.")
                             } finally {
@@ -795,12 +800,13 @@ internal fun AdminPackagesScreen(
 internal fun CustomerPackagesScreen(
     accessToken: String?,
     modifier: Modifier = Modifier,
-    onOpenDevices: () -> Unit
+    onOpenDevices: () -> Unit,
+    deviceRegistrationVersion: Int = 0
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
     val identityStore = remember(context) { SecureDeviceIdentityStore(context) }
-    val identity = remember(context) { runCatching { identityStore.getExistingIdentity() }.getOrNull() }
+    val identity = remember(context, deviceRegistrationVersion) { runCatching { identityStore.getExistingIdentity() }.getOrNull() }
     val scope = rememberCoroutineScope()
     var packages by remember { mutableStateOf<List<com.autulio.app.auth.AutuPackageRecord>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
@@ -907,6 +913,14 @@ internal fun CustomerPackagesScreen(
                     )
                     Button(
                         onClick = {
+                            if (!hasAutomationAccessibilityPermission(context)) {
+                                notice = tr(
+                                    "Quyền Trợ năng đã bị tắt. Hãy cấp lại quyền rồi nhấn chạy script.",
+                                    "Accessibility access is disabled. Grant it again before running the script."
+                                )
+                                openAutomationAccessibilitySettings(context)
+                                return@Button
+                            }
                             val token = accessToken ?: return@Button
                             val deviceIdentity = identity
                             scope.launch {
@@ -934,22 +948,30 @@ internal fun CustomerPackagesScreen(
                                             tr("Phiên bản ngôn ngữ của gói không tương thích với ứng dụng.", "The package language version is incompatible with this app.")
                                         )
                                     }
-                                    val service = AutoClickAccessibilityService.current()
-                                    if (service == null) {
+                                    if (!hasAutomationAccessibilityPermission(context)) {
                                         notice = tr(
-                                            "Đã tải và xác minh gói. Hãy bật AUTU-LIO trong Cài đặt > Trợ năng, quay lại đây và nhấn Chuẩn bị chạy lần nữa.",
-                                            "The package was downloaded and verified. Enable AUTU-LIO under Settings > Accessibility, return here and tap Prepare to run again."
+                                            "Quyền Trợ năng đã bị tắt. Hãy cấp lại quyền trước khi chạy script.",
+                                            "Accessibility access was disabled. Grant it again before running the script."
                                         )
-                                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                    } else if (service.prepareProgram(compilation.program, item.name, "customer")) {
+                                        openAutomationAccessibilitySettings(context)
+                                    } else {
+                                        val service = AutoClickAccessibilityService.current()
+                                        if (service == null) {
+                                            notice = tr(
+                                                "Dịch vụ Trợ năng chưa sẵn sàng. Hãy bật AUTU-LIO trong Cài đặt > Trợ năng rồi thử lại.",
+                                                "The Accessibility service is not ready. Enable AUTU-LIO in Settings > Accessibility and try again."
+                                            )
+                                            openAutomationAccessibilitySettings(context)
+                                        } else if (service.prepareProgram(compilation.program, item.name, "customer")) {
                                         notice = tr(
                                             "Đã giải mã, kiểm tra toàn vẹn và chuẩn bị AUTU. Chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.",
                                             "AUTU was decrypted, integrity-checked and prepared. Switch to the target app and press Run on the floating controller."
                                         )
-                                    } else {
-                                        throw IllegalStateException(
-                                            tr("Không thể chuẩn bị bộ chạy AUTU trên thiết bị.", "Could not prepare the AUTU runner on this device.")
-                                        )
+                                        } else {
+                                            throw IllegalStateException(
+                                                tr("Không thể chuẩn bị bộ chạy AUTU trên thiết bị.", "Could not prepare the AUTU runner on this device.")
+                                            )
+                                        }
                                     }
                                 } catch (exception: Exception) {
                                     error = exception.message ?: tr("Không thể tải hoặc chạy gói AUTU.", "Could not download or prepare this AUTU.")
@@ -970,6 +992,24 @@ internal fun CustomerPackagesScreen(
             }
         }
     }
+
+    if (identity == null) {
+        Dialog(onDismissRequest = {}) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 640.dp),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                CustomerDeviceLicenseScreen(
+                    accessToken = accessToken,
+                    modifier = Modifier.fillMaxWidth(),
+                    onRegistered = {
+                        notice = tr("Đã kích hoạt thiết bị. Danh sách script sẽ được tải lại.", "Device activated. The script library will reload.")
+                    }
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -980,7 +1020,7 @@ private fun LiveManagementUnavailable() {
             Column {
                 Text(tr("Chưa có phiên đăng nhập thật", "No live authenticated session"), fontWeight = FontWeight.SemiBold)
                 Text(
-                    tr("Chức năng này cần máy chủ và tài khoản đã được xác minh. Chế độ xem trước không hiển thị dữ liệu mẫu giả.", "This feature requires the server and a verified account. Preview mode does not show fabricated sample data."),
+                    tr("Chức năng này cần máy chủ và tài khoản đã được xác minh.", "This feature requires the server and a verified account."),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
