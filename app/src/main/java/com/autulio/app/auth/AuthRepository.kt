@@ -22,6 +22,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
+import java.util.UUID
 
 data class AuthenticatedUser(
     val id: String,
@@ -160,6 +161,7 @@ data class EncryptedAutuPackage(
 class AuthRepository(context: Context) {
     private val appContext = context.applicationContext
     private val credentialManager = CredentialManager.create(appContext)
+    private val deviceIdentityStore = SecureDeviceIdentityStore(appContext)
 
     val isConfigured: Boolean
         get() = BuildConfig.AUTH_API_BASE_URL.isNotBlank() &&
@@ -175,6 +177,8 @@ class AuthRepository(context: Context) {
             throw IOException("Máy chủ không trả về thử thách đăng nhập hợp lệ.")
         }
 
+        val deviceIdentity = deviceIdentityStore.getOrCreate()
+        val deviceProof = deviceIdentityStore.signChallenge(challengeId, nonce)
         val option = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_SERVER_CLIENT_ID)
             .setNonce(nonce)
             .build()
@@ -201,6 +205,8 @@ class AuthRepository(context: Context) {
             .put("nonce", nonce)
             .put("idToken", googleCredential.idToken)
             .put("deviceLabel", deviceLabel())
+            .put("devicePublicKeySpki", deviceIdentity.publicKeySpki)
+            .put("deviceProof", deviceProof)
 
         val login = apiRequest("/api/auth/google", "POST", payload)
         val accessToken = login.optString("accessToken")
@@ -735,6 +741,7 @@ class AuthRepository(context: Context) {
     ): JSONObject = withContext(Dispatchers.IO) {
         ensureConfigured()
         val baseUrl = BuildConfig.AUTH_API_BASE_URL.trimEnd('/')
+        val requestBody = body?.toString().orEmpty()
         val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
@@ -744,13 +751,27 @@ class AuthRepository(context: Context) {
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-store")
             if (!bearerToken.isNullOrBlank()) {
+                val identity = deviceIdentityStore.getExistingIdentity()
+                    ?: throw IOException("Thiết bị chưa có khóa bảo mật. Vui lòng đăng nhập lại.")
+                val timestamp = System.currentTimeMillis() / 1000L
+                val nonce = UUID.randomUUID().toString().replace("-", "")
+                val signature = deviceIdentityStore.signRequest(
+                    method = method,
+                    requestTarget = path,
+                    timestampSeconds = timestamp,
+                    nonce = nonce,
+                    body = requestBody
+                )
                 connection.setRequestProperty("Authorization", "Bearer $bearerToken")
+                connection.setRequestProperty("X-AUTU-Timestamp", timestamp.toString())
+                connection.setRequestProperty("X-AUTU-Nonce", nonce)
+                connection.setRequestProperty("X-AUTU-Signature", signature)
             }
             if (body != null) {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 connection.outputStream.use { output ->
-                    output.write(body.toString().toByteArray(Charsets.UTF_8))
+                    output.write(requestBody.toByteArray(Charsets.UTF_8))
                 }
             }
             val status = connection.responseCode
