@@ -23,6 +23,7 @@ required_tables = {
     "device_enrollment_challenges",
     "script_packages",
     "script_package_versions",
+    "session_request_nonces",
 }
 actual_tables = {
     row[0]
@@ -33,6 +34,13 @@ actual_tables = {
 missing = sorted(required_tables - actual_tables)
 if missing:
     raise SystemExit(f"Missing tables: {', '.join(missing)}")
+
+session_columns = {
+    row[1]
+    for row in database.execute("PRAGMA table_info(sessions)")
+}
+if "device_public_key_spki" not in session_columns:
+    raise SystemExit("Sessions are not bound to a device public key")
 
 forbidden_tables = {
     "invitations",
