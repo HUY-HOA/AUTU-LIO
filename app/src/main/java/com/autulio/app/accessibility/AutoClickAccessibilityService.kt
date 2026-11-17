@@ -166,6 +166,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         if (showFloatingWindow()) renderSnapshot(executionEngine?.snapshot())
     }
 
+    fun finishEditing() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { finishEditing() }
+            return
+        }
+        if (activeScriptName.isNullOrBlank()) return
+        editingScript = false
+        if (floatingWindow == null) showFloatingWindow()
+        renderSnapshot(executionEngine?.snapshot())
+    }
+
     fun showFloatingWindowForEditing(scriptName: String): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             val finished = CountDownLatch(1)
@@ -615,14 +626,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 }
             }
         }
-    }
-
-    fun hideRunnerWindowForEditing() {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { hideRunnerWindowForEditing() }
-            return
-        }
-        removeFloatingWindow()
     }
 
     private fun onEditAction() {
