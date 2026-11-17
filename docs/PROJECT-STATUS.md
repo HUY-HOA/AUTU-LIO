@@ -41,8 +41,8 @@
 
 ## 3. Kiểm thử
 
-- Worker checks trên commit `4447cbb8a187d59f04b56b4c7af90572718bbc39`: thành công.
-- Android source checks cho cùng commit: cần chờ kết quả cuối cùng của GitHub Actions.
+- GitHub Actions Worker checks và Android source checks đều thành công trên commit `4447cbb8a187d59f04b56b4c7af90572718bbc39` (run `43988019892` và `43988019877`).
+- Sau commit đó đã có thêm chỉnh sửa lifecycle quyền Trợ năng, dọn kho nháp cũ, nhật ký và logic mở khóa nút Chạy. Các commit mới nhất chưa có workflow run tương ứng; cần chạy lại source checks trước khi xác nhận nhánh cuối cùng đã biên dịch thành công.
 - Chưa có build APK mới cho các thay đổi OWNER/CUSTOMER và permission gate.
 - Cần kiểm thử trực tiếp trên Android thật: bật/tắt Accessibility, tạo/sửa script, chuyển sang ứng dụng khác, chạy/tạm dừng/tiếp tục/dừng, thu hồi quyền trong lúc app đang mở và xác nhận cửa sổ nổi trên Xiaomi/HyperOS.
 
