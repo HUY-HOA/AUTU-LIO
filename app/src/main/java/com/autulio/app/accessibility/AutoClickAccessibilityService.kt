@@ -1,5 +1,6 @@
 package com.autulio.app.accessibility
 
+import com.autulio.app.AppIntegrityVerifier
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
@@ -70,6 +71,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        if (!AppIntegrityVerifier.isOfficialRelease(this)) {
+            stopSelf()
+            return
+        }
         activeInstance = this
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         executionEngine = ScriptExecutionEngine(this) { snapshot ->
@@ -120,6 +125,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         }
 
+        if (!AppIntegrityVerifier.isOfficialRelease(this)) return false
         if (scriptName.isBlank() || namespace !in setOf("admin", "customer")) return false
         if (!hasAutomationAccessibilityPermission(this)) return false
         val engine = executionEngine ?: return false
@@ -608,6 +614,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private fun onPrimaryAction() {
         val engine = executionEngine ?: return
+        if (!AppIntegrityVerifier.isOfficialRelease(this)) {
+            engine.stop()
+            return
+        }
         if (!hasAutomationAccessibilityPermission(this)) {
             engine.stop()
             runCatching {
