@@ -662,7 +662,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         status.text = when (state) {
             ScriptExecutionState.IDLE ->
-                "Sẵn sàng · Chuyển sang ứng dụng cần thao tác rồi nhấn Chạy"
+                if (pendingProgram == null && activeNamespace == "admin") "Đang chỉnh sửa · Cửa sổ nổi AUTU-LIO"
+                else "Sẵn sàng · Chuyển sang ứng dụng cần thao tác rồi nhấn Chạy"
             ScriptExecutionState.RUNNING ->
                 "Đang chạy · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0}"
             ScriptExecutionState.PAUSED ->
