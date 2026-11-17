@@ -18,29 +18,29 @@ data class ScriptDraftSnapshot(
     val contents: Map<String, String>
 )
 
-class SecureScriptDraftStore(context: Context, private val namespace: String = "admin") {
-    private val isAdminNamespace = namespace == "admin"
+class SecureScriptDraftStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(
-        if (isAdminNamespace) ENCRYPTED_PREFERENCES else "autulio_encrypted_${namespace}_drafts",
+        ENCRYPTED_PREFERENCES,
         Context.MODE_PRIVATE
     )
     private val legacyPreferences = context.applicationContext.getSharedPreferences(
-        if (isAdminNamespace) LEGACY_PREFERENCES else "autulio_${namespace}_drafts",
+        LEGACY_PREFERENCES,
         Context.MODE_PRIVATE
     )
-    private val dataKey = if (isAdminNamespace) DATA_KEY else "encrypted_payload_v1"
-    private val legacyNamesKey = if (isAdminNamespace) LEGACY_NAMES_KEY else "scripts"
-    private val legacyDraftPrefix = if (isAdminNamespace) LEGACY_DRAFT_PREFIX else "draft:"
-    private val keyAlias = if (isAdminNamespace) KEY_ALIAS else "autulio_script_drafts_${namespace}_aes_gcm_v1"
-    private val associatedData = if (isAdminNamespace) {
-        "AUTU-LIO|script-drafts|v1".toByteArray(Charsets.UTF_8)
-    } else {
-        "AUTU-LIO|script-drafts|${namespace}|v1".toByteArray(Charsets.UTF_8)
-    }
 
     init {
-        require(namespace == "admin" || namespace == "developer") {
-            "Unsupported script draft namespace."
+        val oldDeveloperPreferences = context.applicationContext.getSharedPreferences(
+            "autulio_encrypted_developer_drafts",
+            Context.MODE_PRIVATE
+        )
+        oldDeveloperPreferences.edit().clear().apply()
+        context.applicationContext.getSharedPreferences(
+            "autulio_developer_drafts",
+            Context.MODE_PRIVATE
+        ).edit().clear().apply()
+        runCatching {
+            KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
+                .deleteEntry("autulio_script_drafts_developer_aes_gcm_v1")
         }
     }
 
@@ -74,7 +74,7 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
                 contents[key.removePrefix(legacyDraftPrefix)] = value
             }
         }
-        if (!isAdminNamespace) {
+        if (!true) {
             val legacyName = legacyPreferences.getString("draft_name", "").orEmpty().trim()
             val legacyCode = legacyPreferences.getString("draft_code", "").orEmpty()
             if (legacyName.isNotEmpty()) {
