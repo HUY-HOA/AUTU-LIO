@@ -645,7 +645,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
 
         try {
-            val editorIntent = ScriptEditorActivity.floatingRunnerIntent(
+            val editorIntent = ScriptEditorActivity.intent(
                 this,
                 scriptName,
                 activeNamespace
