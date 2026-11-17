@@ -64,6 +64,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var activeScriptName: String? = null
     private var activeNamespace: String = "admin"
     private var editedProgramPending = false
+    private var editingScript = false
     private var latestSnapshot: ScriptExecutionSnapshot? = null
     @Volatile private var foregroundPackage: String? = null
 
@@ -191,6 +192,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
         activeScriptName = scriptName
         activeNamespace = "admin"
+        editingScript = true
         if (!showFloatingWindow()) return false
         renderSnapshot(engine.snapshot())
         return true
@@ -598,6 +600,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
             return
         }
+        if (editingScript) return
         when (engine.snapshot().state) {
             ScriptExecutionState.RUNNING -> engine.pause()
             ScriptExecutionState.PAUSED -> engine.resume()
@@ -660,10 +663,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val current = snapshot ?: latestSnapshot
         val state = current?.state ?: ScriptExecutionState.IDLE
 
-        status.text = when (state) {
+        status.text = if (editingScript) {
+            "Đang chỉnh sửa · Cửa sổ nổi AUTU-LIO"
+        } else when (state) {
             ScriptExecutionState.IDLE ->
-                if (pendingProgram == null && activeNamespace == "admin") "Đang chỉnh sửa · Cửa sổ nổi AUTU-LIO"
-                else "Sẵn sàng · Chuyển sang ứng dụng cần thao tác rồi nhấn Chạy"
+                "Sẵn sàng · Chuyển sang ứng dụng cần thao tác rồi nhấn Chạy"
             ScriptExecutionState.RUNNING ->
                 "Đang chạy · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0}"
             ScriptExecutionState.PAUSED ->
@@ -688,7 +692,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             paused -> "Tiếp tục kịch bản"
             else -> "Chạy kịch bản"
         }
-        primary.isEnabled = pendingProgram != null && !stopping
+        primary.isEnabled = pendingProgram != null && !stopping && !editingScript
         primary.alpha = if (primary.isEnabled) 1f else 0.45f
         stop.visibility = if (!collapsed && (running || paused || stopping)) View.VISIBLE else View.GONE
         edit.visibility = if (!collapsed && !activeScriptName.isNullOrBlank() && activeNamespace == "admin") View.VISIBLE else View.GONE
