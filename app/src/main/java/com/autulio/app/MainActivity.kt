@@ -1154,7 +1154,7 @@ class ScriptEditorActivity : ComponentActivity() {
     }
 
     private fun showEditor(scriptName: String, namespace: String, allowTest: Boolean) {
-        val store = SecureScriptDraftStore(this, namespace)
+        val store = SecureScriptDraftStore(this)
         val initial = store.load()
         val initialNames = (initial.names + scriptName).distinctBy { it.lowercase(Locale.ROOT) }
         val savedCode = initial.contents[scriptName]
