@@ -126,7 +126,13 @@ jobs:
           printf '%s' "$AUTU_LIO_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           chmod 600 "$KEYSTORE_PATH"
           keytool -list -keystore "$KEYSTORE_PATH" -storepass "$AUTU_LIO_RELEASE_STORE_PASSWORD" -alias "$AUTU_LIO_RELEASE_KEY_ALIAS" >/dev/null
+          RELEASE_CERT_SHA256="$(keytool -exportcert -keystore "$KEYSTORE_PATH" -storepass "$AUTU_LIO_RELEASE_STORE_PASSWORD" -alias "$AUTU_LIO_RELEASE_KEY_ALIAS" | sha256sum | awk '{print toupper($1)}')"
+          if [[ ! "$RELEASE_CERT_SHA256" =~ ^[A-F0-9]{64}$ ]]; then
+            echo "::error::Could not calculate the release signing certificate fingerprint."
+            exit 1
+          fi
 
+          echo "release_cert_sha256=$RELEASE_CERT_SHA256" >> "$GITHUB_OUTPUT"
           echo "configured=true" >> "$GITHUB_OUTPUT"
           echo "variant=release" >> "$GITHUB_OUTPUT"
           echo "artifact_name=AUTU-LIO-Release" >> "$GITHUB_OUTPUT"
@@ -155,7 +161,7 @@ jobs:
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
           AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
           AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
-        run: gradle --no-daemon :app:lintRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon :app:lintRelease -PAUTU_LIO_RELEASE_CERT_SHA256=${{ steps.signing.outputs.release_cert_sha256 }} -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Run Debug checks
         if: steps.signing.outputs.configured != 'true'
@@ -168,7 +174,7 @@ jobs:
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
           AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
           AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
-        run: gradle --no-daemon :app:assembleRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon :app:assembleRelease -PAUTU_LIO_RELEASE_CERT_SHA256=${{ steps.signing.outputs.release_cert_sha256 }} -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Build Debug test APK
         if: steps.signing.outputs.configured != 'true'
