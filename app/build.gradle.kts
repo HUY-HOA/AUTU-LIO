@@ -39,10 +39,16 @@ android {
         val googleServerClientId = providers.gradleProperty("AUTU_LIO_GOOGLE_SERVER_CLIENT_ID")
             .orElse(providers.environmentVariable("AUTU_LIO_GOOGLE_SERVER_CLIENT_ID"))
             .getOrElse("")
+        val releaseCertSha256 = providers.gradleProperty("AUTU_LIO_RELEASE_CERT_SHA256")
+            .orElse(providers.environmentVariable("AUTU_LIO_RELEASE_CERT_SHA256"))
+            .getOrElse("")
+            .replace(":", "")
+            .uppercase()
         val escapedAuthApiBaseUrl = authApiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
         val escapedGoogleServerClientId = googleServerClientId.replace("\\", "\\\\").replace("\"", "\\\"")
         buildConfigField("String", "AUTH_API_BASE_URL", "\"$escapedAuthApiBaseUrl\"")
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$escapedGoogleServerClientId\"")
+        buildConfigField("String", "RELEASE_CERT_SHA256", "\"$releaseCertSha256\"")
     }
 
     signingConfigs {
