@@ -1,49 +1,51 @@
 # AUTU-LIO — Cấu hình đăng nhập Google
 
-## 1. Thành phần hiện có
+## 1. Mô hình xác thực
 
-- Android Credential Manager: `androidx.credentials:credentials:1.6.0`.
-- Google ID: `com.google.android.libraries.identity.googleid:googleid:1.2.1`.
-- Android lấy một nonce ngắn hạn từ Auth API, yêu cầu Google phát hành ID token với nonce đó, rồi gửi ID token về Worker.
-- Worker xác minh chữ ký Google, issuer, audience, thời hạn, email đã xác minh và nonce trước khi tạo session.
-- Session bearer token được lưu dưới dạng mã hóa AES-GCM bằng khóa Android Keystore. Chỉ lưu token session, không lưu Google ID token.
-- Mỗi lần mở app, ứng dụng hỏi máy chủ `/api/auth/me`; UI role chỉ mở sau khi máy chủ xác minh phiên.
+AUTU-LIO chỉ có hai loại tài khoản:
 
-Đây là phần khung tích hợp. Auth API chưa deploy và Google OAuth chưa cấu hình, do đó nút đăng nhập sẽ bị khóa cho tới khi có đủ cấu hình.
+- OWNER duy nhất: `phunghuyhoahaikba@gmail.com`.
+- CUSTOMER: mọi tài khoản Google khác.
+
+Android dùng Credential Manager để lấy Google ID token. Cloudflare Worker xác minh chữ ký, issuer, audience, thời hạn, email đã xác minh và nonce; sau đó Worker tự tính role từ email, không nhận role do APK gửi lên. Session bearer được mã hóa AES-GCM trong Android Keystore; ứng dụng không lưu Google ID token.
+
+Không có Firebase Authentication, Firestore, Realtime Database hoặc Firebase Storage.
+
+**Tình trạng:** mã Android và Worker đã có trong repository nhưng Worker AUTU-LIO chưa deploy và Google OAuth chưa cấu hình, vì vậy đăng nhập thật chưa hoạt động.
 
 ## 2. Google Cloud Console
 
 Tạo hoặc chọn một Google Cloud project và cấu hình OAuth consent screen theo chính sách của Google.
 
-Tạo OAuth Client ID loại **Web application**. Đây là Server Client ID / audience mà Android sẽ truyền cho Credential Manager và Worker sẽ dùng để xác minh claim `aud`.
+Tạo OAuth Client ID loại **Web application**. Đây là Server Client ID/audience mà Android truyền cho Credential Manager và Worker dùng xác minh claim `aud`.
 
 Tạo OAuth Client ID loại **Android** với:
 - Package name: `com.autulio.app`.
-- SHA-1 và SHA-256 fingerprint của chứng thư ký Debug dùng để thử nghiệm.
-- SHA-1 và SHA-256 fingerprint của chứng thư ký Release trước khi phát hành thật.
+- SHA-1 và SHA-256 fingerprint của chứng thư ký Debug dùng nội bộ.
+- SHA-1 và SHA-256 fingerprint của chứng thư ký Release trước khi phát hành.
 
-Sau khi có Android Client ID, thêm ID đó vào biến Worker `GOOGLE_ALLOWED_AZP` (nếu token thực tế có claim `azp` khác Web Client ID) để Worker xác minh đúng ứng dụng Android được phép trình token.
+Sau khi có Android Client ID, thêm ID đó vào biến Worker `GOOGLE_ALLOWED_AZP` nếu token thực tế có claim `azp` khác Web Client ID.
 
-Có thể lấy fingerprint của cấu hình ký Android bằng tác vụ Gradle `signingReport` trong môi trường phát triển. Không gửi file keystore hoặc mật khẩu ký cho cộng tác viên.
+Không gửi file keystore, mật khẩu ký hoặc OAuth client secret qua chat hay commit.
 
-## 3. Cloudflare Worker secrets
+## 3. Cấu hình Cloudflare Worker
 
-Sau khi xác nhận đúng tài khoản Google của chủ ứng dụng và Web Client ID, đặt hai secret ở thư mục `backend`:
+Trong `backend/wrangler.jsonc`, biến `OWNER_EMAIL` đã được đặt thành `phunghuyhoahaikba@gmail.com`. Giữ nguyên giá trị này nếu đó vẫn là tài khoản chủ sở hữu duy nhất.
 
+Đặt các secret:
 ```sh
 npx wrangler secret put GOOGLE_CLIENT_ID
-npx wrangler secret put OWNER_EMAIL
 ```
 
-- `GOOGLE_CLIENT_ID`: Web application Client ID; phải giống Server Client ID được cấu hình cho app.
-- `OWNER_EMAIL`: email Google chính xác của chủ ứng dụng. Worker chỉ gán OWNER nếu email được Google xác minh trùng giá trị này và chưa có OWNER nào khác.
-- `GOOGLE_ALLOWED_AZP`: biến Worker tùy chọn, danh sách cách nhau bằng dấu phẩy gồm Android OAuth Client ID được phép xuất hiện trong claim `azp`. Claim `aud` vẫn bắt buộc phải trùng chính xác Web/Server Client ID; `azp` không được bỏ qua hoặc chấp nhận tùy tiện.
+- `GOOGLE_CLIENT_ID`: Web application Client ID; phải giống Server Client ID được cấu hình cho Android.
+- `GOOGLE_ALLOWED_AZP`: biến tùy chọn, danh sách Android OAuth Client ID được phép xuất hiện trong claim `azp` nếu token yêu cầu.
+- `OWNER_EMAIL`: là biến cấu hình thông thường trong wrangler.jsonc, không phải một secret. Nó phải khớp chính xác Gmail Owner.
 
-Hai giá trị không được commit vào Git. Không đưa Google OAuth client secret, Cloudflare API token hoặc khóa ký Android vào APK.
+Không đặt Google OAuth client secret, Cloudflare API token hoặc khóa ký Android trong APK hoặc Git.
 
 ## 4. Cấu hình Android build
 
-Worker hiện chưa deploy, nên chưa có URL API thực tế. Sau khi deploy và xác nhận URL, đặt hai Gradle properties ở máy build, ưu tiên file `~/.gradle/gradle.properties` bên ngoài repository:
+Sau khi deploy Worker và xác nhận URL thật, đặt hai Gradle properties ngoài repository, ưu tiên `~/.gradle/gradle.properties`:
 
 ```properties
 AUTU_LIO_AUTH_API_BASE_URL=https://<worker-url>
@@ -54,36 +56,31 @@ Có thể truyền cùng tên qua environment variables:
 - `AUTU_LIO_AUTH_API_BASE_URL`
 - `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID`
 
-Các giá trị này không phải khóa bí mật. Nếu để trống, app vẫn có thể biên dịch nhưng đăng nhập sẽ bị khóa và giải thích cấu hình còn thiếu.
+Nếu để trống, app có thể biên dịch nhưng đăng nhập bị khóa có chủ đích.
 
-## 5. Triển khai Worker
+## 5. D1 và triển khai
 
-Trước khi deploy:
-1. Xác nhận `GOOGLE_CLIENT_ID` và `OWNER_EMAIL` đã được cấu hình an toàn.
-2. Kiểm tra binding D1 `autu_lio_auth` trong `backend/wrangler.jsonc`.
-3. Cài Wrangler theo phiên bản ổn định phù hợp và chạy `npm run check`.
-4. Database AUTU-LIO hiện tại đã áp dụng migration `0001`–`0003`; khi thiết lập môi trường D1 mới, áp dụng toàn bộ migration theo thứ tự.
-5. Deploy Worker, gọi `GET /health`, xác nhận database và cấu hình Google đều báo sẵn sàng.
-6. Kiểm thử đăng nhập bằng tài khoản chủ sở hữu trước khi mời tài khoản khác.
+1. Kiểm tra binding D1 `autu_lio_auth` trong `backend/wrangler.jsonc`.
+2. Đảm bảo các migrations `0001` đến `0005` được áp dụng theo thứ tự nếu môi trường D1 chưa có đủ schema.
+3. Áp dụng migration `0006_single_owner_customer_only.sql`. Migration này đưa Gmail Owner về OWNER, mọi tài khoản khác về CUSTOMER, xóa lời mời/permission override và các bảng workspace cộng tác cũ.
+4. Deploy Worker từ `backend/`.
+5. Gọi `GET /health` và xác nhận API/D1 sẵn sàng.
+6. Kiểm thử đăng nhập bằng Gmail Owner và một tài khoản Google CUSTOMER khác.
+7. Kiểm thử phân quyền: CUSTOMER chỉ được xem thư viện script đã cấp phép, không gọi được API quản trị hoặc sửa/phát hành script.
 
-Không deploy Auth API trước khi hoàn tất cấu hình OAuth và xác nhận email chủ sở hữu. Không tự ý thay thế email chủ sở hữu bằng email GitHub.
+Không deploy Worker trước khi cấu hình Google OAuth. Không tạo thêm OWNER hoặc tài khoản cộng tác viên.
 
-## 6. Kiểm tra quyền
+## 6. Quy tắc quyền
 
-- OWNER: được mở Admin Studio và quản lý cộng tác viên.
-- DEVELOPER: chỉ mở không gian viết mã / bản nháp.
-- DESIGNER: chỉ mở không gian thiết kế và xem trước.
-- REVIEWER: chỉ mở hàng chờ kiểm duyệt.
-- CUSTOMER: chỉ mở AutoClick và kịch bản được cấp phép.
-
-Màn hình mời/quản lý cộng tác viên và workspace dự án đã được nối với API trong mã Android. Chủ sở hữu tạo dự án, phân công cộng tác viên; Developer lưu script, Designer lưu UI draft và Reviewer kiểm duyệt snapshot. Các màn hình này chưa thể hoạt động trực tuyến cho tới khi Worker deploy và Android được cấu hình Auth API URL + Server Client ID. Bản xem thử Debug không cấp quyền thật.
+- OWNER duy nhất được mở Admin Studio, tạo/sửa/kiểm tra script, quản lý khách hàng, thiết bị, giấy phép, thư viện, nhật ký và phát hành.
+- CUSTOMER chỉ được vào màn hình thư viện script để tải và chạy package đã cấp phép.
+- Không có vai trò Developer, Designer, Reviewer, lời mời hoặc workspace dự án.
+- Mọi lần mở editor và mọi API quản trị phải xác minh session/role phía Worker; ẩn nút trong Android không thay thế kiểm tra quyền máy chủ.
 
 ## 7. Phạm vi chưa hoàn tất
 
-- Chưa có Google OAuth Client IDs.
-- Chưa có email OWNER được chủ ứng dụng xác nhận cho cấu hình secret.
-- Worker chưa được deploy và chưa có URL.
-- Chưa thử đăng nhập thực trên điện thoại.
-- Màn hình Android đã nối API quản lý cộng tác viên, thu hồi lời mời, chấp nhận mã, quản lý dự án, lưu script/UI draft và duyệt submission; chưa thể dùng trực tuyến cho tới khi Worker deploy và secrets Google được cấu hình.
-- `AUTU_LIO_AUTH_API_BASE_URL` và `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID` hiện chưa được đặt trong môi trường build; để trống sẽ khóa đăng nhập có chủ đích.
-- Chưa có runtime AutoClick thật, cấp phép thật hoặc tự động gửi email lời mời.
+- Chưa tạo Google OAuth Web Client ID và Android Client ID.
+- Worker AUTU-LIO chưa deploy và chưa có URL API hoạt động.
+- Migration 0006 chưa áp dụng vào D1 production.
+- Chưa thử đăng nhập OWNER/CUSTOMER thực trên điện thoại.
+- Chưa xác nhận license, đăng ký thiết bị RSA, tải package mã hóa và quyền Trợ năng/overlay trên thiết bị thật.
