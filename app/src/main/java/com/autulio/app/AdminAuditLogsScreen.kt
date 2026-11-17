@@ -219,7 +219,6 @@ internal fun AdminAuditLogsScreen(
 
 private fun auditCategory(action: String): String = when {
     action.startsWith("auth.") -> "account"
-    action.startsWith("collaborator.") || action.startsWith("project.") -> "collaboration"
     action.startsWith("license.") -> "license"
     action.startsWith("device.") -> "device"
     action.startsWith("package.") -> "package"
@@ -229,21 +228,6 @@ private fun auditCategory(action: String): String = when {
 private fun auditActionTitle(action: String): String = when (action) {
     "auth.google_sign_in" -> tr("Đăng nhập Google", "Google sign-in")
     "auth.logout" -> tr("Đăng xuất", "Sign out")
-    "collaborator.invite_created" -> tr("Tạo lời mời cộng tác", "Create collaborator invitation")
-    "collaborator.invite_accepted" -> tr("Chấp nhận lời mời", "Accept invitation")
-    "collaborator.invitation_revoked" -> tr("Hủy lời mời", "Revoke invitation")
-    "collaborator.role_changed" -> tr("Thay đổi vai trò", "Change collaborator role")
-    "collaborator.permissions_updated" -> tr("Cập nhật quyền", "Update permissions")
-    "collaborator.access_revoked" -> tr("Thu hồi quyền cộng tác", "Revoke collaborator access")
-    "project.created" -> tr("Tạo dự án", "Create project")
-    "project.member_added" -> tr("Thêm thành viên dự án", "Add project member")
-    "project.member_removed" -> tr("Gỡ thành viên dự án", "Remove project member")
-    "project.script_created" -> tr("Tạo AUTU trong dự án", "Create project AUTU")
-    "project.script_updated" -> tr("Cập nhật AUTU trong dự án", "Update project AUTU")
-    "project.script_deleted" -> tr("Xóa AUTU trong dự án", "Delete project AUTU")
-    "project.ui_draft_saved" -> tr("Lưu bản thiết kế", "Save UI design")
-    "project.change_submitted" -> tr("Gửi nội dung duyệt", "Submit changes for review")
-    "project.submission_reviewed" -> tr("Đánh giá nội dung", "Review submitted changes")
     "license.created" -> tr("Cấp giấy phép", "Issue license")
     "license.updated" -> tr("Cập nhật giấy phép", "Update license")
     "device.revoked_by_owner" -> tr("Chủ sở hữu thu hồi thiết bị", "Owner revokes device")
