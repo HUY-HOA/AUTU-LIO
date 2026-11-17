@@ -1,6 +1,10 @@
 package com.autulio.app.auth
 
 import android.app.Activity
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,9 +20,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.autulio.app.AdminApp
-import com.autulio.app.CollaboratorWorkspace
 import com.autulio.app.CustomerApp
 import com.autulio.app.access.AccessRole
+import com.autulio.app.access.hasAutomationAccessibilityPermission
 import com.autulio.app.tr
 import kotlinx.coroutines.launch
 
@@ -36,6 +40,12 @@ internal fun AuthenticatedAppHost() {
     var working by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var hasSavedSession by remember { mutableStateOf(false) }
+    var automationPermissionGranted by remember { mutableStateOf(hasAutomationAccessibilityPermission(context)) }
+    val permissionSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        automationPermissionGranted = hasAutomationAccessibilityPermission(context)
+    }
 
     suspend fun restoreSession() {
         restoring = true
@@ -87,32 +97,25 @@ internal fun AuthenticatedAppHost() {
         }
     }
 
+    if (!automationPermissionGranted) {
+        AutomationPermissionScreen(
+            onOpenSettings = {
+                permissionSettingsLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            },
+            onCheckAgain = {
+                automationPermissionGranted = hasAutomationAccessibilityPermission(context)
+            }
+        )
+        return
+    }
+
     val currentUser = user
     val currentToken = accessToken
     if (currentUser != null && currentToken != null) {
-        when (currentUser.role) {
-            AccessRole.OWNER -> AdminApp(accessToken = currentToken, onLogout = ::signOut)
-            AccessRole.CUSTOMER -> CustomerApp(
-                accessToken = currentToken,
-                email = currentUser.email,
-                onLogout = ::signOut,
-                onRoleUpdated = {
-                    scope.launch {
-                        runCatching { repository.currentUser(currentToken) }
-                            .onSuccess { user = it }
-                            .onFailure { errorMessage = it.message.orEmpty() }
-                    }
-                }
-            )
-            AccessRole.DEVELOPER,
-            AccessRole.DESIGNER,
-            AccessRole.REVIEWER -> CollaboratorWorkspace(
-                accessToken = currentToken,
-                role = currentUser.role,
-                permissions = currentUser.permissions,
-                email = currentUser.email,
-                onLogout = ::signOut
-            )
+        if (currentUser.role == AccessRole.OWNER) {
+            AdminApp(accessToken = currentToken, onLogout = ::signOut)
+        } else {
+            CustomerApp(accessToken = currentToken, email = currentUser.email)
         }
         return
     }
@@ -243,6 +246,56 @@ private fun AuthScreen(
                         fontSize = 11.sp,
                         textAlign = TextAlign.Center
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AutomationPermissionScreen(
+    onOpenSettings: () -> Unit,
+    onCheckAgain: () -> Unit
+) {
+    MaterialTheme(colorScheme = darkColorScheme(primary = androidx.compose.ui.graphics.Color(0xFF4F8CFF))) {
+        Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+            Column(
+                Modifier.fillMaxSize().padding(padding).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Outlined.Code,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(58.dp)
+                )
+                Spacer(Modifier.height(18.dp))
+                Text("AUTU-LIO", style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    tr(
+                        "Cần bật quyền Trợ năng để sử dụng AUTU-LIO",
+                        "Accessibility access is required to use AUTU-LIO"
+                    ),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    tr(
+                        "Quyền này cho phép ứng dụng thực hiện thao tác chạm/vuốt và hiển thị bảng điều khiển nổi trên ứng dụng khác khi bạn tạo, chỉnh sửa hoặc chạy script. AUTU-LIO chỉ dùng quyền này cho các thao tác do bạn chủ động thực hiện.",
+                        "This permission lets the app perform taps/swipes and display its floating controller over other apps while you create, edit or run scripts. AUTU-LIO uses it only for actions you explicitly start."
+                    ),
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(22.dp))
+                Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Mở Cài đặt để cấp quyền", "Open Settings to grant access"))
+                }
+                OutlinedButton(onClick = onCheckAgain, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Tôi đã cấp quyền · Kiểm tra lại", "I granted access · Check again"))
                 }
             }
         }
