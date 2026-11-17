@@ -25,6 +25,7 @@
   ],
   "vars": {
     "SESSION_TTL_SECONDS": "604800",
+    "AUTH_REQUIRE_DEVICE_SIGNATURE": "true",
     "OWNER_EMAIL": "phunghuyhoahaikba@gmail.com",
     "PACKAGE_MASTER_KEY_VERSION": "V1"
   }
