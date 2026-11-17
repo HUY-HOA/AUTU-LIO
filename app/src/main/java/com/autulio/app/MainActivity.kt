@@ -930,49 +930,6 @@ private fun CustomerHome(
 }
 
 @Composable
-private fun SettingsScreen(
-    modifier: Modifier,
-    accessToken: String?,
-    onTheme: () -> Unit,
-    onLogout: () -> Unit,
-    onAcceptInvitation: (String) -> Unit
-) {
-    var invitationToken by rememberSaveable { mutableStateOf("") }
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-        BrandHeader(admin = false)
-        Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
-        SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
-        SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
-        SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
-        CardBox {
-            Text(tr("Bạn có mã lời mời cộng tác viên?", "Have a collaborator invitation token?"), fontWeight = FontWeight.SemiBold)
-            Text(
-                tr("Đăng nhập bằng đúng Gmail đã nhận lời mời, sau đó nhập mã bên dưới để chấp nhận và nhận vai trò.",
-                    "Sign in with the exact Google account that received the invitation, then enter its token below to accept the assigned role."),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                lineHeight = 18.sp
-            )
-            OutlinedTextField(
-                value = invitationToken,
-                onValueChange = { invitationToken = it.trim() },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(tr("Mã lời mời", "Invitation token")) },
-                minLines = 2
-            )
-            Button(
-                onClick = { onAcceptInvitation(invitationToken.trim()) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !accessToken.isNullOrBlank() && invitationToken.isNotBlank()
-            ) {
-                Text(tr("Chấp nhận lời mời", "Accept invitation"))
-            }
-        }
-        SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
-    }
-}
-
-@Composable
 private fun SettingRow(icon: ImageVector, title: String, detail: String, onClick: (() -> Unit)? = null) {
     Card(
         modifier = Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
