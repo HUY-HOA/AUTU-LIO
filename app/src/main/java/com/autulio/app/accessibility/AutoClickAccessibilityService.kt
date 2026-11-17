@@ -165,6 +165,37 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         if (showFloatingWindow()) renderSnapshot(executionEngine?.snapshot())
     }
 
+    fun showFloatingWindowForEditing(scriptName: String): Boolean {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            val finished = CountDownLatch(1)
+            val result = AtomicBoolean(false)
+            if (!mainHandler.post {
+                    result.set(showFloatingWindowForEditing(scriptName))
+                    finished.countDown()
+                }
+            ) return false
+            return try {
+                finished.await(2, TimeUnit.SECONDS) && result.get()
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                false
+            }
+        }
+
+        if (!hasAutomationAccessibilityPermission(this) || scriptName.isBlank()) return false
+        val engine = executionEngine ?: return false
+        if (activeScriptName != scriptName) {
+            engine.stop()
+            pendingProgram = null
+            editedProgramPending = false
+        }
+        activeScriptName = scriptName
+        activeNamespace = "admin"
+        if (!showFloatingWindow()) return false
+        renderSnapshot(engine.snapshot())
+        return true
+    }
+
     fun pauseExecution(): Boolean = executionEngine?.pause() == true
 
     fun resumeExecution(): Boolean = executionEngine?.resume() == true
