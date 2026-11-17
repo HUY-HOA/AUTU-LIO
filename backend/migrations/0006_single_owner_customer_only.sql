@@ -10,8 +10,8 @@ SET role = CASE
   ELSE 'CUSTOMER'
 END;
 
-DELETE FROM invitations;
-DELETE FROM permission_overrides;
+DROP TABLE IF EXISTS invitations;
+DROP TABLE IF EXISTS permission_overrides;
 
 DROP TABLE IF EXISTS change_submissions;
 DROP TABLE IF EXISTS ui_drafts;
