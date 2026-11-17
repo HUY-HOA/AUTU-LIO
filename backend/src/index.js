@@ -1,34 +1,16 @@
 const encoder = new TextEncoder();
-const OWNER_ROLES = new Set(["DEVELOPER", "DESIGNER", "REVIEWER"]);
-const ASSIGNABLE_ROLES = new Set(["CUSTOMER", ...OWNER_ROLES]);
-const ROLE_PERMISSIONS = {
-  OWNER: ["*"],
-  DEVELOPER: ["VIEW_ADMIN_WORKSPACE", "EDIT_SCRIPTS", "TEST_SCRIPTS", "SUBMIT_RELEASE"],
-  DESIGNER: ["VIEW_ADMIN_WORKSPACE", "EDIT_UI_DESIGN", "PREVIEW_UI", "SUBMIT_RELEASE"],
-  REVIEWER: ["VIEW_ADMIN_WORKSPACE", "TEST_SCRIPTS", "REVIEW_RELEASE"],
-  CUSTOMER: ["RUN_PUBLISHED_SCRIPTS", "VIEW_OWN_ACCOUNT"]
-};
-
 const ALL_PERMISSION_NAMES = [
   "VIEW_ADMIN_WORKSPACE",
-  "MANAGE_COLLABORATORS",
   "MANAGE_CUSTOMERS_AND_LICENSES",
   "EDIT_SCRIPTS",
   "TEST_SCRIPTS",
-  "EDIT_UI_DESIGN",
-  "PREVIEW_UI",
-  "SUBMIT_RELEASE",
-  "REVIEW_RELEASE",
   "PUBLISH_RELEASE",
   "RUN_PUBLISHED_SCRIPTS",
   "VIEW_OWN_ACCOUNT"
 ];
-
-const ROLE_CONFIGURABLE_PERMISSIONS = {
-  DEVELOPER: ["EDIT_SCRIPTS", "TEST_SCRIPTS", "SUBMIT_RELEASE"],
-  DESIGNER: ["EDIT_UI_DESIGN", "PREVIEW_UI", "SUBMIT_RELEASE"],
-  REVIEWER: ["TEST_SCRIPTS", "REVIEW_RELEASE"],
-  CUSTOMER: []
+const ROLE_PERMISSIONS = {
+  OWNER: ALL_PERMISSION_NAMES,
+  CUSTOMER: ["RUN_PUBLISHED_SCRIPTS", "VIEW_OWN_ACCOUNT"]
 };
 
 class HttpError extends Error {
@@ -206,10 +188,12 @@ async function getSession(request, env) {
   const tokenHash = await sha256(match[1]);
   const now = Math.floor(Date.now() / 1000);
   const session = await env.DB.prepare(
-    "SELECT s.id AS session_id, s.user_id, s.expires_at, u.email, u.display_name, u.role, u.status, u.email_verified " +
+    "SELECT s.id AS session_id, s.user_id, s.expires_at, u.email, u.display_name, " +
+    "CASE WHEN lower(u.email) = ? THEN 'OWNER' ELSE 'CUSTOMER' END AS role, " +
+    "u.status, u.email_verified " +
     "FROM sessions s JOIN users u ON u.id = s.user_id " +
     "WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ?"
-  ).bind(tokenHash, now).first();
+  ).bind(normalizeEmail(env.OWNER_EMAIL), tokenHash, now).first();
   if (!session || session.status !== "ACTIVE" || session.email_verified !== 1) {
     throw new HttpError(401, "invalid_session", "Session is expired or no longer active.");
   }
@@ -223,11 +207,6 @@ async function requireRole(session, roles) {
 }
 
 async function hasPermission(env, session, permission) {
-  if (session.role === "OWNER") return true;
-  const override = await env.DB.prepare(
-    "SELECT allowed FROM permission_overrides WHERE user_id = ? AND permission = ? AND scope = 'global'"
-  ).bind(session.user_id, permission).first();
-  if (override) return override.allowed === 1;
   return (ROLE_PERMISSIONS[session.role] || []).includes(permission);
 }
 
@@ -238,16 +217,7 @@ async function requirePermission(env, session, permission) {
 }
 
 async function effectivePermissions(env, userId, role) {
-  if (role === "OWNER") return ALL_PERMISSION_NAMES;
-  const permissions = new Set(ROLE_PERMISSIONS[role] || []);
-  const result = await env.DB.prepare(
-    "SELECT permission, allowed FROM permission_overrides WHERE user_id = ? AND scope = 'global'"
-  ).bind(userId).all();
-  for (const override of result.results || []) {
-    if (override.allowed === 1) permissions.add(override.permission);
-    else permissions.delete(override.permission);
-  }
-  return [...permissions];
+  return ROLE_PERMISSIONS[role] || [];
 }
 
 async function audit(env, actorId, action, targetType = null, targetId = null, metadata = {}) {
@@ -262,6 +232,9 @@ async function audit(env, actorId, action, targetType = null, targetId = null, m
 async function createChallenge(request, env) {
   if (!env.GOOGLE_CLIENT_ID) {
     throw new HttpError(503, "google_auth_not_configured", "Google Sign-In is not configured yet.");
+  }
+  if (!validEmail(normalizeEmail(env.OWNER_EMAIL))) {
+    throw new HttpError(503, "owner_not_configured", "The single owner account is not configured.");
   }
   const id = crypto.randomUUID();
   const nonce = randomToken(32);
@@ -306,14 +279,12 @@ async function googleLogin(request, env) {
     const otherUser = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(identity.email).first();
     if (otherUser) throw new HttpError(409, "google_identity_conflict", "This email is already linked to a different Google identity.");
     const userId = crypto.randomUUID();
-    const isConfiguredOwner = env.OWNER_EMAIL && identity.email === normalizeEmail(env.OWNER_EMAIL);
-    const existingOwner = isConfiguredOwner
-      ? await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' LIMIT 1").first()
-      : null;
-    if (isConfiguredOwner && existingOwner) {
-      throw new HttpError(409, "owner_already_provisioned", "The owner account has already been configured.");
+    const role = identity.email === normalizeEmail(env.OWNER_EMAIL) ? "OWNER" : "CUSTOMER";
+    if (role === "OWNER") {
+      await env.DB.prepare(
+        "UPDATE users SET role = 'CUSTOMER', updated_at = ? WHERE role = 'OWNER'"
+      ).bind(now).run();
     }
-    const role = isConfiguredOwner ? "OWNER" : "CUSTOMER";
     await env.DB.prepare(
       "INSERT INTO users (id, google_sub, email, email_verified, display_name, role, status, created_at, updated_at, last_login_at) " +
       "VALUES (?, ?, ?, 1, ?, ?, 'ACTIVE', ?, ?, ?)"
@@ -321,16 +292,16 @@ async function googleLogin(request, env) {
     user = { id: userId, email: identity.email, display_name: identity.name, role, status: "ACTIVE", email_verified: 1 };
   } else {
     if (user.status !== "ACTIVE") throw new HttpError(403, "account_inactive", "This account has been disabled.");
-    if (env.OWNER_EMAIL && identity.email === normalizeEmail(env.OWNER_EMAIL) && user.role !== "OWNER") {
-      const existingOwner = await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' LIMIT 1").first();
-      if (!existingOwner) {
-        await env.DB.prepare("UPDATE users SET role = 'OWNER' WHERE id = ?").bind(user.id).run();
-        user.role = "OWNER";
-      }
+    const role = identity.email === normalizeEmail(env.OWNER_EMAIL) ? "OWNER" : "CUSTOMER";
+    if (role === "OWNER") {
+      await env.DB.prepare(
+        "UPDATE users SET role = 'CUSTOMER', updated_at = ? WHERE role = 'OWNER' AND id <> ?"
+      ).bind(now, user.id).run();
     }
     await env.DB.prepare(
-      "UPDATE users SET email = ?, email_verified = 1, display_name = ?, updated_at = ?, last_login_at = ? WHERE id = ?"
-    ).bind(identity.email, identity.name, now, now, user.id).run();
+      "UPDATE users SET email = ?, email_verified = 1, display_name = ?, role = ?, updated_at = ?, last_login_at = ? WHERE id = ?"
+    ).bind(identity.email, identity.name, role, now, now, user.id).run();
+    user.role = role;
   }
 
   const rawSession = randomToken(48);
@@ -2021,8 +1992,6 @@ async function route(request, env) {
   if (method === "POST" && path === "/api/auth/challenge") return await createChallenge(request, env);
   if (method === "POST" && path === "/api/auth/google") return await googleLogin(request, env);
 
-  if (method === "GET" && path === "/api/invitations/preview") return await previewInvitation(request, env);
-
   const session = await getSession(request, env);
 
   if (method === "GET" && path === "/api/auth/me") {
@@ -2061,7 +2030,6 @@ async function route(request, env) {
   }
 
   if (method === "GET" && path === "/api/admin/audit-logs") return await listAdminAuditLogs(request, env, session);
-  if (method === "POST" && path === "/api/admin/security/migrate-project-data") return await migrateLegacyProjectData(request, env, session);
   if (method === "GET" && path === "/api/admin/packages") return await listAdminPackages(request, env, session);
   if (method === "POST" && path === "/api/admin/packages") return await createAdminPackage(request, env, session);
   const adminPackageVersionMatch = path.match(/^\/api\/admin\/packages\/([0-9a-f-]{36})\/versions$/i);
@@ -2085,82 +2053,6 @@ async function route(request, env) {
     return response(request, { loggedOut: true }, 200, env);
   }
 
-
-  if (method === "GET" && path === "/api/projects") return await listProjects(request, env, session);
-  if (method === "POST" && path === "/api/admin/projects") return await createProject(request, env, session);
-
-  const projectMemberMatch = path.match(/^\/api\/admin\/projects\/([0-9a-f-]{36})\/members$/i);
-  if (projectMemberMatch && method === "GET") {
-    return await listProjectMembers(request, env, session, projectMemberMatch[1]);
-  }
-  if (projectMemberMatch && method === "POST") {
-    return await addProjectMember(request, env, session, projectMemberMatch[1]);
-  }
-  const projectMemberDeleteMatch = path.match(/^\/api\/admin\/projects\/([0-9a-f-]{36})\/members\/([0-9a-f-]{36})$/i);
-  if (projectMemberDeleteMatch && method === "DELETE") {
-    return await removeProjectMember(request, env, session, projectMemberDeleteMatch[1], projectMemberDeleteMatch[2]);
-  }
-
-  const projectScriptsMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/scripts$/i);
-  if (projectScriptsMatch && method === "GET") {
-    return await listProjectScripts(request, env, session, projectScriptsMatch[1]);
-  }
-  if (projectScriptsMatch && method === "POST") {
-    return await createProjectScript(request, env, session, projectScriptsMatch[1]);
-  }
-  const projectScriptMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/scripts\/([0-9a-f-]{36})$/i);
-  if (projectScriptMatch && method === "PUT") {
-    return await updateProjectScript(request, env, session, projectScriptMatch[1], projectScriptMatch[2]);
-  }
-  if (projectScriptMatch && method === "DELETE") {
-    return await deleteProjectScript(request, env, session, projectScriptMatch[1], projectScriptMatch[2]);
-  }
-
-  const projectUiDraftsMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/ui-drafts$/i);
-  if (projectUiDraftsMatch && method === "GET") {
-    return await listProjectUiDrafts(request, env, session, projectUiDraftsMatch[1]);
-  }
-  const projectUiDraftMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/ui-drafts\/([A-Za-z0-9._-]{1,80})$/i);
-  if (projectUiDraftMatch && method === "PUT") {
-    return await saveProjectUiDraft(request, env, session, projectUiDraftMatch[1], projectUiDraftMatch[2]);
-  }
-
-  const projectSubmissionsMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/submissions$/i);
-  if (projectSubmissionsMatch && method === "GET") {
-    return await listProjectSubmissions(request, env, session, projectSubmissionsMatch[1]);
-  }
-  if (projectSubmissionsMatch && method === "POST") {
-    return await createProjectSubmission(request, env, session, projectSubmissionsMatch[1]);
-  }
-  const projectSubmissionMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})\/submissions\/([0-9a-f-]{36})$/i);
-  if (projectSubmissionMatch && method === "PATCH") {
-    return await reviewProjectSubmission(request, env, session, projectSubmissionMatch[1], projectSubmissionMatch[2]);
-  }
-
-  const projectMatch = path.match(/^\/api\/projects\/([0-9a-f-]{36})$/i);
-  if (projectMatch && method === "GET") {
-    const project = await requireProjectAccess(env, session, projectMatch[1]);
-    return response(request, { project }, 200, env);
-  }
-
-  if (method === "POST" && path === "/api/invitations/accept") return await acceptInvitation(request, env, session);
-  if (method === "GET" && path === "/api/admin/collaborators") return await listCollaborators(request, env, session);
-  if (method === "POST" && path === "/api/admin/invitations") return await createInvitation(request, env, session);
-
-  const invitationMatch = path.match(/^\/api\/admin\/invitations\/([0-9a-f-]{36})$/i);
-  if (invitationMatch && method === "DELETE") return await revokeInvitation(request, env, session, invitationMatch[1]);
-
-  const collaboratorPermissionsMatch = path.match(/^\/api\/admin\/collaborators\/([0-9a-f-]{36})\/permissions$/i);
-  if (collaboratorPermissionsMatch && method === "GET") {
-    return await getCollaboratorPermissions(request, env, session, collaboratorPermissionsMatch[1]);
-  }
-  if (collaboratorPermissionsMatch && method === "PUT") {
-    return await updateCollaboratorPermissions(request, env, session, collaboratorPermissionsMatch[1]);
-  }
-
-  const collaboratorMatch = path.match(/^\/api\/admin\/collaborators\/([0-9a-f-]{36})$/i);
-  if (collaboratorMatch && method === "PATCH") return await updateCollaborator(request, env, session, collaboratorMatch[1]);
-  if (collaboratorMatch && method === "DELETE") return await revokeCollaborator(request, env, session, collaboratorMatch[1]);
 
   throw new HttpError(404, "route_not_found", "API route was not found.");
 }
