@@ -681,6 +681,7 @@ test("customer without an active registered device cannot download a published A
   };
   const queries = [];
   const env = {
+    AUTH_REQUIRE_DEVICE_SIGNATURE: "false",
     DB: {
       prepare(sql) {
         queries.push(sql);
@@ -933,6 +934,7 @@ function createProjectDraftEnv({ session = ownerSession } = {}) {
   return {
     env: {
       DB,
+      AUTH_REQUIRE_DEVICE_SIGNATURE: "false",
       PROJECT_DRAFT_MASTER_KEY_VERSION: "V1",
       PROJECT_DRAFT_MASTER_KEY_V1: masterKey
     },
