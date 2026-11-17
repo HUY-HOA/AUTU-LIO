@@ -10,6 +10,7 @@ import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.PublicKey
 import java.security.Signature
+import java.util.Locale
 import java.security.spec.MGF1ParameterSpec
 import javax.crypto.Cipher
 import javax.crypto.spec.OAEPParameterSpec
@@ -121,6 +122,42 @@ class SecureDeviceIdentityStore(context: Context) {
         val signer = Signature.getInstance("SHA256withRSA")
         signer.initSign(entry.privateKey)
         signer.update("$challengeId.$nonce".toByteArray(Charsets.UTF_8))
+        return Base64.encodeToString(
+            signer.sign(),
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+        )
+    }
+
+    @Synchronized
+    fun signRequest(
+        method: String,
+        requestTarget: String,
+        timestampSeconds: Long,
+        nonce: String,
+        body: String
+    ): String {
+        require(method.isNotBlank())
+        require(requestTarget.startsWith("/"))
+        require(timestampSeconds > 0)
+        require(nonce.matches(Regex("^[A-Za-z0-9_-]{32,100}$")))
+
+        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        val entry = keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.PrivateKeyEntry
+            ?: throw IllegalStateException("Không tìm thấy khóa riêng thiết bị trong Android Keystore.")
+        val bodyHash = MessageDigest.getInstance("SHA-256")
+            .digest(body.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+        val canonical = listOf(
+            "AUTU-LIO-REQUEST-V1",
+            method.uppercase(Locale.ROOT),
+            requestTarget,
+            timestampSeconds.toString(),
+            nonce,
+            bodyHash
+        ).joinToString("\n")
+        val signer = Signature.getInstance("SHA256withRSA")
+        signer.initSign(entry.privateKey)
+        signer.update(canonical.toByteArray(Charsets.UTF_8))
         return Base64.encodeToString(
             signer.sign(),
             Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
