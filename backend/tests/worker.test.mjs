@@ -24,8 +24,9 @@ const ownerSession = {
   email_verified: 1
 };
 
-function createEnv({ session = null, allowedOrigins = "*", auditRows = [] } = {}) {
+function createEnv({ session = null, allowedOrigins = "*", auditRows = [], requireDeviceSignature = false } = {}) {
   const queries = [];
+  const usedRequestNonces = new Set();
   const DB = {
     prepare(sql) {
       queries.push(sql);
@@ -45,6 +46,11 @@ function createEnv({ session = null, allowedOrigins = "*", auditRows = [] } = {}
           return { results: [] };
         },
         async run() {
+          if (sql.includes("INSERT OR IGNORE INTO session_request_nonces")) {
+            const nonceKey = this.values[0] + ":" + this.values[1];
+            if (usedRequestNonces.has(nonceKey)) return { meta: { changes: 0 } };
+            usedRequestNonces.add(nonceKey);
+          }
           return { meta: { changes: 1 } };
         }
       };
@@ -54,7 +60,14 @@ function createEnv({ session = null, allowedOrigins = "*", auditRows = [] } = {}
       return [];
     }
   };
-  return { env: { DB, ALLOWED_ORIGINS: allowedOrigins }, queries };
+  return {
+    env: {
+      DB,
+      ALLOWED_ORIGINS: allowedOrigins,
+      AUTH_REQUIRE_DEVICE_SIGNATURE: requireDeviceSignature ? "true" : "false"
+    },
+    queries
+  };
 }
 
 function createDeviceRegistrationEnv({ challenge, license, session = customerSession }) {
@@ -88,7 +101,7 @@ function createDeviceRegistrationEnv({ challenge, license, session = customerSes
       return [];
     }
   };
-  return { env: { DB }, queries };
+  return { env: { DB, AUTH_REQUIRE_DEVICE_SIGNATURE: "false" }, queries };
 }
 
 function makeRequest(path, options = {}) {
@@ -133,6 +146,75 @@ test("protected routes reject requests without a bearer session", async () => {
   assert.equal(response.status, 401);
   assert.equal(body.error, "authentication_required");
   assert.equal(queries.length, 0);
+});
+
+
+test("authenticated API requests reject missing device signatures", async () => {
+  const { env } = createEnv({
+    session: { ...customerSession, device_public_key_spki: "A".repeat(800) },
+    requireDeviceSignature: true
+  });
+  const response = await worker.fetch(
+    makeRequest("/api/customer/account", {
+      headers: { Authorization: "Bearer " + "D".repeat(48) }
+    }),
+    env
+  );
+  assert.equal(response.status, 401);
+  assert.equal((await json(response)).error, "signed_request_required");
+});
+
+test("device-signed API requests are accepted once and replay is rejected", async () => {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 3072,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256"
+    },
+    true,
+    ["sign", "verify"]
+  );
+  const publicBytes = new Uint8Array(await crypto.subtle.exportKey("spki", keyPair.publicKey));
+  const publicKeySpki = btoa(String.fromCharCode(...publicBytes));
+  const session = { ...customerSession, device_public_key_spki: publicKeySpki };
+  const { env } = createEnv({ session, requireDeviceSignature: true });
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const nonce = "a".repeat(32);
+  const path = "/api/customer/account";
+  const bodyHashBytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("")));
+  const bodyHash = Array.from(bodyHashBytes, value => value.toString(16).padStart(2, "0")).join("");
+  const canonical = [
+    "AUTU-LIO-REQUEST-V1",
+    "GET",
+    path,
+    timestamp,
+    nonce,
+    bodyHash
+  ].join("\n");
+  const signatureBytes = new Uint8Array(await crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    keyPair.privateKey,
+    new TextEncoder().encode(canonical)
+  ));
+  const signature = btoa(String.fromCharCode(...signatureBytes))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+  const request = () => makeRequest(path, {
+    headers: {
+      Authorization: "Bearer " + "D".repeat(48),
+      "X-AUTU-Timestamp": timestamp,
+      "X-AUTU-Nonce": nonce,
+      "X-AUTU-Signature": signature
+    }
+  });
+
+  const accepted = await worker.fetch(request(), env);
+  assert.equal(accepted.status, 200);
+  const replayed = await worker.fetch(request(), env);
+  assert.equal(replayed.status, 409);
+  assert.equal((await json(replayed)).error, "request_replayed");
 });
 
 test("customer account endpoint returns the signed-in account and empty license/device state", async () => {
