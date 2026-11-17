@@ -67,7 +67,7 @@
 - CUSTOMER chỉ có màn hình thư viện script được cấp phép để tải và chạy; không có IDE, menu quản trị, cộng tác viên, dự án hoặc role preview.
 - Màn hình cộng tác, API invitation/collaborator và shared-workspace đã bị gỡ khỏi nhánh tích hợp.
 - Android kiểm tra quyền Trợ năng khi vào app, trước khi mở editor, trước khi chuẩn bị script và khi nhấn Chạy/Tiếp tục. Khi chỉnh sửa/chạy, AccessibilityService mở cửa sổ điều khiển nổi `TYPE_ACCESSIBILITY_OVERLAY`.
-- Worker checks đã thành công trên commit `4447cbb8a187d59f04b56b4c7af90572718bbc39`; Android source checks cần xác nhận kết quả cuối cùng.
+- Worker checks và Android source checks đã thành công trên commit `4447cbb8a187d59f04b56b4c7af90572718bbc39` (run `43988019892`, `43988019877`). Các cập nhật source tiếp theo chưa có CI run mới; cần chạy lại kiểm tra trên HEAD hiện tại trước khi merge.
 - Worker AUTU-LIO chưa deploy, Google OAuth chưa cấu hình và D1 migration `0006_single_owner_customer_only.sql` chưa áp dụng production. Chưa xác nhận đăng nhập/API hoạt động thật.
 - Cần kiểm thử thực tế trên Android/Xiaomi HyperOS trước khi coi cửa sổ nổi, gesture và chạy nền đã được chấp nhận.
 - Không có website, web dashboard hoặc web preview. `backend/` là REST API cho Android, không phải website.
