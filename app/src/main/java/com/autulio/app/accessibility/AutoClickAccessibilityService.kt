@@ -25,6 +25,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.autulio.app.ScriptEditorActivity
+import com.autulio.app.access.hasAutomationAccessibilityPermission
 import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.runtime.ScriptExecutionStartResult
 import com.autulio.app.runtime.ScriptExecutionEngine
@@ -118,7 +119,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         }
 
-        if (scriptName.isBlank() || namespace !in setOf("admin", "developer", "customer")) return false
+        if (scriptName.isBlank() || namespace !in setOf("admin", "customer")) return false
+        if (!hasAutomationAccessibilityPermission(this)) return false
         val engine = executionEngine ?: return false
         val state = engine.snapshot().state
         if (state == ScriptExecutionState.RUNNING || state == ScriptExecutionState.STOPPING) return false
@@ -558,6 +560,13 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private fun onPrimaryAction() {
         val engine = executionEngine ?: return
+        if (!hasAutomationAccessibilityPermission(this)) {
+            engine.stop()
+            runCatching {
+                startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+            return
+        }
         when (engine.snapshot().state) {
             ScriptExecutionState.RUNNING -> engine.pause()
             ScriptExecutionState.PAUSED -> engine.resume()
@@ -583,7 +592,13 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     private fun onEditAction() {
-        if (activeNamespace !in setOf("admin", "developer")) return
+        if (activeNamespace != "admin") return
+        if (!hasAutomationAccessibilityPermission(this)) {
+            runCatching {
+                startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+            return
+        }
         val scriptName = activeScriptName ?: return
         val engine = executionEngine ?: return
         when (engine.snapshot().state) {
@@ -644,7 +659,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         primary.isEnabled = pendingProgram != null && !stopping
         primary.alpha = if (primary.isEnabled) 1f else 0.45f
         stop.visibility = if (!collapsed && (running || paused || stopping)) View.VISIBLE else View.GONE
-        edit.visibility = if (!collapsed && !activeScriptName.isNullOrBlank() && activeNamespace in setOf("admin", "developer")) View.VISIBLE else View.GONE
+        edit.visibility = if (!collapsed && !activeScriptName.isNullOrBlank() && activeNamespace == "admin") View.VISIBLE else View.GONE
         primary.visibility = if (collapsed) View.GONE else View.VISIBLE
         status.visibility = if (collapsed) View.GONE else View.VISIBLE
         collapse.text = if (collapsed) "▴" else "▾"
