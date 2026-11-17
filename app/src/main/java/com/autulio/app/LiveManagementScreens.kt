@@ -993,23 +993,6 @@ internal fun CustomerPackagesScreen(
         }
     }
 
-    if (identity == null) {
-        Dialog(onDismissRequest = {}) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 640.dp),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                CustomerDeviceLicenseScreen(
-                    accessToken = accessToken,
-                    modifier = Modifier.fillMaxWidth(),
-                    onRegistered = {
-                        notice = tr("Đã kích hoạt thiết bị. Danh sách script sẽ được tải lại.", "Device activated. The script library will reload.")
-                    }
-                )
-            }
-        }
-    }
 }
 
 @Composable
