@@ -4,67 +4,64 @@
 **Repository:** `HUY-HOA-1/AUTU-LIO`  
 **Nhánh tích hợp:** `feature/floating-runner-secure-20261117` (PR #33)
 
-## 1. Phạm vi sản phẩm
+## 1. Mô hình sản phẩm bắt buộc
 
-- Chỉ phát triển **ứng dụng Android native**, một APK duy nhất: `com.autulio.app`.
-- Sản phẩm không có website, web dashboard, web app hoặc trang web xem trước.
-- `backend/` là Cloudflare Worker REST API để ứng dụng Android gọi; đây không phải giao diện web và cần được giữ lại cho đăng nhập, phân quyền, dự án, thiết bị và giấy phép.
-- Debug và Release cùng dùng luồng xác thực và xác minh vai trò; không cấp quyền bằng bộ chọn vai trò cục bộ.
+- Một ứng dụng Android native, một APK: `com.autulio.app`.
+- Đúng hai loại tài khoản: OWNER và CUSTOMER.
+- OWNER duy nhất: `phunghuyhoahaikba@gmail.com`.
+- Mọi tài khoản Google khác luôn được Worker xác định là CUSTOMER.
+- Không có cộng tác viên, lời mời, vai trò Developer/Designer/Reviewer, workspace/dự án dùng chung hoặc bộ chọn vai trò xem thử.
+- CUSTOMER chỉ có một màn hình thư viện script được cấp phép để tải và chạy.
+- Không có website, web dashboard hay web preview. `backend/` là API cho APK Android, không được xóa.
 
-## 2. Mã nguồn đã có trong nhánh tích hợp Android
+## 2. Những thay đổi đã có trên nhánh tích hợp
 
-### Ứng dụng và xác thực
-- Ứng dụng Kotlin/Jetpack Compose với một application ID.
-- Google Credential Manager lấy Google ID token; AuthRepository gọi API để máy chủ xác minh người dùng và trả về vai trò/quyền.
-- Session lưu bằng Android Keystore, có xác thực dữ liệu và cơ chế xóa phiên.
-- Màn hình được chọn theo vai trò OWNER, DEVELOPER, DESIGNER, REVIEWER hoặc CUSTOMER do máy chủ xác minh.
-- Source editor kiểm tra quyền máy chủ, giới hạn truy cập và bảo vệ nội dung bằng FLAG_SECURE.
+### Phân quyền và máy chủ
+- Worker chỉ phát hành role OWNER hoặc CUSTOMER; role được tính từ `OWNER_EMAIL`, không tin role client gửi.
+- `OWNER_EMAIL` đã được đặt trong `backend/wrangler.jsonc` là `phunghuyhoahaikba@gmail.com`.
+- API collaborator, invitation, permission override và shared workspace đã bị gỡ khỏi route.
+- Code Android của màn hình cộng tác, màn hình dự án dùng chung và client API cộng tác đã được xóa.
+- Migration `0006_single_owner_customer_only.sql` hạ các tài khoản còn lại xuống CUSTOMER, xóa invitation/permission override và xóa các bảng dự án, thành viên, bản nháp workspace và submission.
+- Worker test xác nhận các endpoint cộng tác/lời mời/workspace trả 404.
 
-### Quản trị và cộng tác
-- Trang quản trị khách hàng, thiết bị, giấy phép, thư viện, phát hành và nhật ký.
-- Mời cộng tác viên, chấp nhận lời mời, phân quyền và thu hồi quyền.
-- Workspace dự án dùng chung; bản nháp mã/UI có revision; gửi yêu cầu và quy trình duyệt.
-- Bản nháp cục bộ và dữ liệu dự án được mã hóa theo thiết kế bảo mật.
+### Giao diện Android
+- AuthenticatedAppHost chỉ điều hướng OWNER tới AdminApp; mọi tài khoản khác chỉ vào CustomerApp.
+- CustomerApp chỉ còn màn hình thư viện script; đăng ký thiết bị và giấy phép mở trong luồng ngay trên màn hình này, không có tab quản trị riêng.
+- OWNER giữ các chức năng quản trị khách hàng, thiết bị, giấy phép, thư viện, phát hành, nhật ký và trình soạn thảo script.
+- Đã xóa màn hình cộng tác, dự án dùng chung, client API cộng tác và lời mời trong cài đặt.
+- Đã xóa đường mở editor Debug ngoại tuyến; editor phải xác minh session, OWNER và quyền EDIT_SCRIPTS từ máy chủ.
 
-### AUTU Script và chạy tự động
-- Parser/compiler tạo AST, báo lỗi theo dòng/cột và giới hạn tài nguyên.
-- Runtime có luồng thực thi riêng, trạng thái chạy/tạm dừng/tiếp tục/dừng và kiểm soát ngân sách thực thi.
-- Accessibility Service điều phối thao tác Android và cung cấp cửa sổ điều khiển nổi.
-- Nút chạy, tạm dừng, tiếp tục, dừng và mở trình soạn thảo được nối vào runtime; khi sửa script đang chạy, engine tạm dừng và chỉ thay script sau khi kiểm tra biên dịch thành công.
-- Hành vi thực tế của gesture, cửa sổ nổi và chạy nền vẫn phải được xác nhận trên thiết bị Android thật.
+### Trợ năng và cửa sổ nổi
+- Khi mở ứng dụng, AuthenticatedAppHost kiểm tra AUTU-LIO đã được bật trong Android Accessibility Settings chưa. Nếu chưa, hiển thị hướng dẫn và mở đúng trang Cài đặt.
+- Trước khi mở editor, ứng dụng kiểm tra lại quyền; editor chỉ mở cho OWNER đã xác minh.
+- Khi tạo/mở script, AccessibilityService mở cửa sổ điều khiển nổi trong lúc chỉnh sửa.
+- Cửa sổ dùng `WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY`, cho phép hiển thị trên ứng dụng khác mà không cần cấp `SYSTEM_ALERT_WINDOW` riêng.
+- Trước khi chuẩn bị script và khi nhấn Chạy/Tiếp tục, quyền được kiểm tra lại. Nếu quyền bị tắt, thao tác bị chặn và Android Settings được mở để cấp lại.
+- Editor mã nguồn vẫn là màn hình bảo mật bên trong AUTU-LIO; cửa sổ điều khiển nổi hiển thị trên cùng trong lúc chỉnh sửa và khi chuyển sang ứng dụng mục tiêu.
 
-## 3. Những điều kiện còn thiếu trước khi phát hành
+## 3. Kiểm thử
 
-1. **Máy chủ:** triển khai Cloudflare Worker, áp dụng đầy đủ D1 migrations cần thiết, cấu hình secrets và kiểm tra endpoint thật.
-2. **Google OAuth:** tạo Web Client ID và Android Client ID đúng package name/chữ ký; cấu hình OAuth phía Worker và ứng dụng.
-3. **Dữ liệu thực:** kiểm thử đăng nhập chủ sở hữu, mời cộng tác viên, vai trò/quyền, đồng bộ workspace, thiết bị, giấy phép, thư viện và package với máy chủ.
-4. **Đóng gói kịch bản:** hoàn thiện quy trình ký, mã hóa, phát hành, tải xuống, xác minh quyền chạy, cập nhật và thu hồi package.
-5. **Kiểm thử thiết bị:** xác nhận thao tác chạm/vuốt, quyền Trợ năng, overlay, vòng đời service, dừng khẩn cấp và hành vi khi chuyển ứng dụng; ưu tiên kiểm tra Xiaomi/HyperOS cùng các Android phiên bản khác.
-6. **Chất lượng:** tất cả Android unit tests, lint, Worker tests và kiểm tra bảo mật phải đạt trước phát hành.
+- Worker checks trên commit `4447cbb8a187d59f04b56b4c7af90572718bbc39`: thành công.
+- Android source checks cho cùng commit: cần chờ kết quả cuối cùng của GitHub Actions.
+- Chưa có build APK mới cho các thay đổi OWNER/CUSTOMER và permission gate.
+- Cần kiểm thử trực tiếp trên Android thật: bật/tắt Accessibility, tạo/sửa script, chuyển sang ứng dụng khác, chạy/tạm dừng/tiếp tục/dừng, thu hồi quyền trong lúc app đang mở và xác nhận cửa sổ nổi trên Xiaomi/HyperOS.
 
-## 4. Bản build Release gần nhất
+## 4. Điều kiện còn thiếu trước khi dùng thực tế
 
-GitHub Actions run [43972068339](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43972068339) đã hoàn tất thành công từ nhánh `build-requests/release-autulio-20261117`.
+1. Deploy Worker `autu-lio-auth-api` từ `backend/` và cấu hình Google OAuth secrets.
+2. Áp dụng các D1 migrations còn thiếu, bao gồm `0006_single_owner_customer_only.sql`; xác nhận email OWNER duy nhất và các bảng cộng tác đã bị xóa.
+3. Cấu hình URL Auth API và Google Server Client ID cho Android; thử đăng nhập Owner và một tài khoản Customer thật.
+4. Kiểm tra license, đăng ký thiết bị RSA, tải gói script đã mã hóa và kiểm soát trạng thái license.
+5. Chạy Android source checks, Worker tests và kiểm thử cửa sổ nổi/gesture trên thiết bị thật.
+6. Chỉ tạo APK phát hành mới khi chủ ứng dụng gửi đúng cụm `BUILD APK`.
 
-- Variant: Release.
-- APK: `AUTU-LIO-v0.1.10.apk`.
-- `:app:lintRelease` và `:app:assembleRelease` thành công.
-- `apksigner verify` xác nhận chữ ký APK hợp lệ theo APK Signature Scheme v2.
-- SHA-256 của APK: `b3e17afbc5f582c371c394c94981b9e51b6b20e2f05a038cf11fcbe4546c7b3e`.
-- Artifact: `AUTU-LIO-Release`; artifact ZIP SHA-256: `71af6297d250889ce5ea91949d9a575d7554e089a42ea8d23a0c76b01576983d`.
-- Build thành công không thay thế cho việc cấu hình máy chủ, OAuth và kiểm thử ứng dụng trên thiết bị Android thật.
+## 5. Bản Release cũ
 
-## 5. Backend API
+GitHub Actions run [43972068339](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43972068339) đã tạo `AUTU-LIO-v0.1.10.apk`, Release đã ký và chữ ký v2 hợp lệ. APK đó được build **trước** các thay đổi một OWNER/CUSTOMER-only và permission gate hiện tại; không dùng nó để xác nhận những thay đổi mới đã có trong APK.
 
-- `backend/` chỉ chứa Cloudflare Worker REST API và D1 migrations để ứng dụng Android sử dụng.
-- Không triển khai giao diện web từ thư mục backend.
-- Không tạo lại website, dashboard trên web hoặc trang web xem trước.
+## 6. Quy tắc
 
-## 6. Quy tắc an toàn và phát hành
-
-- Không báo một chức năng đã hoạt động nếu mới có giao diện hoặc chưa kiểm thử hành vi thật.
-- Không cấp quyền OWNER/DEVELOPER bằng lựa chọn cục bộ; quyền phải do máy chủ xác minh.
-- Không đưa token, mật khẩu, khóa riêng hoặc keystore vào Git.
-- Không phát hành APK Debug.
-- Chỉ chạy workflow tạo APK khi chủ ứng dụng gửi đúng cụm `BUILD APK`.
-- Chỉ xác nhận có APK khi workflow hoàn tất và artifact tải được.
+- Không báo chức năng đã hoạt động khi mới có mã nguồn nhưng chưa deploy/test thực tế.
+- Không cấp quyền OWNER bằng màn hình chọn vai trò hoặc cờ local/debug.
+- Không xóa Cloudflare API/D1 cần thiết cho Android; không tạo lại website.
+- Không tuyên bố APK mới đã có nếu chưa có workflow thành công và artifact tải được.
