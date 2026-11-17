@@ -7,6 +7,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import com.autulio.app.BuildConfig
+import com.autulio.app.AppIntegrityVerifier
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
@@ -725,6 +726,9 @@ class AuthRepository(context: Context) {
     }
 
     private fun ensureConfigured() {
+        if (!AppIntegrityVerifier.isOfficialRelease(appContext)) {
+            throw IOException("Phiên bản AUTU-LIO không phải bản phát hành hợp lệ.")
+        }
         if (!isConfigured) {
             throw IOException("Chưa cấu hình địa chỉ Auth API và Google Server Client ID.")
         }
