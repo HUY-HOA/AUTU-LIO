@@ -111,7 +111,6 @@ internal fun AdminAuditLogsScreen(
             val filters = listOf(
                 "all" to tr("Tất cả", "All"),
                 "account" to tr("Tài khoản", "Account"),
-                "collaboration" to tr("Cộng tác", "Collaboration"),
                 "license" to tr("Giấy phép", "Licenses"),
                 "device" to tr("Thiết bị", "Devices"),
                 "package" to tr("Gói AUTU", "AUTU packages"),
