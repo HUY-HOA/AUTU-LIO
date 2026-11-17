@@ -28,6 +28,12 @@ class SecureScriptDraftStore(context: Context) {
         Context.MODE_PRIVATE
     )
 
+    private val dataKey = DATA_KEY
+    private val legacyNamesKey = LEGACY_NAMES_KEY
+    private val legacyDraftPrefix = LEGACY_DRAFT_PREFIX
+    private val keyAlias = KEY_ALIAS
+    private val associatedData = "AUTU-LIO|script-drafts|v1".toByteArray(Charsets.UTF_8)
+
     init {
         val oldDeveloperPreferences = context.applicationContext.getSharedPreferences(
             "autulio_encrypted_developer_drafts",
@@ -72,14 +78,6 @@ class SecureScriptDraftStore(context: Context) {
         legacyPreferences.all.forEach { (key, value) ->
             if (key.startsWith(legacyDraftPrefix) && value is String) {
                 contents[key.removePrefix(legacyDraftPrefix)] = value
-            }
-        }
-        if (!true) {
-            val legacyName = legacyPreferences.getString("draft_name", "").orEmpty().trim()
-            val legacyCode = legacyPreferences.getString("draft_code", "").orEmpty()
-            if (legacyName.isNotEmpty()) {
-                if (names.none { it.equals(legacyName, ignoreCase = true) }) names.add(legacyName)
-                contents[legacyName] = legacyCode
             }
         }
         val snapshot = ScriptDraftSnapshot(names, contents)
