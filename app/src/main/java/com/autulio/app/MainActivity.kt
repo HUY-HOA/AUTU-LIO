@@ -54,6 +54,11 @@ import com.autulio.app.script.ScriptTemplateCatalog
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!AppIntegrityVerifier.isOfficialRelease(this)) {
+            Toast.makeText(this, "Phiên bản AUTU-LIO không hợp lệ.", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
         setContent {
             AutuLioAppEntry()
         }
