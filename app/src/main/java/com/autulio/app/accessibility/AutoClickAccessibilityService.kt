@@ -130,17 +130,20 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val previousScriptName = activeScriptName
         val previousNamespace = activeNamespace
         val previousEditedState = editedProgramPending
+        val previousEditingState = editingScript
 
         pendingProgram = program
         activeScriptName = scriptName
         activeNamespace = namespace
         editedProgramPending = state == ScriptExecutionState.PAUSED
+        editingScript = false
 
         if (!showFloatingWindow()) {
             pendingProgram = previousProgram
             activeScriptName = previousScriptName
             activeNamespace = previousNamespace
             editedProgramPending = previousEditedState
+            editingScript = previousEditingState
             return false
         }
 
@@ -149,6 +152,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             activeScriptName = previousScriptName
             activeNamespace = previousNamespace
             editedProgramPending = previousEditedState
+            editingScript = previousEditingState
             renderSnapshot(engine.snapshot())
             return false
         }
