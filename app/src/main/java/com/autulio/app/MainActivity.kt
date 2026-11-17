@@ -1095,9 +1095,6 @@ class ScriptEditorActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (intent.getBooleanExtra(EXTRA_FROM_FLOATING_RUNNER, false)) {
-            AutoClickAccessibilityService.current()?.hideRunnerWindowForEditing()
-        }
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
 
         val scriptName = intent.getStringExtra(EXTRA_SCRIPT_NAME)?.trim().orEmpty()
@@ -1113,11 +1110,6 @@ class ScriptEditorActivity : ComponentActivity() {
             return
         }
 
-        if (BuildConfig.DEBUG && BuildConfig.ALLOW_OFFLINE_DEBUG_EDITOR) {
-            showEditor(scriptName, namespace, allowTest = true)
-            return
-        }
-
         lifecycleScope.launch {
             try {
                 val accessToken = SecureSessionStore(this@ScriptEditorActivity).read()
@@ -1130,6 +1122,16 @@ class ScriptEditorActivity : ComponentActivity() {
                 val canEdit = AccessPermission.EDIT_SCRIPTS in user.permissions
                 if (!roleAllowed || !canEdit) {
                     denyEditorAccess()
+                    return@launch
+                }
+                val service = AutoClickAccessibilityService.current()
+                if (service == null || !service.showFloatingWindowForEditing(scriptName)) {
+                    Toast.makeText(
+                        this@ScriptEditorActivity,
+                        tr("Không mở được cửa sổ nổi. Hãy bật lại AUTU-LIO trong Cài đặt > Trợ năng.", "Could not open the floating window. Enable AUTU-LIO again in Settings > Accessibility.")
+                    , Toast.LENGTH_LONG).show()
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    finish()
                     return@launch
                 }
                 showEditor(
