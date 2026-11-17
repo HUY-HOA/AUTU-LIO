@@ -94,7 +94,7 @@ try:
     database.execute(
         "INSERT INTO licenses "
         "(id, user_id, plan_code, status, starts_at, expires_at, max_devices, created_by, created_at, updated_at) "
-        "VALUES ('license-invalid', 'developer-1', 'PRO', 'ACTIVE', 100, 200, 21, 'owner-1', 100, 100)"
+        "VALUES ('license-invalid', 'customer-1', 'PRO', 'ACTIVE', 100, 200, 21, 'owner-1', 100, 100)"
     )
 except sqlite3.IntegrityError:
     pass
@@ -110,7 +110,7 @@ try:
     database.execute(
         "INSERT INTO devices "
         "(id, user_id, public_key_spki, public_key_fingerprint, label, status, registered_at, last_seen_at) "
-        "VALUES ('device-2', 'developer-1', 'public-key', 'fingerprint-1', 'Duplicate key', 'ACTIVE', 100, 100)"
+        "VALUES ('device-2', 'customer-1', 'public-key', 'fingerprint-1', 'Duplicate key', 'ACTIVE', 100, 100)"
     )
 except sqlite3.IntegrityError:
     pass
