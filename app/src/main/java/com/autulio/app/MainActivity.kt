@@ -168,7 +168,10 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     Modifier.padding(padding),
                     accessToken = accessToken,
                     onNavigate = { page = it },
-                    onCreate = { createDialog = true }
+                    onCreate = {
+                        if (hasAutomationAccessibilityPermission(context)) createDialog = true
+                        else permissionSettingsLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    }
                 )
                 "scripts" -> ScriptsScreen(
                     Modifier.padding(padding),
@@ -211,7 +214,10 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
         if (createDialog) CreateDialog(
             onDismiss = { createDialog = false },
             onCreate = { name ->
-                if (scripts.any { it.equals(name, ignoreCase = true) }) {
+                if (!hasAutomationAccessibilityPermission(context)) {
+                    createDialog = false
+                    permissionSettingsLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                } else if (scripts.any { it.equals(name, ignoreCase = true) }) {
                     scope.launch {
                         host.showSnackbar(tr("Tên kịch bản đã tồn tại.", "A script with this name already exists."))
                     }
