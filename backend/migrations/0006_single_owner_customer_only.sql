@@ -10,6 +10,10 @@ SET role = CASE
   ELSE 'CUSTOMER'
 END;
 
+DELETE FROM audit_logs
+WHERE action LIKE 'collaborator.%'
+   OR action LIKE 'project.%';
+
 DROP TABLE IF EXISTS invitations;
 DROP TABLE IF EXISTS permission_overrides;
 
