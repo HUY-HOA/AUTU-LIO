@@ -13,37 +13,35 @@ on:
           - release
         default: release
         required: true
-  push:
-    branches:
-      - 'build-requests/**'
-    paths:
-      - '.build-requests/**'
 
 permissions:
   contents: read
 
 concurrency:
   group: autu-lio-apk-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
 
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses
@@ -56,7 +54,7 @@ jobs:
           fi
 
       - name: Set up Gradle 9.6.0
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
         with:
           gradle-version: "9.6.0"
 
@@ -71,16 +69,6 @@ jobs:
           AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            if [[ "$GITHUB_REF" == refs/heads/build-requests/debug-* ]]; then
-              REQUESTED_BUILD_VARIANT="debug"
-            elif [[ "$GITHUB_REF" == refs/heads/build-requests/release-* ]]; then
-              REQUESTED_BUILD_VARIANT="release"
-            else
-              echo "::error::Build request branch must start with build-requests/release- or build-requests/debug-."
-              exit 1
-            fi
-          fi
           values=(
             "$AUTU_LIO_RELEASE_KEYSTORE_BASE64"
             "$AUTU_LIO_RELEASE_STORE_PASSWORD"
@@ -126,13 +114,7 @@ jobs:
           printf '%s' "$AUTU_LIO_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           chmod 600 "$KEYSTORE_PATH"
           keytool -list -keystore "$KEYSTORE_PATH" -storepass "$AUTU_LIO_RELEASE_STORE_PASSWORD" -alias "$AUTU_LIO_RELEASE_KEY_ALIAS" >/dev/null
-          RELEASE_CERT_SHA256="$(keytool -exportcert -keystore "$KEYSTORE_PATH" -storepass "$AUTU_LIO_RELEASE_STORE_PASSWORD" -alias "$AUTU_LIO_RELEASE_KEY_ALIAS" | sha256sum | awk '{print toupper($1)}')"
-          if [[ ! "$RELEASE_CERT_SHA256" =~ ^[A-F0-9]{64}$ ]]; then
-            echo "::error::Could not calculate the release signing certificate fingerprint."
-            exit 1
-          fi
 
-          echo "release_cert_sha256=$RELEASE_CERT_SHA256" >> "$GITHUB_OUTPUT"
           echo "configured=true" >> "$GITHUB_OUTPUT"
           echo "variant=release" >> "$GITHUB_OUTPUT"
           echo "artifact_name=AUTU-LIO-Release" >> "$GITHUB_OUTPUT"
@@ -154,31 +136,18 @@ jobs:
             echo "- Progress is shown by completed GitHub Actions steps; Gradle does not provide a reliable overall percentage."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run Release checks
+      - name: Validate and build signed Release APK
         if: steps.signing.outputs.configured == 'true'
         env:
           AUTU_LIO_RELEASE_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
           AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
           AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
-        run: gradle --no-daemon :app:lintRelease -PAUTU_LIO_RELEASE_CERT_SHA256=${{ steps.signing.outputs.release_cert_sha256 }} -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintRelease :app:assembleRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
-      - name: Run Debug checks
+      - name: Validate and build Debug test APK
         if: steps.signing.outputs.configured != 'true'
-        run: gradle --no-daemon :app:lintDebug -PAUTU_LIO_ALLOW_OFFLINE_DEBUG_EDITOR=true -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
-
-      - name: Build signed Release APK
-        if: steps.signing.outputs.configured == 'true'
-        env:
-          AUTU_LIO_RELEASE_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
-          AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
-          AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
-          AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
-        run: gradle --no-daemon :app:assembleRelease -PAUTU_LIO_RELEASE_CERT_SHA256=${{ steps.signing.outputs.release_cert_sha256 }} -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
-
-      - name: Build Debug test APK
-        if: steps.signing.outputs.configured != 'true'
-        run: gradle --no-daemon :app:assembleDebug -PAUTU_LIO_ALLOW_OFFLINE_DEBUG_EDITOR=true -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintDebug :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Name AUTU-LIO APK with version
         env:
@@ -216,7 +185,7 @@ jobs:
         run: rm -f "$KEYSTORE_PATH"
 
       - name: Upload AUTU-LIO APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ steps.signing.outputs.artifact_name }}
           path: app/build/outputs/apk/${{ steps.signing.outputs.variant }}/*.apk
