@@ -1735,13 +1735,7 @@ async function route(request, env) {
   if (method === "GET" && path === "/health") {
     return response(request, {
       ok: true,
-      service: "AUTU-LIO Auth API",
-      databaseConfigured: Boolean(env.DB),
-      googleSignInConfigured: Boolean(env.GOOGLE_CLIENT_ID),
-      ownerBootstrapConfigured: Boolean(env.OWNER_EMAIL),
-      authenticationRateLimitingConfigured: Boolean(
-        env.AUTH_CHALLENGE_LIMITER && env.AUTH_LOGIN_LIMITER
-      )
+      service: "AUTU-LIO API"
     }, 200, env);
   }
 
@@ -1902,7 +1896,7 @@ export default {
       console.error(JSON.stringify({
         message: "AUTU-LIO API request failed",
         path: new URL(request.url).pathname,
-        error: error instanceof Error ? error.message : "Unknown error"
+        errorType: error instanceof Error ? error.name : "UnknownError"
       }));
       return response(request, { error: "internal_error", message: "An unexpected server error occurred." }, 500, env);
     }
