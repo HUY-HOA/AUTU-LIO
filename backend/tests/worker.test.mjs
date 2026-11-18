@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker from "../src/index.js";
+import worker, { isConfiguredOwnerIdentity } from "../src/index.js";
 
 const customerSession = {
   session_id: "session-customer",
@@ -112,6 +112,42 @@ function makeRequest(path, options = {}) {
 async function json(response) {
   return response.json();
 }
+
+test("owner bootstrap matches the verified Google sub, not the email address", () => {
+  const env = {
+    OWNER_GOOGLE_SUB: "google-sub-owner-123",
+    OWNER_EMAIL: "owner@example.com"
+  };
+
+  assert.equal(
+    isConfiguredOwnerIdentity(
+      { sub: "google-sub-owner-123", email: "different@example.com" },
+      env
+    ),
+    true
+  );
+  assert.equal(
+    isConfiguredOwnerIdentity(
+      { sub: "another-google-sub-456", email: "owner@example.com" },
+      env
+    ),
+    false
+  );
+});
+
+test("missing OWNER_GOOGLE_SUB never grants OWNER even when an owner email exists", () => {
+  const identity = { sub: "google-sub-owner-123", email: "owner@example.com" };
+
+  assert.equal(isConfiguredOwnerIdentity(identity, {}), false);
+  assert.equal(
+    isConfiguredOwnerIdentity(identity, { OWNER_EMAIL: "owner@example.com" }),
+    false
+  );
+  assert.equal(
+    isConfiguredOwnerIdentity(identity, { OWNER_GOOGLE_SUB: "   " }),
+    false
+  );
+});
 
 test("public health endpoint exposes only minimal service status", async () => {
   const { env } = createEnv();
