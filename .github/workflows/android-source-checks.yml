@@ -10,6 +10,15 @@ on:
       - "settings.gradle.kts"
       - ".github/workflows/android-source-checks.yml"
       - ".github/workflows/build-apks.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - ".github/workflows/android-source-checks.yml"
+      - ".github/workflows/build-apks.yml"
 
 permissions:
   contents: read
