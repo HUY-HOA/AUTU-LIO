@@ -13,7 +13,7 @@ Không thể bảo đảm mã Kotlin/Dex đã chạy trên thiết bị Android 
 
 Các lớp bảo vệ được sử dụng:
 
-1. Repository GitHub để chế độ private và giới hạn người có quyền truy cập.
+1. Repository GitHub hiện ở chế độ Public. Hãy coi mã nguồn, workflow, lịch sử commit và issue là thông tin công khai; không dựa vào việc giấu mã để bảo vệ tài khoản, dữ liệu hay máy chủ. Bí mật phải ở GitHub Actions Secrets hoặc Cloudflare Worker Secrets.
 2. Bản Release bật R8: shrink, optimize và obfuscate tên class/method/field; bật shrink resources.
 3. Không nhúng khóa mã hóa chung, signing key, mật khẩu hoặc bí mật máy chủ vào APK.
 4. Logic quyết định quyền, chủ sở hữu, license và phát hành phải được kiểm tra ở Worker/máy chủ; không tin cờ quyền do client tự gửi.
