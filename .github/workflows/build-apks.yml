@@ -24,7 +24,7 @@ permissions:
 
 concurrency:
   group: autu-lio-apk-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -141,31 +141,18 @@ jobs:
             echo "- Progress is shown by completed GitHub Actions steps; Gradle does not provide a reliable overall percentage."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run Release checks
+      - name: Validate and build signed Release APK
         if: steps.signing.outputs.configured == 'true'
         env:
           AUTU_LIO_RELEASE_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
           AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
           AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
-        run: gradle --no-daemon :app:lintRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintRelease :app:assembleRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
-      - name: Run Debug checks
+      - name: Validate and build Debug test APK
         if: steps.signing.outputs.configured != 'true'
-        run: gradle --no-daemon :app:lintDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
-
-      - name: Build signed Release APK
-        if: steps.signing.outputs.configured == 'true'
-        env:
-          AUTU_LIO_RELEASE_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
-          AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
-          AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
-          AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
-        run: gradle --no-daemon :app:assembleRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
-
-      - name: Build Debug test APK
-        if: steps.signing.outputs.configured != 'true'
-        run: gradle --no-daemon :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintDebug :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Name AUTU-LIO APK with version
         env:
