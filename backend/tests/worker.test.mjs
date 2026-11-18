@@ -24,7 +24,13 @@ const ownerSession = {
   email_verified: 1
 };
 
-function createEnv({ session = null, allowedOrigins = "*", auditRows = [] } = {}) {
+function createEnv({
+  session = null,
+  allowedOrigins = "",
+  auditRows = [],
+  challengeLimitSuccess = true,
+  loginLimitSuccess = true
+} = {}) {
   const queries = [];
   const DB = {
     prepare(sql) {
@@ -54,7 +60,15 @@ function createEnv({ session = null, allowedOrigins = "*", auditRows = [] } = {}
       return [];
     }
   };
-  return { env: { DB, ALLOWED_ORIGINS: allowedOrigins }, queries };
+  return {
+    env: {
+      DB,
+      ALLOWED_ORIGINS: allowedOrigins,
+      AUTH_CHALLENGE_LIMITER: { limit: async () => ({ success: challengeLimitSuccess }) },
+      AUTH_LOGIN_LIMITER: { limit: async () => ({ success: loginLimitSuccess }) }
+    },
+    queries
+  };
 }
 
 function createDeviceRegistrationEnv({ challenge, license, session = customerSession }) {
@@ -109,7 +123,75 @@ test("health endpoint reports configuration state without exposing secrets", asy
   assert.equal(body.databaseConfigured, true);
   assert.equal(body.googleSignInConfigured, false);
   assert.equal(body.ownerBootstrapConfigured, false);
+  assert.equal(body.authenticationRateLimitingConfigured, true);
   assert.equal(JSON.stringify(body).includes("owner@example.com"), false);
+});
+
+test("browser CORS is denied by default when no web origins are configured", async () => {
+  const { env } = createEnv();
+  const response = await worker.fetch(
+    makeRequest("/api/auth/challenge", {
+      method: "OPTIONS",
+      headers: { Origin: "https://untrusted.example" }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "origin_not_allowed");
+});
+
+test("auth challenge requests are rate limited before creating D1 rows", async () => {
+  const { env, queries } = createEnv({ challengeLimitSuccess: false });
+  env.GOOGLE_CLIENT_ID = "autu-test-client.apps.googleusercontent.com";
+  const response = await worker.fetch(
+    makeRequest("/api/auth/challenge", {
+      method: "POST",
+      headers: { "CF-Connecting-IP": "203.0.113.10" }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 429);
+  assert.equal((await json(response)).error, "rate_limited");
+  assert.equal(queries.length, 0);
+});
+
+test("Google login requests are rate limited before parsing or verifying tokens", async () => {
+  const { env, queries } = createEnv({ loginLimitSuccess: false });
+  const response = await worker.fetch(
+    makeRequest("/api/auth/google", {
+      method: "POST",
+      headers: {
+        "CF-Connecting-IP": "203.0.113.11",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ challengeId: "x", nonce: "y", idToken: "z" })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 429);
+  assert.equal((await json(response)).error, "rate_limited");
+  assert.equal(queries.length, 0);
+});
+
+test("production authentication fails closed when its rate-limit binding is missing", async () => {
+  const { env, queries } = createEnv();
+  env.RUNTIME_ENV = "production";
+  delete env.AUTH_CHALLENGE_LIMITER;
+  env.GOOGLE_CLIENT_ID = "autu-test-client.apps.googleusercontent.com";
+  const response = await worker.fetch(
+    makeRequest("/api/auth/challenge", {
+      method: "POST",
+      headers: { "CF-Connecting-IP": "203.0.113.12" }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 503);
+  assert.equal((await json(response)).error, "rate_limit_not_configured");
+  assert.equal(queries.length, 0);
 });
 
 test("Google challenge is disabled until the server client ID is configured", async () => {
