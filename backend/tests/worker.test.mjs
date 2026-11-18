@@ -167,6 +167,32 @@ test("browser CORS is denied by default when no web origins are configured", asy
   assert.equal((await json(response)).error, "origin_not_allowed");
 });
 
+test("CORS never treats wildcard as an allowed origin", async () => {
+  const { env } = createEnv({ allowedOrigins: "*" });
+  const response = await worker.fetch(
+    makeRequest("/api/auth/challenge", {
+      method: "OPTIONS",
+      headers: { Origin: "https://untrusted.example" }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "origin_not_allowed");
+});
+
+test("invitation preview endpoint is disabled and never looks up URL tokens", async () => {
+  const { env, queries } = createEnv();
+  const response = await worker.fetch(
+    makeRequest("/api/invitations/preview?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+    env
+  );
+
+  assert.equal(response.status, 404);
+  assert.equal((await json(response)).error, "route_not_found");
+  assert.equal(queries.some(sql => sql.includes("FROM invitations WHERE token_hash")), false);
+});
+
 test("auth challenge requests are rate limited before creating D1 rows", async () => {
   const { env, queries } = createEnv({ challengeLimitSuccess: false });
   env.GOOGLE_CLIENT_ID = "autu-test-client.apps.googleusercontent.com";
