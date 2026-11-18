@@ -24,17 +24,12 @@
 ## 4. Quy tắc build APK và GitHub Actions
 - Chỉ bắt đầu build khi chủ ứng dụng gửi đúng toàn bộ nội dung tin nhắn `BUILD APK` viết hoa.
 - Không chạy build khi người dùng chỉ hỏi trạng thái, nhắc đến APK hoặc dùng cụm từ này trong câu khác.
-- Khi có cụm `BUILD APK`, kiểm tra mã nguồn và workflow trước; chỉ kích hoạt quy trình build nếu repository có cấu hình phù hợp và thao tác đó được kết nối hỗ trợ.
-- Nếu không thể kích hoạt build qua kết nối hiện có, phải nói rõ tình trạng; không giả vờ build.
-- Workflow hiện tại là `.github/workflows/build-apks.yml`: có `workflow_dispatch` và chỉ nhận push từ nhánh `build-requests/**` khi có file trong `.build-requests/**`. Push thông thường lên `main` không chạy build.
-- Khi đủ bốn GitHub Actions secrets ký APK, workflow tạo một APK Release đã ký bằng khóa cố định, bật R8 và shrink resources. Khi chưa cấu hình khóa, workflow chỉ tạo một APK Debug thử nghiệm; không dùng Debug làm bản phát hành hoặc để cập nhật đè ổn định.
-- Nếu kết nối GitHub không hỗ trợ dispatch trực tiếp, sau lệnh độc lập `BUILD APK`, tạo nhánh `build-requests/<mã-yêu-cầu>` từ `main` và thêm đúng một file marker trong `.build-requests/` để kích hoạt workflow. Không tạo nhánh/file marker trước khi nhận đúng lệnh.
-- Nếu trigger bằng nhánh không xuất hiện run, chủ ứng dụng mở GitHub Actions → AUTU-LIO Android APK → Run workflow. Không được báo đã bắt đầu cho đến khi nhìn thấy một workflow run thực tế.
-- Chỉ kiểm tra trạng thái, log và artifact của lần chạy khi chủ ứng dụng yêu cầu theo dõi hoặc cung cấp lần chạy cần kiểm tra.
-- Khi báo cáo build, phân biệt rõ: đang chờ, đang chạy, thành công, thất bại, bị hủy; không suy đoán kết quả.
-- GitHub Actions hiển thị tiến độ theo các bước lint, assemble và upload. Không tự đặt phần trăm giả hoặc thời gian còn lại nếu Gradle không cung cấp số liệu đáng tin cậy.
-- Không tuyên bố APK đã được tạo nếu chưa xác minh artifact tải được.
-- Không tự động tải lên hoặc phát hành APK cho người dùng cuối.
+- Workflow `.github/workflows/build-apks.yml` chỉ sử dụng `workflow_dispatch` từ nhánh `main`; không nhận push trigger hay marker branch. Job từ nhánh khác `main` bị từ chối.
+- Khi đủ cả bốn GitHub Actions secrets ký APK và chọn Release, workflow tạo APK Release có chữ ký cố định, bật R8 và shrink resources. Chỉ chọn Debug khi chủ ứng dụng yêu cầu kiểm thử; thiếu hoặc cấu hình dở dang secrets khi chọn Release thì workflow dừng.
+- Sau lệnh độc lập `BUILD APK`, chỉ dispatch workflow trên `main`. Nếu kết nối không hỗ trợ dispatch, báo rõ giới hạn; không tạo nhánh phụ hoặc marker để thay thế.
+- Chỉ báo build đã bắt đầu khi nhìn thấy một workflow run thực tế. Theo dõi run khi chủ ứng dụng yêu cầu hoặc cần xác minh một lần chạy.
+- Khi báo cáo build, phân biệt rõ đang chờ, đang chạy, thành công, thất bại hoặc bị hủy; không suy đoán kết quả.
+- Không tuyên bố APK đã được tạo nếu chưa xác minh artifact tải được; không tự động phát hành APK cho người dùng cuối.
 
 ## 5. Bộ công cụ build hiện tại
 
