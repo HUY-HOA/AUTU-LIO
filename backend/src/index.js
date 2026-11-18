@@ -138,6 +138,16 @@ async function readBody(request, maxChars = 24_000) {
   return text ? parseJson(text) : {};
 }
 
+export function isConfiguredOwnerIdentity(identity, env) {
+  const configuredSub = typeof env?.OWNER_GOOGLE_SUB === "string"
+    ? env.OWNER_GOOGLE_SUB.trim()
+    : "";
+  return configuredSub.length > 0
+    && typeof identity?.sub === "string"
+    && identity.sub.length > 0
+    && identity.sub === configuredSub;
+}
+
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -340,7 +350,7 @@ async function googleLogin(request, env) {
     const otherUser = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(identity.email).first();
     if (otherUser) throw new HttpError(409, "google_identity_conflict", "This email is already linked to a different Google identity.");
     const userId = crypto.randomUUID();
-    const isConfiguredOwner = env.OWNER_EMAIL && identity.email === normalizeEmail(env.OWNER_EMAIL);
+    const isConfiguredOwner = isConfiguredOwnerIdentity(identity, env);
     const existingOwner = isConfiguredOwner
       ? await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' LIMIT 1").first()
       : null;
@@ -355,7 +365,7 @@ async function googleLogin(request, env) {
     user = { id: userId, email: identity.email, display_name: identity.name, role, status: "ACTIVE", email_verified: 1 };
   } else {
     if (user.status !== "ACTIVE") throw new HttpError(403, "account_inactive", "This account has been disabled.");
-    if (env.OWNER_EMAIL && identity.email === normalizeEmail(env.OWNER_EMAIL) && user.role !== "OWNER") {
+    if (isConfiguredOwnerIdentity(identity, env) && user.role !== "OWNER") {
       const existingOwner = await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' LIMIT 1").first();
       if (!existingOwner) {
         await env.DB.prepare("UPDATE users SET role = 'OWNER' WHERE id = ?").bind(user.id).run();
