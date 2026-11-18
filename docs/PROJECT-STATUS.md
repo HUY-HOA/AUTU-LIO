@@ -44,18 +44,13 @@
 
 **Tình trạng hạ tầng đã kiểm tra ngày 19/11/2026:** tài khoản Cloudflare được kết nối chưa có Worker script triển khai; D1 `autu_lio_auth` hiện báo 0 bảng. Các migration trong Git chỉ được kiểm tra bằng SQLite tạm ở CI, chưa được áp dụng vào D1 này. Do đó backend đăng nhập/giấy phép chưa hoạt động thực tế.
 
-## 4. Bản build Release gần nhất
+## 4. Bản build Release lịch sử
 
-GitHub Actions run [43972068339](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43972068339) đã hoàn tất thành công từ nhánh `build-requests/release-autulio-20261117`.
+Một APK Release cũ từng được build thành công ngày 17/11/2026 từ nhánh yêu cầu build trước khi chuyển repository. Artifact đó không được xem là bản phát hành hiện tại và không xác nhận mã nguồn trên `main` ngày 19/11/2026.
 
-- Variant: Release.
-- APK: `AUTU-LIO-v0.1.10.apk`.
-- `:app:lintRelease` và `:app:assembleRelease` thành công.
-- `apksigner verify` xác nhận chữ ký APK hợp lệ theo APK Signature Scheme v2.
-- SHA-256 của APK: `b3e17afbc5f582c371c394c94981b9e51b6b20e2f05a038cf11fcbe4546c7b3e`.
-- Đây là artifact lịch sử được build ngày 17/11/2026 từ nhánh yêu cầu build; không xác nhận các thay đổi trên `main` ngày 19/11/2026.
-- Artifact: `AUTU-LIO-Release`; artifact ZIP SHA-256: `71af6297d250889ce5ea91949d9a575d7554e089a42ea8d23a0c76b01576983d`.
-- Build thành công không thay thế cho việc cấu hình máy chủ, OAuth và kiểm thử ứng dụng trên thiết bị Android thật.
+- Không dùng artifact lịch sử để xác nhận backend, Google OAuth, cấp phép hoặc runtime đã hoạt động.
+- Mọi bản phát hành mới phải được build từ nhánh `main`, ký bằng keystore Release ổn định của AUTU-LIO và xác minh trên thiết bị Android thật.
+- Build thành công không thay thế cho việc triển khai Worker, D1 migrations, secrets và kiểm thử endpoint thật.
 
 ## 5. Backend API
 
