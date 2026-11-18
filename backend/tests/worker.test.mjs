@@ -24,7 +24,7 @@ const ownerSession = {
   email_verified: 1
 };
 
-function createEnv({ session = null, allowedOrigins = "*", auditRows = [], requireDeviceSignature = false } = {}) {
+function createEnv({ session = null, allowedOrigins = "", auditRows = [], requireDeviceSignature = false } = {}) {
   const queries = [];
   const usedRequestNonces = new Set();
   const DB = {
@@ -425,6 +425,31 @@ test("CORS preflight rejects an unlisted web origin", async () => {
 
   assert.equal(response.status, 403);
   assert.equal((await json(response)).error, "origin_not_allowed");
+});
+
+test("CORS wildcard configuration never allows arbitrary browser origins", async () => {
+  const { env } = createEnv({ allowedOrigins: "*" });
+  const response = await worker.fetch(
+    makeRequest("/api/customer/account", {
+      method: "OPTIONS",
+      headers: { Origin: "https://untrusted.example" }
+    }),
+    env
+  );
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "origin_not_allowed");
+});
+
+test("API responses include restrictive security headers", async () => {
+  const { env } = createEnv();
+  const response = await worker.fetch(makeRequest("/health"), env);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(response.headers.get("X-Frame-Options"), "DENY");
+  assert.equal(response.headers.get("Referrer-Policy"), "no-referrer");
+  assert.equal(response.headers.get("Cross-Origin-Resource-Policy"), "same-origin");
+  assert.match(response.headers.get("Content-Security-Policy") || "", /default-src 'none'/);
+  assert.match(response.headers.get("Strict-Transport-Security") || "", /max-age=31536000/);
 });
 
 test("CORS preflight allows an explicitly configured origin", async () => {
