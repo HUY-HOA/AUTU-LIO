@@ -1284,6 +1284,8 @@ class AuthRepository(context: Context) {
         val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
+            // Never forward bearer credentials through an HTTP redirect to another origin.
+            connection.instanceFollowRedirects = false
             connection.connectTimeout = 15_000
             connection.readTimeout = 20_000
             connection.useCaches = false
