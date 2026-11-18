@@ -25,3 +25,14 @@ secrets.properties
 *.pem
 *.key
 *.base64
+
+# Cloud service-account and OAuth client-secret exports.
+service-account*.json
+*-service-account*.json
+firebase-adminsdk*.json
+client_secret*.json
+
+# Firebase local state and debug output.
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
