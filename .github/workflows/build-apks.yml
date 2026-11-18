@@ -4,77 +4,190 @@ run-name: AUTU-LIO single APK build - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'build-requests/**'
-    paths:
-      - '.build-requests/**'
+    inputs:
+      build_variant:
+        description: "Chọn Debug để kiểm thử chức năng hoặc Release để phát hành"
+        type: choice
+        options:
+          - debug
+          - release
+        default: release
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
   group: autu-lio-apk-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      ORG_GRADLE_PROJECT_AUTULIO_API_BASE_URL: ${{ vars.AUTULIO_API_BASE_URL }}
-      ORG_GRADLE_PROJECT_AUTULIO_GOOGLE_WEB_CLIENT_ID: ${{ vars.AUTULIO_GOOGLE_WEB_CLIENT_ID }}
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
 
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses
 
       - name: Install Android 37 SDK
-        run: sdkmanager "platforms;android-37" "build-tools;36.0.0"
+        run: |
+          sdkmanager --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
+          if [ -d "$ANDROID_HOME/platforms/android-37.0" ] && [ ! -e "$ANDROID_HOME/platforms/android-37" ]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+          fi
 
       - name: Set up Gradle 9.6.0
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
         with:
           gradle-version: "9.6.0"
 
+      - name: Prepare Android signing
+        id: signing
+        shell: bash
+        env:
+          REQUESTED_BUILD_VARIANT: ${{ inputs.build_variant }}
+          AUTU_LIO_RELEASE_KEYSTORE_BASE64: ${{ secrets.AUTU_LIO_RELEASE_KEYSTORE_BASE64 }}
+          AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
+          AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
+          AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          values=(
+            "$AUTU_LIO_RELEASE_KEYSTORE_BASE64"
+            "$AUTU_LIO_RELEASE_STORE_PASSWORD"
+            "$AUTU_LIO_RELEASE_KEY_ALIAS"
+            "$AUTU_LIO_RELEASE_KEY_PASSWORD"
+          )
+          present=0
+          for value in "${values[@]}"; do
+            if [[ -n "$value" ]]; then present=$((present + 1)); fi
+          done
+
+          if [[ "$REQUESTED_BUILD_VARIANT" == "debug" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "variant=debug" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=AUTU-LIO-Debug" >> "$GITHUB_OUTPUT"
+            echo "Debug test APK selected. Release signing secrets are not used."
+            exit 0
+          fi
+
+          if [[ -n "$REQUESTED_BUILD_VARIANT" && "$REQUESTED_BUILD_VARIANT" != "release" ]]; then
+            echo "::error::Unknown build variant: $REQUESTED_BUILD_VARIANT"
+            exit 1
+          fi
+
+          if [[ "$present" -eq 0 ]]; then
+            if [[ "$REQUESTED_BUILD_VARIANT" == "release" ]]; then
+              echo "::error::Release signing secrets are not configured. Refusing to create an unsigned or Debug APK for a production Release request."
+              exit 1
+            fi
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "variant=debug" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=AUTU-LIO-Debug" >> "$GITHUB_OUTPUT"
+            echo "::warning::Debug APK selected explicitly. This artifact is not for customer release or stable updates."
+            exit 0
+          fi
+
+          if [[ "$present" -ne 4 ]]; then
+            echo "::error::Signing setup is incomplete. Configure all four AUTU_LIO_RELEASE_* repository secrets or remove all four."
+            exit 1
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/autu-lio-release.p12"
+          printf '%s' "$AUTU_LIO_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$AUTU_LIO_RELEASE_STORE_PASSWORD" -alias "$AUTU_LIO_RELEASE_KEY_ALIAS" >/dev/null
+
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+          echo "variant=release" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=AUTU-LIO-Release" >> "$GITHUB_OUTPUT"
+          echo "keystore_path=$KEYSTORE_PATH" >> "$GITHUB_OUTPUT"
+
       - name: Write build summary
+        env:
+          APK_VARIANT: ${{ steps.signing.outputs.variant }}
         run: |
           {
             echo "## AUTU-LIO APK build"
-            echo "- Source branch: \`$GITHUB_REF_NAME\`"
-            echo "- Output: one AUTU-LIO Debug APK with role-based screens"
+            echo "- Source branch: `$GITHUB_REF_NAME`"
+            echo "- App version: AUTU-LIO v0.1.$GITHUB_RUN_NUMBER"
+            if [[ "$APK_VARIANT" == "release" ]]; then
+              echo "- Output: R8-minified, resource-shrunk, release-signed APK"
+            else
+              echo "- Output: Debug test APK; not suitable for stable customer updates"
+            fi
             echo "- Progress is shown by completed GitHub Actions steps; Gradle does not provide a reliable overall percentage."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify toolchain
+      - name: Validate and build signed Release APK
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          AUTU_LIO_RELEASE_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
+          AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
+          AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
+          AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintRelease :app:assembleRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+
+      - name: Validate and build Debug test APK
+        if: steps.signing.outputs.configured != 'true'
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintDebug :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+
+      - name: Name AUTU-LIO APK with version
+        env:
+          APK_VARIANT: ${{ steps.signing.outputs.variant }}
         run: |
-          java -version
-          gradle --version
-          sdkmanager --list_installed
+          set -euo pipefail
+          APK_DIR="app/build/outputs/apk/$APK_VARIANT"
+          VERSION_NAME="0.1.$GITHUB_RUN_NUMBER"
+          shopt -s nullglob
+          apks=("$APK_DIR"/*.apk)
+          if [[ "${#apks[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one APK to rename, found ${#apks[@]}."
+            exit 1
+          fi
+          mv "${apks[0]}" "$APK_DIR/AUTU-LIO-v$VERSION_NAME.apk"
 
-      - name: Run Android checks
-        run: gradle --no-daemon :app:lintDebug
+      - name: Verify APK signature and output
+        env:
+          APK_VARIANT: ${{ steps.signing.outputs.variant }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/"$APK_VARIANT"/*.apk)
+          if [[ "${#apks[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one APK, found ${#apks[@]}."
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "${apks[0]}"
+          sha256sum "${apks[0]}" | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - name: Build one APK
-        run: gradle --no-daemon :app:assembleDebug
+      - name: Remove temporary signing key
+        if: always() && steps.signing.outputs.keystore_path != ''
+        env:
+          KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
+        run: rm -f "$KEYSTORE_PATH"
 
       - name: Upload AUTU-LIO APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: AUTU-LIO-Debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: ${{ steps.signing.outputs.artifact_name }}
+          path: app/build/outputs/apk/${{ steps.signing.outputs.variant }}/*.apk
           if-no-files-found: error
           retention-days: 14
