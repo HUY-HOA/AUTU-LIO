@@ -192,6 +192,16 @@ function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function isConfiguredOwnerIdentity(identity, env) {
+  const configuredSub = typeof env?.OWNER_GOOGLE_SUB === "string"
+    ? env.OWNER_GOOGLE_SUB.trim()
+    : "";
+  return configuredSub.length > 0
+    && typeof identity?.sub === "string"
+    && identity.sub.length > 0
+    && identity.sub === configuredSub;
+}
+
 function validEmail(value) {
   return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -289,11 +299,11 @@ async function getSession(request, env) {
   const now = Math.floor(Date.now() / 1000);
   const session = await env.DB.prepare(
     "SELECT s.id AS session_id, s.user_id, s.expires_at, s.device_public_key_spki, u.email, u.display_name, " +
-    "CASE WHEN lower(u.email) = ? THEN 'OWNER' ELSE 'CUSTOMER' END AS role, " +
+    "CASE WHEN u.google_sub = ? THEN 'OWNER' ELSE 'CUSTOMER' END AS role, " +
     "u.status, u.email_verified " +
     "FROM sessions s JOIN users u ON u.id = s.user_id " +
     "WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ?"
-  ).bind(normalizeEmail(env.OWNER_EMAIL), tokenHash, now).first();
+  ).bind(String(env.OWNER_GOOGLE_SUB || "").trim(), tokenHash, now).first();
   if (!session || session.status !== "ACTIVE" || session.email_verified !== 1) {
     throw new HttpError(401, "invalid_session", "Session is expired or no longer active.");
   }
@@ -334,8 +344,8 @@ async function createChallenge(request, env) {
   if (!env.GOOGLE_CLIENT_ID) {
     throw new HttpError(503, "google_auth_not_configured", "Google Sign-In is not configured yet.");
   }
-  if (!validEmail(normalizeEmail(env.OWNER_EMAIL))) {
-    throw new HttpError(503, "owner_not_configured", "The single owner account is not configured.");
+  if (typeof env.OWNER_GOOGLE_SUB !== "string" || !env.OWNER_GOOGLE_SUB.trim()) {
+    throw new HttpError(503, "owner_not_configured", "The owner Google subject is not configured.");
   }
   const id = crypto.randomUUID();
   const nonce = randomToken(32);
@@ -390,12 +400,14 @@ async function googleLogin(request, env) {
     const otherUser = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(identity.email).first();
     if (otherUser) throw new HttpError(409, "google_identity_conflict", "This email is already linked to a different Google identity.");
     const userId = crypto.randomUUID();
-    const role = identity.email === normalizeEmail(env.OWNER_EMAIL) ? "OWNER" : "CUSTOMER";
-    if (role === "OWNER") {
-      await env.DB.prepare(
-        "UPDATE users SET role = 'CUSTOMER', updated_at = ? WHERE role = 'OWNER'"
-      ).bind(now).run();
+    const isConfiguredOwner = isConfiguredOwnerIdentity(identity, env);
+    const existingOwner = isConfiguredOwner
+      ? await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' LIMIT 1").first()
+      : null;
+    if (isConfiguredOwner && existingOwner) {
+      throw new HttpError(409, "owner_already_provisioned", "The owner account has already been configured.");
     }
+    const role = isConfiguredOwner ? "OWNER" : "CUSTOMER";
     await env.DB.prepare(
       "INSERT INTO users (id, google_sub, email, email_verified, display_name, role, status, created_at, updated_at, last_login_at) " +
       "VALUES (?, ?, ?, 1, ?, ?, 'ACTIVE', ?, ?, ?)"
@@ -403,12 +415,14 @@ async function googleLogin(request, env) {
     user = { id: userId, email: identity.email, display_name: identity.name, role, status: "ACTIVE", email_verified: 1 };
   } else {
     if (user.status !== "ACTIVE") throw new HttpError(403, "account_inactive", "This account has been disabled.");
-    const role = identity.email === normalizeEmail(env.OWNER_EMAIL) ? "OWNER" : "CUSTOMER";
-    if (role === "OWNER") {
-      await env.DB.prepare(
-        "UPDATE users SET role = 'CUSTOMER', updated_at = ? WHERE role = 'OWNER' AND id <> ?"
-      ).bind(now, user.id).run();
+    const isConfiguredOwner = isConfiguredOwnerIdentity(identity, env);
+    const existingOwner = isConfiguredOwner
+      ? await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' AND id <> ? LIMIT 1").bind(user.id).first()
+      : null;
+    if (isConfiguredOwner && existingOwner) {
+      throw new HttpError(409, "owner_already_provisioned", "The owner account has already been configured.");
     }
+    const role = isConfiguredOwner ? "OWNER" : "CUSTOMER";
     await env.DB.prepare(
       "UPDATE users SET email = ?, email_verified = 1, display_name = ?, role = ?, updated_at = ?, last_login_at = ? WHERE id = ?"
     ).bind(identity.email, identity.name, role, now, now, user.id).run();
@@ -1182,7 +1196,7 @@ async function route(request, env) {
       service: "AUTU-LIO Auth API",
       databaseConfigured: Boolean(env.DB),
       googleSignInConfigured: Boolean(env.GOOGLE_CLIENT_ID),
-      ownerBootstrapConfigured: Boolean(env.OWNER_EMAIL)
+      ownerBootstrapConfigured: Boolean(env.OWNER_GOOGLE_SUB)
     }, 200, env);
   }
 
