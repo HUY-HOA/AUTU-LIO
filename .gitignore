@@ -15,3 +15,13 @@ secrets.properties
 # Build outputs are distributed through GitHub Actions artifacts.
 *.apk
 *.aab
+
+# Wrangler local state and Cloudflare development secrets.
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# Additional private key and encoded secret material.
+*.pem
+*.key
+*.base64
