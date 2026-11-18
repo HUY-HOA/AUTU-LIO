@@ -4,7 +4,7 @@
 
 - Chỉ `phunghuyhoahaikba@gmail.com` là OWNER.
 - Tất cả tài khoản Google khác là CUSTOMER, chỉ dùng thư viện script đã cấp phép.
-- Worker xác định role từ email Google đã xác minh và biến `OWNER_EMAIL`; không tin role do APK gửi lên.
+- Worker xác định role từ Google ID token đã xác minh và claim `sub`; không tin role hoặc email do APK tự khai báo.
 - Không có cộng tác viên, invitation, role phụ, local role chooser hoặc đường mở editor ngoại tuyến.
 - Mọi thao tác sửa script phải xác minh session OWNER và quyền EDIT_SCRIPTS từ máy chủ.
 
