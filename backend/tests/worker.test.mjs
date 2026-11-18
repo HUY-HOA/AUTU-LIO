@@ -153,6 +153,19 @@ test("public health endpoint exposes only minimal service status", async () => {
   assert.equal(JSON.stringify(body).includes("GOOGLE_CLIENT_ID"), false);
 });
 
+test("API responses include no-store and browser security headers", async () => {
+  const { env } = createEnv();
+  const response = await worker.fetch(makeRequest("/health"), env);
+
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(response.headers.get("X-Frame-Options"), "DENY");
+  assert.equal(response.headers.get("Referrer-Policy"), "no-referrer");
+  assert.equal(response.headers.get("Cross-Origin-Resource-Policy"), "same-origin");
+  assert.match(response.headers.get("Content-Security-Policy") || "", /default-src 'none'/);
+  assert.match(response.headers.get("Strict-Transport-Security") || "", /max-age=31536000/);
+});
+
 test("browser CORS is denied by default when no web origins are configured", async () => {
   const { env } = createEnv();
   const response = await worker.fetch(
