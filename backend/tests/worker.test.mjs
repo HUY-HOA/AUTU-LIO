@@ -113,18 +113,15 @@ async function json(response) {
   return response.json();
 }
 
-test("health endpoint reports configuration state without exposing secrets", async () => {
+test("public health endpoint exposes only minimal service status", async () => {
   const { env } = createEnv();
   const response = await worker.fetch(makeRequest("/health"), env);
   const body = await json(response);
 
   assert.equal(response.status, 200);
-  assert.equal(body.ok, true);
-  assert.equal(body.databaseConfigured, true);
-  assert.equal(body.googleSignInConfigured, false);
-  assert.equal(body.ownerBootstrapConfigured, false);
-  assert.equal(body.authenticationRateLimitingConfigured, true);
+  assert.deepEqual(body, { ok: true, service: "AUTU-LIO API" });
   assert.equal(JSON.stringify(body).includes("owner@example.com"), false);
+  assert.equal(JSON.stringify(body).includes("GOOGLE_CLIENT_ID"), false);
 });
 
 test("browser CORS is denied by default when no web origins are configured", async () => {
