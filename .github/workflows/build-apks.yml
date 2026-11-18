@@ -3,9 +3,6 @@ name: AUTU-LIO Android APK
 run-name: AUTU-LIO single APK build - ${{ github.ref_name }}
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       build_variant:
@@ -65,7 +62,7 @@ jobs:
         id: signing
         shell: bash
         env:
-          REQUESTED_BUILD_VARIANT: ${{ inputs.build_variant || 'release' }}
+          REQUESTED_BUILD_VARIANT: ${{ inputs.build_variant }}
           AUTU_LIO_RELEASE_KEYSTORE_BASE64: ${{ secrets.AUTU_LIO_RELEASE_KEYSTORE_BASE64 }}
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
           AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
