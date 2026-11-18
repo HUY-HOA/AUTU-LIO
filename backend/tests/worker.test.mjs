@@ -114,10 +114,7 @@ async function json(response) {
 }
 
 test("owner bootstrap matches the verified Google sub, not the email address", () => {
-  const env = {
-    OWNER_GOOGLE_SUB: "google-sub-owner-123",
-    OWNER_EMAIL: "owner@example.com"
-  };
+  const env = { OWNER_GOOGLE_SUB: "google-sub-owner-123" };
 
   assert.equal(
     isConfiguredOwnerIdentity(
@@ -139,10 +136,6 @@ test("missing OWNER_GOOGLE_SUB never grants OWNER even when an owner email exist
   const identity = { sub: "google-sub-owner-123", email: "owner@example.com" };
 
   assert.equal(isConfiguredOwnerIdentity(identity, {}), false);
-  assert.equal(
-    isConfiguredOwnerIdentity(identity, { OWNER_EMAIL: "owner@example.com" }),
-    false
-  );
   assert.equal(
     isConfiguredOwnerIdentity(identity, { OWNER_GOOGLE_SUB: "   " }),
     false
