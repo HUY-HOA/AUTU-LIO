@@ -102,7 +102,7 @@ RSA-OAEP SHA-1/MGF1-SHA1 is used only to wrap the 32-byte AES data key for compa
 
 ### Invitations and collaborators
 
-- `GET /api/invitations/preview?token=...`
+- Invitation preview through URL query tokens is disabled to avoid leaking invitation tokens through URL history/logs. Accept invitations only after sign-in with `POST /api/invitations/accept`.
 - `POST /api/invitations/accept`
 - `GET /api/admin/collaborators` — OWNER
 - `POST /api/admin/invitations` — OWNER
