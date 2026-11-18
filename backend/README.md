@@ -10,8 +10,8 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Each login proves possession of an RSA-3072 Android Keystore key; the public key is bound to the session.
 - Every authenticated API request is signed over method, path/query, timestamp, one-time nonce and body hash; the Worker enforces a 120-second window and rejects nonce replay.
 - Server-side role lookup on every protected request.
-- One-owner bootstrap by an exact, verified Google email configured as a Worker secret.
-- Owner-only invitation creation, invitation preview and single-use acceptance tied to the signed-in Google email.
+- One-owner bootstrap by the verified Google OpenID Connect `sub` claim configured as the `OWNER_GOOGLE_SUB` Worker secret.
+- Owner-only invitation creation and single-use acceptance tied to the signed-in Google email; URL-query invitation preview is disabled.
 - Owner-only collaborator listing, role changes and access revocation, including active sessions.
 - Role-based permission defaults plus owner-managed permission overrides for Developer, Designer and Reviewer.
 - Permission changes are audited; changing a collaborator role resets overrides to that role's defaults.
@@ -38,14 +38,14 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001_identity_and_collaborators.sql`, `0002_single_owner.sql`, and `0003_shared_project_workspaces.sql` were applied to the connected D1 database. Migrations `0004_encrypt_project_source.sql` and `0005_project_data_envelope_keys.sql` add ciphertext, nonce, wrapped per-record data-key and key-version columns for shared script drafts and review snapshots; they remain pending until applied remotely. Run `wrangler d1 migrations list autu_lio_auth` and apply both pending migrations before deploying this Worker version. Keep every SQL migration in source control as the schema history.
+The connected Cloudflare D1 database was checked on 19/11/2026 and contained zero tables; no migrations were confirmed as applied remotely. Review and apply the migrations in this branch in order only after verifying the intended database ID. Do not treat a local migration check as a remote database deployment. Run `wrangler d1 migrations list autu_lio_auth` and apply both pending migrations before deploying this Worker version. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
 Set these only after the values have been confirmed:
 
 - `GOOGLE_CLIENT_ID`: Google OAuth Web/server client ID used as the expected ID-token audience.
-- `OWNER_EMAIL`: exact Google email that is allowed to become the first OWNER after Google verifies the account.
+- `OWNER_GOOGLE_SUB`: exact Google OpenID Connect `sub` claim allowed to bootstrap the first OWNER. Do not use an email address as an owner credential.
 - `PACKAGE_MASTER_KEY_V1`: base64-encoded cryptographically random 32-byte key for published package data keys.
 - `PROJECT_DRAFT_MASTER_KEY_V1`: a separate, independently generated base64url-encoded cryptographically random 32-byte key for shared project draft source and review snapshots. Never reuse the package key.
 
@@ -60,7 +60,7 @@ For project-data key rotation, add a separately generated `PROJECT_DRAFT_MASTER_
 
 Do not place either value in Git. Never place a client secret or Cloudflare API token in the Android APK. Android Google Sign-In should use Credential Manager and request an ID token for the server client ID.
 
-If `OWNER_EMAIL` is absent, newly authenticated accounts receive CUSTOMER. The app never promotes itself to OWNER based on a local email check or a Debug preview selection. A unique D1 index prevents more than one OWNER account.
+If `OWNER_GOOGLE_SUB` is absent, owner bootstrap is disabled and newly authenticated accounts receive CUSTOMER. The app never promotes itself to OWNER based on a local email check or a Debug preview selection. A unique D1 index prevents more than one OWNER account.
 
 ## Configure and deploy
 
@@ -69,7 +69,7 @@ From this directory:
 1. Install Wrangler locally as a development dependency using the official current Wrangler release.
 2. Run `npx wrangler types` after reviewing the D1 binding in `wrangler.jsonc`.
 3. Run `npm run check`.
-4. Set GOOGLE_CLIENT_ID and OWNER_EMAIL with npx wrangler secret put after verifying the correct OAuth client and owner account.
+4. Set `GOOGLE_CLIENT_ID` and `OWNER_GOOGLE_SUB` with `npx wrangler secret put` after verifying the OAuth client and owner Google identity. Obtain `sub` from the verified Google ID token; never commit it to Git.
 5. Generate two independent random 32-byte keys and set them separately with `npx wrangler secret put PACKAGE_MASTER_KEY_V1` and `npx wrangler secret put PROJECT_DRAFT_MASTER_KEY_V1`. Never reuse a password, Android signing key, or the other Worker master key.
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
@@ -109,7 +109,7 @@ RSA-OAEP SHA-1/MGF1-SHA1 is used only to wrap the 32-byte AES data key for compa
 
 ### Invitations and collaborators
 
-- `GET /api/invitations/preview?token=...`
+- Invitation preview through URL query tokens is disabled to prevent token leakage through URL history and logs. Accept invitations only through the signed-in POST route.
 - `POST /api/invitations/accept`
 - `GET /api/admin/collaborators` — OWNER
 - `POST /api/admin/invitations` — OWNER
@@ -145,7 +145,7 @@ Shared script source and review snapshots use envelope encryption in D1: fresh r
 
 Reviewers with `REVIEW_RELEASE` but without `EDIT_SCRIPTS` receive submission metadata with script source removed. Only accounts with `EDIT_SCRIPTS` receive AUTU source. The permission API returns only permissions configurable for the selected role. The Worker rejects permissions outside that role's allowlist. A role change clears previous overrides to avoid carrying permissions into an incompatible role.
 
-The Worker returns a one-time invitation token for the owner to copy and share manually. The owner can list and revoke pending invitations; the Worker does not send email. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
+This single-owner branch does not expose collaborator invitation preview; any invitation acceptance must use a signed-in POST and must not place bearer-like tokens in URLs. Session tokens are stored only as SHA-256 hashes. All protected actions require a live server session.
 
 ## Local validation
 
