@@ -1268,8 +1268,15 @@ class AuthRepository(context: Context) {
         if (!isConfigured) {
             throw IOException("Chưa cấu hình địa chỉ Auth API và Google Server Client ID.")
         }
-        if (!BuildConfig.AUTH_API_BASE_URL.startsWith("https://")) {
-            throw IOException("Auth API phải sử dụng HTTPS.")
+        val apiUrl = runCatching { URL(BuildConfig.AUTH_API_BASE_URL) }.getOrNull()
+        if (apiUrl == null ||
+            apiUrl.protocol != "https" ||
+            apiUrl.host.isBlank() ||
+            apiUrl.userInfo != null ||
+            apiUrl.query != null ||
+            apiUrl.ref != null
+        ) {
+            throw IOException("Auth API phải là URL HTTPS hợp lệ, không chứa thông tin đăng nhập, query hoặc fragment.")
         }
     }
 
