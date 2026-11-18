@@ -80,7 +80,7 @@ Các quyền quản lý cộng tác viên, quản lý giấy phép, ký và phá
 
 ## 7. Dự án cộng tác và quy trình duyệt
 
-Mã Worker đã được hợp nhất vào `main`; migration `0003_shared_project_workspaces.sql` đã được áp dụng vào D1:
+Mã Worker và các migration `0001`–`0005` đã có trong repository. Kiểm tra trực tiếp Cloudflare ngày 19/11/2026 cho thấy Worker `autu-lio-auth-api` chưa được deploy và D1 `autu_lio_auth` đang có 0 bảng; các migration chưa được áp dụng vào database này. Các luồng bên dưới mô tả chức năng trong mã nguồn, chưa phải dịch vụ đang hoạt động:
 
 - Chủ sở hữu tạo dự án và thêm/xóa tài khoản Nhà phát triển, Nhà thiết kế hoặc Người kiểm duyệt.
 - Nhà phát triển lưu bản nháp mã kịch bản vào D1 theo revision.
@@ -108,6 +108,6 @@ Quyền trong dự án hiện kết hợp vai trò/quyền tài khoản và tư 
 
 Đã hợp nhất vào `main` nền tảng một APK, Google Credential Manager, xác minh session theo role, quyền chi tiết theo cộng tác viên và dự án dùng chung cho Developer/Designer/Reviewer. PR #12 đã được merge ở commit `941d9dbb`; Kotlin compilation và Worker/D1 migration checks đều thành công trên phiên bản được kiểm tra.
 
-Migration D1 `0003_shared_project_workspaces.sql` đã được áp dụng. Bảng dự án, thành viên, bản nháp mã/UI và submission đã có; `PRAGMA foreign_key_check` không trả lỗi.
+Các migration và kiểm tra schema có trong repository. Cloudflare D1 hiện báo 0 bảng và Worker chưa được deploy trong tài khoản đã kiểm tra; script `check_migrations.py` chỉ chạy migrations trong SQLite tạm ở CI, không chứng minh D1 production đã được migrate.
 
 Worker vẫn chưa deploy, Google OAuth Client ID và `OWNER_EMAIL` chưa cấu hình, nên chưa thể đăng nhập thật hoặc đồng bộ workspace giữa tài khoản. Chưa có email mời tự động, compiler/runtime Auto Click, renderer UI áp dụng thiết kế cho toàn app, diff/rollback tổng quát, pipeline phát hành package hoặc cập nhật package từ xa.
