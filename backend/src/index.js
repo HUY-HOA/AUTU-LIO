@@ -24,17 +24,25 @@ class HttpError extends Error {
 
 function response(request, data, status = 200, env = {}) {
   const origin = request.headers.get("Origin");
-  const allowed = (env.ALLOWED_ORIGINS || "*").split(",").map(x => x.trim());
-  const originAllowed = !origin || allowed.includes("*") || allowed.includes(origin);
+  const allowed = String(env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map(value => value.trim())
+    .filter(Boolean);
+  const originAllowed = !origin || allowed.includes(origin);
   const headers = {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Strict-Transport-Security": "max-age=31536000",
     "Vary": "Origin"
   };
-  if (originAllowed) {
-    headers["Access-Control-Allow-Origin"] = allowed.includes("*") ? "*" : origin || "null";
+  if (origin && originAllowed) {
+    headers["Access-Control-Allow-Origin"] = origin;
     headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-AUTU-Timestamp, X-AUTU-Nonce, X-AUTU-Signature";
     headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
     headers["Access-Control-Max-Age"] = "600";
@@ -1183,8 +1191,11 @@ async function route(request, env) {
 
   if (method === "OPTIONS") {
     const origin = request.headers.get("Origin");
-    const allowed = (env.ALLOWED_ORIGINS || "*").split(",").map(x => x.trim());
-    if (origin && !allowed.includes("*") && !allowed.includes(origin)) {
+    const allowed = String(env.ALLOWED_ORIGINS || "")
+      .split(",")
+      .map(value => value.trim())
+      .filter(Boolean);
+    if (origin && !allowed.includes(origin)) {
       return response(request, { error: "origin_not_allowed" }, 403, env);
     }
     return response(request, { ok: true }, 200, env);
