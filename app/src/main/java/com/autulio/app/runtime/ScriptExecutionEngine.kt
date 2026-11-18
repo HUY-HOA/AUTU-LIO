@@ -66,10 +66,71 @@ class ScriptExecutionEngine(
     private var totalInstructions = 0L
     private var cancellationRequested = false
     private var closed = false
+    private var pausedAtCheckpoint = false
+    private val runtimeVariables: MutableMap<String, Any?> =
+        java.util.Collections.synchronizedMap(mutableMapOf())
     private var lastErrorCode: String? = null
     private var lastMessage: String? = null
 
     fun snapshot(): ScriptExecutionSnapshot = lock.withLock { snapshotLocked() }
+
+    fun variablesSnapshot(): Map<String, Any?> =
+        synchronized(runtimeVariables) { runtimeVariables.toMap() }
+
+    fun awaitPausedAtCheckpoint(timeoutMs: Long): Boolean {
+        val timeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMs.coerceAtLeast(0L))
+        return lock.withLock {
+            var remainingNanos = timeoutNanos
+            while (state == ScriptExecutionState.PAUSED && !pausedAtCheckpoint &&
+                !cancellationRequested && !closed
+            ) {
+                if (remainingNanos <= 0L) return@withLock false
+                remainingNanos = changed.awaitNanos(remainingNanos)
+            }
+            state == ScriptExecutionState.PAUSED && pausedAtCheckpoint &&
+                !cancellationRequested && !closed
+        }
+    }
+
+    fun updateVariablesFromText(values: Map<String, String>): Pair<Boolean, String?> {
+        val error = lock.withLock {
+            if (state != ScriptExecutionState.PAUSED || !pausedAtCheckpoint) {
+                return@withLock "Hãy tạm dừng kịch bản tại điểm an toàn trước khi sửa tham số."
+            }
+            synchronized(runtimeVariables) {
+                val parsedValues = linkedMapOf<String, Any?>()
+                for ((name, rawValue) in values) {
+                    if (!runtimeVariables.containsKey(name)) {
+                        return@synchronized "Biến '$name' không còn tồn tại trong phiên chạy."
+                    }
+                    val currentValue = runtimeVariables[name]
+                    val parsedValue = when (currentValue) {
+                        is Number -> rawValue.trim().toDoubleOrNull()
+                            ?.takeIf { it.isFinite() }
+                        is String -> rawValue.takeIf { it.length <= 4_096 }
+                        is Boolean -> when (rawValue.trim().uppercase(Locale.ROOT)) {
+                            "ĐÚNG", "TRUE" -> true
+                            "SAI", "FALSE" -> false
+                            else -> null
+                        }
+                        else -> null
+                    }
+                    if (parsedValue == null) {
+                        return@synchronized when (currentValue) {
+                            is Number -> "Giá trị của '$name' phải là số hữu hạn."
+                            is String -> "Giá trị của '$name' vượt quá 4.096 ký tự."
+                            is Boolean -> "Giá trị của '$name' phải là ĐÚNG hoặc SAI."
+                            else -> "Kiểu dữ liệu của '$name' chưa hỗ trợ sửa trực tiếp."
+                        }
+                    }
+                    parsedValues[name] = parsedValue
+                }
+                runtimeVariables.putAll(parsedValues)
+                null
+            }
+        }
+        return if (error == null) true to null else false to error
+    }
 
     fun start(program: ScriptProgram): ScriptExecutionStartResult {
         val validationError = validate(program)
@@ -85,6 +146,8 @@ class ScriptExecutionEngine(
             activeRunId++
             runId = activeRunId
             cancellationRequested = false
+            pausedAtCheckpoint = false
+            synchronized(runtimeVariables) { runtimeVariables.clear() }
             lastErrorCode = null
             lastMessage = null
             completedInstructions = 0L
@@ -124,6 +187,7 @@ class ScriptExecutionEngine(
         val update = lock.withLock {
             if (state != ScriptExecutionState.PAUSED) return false
             state = ScriptExecutionState.RUNNING
+            pausedAtCheckpoint = false
             changed.signalAll()
             snapshotLocked()
         }
@@ -136,6 +200,7 @@ class ScriptExecutionEngine(
             if (state != ScriptExecutionState.RUNNING && state != ScriptExecutionState.PAUSED) return false
             cancellationRequested = true
             state = ScriptExecutionState.STOPPING
+            pausedAtCheckpoint = false
             changed.signalAll()
             snapshotLocked()
         }
@@ -150,6 +215,7 @@ class ScriptExecutionEngine(
             if (state == ScriptExecutionState.RUNNING || state == ScriptExecutionState.PAUSED) {
                 cancellationRequested = true
                 state = ScriptExecutionState.STOPPING
+                pausedAtCheckpoint = false
                 changed.signalAll()
             }
             snapshotLocked()
@@ -160,7 +226,7 @@ class ScriptExecutionEngine(
 
     private fun execute(runId: Long, program: ScriptProgram) {
         try {
-            executeBlock(runId, program.instructions, mutableMapOf())
+            executeBlock(runId, program.instructions, runtimeVariables)
             finish(runId, ScriptExecutionState.COMPLETED, null, null)
         } catch (_: StopRequested) {
             finish(runId, ScriptExecutionState.CANCELLED, null, null)
@@ -476,9 +542,18 @@ class ScriptExecutionEngine(
         return number
     }
 
+    private fun awaitResumeAtCheckpointLocked() {
+        while (state == ScriptExecutionState.PAUSED && !cancellationRequested && !closed) {
+            pausedAtCheckpoint = true
+            changed.signalAll()
+            changed.await()
+        }
+        pausedAtCheckpoint = false
+    }
+
     private fun checkpoint(runId: Long) {
         lock.withLock {
-            while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
+            awaitResumeAtCheckpointLocked()
             ensureActiveLocked(runId)
         }
     }
@@ -487,7 +562,7 @@ class ScriptExecutionEngine(
         var remainingNanos = TimeUnit.MILLISECONDS.toNanos(durationMs.toLong())
         while (remainingNanos > 0L) {
             lock.withLock {
-                while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
+                awaitResumeAtCheckpointLocked()
                 ensureActiveLocked(runId)
                 remainingNanos = changed.awaitNanos(remainingNanos)
             }
@@ -502,7 +577,7 @@ class ScriptExecutionEngine(
 
     private fun completeInstruction(runId: Long) {
         val update = lock.withLock {
-            while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
+            awaitResumeAtCheckpointLocked()
             ensureActiveLocked(runId)
             completedInstructions++
             snapshotLocked()
@@ -515,6 +590,7 @@ class ScriptExecutionEngine(
             if (runId != activeRunId) return
             state = finalState
             cancellationRequested = false
+            pausedAtCheckpoint = false
             lastErrorCode = errorCode
             lastMessage = message
             changed.signalAll()

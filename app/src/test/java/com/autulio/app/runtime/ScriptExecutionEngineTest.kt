@@ -375,6 +375,75 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun editsRuntimeVariablesAtomicallyWhilePausedAndUsesNewValuesAfterResume() {
+        val dispatcher = RecordingDispatcher()
+        val allVariablesReady = CountDownLatch(1)
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.completedInstructions >= 3L) allVariablesReady.countDown()
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT x = 10
+                ĐẶT enabled = SAI
+                ĐẶT label = "old"
+                CHỜ(1200)
+                NẾU (enabled == ĐÚNG) {
+                    CHẠM(x, ĐỘ_DÀI(label))
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(allVariablesReady.await(2, TimeUnit.SECONDS))
+            assertEquals(10.0, engine.variablesSnapshot()["x"])
+            assertFalse(engine.updateVariablesFromText(mapOf("x" to "30")).first)
+
+            assertTrue(engine.pause())
+            assertTrue(engine.awaitPausedAtCheckpoint(2_000))
+            val invalidUpdate = engine.updateVariablesFromText(
+                mapOf("x" to "30", "enabled" to "maybe")
+            )
+            assertFalse(invalidUpdate.first)
+            assertEquals(10.0, engine.variablesSnapshot()["x"])
+
+            val update = engine.updateVariablesFromText(
+                mapOf("x" to "25", "enabled" to "ĐÚNG", "label" to "new")
+            )
+            assertTrue(update.second.orEmpty(), update.first)
+            assertEquals(25.0, engine.variablesSnapshot()["x"])
+            assertEquals(true, engine.variablesSnapshot()["enabled"])
+            assertEquals("new", engine.variablesSnapshot()["label"])
+
+            assertTrue(engine.resume())
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:25,3"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
+    fun runtimeVariableEditorRejectsUnknownNamesAndUnsupportedValues() {
+        val firstVariableReady = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(RecordingDispatcher()) {
+            if (it.completedInstructions >= 1L) firstVariableReady.countDown()
+        }
+        try {
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(compile("ĐẶT x = 1\nCHỜ(1200)")))
+            assertTrue(firstVariableReady.await(2, TimeUnit.SECONDS))
+            assertTrue(engine.pause())
+            assertTrue(engine.awaitPausedAtCheckpoint(2_000))
+            val result = engine.updateVariablesFromText(mapOf("missing" to "2"))
+            assertFalse(result.first)
+            assertEquals(1.0, engine.variablesSnapshot()["x"])
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)

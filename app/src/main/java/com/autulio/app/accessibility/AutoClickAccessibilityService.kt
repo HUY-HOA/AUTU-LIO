@@ -16,13 +16,18 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
+import android.text.InputFilter
+import android.text.InputType
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.runtime.ScriptExecutionEngine
@@ -54,6 +59,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var stopButton: TextView? = null
     private var collapseButton: TextView? = null
     private var moveHandle: TextView? = null
+    private var parameterButton: TextView? = null
+    private var parameterPanel: LinearLayout? = null
+    private var parameterRows: LinearLayout? = null
+    private var parameterMessage: TextView? = null
+    private var floatingLayoutParams: WindowManager.LayoutParams? = null
+    private val parameterInputs = linkedMapOf<String, EditText>()
     private var actionRow: LinearLayout? = null
     private var collapsed = false
     private var pendingProgram: ScriptProgram? = null
@@ -77,6 +88,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     override fun onInterrupt() {
+        closeParameterEditor()
         executionEngine?.stop()
     }
 
@@ -351,6 +363,139 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     }
 
+    private fun openParameterEditor() {
+        val engine = executionEngine ?: return
+        when (engine.snapshot().state) {
+            ScriptExecutionState.RUNNING -> engine.pause()
+            ScriptExecutionState.PAUSED -> Unit
+            ScriptExecutionState.STOPPING -> {
+                statusLabel?.text = "Đang dừng · Chưa thể sửa tham số"
+                return
+            }
+            else -> {
+                statusLabel?.text = "Hãy chạy kịch bản trước khi sửa tham số"
+                return
+            }
+        }
+
+        Thread {
+            val ready = engine.awaitPausedAtCheckpoint(5_000L)
+            val values = if (ready) engine.variablesSnapshot() else emptyMap()
+            mainHandler.post {
+                if (floatingWindow == null) return@post
+                if (!ready) {
+                    statusLabel?.text = "Chưa thể tạm dừng an toàn · Hãy thử lại"
+                    return@post
+                }
+                showParameterEditor(values)
+            }
+        }.start()
+    }
+
+    private fun showParameterEditor(values: Map<String, Any?>) {
+        val panel = parameterPanel ?: return
+        val rows = parameterRows ?: return
+        val message = parameterMessage ?: return
+        rows.removeAllViews()
+        parameterInputs.clear()
+        message.text = if (values.isEmpty()) {
+            "Kịch bản chưa khai báo biến. Hãy dùng ĐẶT ten = ... trong mã nguồn."
+        } else {
+            "Đã tạm dừng an toàn. Sửa giá trị rồi nhấn Cập nhật tham số."
+        }
+
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+
+        values.forEach { (name, value) ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(3), 0, dp(3))
+            }
+            val valueText = when (value) {
+                is Boolean -> if (value) "ĐÚNG" else "SAI"
+                else -> value?.toString().orEmpty()
+            }
+            val nameView = TextView(this).apply {
+                text = name
+                textSize = 11f
+                setTextColor(0xFFE2E8F0.toInt())
+                maxLines = 1
+                layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f)
+            }
+            val input = EditText(this).apply {
+                setText(valueText)
+                textSize = 12f
+                setSingleLine(true)
+                setTextColor(0xFFF1F5F9.toInt())
+                setPadding(dp(7), 0, dp(7), 0)
+                filters = arrayOf(InputFilter.LengthFilter(4_096))
+                inputType = when (value) {
+                    is Number -> InputType.TYPE_CLASS_NUMBER or
+                        InputType.TYPE_NUMBER_FLAG_SIGNED or
+                        InputType.TYPE_NUMBER_FLAG_DECIMAL
+                    else -> InputType.TYPE_CLASS_TEXT
+                }
+                background = GradientDrawable().apply {
+                    setColor(0xFF0D1828.toInt())
+                    cornerRadius = dp(7).toFloat()
+                    setStroke(dp(1), 0x805C708C.toInt())
+                }
+                layoutParams = LinearLayout.LayoutParams(dp(132), dp(38))
+            }
+            row.addView(nameView)
+            row.addView(input)
+            rows.addView(row)
+            parameterInputs[name] = input
+        }
+
+        panel.visibility = View.VISIBLE
+        val layoutParams = floatingLayoutParams
+        val window = floatingWindow
+        if (values.isNotEmpty() && layoutParams != null && window != null) {
+            layoutParams.flags = layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+            layoutParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            runCatching { windowManager?.updateViewLayout(window, layoutParams) }
+            parameterInputs.values.firstOrNull()?.let { firstInput ->
+                firstInput.requestFocus()
+                mainHandler.post {
+                    val inputManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    inputManager.showSoftInput(firstInput, InputMethodManager.SHOW_IMPLICIT)
+                }
+            }
+        }
+    }
+
+    private fun applyParameterEdits() {
+        val engine = executionEngine ?: return
+        val inputs = parameterInputs.mapValues { it.value.text?.toString().orEmpty() }
+        if (inputs.isEmpty()) {
+            parameterMessage?.text = "Không có biến nào để cập nhật."
+            return
+        }
+        val result = engine.updateVariablesFromText(inputs)
+        val message = parameterMessage ?: return
+        if (!result.first) {
+            message.text = result.second ?: "Không cập nhật được tham số."
+            return
+        }
+        message.text = "Đã cập nhật " + inputs.size + " tham số. Nhấn ▶ để tiếp tục chạy."
+    }
+
+    private fun closeParameterEditor() {
+        parameterPanel?.visibility = View.GONE
+        parameterInputs.clear()
+        val layoutParams = floatingLayoutParams
+        val window = floatingWindow
+        if (layoutParams != null && window != null) {
+            layoutParams.flags = layoutParams.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            runCatching { windowManager?.updateViewLayout(window, layoutParams) }
+        }
+        val inputManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        inputManager.hideSoftInputFromWindow(floatingWindow?.windowToken, 0)
+    }
+
     private fun showFloatingWindow(): Boolean {
         if (floatingWindow != null) return true
         val manager = windowManager ?: return false
@@ -380,6 +525,72 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
+
+        val parameterPanelView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(dp(8), dp(7), dp(8), dp(7))
+            background = GradientDrawable().apply {
+                setColor(0xF0142032.toInt())
+                cornerRadius = dp(10).toFloat()
+                setStroke(dp(1), 0x805C708C.toInt())
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(250), WindowManager.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(5)
+            }
+        }
+        val parameterTitle = TextView(this).apply {
+            text = "THAM SỐ KỊCH BẢN"
+            textSize = 10f
+            setTextColor(0xFF9FC1FF.toInt())
+            setPadding(0, 0, 0, dp(4))
+        }
+        val parameterHint = TextView(this).apply {
+            textSize = 10f
+            maxLines = 3
+            setTextColor(0xFFB6C5D9.toInt())
+            setPadding(0, 0, 0, dp(4))
+        }
+        val parameterList = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val parameterScroll = ScrollView(this).apply {
+            isFillViewport = false
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(150)
+            )
+            addView(parameterList)
+        }
+        val parameterActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        fun parameterAction(label: String, onClick: () -> Unit): TextView =
+            TextView(this).apply {
+                text = label
+                textSize = 10f
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                setTextColor(0xFFF1F5F9.toInt())
+                background = GradientDrawable().apply {
+                    setColor(0xFF213650.toInt())
+                    cornerRadius = dp(7).toFloat()
+                    setStroke(dp(1), 0x805C708C.toInt())
+                }
+                layoutParams = LinearLayout.LayoutParams(0, dp(34), 1f).apply {
+                    marginStart = dp(3)
+                    marginEnd = dp(3)
+                }
+                setOnClickListener { onClick() }
+            }
+        parameterActions.addView(parameterAction("Cập nhật", ::applyParameterEdits))
+        parameterActions.addView(parameterAction("Đóng", ::closeParameterEditor))
+        parameterPanelView.addView(parameterTitle)
+        parameterPanelView.addView(parameterHint)
+        parameterPanelView.addView(parameterScroll)
+        parameterPanelView.addView(parameterActions)
 
         fun controlButton(
             symbol: String,
@@ -413,24 +624,35 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             onPrimaryAction()
         }
         val stop = controlButton("■", "Dừng kịch bản", 0xFFFF7777.toInt()) {
+            closeParameterEditor()
             executionEngine?.stop()
         }
         val collapse = controlButton("▾", "Thu gọn cửa sổ", 0xFFE2E8F0.toInt()) {
             setCollapsed(!collapsed)
         }
         val close = controlButton("×", "Đóng cửa sổ và dừng kịch bản", 0xFFFFAAAA.toInt()) {
+            closeParameterEditor()
             executionEngine?.stop()
             pendingProgram = null
             removeFloatingWindow()
+        }
+        val parameters = controlButton("⚙", "Sửa tham số khi kịch bản tạm dừng", 0xFFB6D2FF.toInt()) {
+            if (parameterPanel?.visibility == View.VISIBLE) {
+                closeParameterEditor()
+            } else {
+                openParameterEditor()
+            }
         }
 
         controls.addView(move)
         controls.addView(primary)
         controls.addView(stop)
+        controls.addView(parameters)
         controls.addView(collapse)
         controls.addView(close)
         root.addView(status)
         root.addView(controls)
+        root.addView(parameterPanelView)
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -493,6 +715,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             stopButton = stop
             collapseButton = collapse
             moveHandle = move
+            parameterButton = parameters
+            parameterPanel = parameterPanelView
+            parameterRows = parameterList
+            parameterMessage = parameterHint
+            floatingLayoutParams = params
             actionRow = controls
             collapsed = false
             renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
@@ -513,7 +740,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val engine = executionEngine ?: return
         when (engine.snapshot().state) {
             ScriptExecutionState.RUNNING -> engine.pause()
-            ScriptExecutionState.PAUSED -> engine.resume()
+            ScriptExecutionState.PAUSED -> {
+                closeParameterEditor()
+                engine.resume()
+            }
             ScriptExecutionState.STOPPING -> Unit
             ScriptExecutionState.IDLE,
             ScriptExecutionState.COMPLETED,
@@ -531,6 +761,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val primary = primaryButton ?: return
         val stop = stopButton ?: return
         val collapse = collapseButton ?: return
+        val parameters = parameterButton ?: return
         val current = snapshot ?: latestSnapshot
         val state = current?.state ?: ScriptExecutionState.IDLE
 
@@ -551,6 +782,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val running = state == ScriptExecutionState.RUNNING
         val paused = state == ScriptExecutionState.PAUSED
         val stopping = state == ScriptExecutionState.STOPPING
+        parameters.isEnabled = running || paused
+        parameters.alpha = if (parameters.isEnabled) 1f else 0.45f
+        parameters.visibility = if (collapsed) View.GONE else View.VISIBLE
         primary.text = if (running) "Ⅱ" else "▶"
         primary.contentDescription = when {
             running -> "Tạm dừng kịch bản"
@@ -567,6 +801,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     private fun setCollapsed(value: Boolean) {
+        if (value) closeParameterEditor()
         collapsed = value
         renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
     }
@@ -581,6 +816,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         stopButton = null
         collapseButton = null
         moveHandle = null
+        parameterButton = null
+        parameterPanel = null
+        parameterRows = null
+        parameterMessage = null
+        floatingLayoutParams = null
+        parameterInputs.clear()
         actionRow = null
         collapsed = false
     }
