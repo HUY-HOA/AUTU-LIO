@@ -65,4 +65,4 @@ jobs:
           done
 
       - name: Compile sources and run script compiler unit tests without APK packaging
-        run: gradle --no-daemon --info :app:testDebugUnitTest :app:lintRelease
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:testDebugUnitTest :app:lintRelease
