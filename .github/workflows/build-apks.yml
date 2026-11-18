@@ -13,11 +13,6 @@ on:
           - release
         default: release
         required: true
-  push:
-    branches:
-      - 'build-requests/**'
-    paths:
-      - '.build-requests/**'
 
 permissions:
   contents: read
@@ -28,6 +23,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
