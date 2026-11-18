@@ -71,7 +71,7 @@ Trước khi deploy:
 1. Xác nhận `GOOGLE_CLIENT_ID` và `OWNER_GOOGLE_SUB` đã được cấu hình an toàn.
 2. Kiểm tra binding D1 `autu_lio_auth` trong `backend/wrangler.jsonc`.
 3. Cài Wrangler theo phiên bản ổn định phù hợp và chạy `npm run check`.
-4. Database AUTU-LIO hiện tại đã áp dụng migration `0001`–`0003`; khi thiết lập môi trường D1 mới, áp dụng toàn bộ migration theo thứ tự.
+4. D1 `autu_lio_auth` đã được kiểm tra ngày 19/11/2026 và có 0 bảng; chưa có migration nào được áp dụng lên database từ xa. Chạy `npx wrangler d1 migrations list autu_lio_auth` rồi áp dụng các migration còn thiếu theo thứ tự sau khi rà soát.
 5. Deploy Worker, gọi `GET /health`, xác nhận database và cấu hình Google đều báo sẵn sàng.
 6. Kiểm thử đăng nhập bằng tài khoản chủ sở hữu trước khi mời tài khoản khác.
 
@@ -90,7 +90,7 @@ Màn hình mời/quản lý cộng tác viên và workspace dự án đã đư�
 ## 7. Phạm vi chưa hoàn tất
 
 - Chưa có Google OAuth Client IDs.
-- Chưa có email OWNER được chủ ứng dụng xác nhận cho cấu hình secret.
+- Chưa có `OWNER_GOOGLE_SUB` được cấu hình trong Cloudflare Worker Secret.
 - Worker chưa được deploy và chưa có URL.
 - Chưa thử đăng nhập thực trên điện thoại.
 - Màn hình Android đã nối API quản lý cộng tác viên, thu hồi lời mời, chấp nhận mã, quản lý dự án, lưu script/UI draft và duyệt submission; chưa thể dùng trực tuyến cho tới khi Worker deploy và secrets Google được cấu hình.
