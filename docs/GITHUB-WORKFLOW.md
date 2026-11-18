@@ -1,10 +1,10 @@
 # AUTU-LIO — Quy trình làm việc với GitHub
 
 ## 1. Repository chính thức
-- Repository: HUY-HOA-1/AUTU-LIO
-- Nhánh mặc định hiện tại: main
-- Repository đang ở chế độ private.
-- Tài khoản kết nối HUY-HOA-1 hiện có quyền quản trị repository.
+- Repository: `HUY-HOA/AUTU-LIO`
+- Nhánh mặc định: `main`
+- Repository đang ở chế độ public.
+- Chủ repository hiện tại: `HUY-HOA`.
 - Không tạo repository trùng lặp và không chuyển quyền sở hữu nếu chưa có yêu cầu rõ ràng.
 
 ## 2. Quy tắc trước khi thay đổi
@@ -22,8 +22,8 @@
 - Báo cáo rõ file nào được thêm/sửa, commit nào được tạo và đường dẫn GitHub để người dùng kiểm tra.
 
 ## 4. Quy tắc build APK và GitHub Actions
-- Chỉ cần tin nhắn của chủ ứng dụng có chứa cụm viết hoa `BUILD APK` là cho phép bắt đầu quy trình build; không bắt buộc cụm từ phải đứng riêng một dòng.
-- Tin nhắn chỉ hỏi trạng thái hoặc nhắc đến build nhưng không có đúng cụm viết hoa `BUILD APK` không tự động cho phép bắt đầu.
+- Chỉ bắt đầu build khi chủ ứng dụng gửi đúng toàn bộ nội dung tin nhắn `BUILD APK` viết hoa.
+- Không chạy build khi người dùng chỉ hỏi trạng thái, nhắc đến APK hoặc dùng cụm từ này trong câu khác.
 - Khi có cụm `BUILD APK`, kiểm tra mã nguồn và workflow trước; chỉ kích hoạt quy trình build nếu repository có cấu hình phù hợp và thao tác đó được kết nối hỗ trợ.
 - Nếu không thể kích hoạt build qua kết nối hiện có, phải nói rõ tình trạng; không giả vờ build.
 - Workflow hiện tại là `.github/workflows/build-apks.yml`: có `workflow_dispatch` và chỉ nhận push từ nhánh `build-requests/**` khi có file trong `.build-requests/**`. Push thông thường lên `main` không chạy build.
@@ -48,9 +48,8 @@
 - GitHub Actions đã chạy `:app:compileDebugKotlin` thành công trên nhánh PR cộng tác. Đây chỉ là xác nhận biên dịch Kotlin; chưa xác nhận `:app:lintDebug`/`:app:assembleDebug` và chưa có APK artifact.
 
 ## 6. Phân biệt hai tài khoản GitHub
-- Repository AUTU-LIO hiện thuộc HUY-HOA-1 và tài khoản này có quyền ghi. Các commit trong repository này sử dụng kết nối HUY-HOA-1 để bảo đảm quyền truy cập đúng chủ sở hữu.
+- Repository AUTU-LIO hiện thuộc HUY-HOA; các thay đổi phải dùng đúng kết nối có quyền quản trị repository.
 - Quy trình của COC-LIO không được áp dụng máy móc sang tài khoản/repository khác khi quyền truy cập khác nhau.
-- Nếu chủ ứng dụng muốn chuyển AUTU-LIO sang HUY-HOA, cần thực hiện chuyển quyền hoặc cấp quyền repository trước; không tự ý di chuyển.
 
 ## 7. Kiểm tra chất lượng
 - Đọc lại file sau khi tạo/sửa.
@@ -61,6 +60,6 @@
 ## 8. Trạng thái hiện tại
 - Repository có prototype Android Kotlin/Jetpack Compose trong một APK duy nhất, có giao diện theo vai trò.
 - Đã tích hợp mã nguồn Google Credential Manager, Cloudflare Worker API, phân quyền cộng tác viên, workspace dự án dùng chung và kiểm duyệt; các kiểm tra Kotlin compilation và Worker/D1 đã đạt trên PR.
-- D1 migrations `0001`–`0003` đã áp dụng; Worker chưa deploy và Google OAuth chưa cấu hình nên đăng nhập/API thật chưa hoạt động.
+- Worker chưa deploy, D1 `autu_lio_auth` có 0 bảng và Google OAuth chưa cấu hình; đăng nhập/API thật chưa hoạt động. Các migration trong Git mới được kiểm tra cục bộ.
 - Không lưu keystore, mật khẩu hoặc khóa riêng trong repository. Release signing chỉ sử dụng GitHub Actions secrets có tên quy định trong `docs/SECURITY-AND-SIGNING.md`.
 - Chưa có giấy phép thật, compiler/runtime AUTU-LIO hoặc engine Auto Click.
