@@ -1,8 +1,8 @@
 # AUTU-LIO — Trạng thái phát triển ứng dụng Android
 
-**Cập nhật:** 17/11/2026  
-**Repository:** `HUY-HOA-1/AUTU-LIO`  
-**Nhánh tích hợp:** `feature/floating-runner-secure-20261117` (PR #33)
+**Cập nhật:** 19/11/2026  
+**Repository:** `HUY-HOA/AUTU-LIO`  
+**Nhánh tích hợp:** `main`
 
 ## 1. Phạm vi sản phẩm
 
@@ -42,6 +42,8 @@
 5. **Kiểm thử thiết bị:** xác nhận thao tác chạm/vuốt, quyền Trợ năng, overlay, vòng đời service, dừng khẩn cấp và hành vi khi chuyển ứng dụng; ưu tiên kiểm tra Xiaomi/HyperOS cùng các Android phiên bản khác.
 6. **Chất lượng:** tất cả Android unit tests, lint, Worker tests và kiểm tra bảo mật phải đạt trước phát hành.
 
+**Tình trạng hạ tầng đã kiểm tra ngày 19/11/2026:** tài khoản Cloudflare được kết nối chưa có Worker script triển khai; D1 `autu_lio_auth` hiện báo 0 bảng. Các migration trong Git chỉ được kiểm tra bằng SQLite tạm ở CI, chưa được áp dụng vào D1 này. Do đó backend đăng nhập/giấy phép chưa hoạt động thực tế.
+
 ## 4. Bản build Release gần nhất
 
 GitHub Actions run [43972068339](https://github.com/HUY-HOA-1/AUTU-LIO/actions/runs/43972068339) đã hoàn tất thành công từ nhánh `build-requests/release-autulio-20261117`.
@@ -51,6 +53,7 @@ GitHub Actions run [43972068339](https://github.com/HUY-HOA-1/AUTU-LIO/actions/r
 - `:app:lintRelease` và `:app:assembleRelease` thành công.
 - `apksigner verify` xác nhận chữ ký APK hợp lệ theo APK Signature Scheme v2.
 - SHA-256 của APK: `b3e17afbc5f582c371c394c94981b9e51b6b20e2f05a038cf11fcbe4546c7b3e`.
+- Đây là artifact lịch sử được build ngày 17/11/2026 từ nhánh yêu cầu build; không xác nhận các thay đổi trên `main` ngày 19/11/2026.
 - Artifact: `AUTU-LIO-Release`; artifact ZIP SHA-256: `71af6297d250889ce5ea91949d9a575d7554e089a42ea8d23a0c76b01576983d`.
 - Build thành công không thay thế cho việc cấu hình máy chủ, OAuth và kiểm thử ứng dụng trên thiết bị Android thật.
 
