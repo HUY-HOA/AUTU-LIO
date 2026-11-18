@@ -40,7 +40,7 @@ Luồng xác thực trong mã Android/Worker:
 6. Android mã hóa session bằng AES-GCM với khóa trong Android Keystore; Google ID token không được lưu.
 7. Khi mở ứng dụng, Android gọi `/api/auth/me`; giao diện chỉ mở sau khi session được máy chủ xác minh.
 
-Không tin vào email hoặc vai trò do ứng dụng tự gửi lên. Không hardcode email quản trị, không đặt client secret hoặc khóa máy chủ trong APK. Email có thể đổi; định danh Google `sub` là khóa liên kết tài khoản.
+Không tin vào email hoặc vai trò do ứng dụng tự gửi lên. Không hardcode email quản trị, không đặt client secret hoặc khóa máy chủ trong APK. Email có thể đổi; Google `sub` là định danh tài khoản và là điều kiện duy nhất để bootstrap OWNER.
 
 **Tình trạng:** mã đăng nhập Android và Worker đã được thêm vào repository, nhưng Google OAuth chưa cấu hình và Worker chưa deploy. Do đó đăng nhập Google thật vẫn chưa được bật.
 
@@ -110,4 +110,4 @@ Quyền trong dự án hiện kết hợp vai trò/quyền tài khoản và tư 
 
 Các migration và kiểm tra schema có trong repository. Cloudflare D1 hiện báo 0 bảng và Worker chưa được deploy trong tài khoản đã kiểm tra; script `check_migrations.py` chỉ chạy migrations trong SQLite tạm ở CI, không chứng minh D1 production đã được migrate.
 
-Worker vẫn chưa deploy, Google OAuth Client ID và `OWNER_EMAIL` chưa cấu hình, nên chưa thể đăng nhập thật hoặc đồng bộ workspace giữa tài khoản. Chưa có email mời tự động, compiler/runtime Auto Click, renderer UI áp dụng thiết kế cho toàn app, diff/rollback tổng quát, pipeline phát hành package hoặc cập nhật package từ xa.
+Worker vẫn chưa deploy, Google OAuth Client ID và `OWNER_GOOGLE_SUB` chưa cấu hình, nên chưa thể đăng nhập thật hoặc đồng bộ workspace giữa tài khoản. Chưa có email mời tự động, compiler/runtime Auto Click, renderer UI áp dụng thiết kế cho toàn app, diff/rollback tổng quát, pipeline phát hành package hoặc cập nhật package từ xa.
