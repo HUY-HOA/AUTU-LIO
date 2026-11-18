@@ -24,7 +24,7 @@
 ## 4. Quy tắc build APK và GitHub Actions
 - Chỉ bắt đầu build khi chủ ứng dụng gửi đúng toàn bộ nội dung tin nhắn `BUILD APK` viết hoa.
 - Không chạy build khi người dùng chỉ hỏi trạng thái, nhắc đến APK hoặc dùng cụm từ này trong câu khác.
-- Workflow `.github/workflows/build-apks.yml` chỉ sử dụng `workflow_dispatch` từ nhánh `main`; không nhận push trigger hay marker branch. Job từ nhánh khác `main` bị từ chối.
+- Workflow `.github/workflows/build-apks.yml` chỉ sử dụng `workflow_dispatch` từ nhánh `main`; không có trigger tự động theo push. Job từ nhánh khác `main` bị từ chối.
 - Khi đủ cả bốn GitHub Actions secrets ký APK và chọn Release, workflow tạo APK Release có chữ ký cố định, bật R8 và shrink resources. Chỉ chọn Debug khi chủ ứng dụng yêu cầu kiểm thử; thiếu hoặc cấu hình dở dang secrets khi chọn Release thì workflow dừng.
 - Sau lệnh độc lập `BUILD APK`, chỉ dispatch workflow trên `main`. Nếu kết nối không hỗ trợ dispatch, báo rõ giới hạn; không tạo nhánh phụ hoặc marker để thay thế.
 - Chỉ báo build đã bắt đầu khi nhìn thấy một workflow run thực tế. Theo dõi run khi chủ ứng dụng yêu cầu hoặc cần xác minh một lần chạy.
@@ -34,13 +34,13 @@
 ## 5. Bộ công cụ build hiện tại
 
 - Ứng dụng chỉ có một application ID `com.autulio.app`; không sử dụng product flavor Admin/Client.
-- GitHub Actions chạy lint/build cho một variant duy nhất: Release có ký khi đủ secrets; nếu chưa có secrets thì Debug để kiểm thử. Artifact được đặt tên tương ứng `AUTU-LIO-Release` hoặc `AUTU-LIO-Debug`.
-
+- Workflow có lựa chọn rõ ràng giữa Debug thử nghiệm và Release phát hành. Release là lựa chọn mặc định và chỉ build khi đủ bốn signing secrets; Debug phải được chọn rõ ràng.
+- Artifact có tên tương ứng `AUTU-LIO-Release` hoặc `AUTU-LIO-Debug`; không dùng APK Debug làm bản phát hành hoặc bản cập nhật ổn định.
 - AGP `9.3.1`, Kotlin Gradle Plugin `2.4.21`, Compose Compiler plugin `2.4.21`.
-- GitHub Actions dùng JDK `21`, Gradle `9.6.0`, Android SDK API `37` và Build Tools `36.0.0`.
+- GitHub Actions dùng JDK `21`, Gradle `9.6.0`, Android SDK API `37` và Build Tools `37.0.0`.
 - Ứng dụng vẫn tạo bytecode tương thích Java/Kotlin `17`.
 - `gradle.properties` đang tạm tắt built-in Kotlin và Android new DSL để dùng Kotlin Android plugin 2.4.21. Phải rà soát lại khi nâng AGP hoặc chuyển sang built-in Kotlin.
-- GitHub Actions đã chạy `:app:compileDebugKotlin` thành công trên nhánh PR cộng tác. Đây chỉ là xác nhận biên dịch Kotlin; chưa xác nhận `:app:lintDebug`/`:app:assembleDebug` và chưa có APK artifact.
+- Android source workflow chạy unit tests và lint; Worker workflow chạy kiểm tra cú pháp/API và D1 migrations trên SQLite tạm. Các workflow kiểm tra mã nguồn không đóng gói APK và không chứng minh backend production đã triển khai.
 
 ## 6. Phân biệt hai tài khoản GitHub
 - Repository AUTU-LIO hiện thuộc HUY-HOA; các thay đổi phải dùng đúng kết nối có quyền quản trị repository.
