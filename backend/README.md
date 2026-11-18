@@ -8,7 +8,7 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Issuer, audience, expiry, verified-email and one-time nonce checks.
 - Short-lived sign-in challenge and hashed bearer sessions.
 - Server-side role lookup on every protected request.
-- One-owner bootstrap by an exact, verified Google email configured as a Worker secret.
+- One-owner bootstrap by the exact Google OpenID Connect `sub` claim configured as the `OWNER_GOOGLE_SUB` Worker secret; email is not used to grant OWNER.
 - Owner-only invitation creation, invitation preview and single-use acceptance tied to the signed-in Google email.
 - Owner-only collaborator listing, role changes and access revocation, including active sessions.
 - Role-based permission defaults plus owner-managed permission overrides for Developer, Designer and Reviewer.
@@ -35,14 +35,14 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001_identity_and_collaborators.sql`, `0002_single_owner.sql`, and `0003_shared_project_workspaces.sql` have been applied to the connected D1 database and recorded in `d1_migrations`. The five workspace tables are present and `PRAGMA foreign_key_check` returned no errors. Keep every SQL migration in source control as the schema history.
+Migrations `0001`–`0005` are present in this repository. A direct check of the connected Cloudflare account on 19 November 2026 showed that the `autu_lio_auth` D1 database had zero tables and the Worker had not been deployed, so these migrations had not been applied to that database. The CI migration check runs SQLite locally and does not prove that remote D1 is migrated. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
 Set these only after the values have been confirmed:
 
 - `GOOGLE_CLIENT_ID`: Google OAuth Web/server client ID used as the expected ID-token audience.
-- `OWNER_EMAIL`: exact Google email that is allowed to become the first OWNER after Google verifies the account.
+- `OWNER_GOOGLE_SUB`: exact `sub` claim from the owner's Google ID token after the Worker verifies its signature, issuer, audience, expiry and nonce. This value, not the email address, selects the one account eligible for OWNER.
 - `PACKAGE_MASTER_KEY_V1`: base64-encoded cryptographically random 32-byte key. Generate it securely and set it as a Worker secret; never commit it, send it through chat or put it in the APK.
 
 Worker variables:
@@ -53,7 +53,7 @@ For key rotation, add `PACKAGE_MASTER_KEY_V2`, change `PACKAGE_MASTER_KEY_VERSIO
 
 Do not place either value in Git. Never place a client secret or Cloudflare API token in the Android APK. Android Google Sign-In should use Credential Manager and request an ID token for the server client ID.
 
-If `OWNER_EMAIL` is absent, newly authenticated accounts receive CUSTOMER. The app never promotes itself to OWNER based on a local email check or a Debug preview selection. A unique D1 index prevents more than one OWNER account.
+If `OWNER_GOOGLE_SUB` is absent or does not exactly match the verified token `sub`, newly authenticated accounts receive CUSTOMER. A matching existing non-owner account is promoted only when D1 contains no other OWNER. The app never promotes itself to OWNER based on a local email check or a Debug preview selection. A unique D1 index prevents more than one OWNER account.
 
 ## Configure and deploy
 
@@ -62,7 +62,7 @@ From this directory:
 1. Install Wrangler locally as a development dependency using the official current Wrangler release.
 2. Run `npx wrangler types` after reviewing the D1 binding in `wrangler.jsonc`.
 3. Run `npm run check`.
-4. Set GOOGLE_CLIENT_ID and OWNER_EMAIL with npx wrangler secret put after verifying the correct OAuth client and owner account.
+4. Set `GOOGLE_CLIENT_ID` and `OWNER_GOOGLE_SUB` with `npx wrangler secret put` after verifying the OAuth client and copying only the owner's verified `sub` claim. Never use an email address as the OWNER identifier.
 5. Generate a separate 32-byte random package master key and set it with npx wrangler secret put PACKAGE_MASTER_KEY_V1. Do not use a password or reuse the Android signing key.
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
