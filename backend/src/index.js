@@ -39,9 +39,16 @@ class HttpError extends Error {
   }
 }
 
+function configuredOrigins(env) {
+  return String(env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map(value => value.trim())
+    .filter(Boolean);
+}
+
 function response(request, data, status = 200, env = {}) {
   const origin = request.headers.get("Origin");
-  const allowed = (env.ALLOWED_ORIGINS || "*").split(",").map(x => x.trim());
+  const allowed = configuredOrigins(env);
   const originAllowed = !origin || allowed.includes("*") || allowed.includes(origin);
   const headers = {
     "Content-Type": "application/json; charset=utf-8",
@@ -50,13 +57,38 @@ function response(request, data, status = 200, env = {}) {
     "Referrer-Policy": "no-referrer",
     "Vary": "Origin"
   };
-  if (originAllowed) {
-    headers["Access-Control-Allow-Origin"] = allowed.includes("*") ? "*" : origin || "null";
+  if (origin && originAllowed) {
+    headers["Access-Control-Allow-Origin"] = allowed.includes("*") ? "*" : origin;
     headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
     headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
     headers["Access-Control-Max-Age"] = "600";
   }
   return new Response(JSON.stringify(data), { status, headers });
+}
+
+async function enforceRateLimit(request, env, bindingName) {
+  const limiter = env[bindingName];
+  if (!limiter || typeof limiter.limit !== "function") {
+    if (env.RUNTIME_ENV === "production") {
+      throw new HttpError(503, "rate_limit_not_configured", "Authentication rate limiting is not configured.");
+    }
+    return;
+  }
+
+  const clientIp = request.headers.get("CF-Connecting-IP");
+  if (!clientIp) {
+    throw new HttpError(503, "rate_limit_client_unavailable", "The client network identifier is unavailable.");
+  }
+
+  let result;
+  try {
+    result = await limiter.limit({ key: `ip:${clientIp}` });
+  } catch {
+    throw new HttpError(503, "rate_limit_unavailable", "Authentication rate limiting is temporarily unavailable.");
+  }
+  if (!result?.success) {
+    throw new HttpError(429, "rate_limited", "Too many sign-in requests. Try again shortly.");
+  }
 }
 
 function base64UrlEncode(bytes) {
@@ -263,6 +295,7 @@ async function createChallenge(request, env) {
   if (!env.GOOGLE_CLIENT_ID) {
     throw new HttpError(503, "google_auth_not_configured", "Google Sign-In is not configured yet.");
   }
+  await enforceRateLimit(request, env, "AUTH_CHALLENGE_LIMITER");
   const id = crypto.randomUUID();
   const nonce = randomToken(32);
   const now = Math.floor(Date.now() / 1000);
@@ -274,6 +307,7 @@ async function createChallenge(request, env) {
 }
 
 async function googleLogin(request, env) {
+  await enforceRateLimit(request, env, "AUTH_LOGIN_LIMITER");
   const body = await readBody(request);
   if (typeof body.challengeId !== "string" || typeof body.idToken !== "string") {
     throw new HttpError(400, "missing_sign_in_fields", "challengeId and idToken are required.");
@@ -1691,7 +1725,7 @@ async function route(request, env) {
 
   if (method === "OPTIONS") {
     const origin = request.headers.get("Origin");
-    const allowed = (env.ALLOWED_ORIGINS || "*").split(",").map(x => x.trim());
+    const allowed = configuredOrigins(env);
     if (origin && !allowed.includes("*") && !allowed.includes(origin)) {
       return response(request, { error: "origin_not_allowed" }, 403, env);
     }
@@ -1704,7 +1738,10 @@ async function route(request, env) {
       service: "AUTU-LIO Auth API",
       databaseConfigured: Boolean(env.DB),
       googleSignInConfigured: Boolean(env.GOOGLE_CLIENT_ID),
-      ownerBootstrapConfigured: Boolean(env.OWNER_EMAIL)
+      ownerBootstrapConfigured: Boolean(env.OWNER_EMAIL),
+      authenticationRateLimitingConfigured: Boolean(
+        env.AUTH_CHALLENGE_LIMITER && env.AUTH_LOGIN_LIMITER
+      )
     }, 200, env);
   }
 
