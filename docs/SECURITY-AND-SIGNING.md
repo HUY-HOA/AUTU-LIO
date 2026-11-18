@@ -98,7 +98,7 @@ Không có khóa giải mã chung trong APK. Tuy nhiên, khi script được gi�
 ## 7. Điều kiện trước khi phát hành thật
 
 - Worker chưa được deploy; cần cấu hình Google OAuth và D1 migrations còn thiếu.
-- Cần đặt GOOGLE_CLIENT_ID, OWNER_EMAIL và PACKAGE_MASTER_KEY_V1 bằng Worker secrets. Không đưa các giá trị này vào Git, chat hoặc APK.
+- Cần đặt `GOOGLE_CLIENT_ID`, `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` bằng Worker secrets. `OWNER_GOOGLE_SUB` phải là claim `sub` từ ID token của tài khoản Google chủ sở hữu đã xác minh; không dùng email, Firebase UID hoặc GitHub ID.
 - Cần kiểm thử đăng nhập thật, cấp license, đăng ký thiết bị, phát hành, tải/giải mã và thu hồi trên thiết bị Android thật.
 - Cần tạo keystore ký Release riêng cho AUTU-LIO, lưu bản sao lưu an toàn và cấu hình đủ bốn GitHub Actions secrets.
 - Kiểm thử cài đặt/cập nhật Release bằng cùng một chữ ký ổn định; không tự động xoay hoặc thay signing key sau khi đã phát hành.
