@@ -431,7 +431,10 @@ test("malformed Google sign-in JSON is rejected", async () => {
   const response = await worker.fetch(
     makeRequest("/api/auth/google", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "CF-Connecting-IP": "203.0.113.18"
+      },
       body: "{"
     }),
     env
@@ -446,7 +449,10 @@ test("oversized Google sign-in request is rejected before parsing", async () => 
   const response = await worker.fetch(
     makeRequest("/api/auth/google", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "CF-Connecting-IP": "203.0.113.19"
+      },
       body: " ".repeat(24_001)
     }),
     env
