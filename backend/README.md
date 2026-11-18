@@ -137,7 +137,7 @@ Script source and UI JSON are size-limited. Every project API checks project mem
 
 The permission API returns only permissions configurable for the selected role. The Worker rejects permissions outside that role's allowlist. A role change clears previous overrides to avoid carrying permissions into an incompatible role.
 
-The Worker returns a one-time invitation token for the owner to copy and share manually. The owner can list and revoke pending invitations; the Worker does not send email. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
+The Worker returns a one-time invitation token for the owner to copy and share manually. The owner can list and revoke pending invitations; the Worker does not send email. Invitation acceptance requires a signed-in POST request matching the invited Google email. There is no public invitation-preview endpoint, so invitation tokens are not carried in URL query strings. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
 
 ## Local validation
 
