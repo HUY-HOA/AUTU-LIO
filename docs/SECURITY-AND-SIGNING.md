@@ -22,7 +22,14 @@ Các lớp bảo vệ được sử dụng:
 
 R8 là làm rối và thu gọn mã, không phải mã hóa tuyệt đối. Mã giải mã và nội dung cần chạy vẫn có thể xuất hiện trong bộ nhớ khi ứng dụng hoạt động.
 
-## 3. Android Release signing
+## 3. Bảo vệ API đăng nhập
+
+- Hai endpoint công khai `/api/auth/challenge` và `/api/auth/google` được gắn Cloudflare Workers Rate Limiting: tối đa 90 lần tạo challenge/phút và 30 lần gửi đăng nhập/phút theo địa chỉ IP Cloudflare nhận được.
+- Nếu môi trường production thiếu binding rate limit hoặc dịch vụ giới hạn lỗi, endpoint đăng nhập từ chối yêu cầu bằng HTTP 503 thay vì âm thầm bỏ qua lớp bảo vệ.
+- Giới hạn của Workers Rate Limiting là gần đúng và được tính riêng tại từng Cloudflare location; IP di động có thể được nhiều người dùng chung. Đây là lớp giảm lạm dụng, không phải giới hạn toàn cầu tuyệt đối.
+- CORS mặc định không cho phép origin trình duyệt nào. Chỉ thêm `ALLOWED_ORIGINS` nếu sau này có giao diện web được kiểm soát. CORS không thay thế xác thực; API vẫn phải kiểm tra bearer session và quyền ở Worker.
+
+## 4. Android Release signing
 
 ### GitHub Actions secrets bắt buộc
 
@@ -66,13 +73,13 @@ Chỉ nhập chuỗi Base64 vào `AUTU_LIO_RELEASE_KEYSTORE_BASE64`; nhập riê
 - VersionCode được tăng theo số lần chạy workflow để các bản cập nhật tiếp theo có versionCode cao hơn.
 - Không dùng khóa debug tự sinh của GitHub runner làm khóa phát hành.
 
-## 4. Mã hóa bản nháp trên thiết bị
+## 5. Mã hóa bản nháp trên thiết bị
 
 `SecureScriptDraftStore` sử dụng AES/GCM/NoPadding với khóa AES-256 sinh bởi Android Keystore. Tên kịch bản và nội dung nháp được mã hóa chung thành một payload; dữ liệu bản nháp cũ dạng plaintext được chuyển sang định dạng mã hóa ở lần đọc đầu tiên rồi mới xóa bản cũ sau khi ghi thành công.
 
 Dữ liệu cần ở dạng plaintext trong editor khi chủ sở hữu chỉnh sửa; thiết bị đã root hoặc tiến trình bị hook vẫn có thể đọc nội dung lúc đang mở. Mã hóa lưu trữ giúp bảo vệ dữ liệu khi file preferences bị lấy riêng lẻ, không chống được mọi hình thức tấn công trên thiết bị đã bị kiểm soát.
 
-## 5. Mã hóa và phân phối gói AUTU
+## 6. Mã hóa và phân phối gói AUTU
 
 Worker hiện có mã nguồn cho quy trình phát hành gói AUTU theo phiên bản; API chỉ hoạt động sau khi Worker được triển khai, D1 migration và secret được cấu hình.
 
@@ -88,7 +95,7 @@ RSA-OAEP SHA-1/MGF1-SHA1 hiện chỉ dùng để bọc khóa AES 32 byte nhằm
 
 Không có khóa giải mã chung trong APK. Tuy nhiên, khi script được giải mã và chạy, nội dung sẽ có trong bộ nhớ tiến trình; không thể bảo đảm chống sao chép tuyệt đối trên thiết bị đã bị kiểm soát. R8 chỉ shrink/obfuscate mã APK, không phải mã hóa tuyệt đối.
 
-## 6. Điều kiện trước khi phát hành thật
+## 7. Điều kiện trước khi phát hành thật
 
 - Worker chưa được deploy; cần cấu hình Google OAuth và D1 migrations còn thiếu.
 - Cần đặt GOOGLE_CLIENT_ID, OWNER_EMAIL và PACKAGE_MASTER_KEY_V1 bằng Worker secrets. Không đưa các giá trị này vào Git, chat hoặc APK.
