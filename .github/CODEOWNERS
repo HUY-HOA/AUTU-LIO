@@ -1,0 +1,8 @@
+# Require owner review for privileged backend, signing, and CI configuration.
+# This file only requests code-owner review; enable branch protection to enforce it.
+
+/.github/workflows/ @HUY-HOA
+/.github/dependabot.yml @HUY-HOA
+/backend/ @HUY-HOA
+/app/build.gradle.kts @HUY-HOA
+/app/src/main/AndroidManifest.xml @HUY-HOA
