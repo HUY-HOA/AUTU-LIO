@@ -49,16 +49,21 @@ function configuredOrigins(env) {
 function response(request, data, status = 200, env = {}) {
   const origin = request.headers.get("Origin");
   const allowed = configuredOrigins(env);
-  const originAllowed = !origin || allowed.includes("*") || allowed.includes(origin);
+  const originAllowed = !origin || allowed.includes(origin);
   const headers = {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Strict-Transport-Security": "max-age=31536000",
     "Vary": "Origin"
   };
   if (origin && originAllowed) {
-    headers["Access-Control-Allow-Origin"] = allowed.includes("*") ? "*" : origin;
+    headers["Access-Control-Allow-Origin"] = origin;
     headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
     headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
     headers["Access-Control-Max-Age"] = "600";
@@ -138,11 +143,7 @@ async function readBody(request, maxChars = 24_000) {
   return text ? parseJson(text) : {};
 }
 
-function normalizeEmail(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function isConfiguredOwnerIdentityLegacyBranch(identity, env) {
+export function isConfiguredOwnerIdentity(identity, env) {
   const configuredSub = typeof env?.OWNER_GOOGLE_SUB === "string"
     ? env.OWNER_GOOGLE_SUB.trim()
     : "";
@@ -150,6 +151,10 @@ function isConfiguredOwnerIdentityLegacyBranch(identity, env) {
     && typeof identity?.sub === "string"
     && identity.sub.length > 0
     && identity.sub === configuredSub;
+}
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
 }
 
 function validEmail(value) {
@@ -350,7 +355,7 @@ async function googleLogin(request, env) {
     const otherUser = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(identity.email).first();
     if (otherUser) throw new HttpError(409, "google_identity_conflict", "This email is already linked to a different Google identity.");
     const userId = crypto.randomUUID();
-    const isConfiguredOwner = isConfiguredOwnerIdentityLegacyBranch(identity, env);
+    const isConfiguredOwner = isConfiguredOwnerIdentity(identity, env);
     const existingOwner = isConfiguredOwner
       ? await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' LIMIT 1").first()
       : null;
@@ -365,7 +370,7 @@ async function googleLogin(request, env) {
     user = { id: userId, email: identity.email, display_name: identity.name, role, status: "ACTIVE", email_verified: 1 };
   } else {
     if (user.status !== "ACTIVE") throw new HttpError(403, "account_inactive", "This account has been disabled.");
-    if (isConfiguredOwnerIdentityLegacyBranch(identity, env) && user.role !== "OWNER") {
+    if (isConfiguredOwnerIdentity(identity, env) && user.role !== "OWNER") {
       const existingOwner = await env.DB.prepare("SELECT id FROM users WHERE role = 'OWNER' LIMIT 1").first();
       if (!existingOwner) {
         await env.DB.prepare("UPDATE users SET role = 'OWNER' WHERE id = ?").bind(user.id).run();
@@ -441,17 +446,6 @@ async function createInvitation(request, env, session) {
     invitationToken: token,
     delivery: "copy_and_share_manually"
   }, 201, env);
-}
-
-async function previewInvitation(request, env) {
-  const token = new URL(request.url).searchParams.get("token") || "";
-  if (!/^[A-Za-z0-9_-]{40,100}$/.test(token)) throw new HttpError(400, "invalid_invitation", "Invitation token is invalid.");
-  const now = Math.floor(Date.now() / 1000);
-  const invite = await env.DB.prepare(
-    "SELECT email, role, expires_at FROM invitations WHERE token_hash = ? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?"
-  ).bind(await sha256(token), now).first();
-  if (!invite) throw new HttpError(404, "invitation_not_found", "Invitation was not found or has expired.");
-  return response(request, { email: invite.email, role: invite.role, expiresAt: invite.expires_at }, 200, env);
 }
 
 async function acceptInvitation(request, env, session) {
@@ -1736,7 +1730,7 @@ async function route(request, env) {
   if (method === "OPTIONS") {
     const origin = request.headers.get("Origin");
     const allowed = configuredOrigins(env);
-    if (origin && !allowed.includes("*") && !allowed.includes(origin)) {
+    if (origin && !allowed.includes(origin)) {
       return response(request, { error: "origin_not_allowed" }, 403, env);
     }
     return response(request, { ok: true }, 200, env);
@@ -1752,7 +1746,9 @@ async function route(request, env) {
   if (method === "POST" && path === "/api/auth/challenge") return await createChallenge(request, env);
   if (method === "POST" && path === "/api/auth/google") return await googleLogin(request, env);
 
-  if (method === "GET" && path === "/api/invitations/preview") return await previewInvitation(request, env);
+  if (path === "/api/invitations/preview") {
+    throw new HttpError(404, "route_not_found", "Invitation preview is disabled; accept invitations after signing in.");
+  }
 
   const session = await getSession(request, env);
 
