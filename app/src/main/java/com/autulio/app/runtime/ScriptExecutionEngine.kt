@@ -6,6 +6,7 @@ import com.autulio.app.script.ScriptInstruction
 import com.autulio.app.script.ScriptProgram
 import java.io.Closeable
 import java.util.Locale
+import java.util.IdentityHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
@@ -531,6 +532,7 @@ class ScriptExecutionEngine(
         is ScriptExpression.NumberLiteral -> expression.value
         is ScriptExpression.StringLiteral -> expression.value
         is ScriptExpression.BooleanLiteral -> expression.value
+        ScriptExpression.NullLiteral -> null
         is ScriptExpression.Variable -> {
             if (!variables.containsKey(expression.name)) {
                 throw ScriptRuntimeFailure("unknown_variable", "Chưa khai báo biến '" + expression.name + "'.")
@@ -617,6 +619,24 @@ class ScriptExecutionEngine(
         runId: Long,
         callDepth: Int
     ): Any? = when (name) {
+        "PHÂN_TÍCH_JSON" -> {
+            requireArgs(name, args, 1)
+            val source = args[0] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "PHÂN_TÍCH_JSON cần một chuỗi.")
+            try {
+                ScriptJsonCodec.parse(source)
+            } catch (error: IllegalArgumentException) {
+                throw ScriptRuntimeFailure("invalid_json", error.message ?: "JSON không hợp lệ.")
+            }
+        }
+        "CHUYỂN_JSON" -> {
+            requireArgs(name, args, 1)
+            try {
+                ScriptJsonCodec.stringify(args[0])
+            } catch (error: IllegalArgumentException) {
+                throw ScriptRuntimeFailure("invalid_json_value", error.message ?: "Giá trị không thể chuyển thành JSON.")
+            }
+        }
         "SỐ" -> {
             requireArgs(name, args, 1)
             when (val value = args[0]) {
@@ -744,10 +764,7 @@ class ScriptExecutionEngine(
             if (args.size > ScriptCompiler.MAX_LIST_ITEMS) {
                 throw ScriptRuntimeFailure("list_too_large", "Danh sách không được vượt quá ${ScriptCompiler.MAX_LIST_ITEMS} phần tử.")
             }
-            if (args.any { !isSupportedListItem(it) }) {
-                throw ScriptRuntimeFailure("invalid_list_item", "Danh sách chỉ chứa số, chuỗi hoặc giá trị ĐÚNG/SAI.")
-            }
-            args.toMutableList()
+            args.map { copySupportedValue(it) }.toMutableList()
         }
         "LẤY_PHẦN_TỬ" -> {
             requireArgs(name, args, 2)
@@ -758,24 +775,20 @@ class ScriptExecutionEngine(
         "THÊM_PHẦN_TỬ" -> {
             requireArgs(name, args, 2)
             val list = requireMutableList(args[0], name)
-            if (!isSupportedListItem(args[1])) {
-                throw ScriptRuntimeFailure("invalid_list_item", "Phần tử chỉ được là số, chuỗi hoặc giá trị ĐÚNG/SAI.")
-            }
+            val copiedValue = copySupportedValue(args[1])
             if (list.size >= ScriptCompiler.MAX_LIST_ITEMS) {
                 throw ScriptRuntimeFailure("list_too_large", "Danh sách đã đạt giới hạn ${ScriptCompiler.MAX_LIST_ITEMS} phần tử.")
             }
-            list.add(args[1])
+            list.add(copiedValue)
             list.size.toDouble()
         }
         "ĐẶT_PHẦN_TỬ" -> {
             requireArgs(name, args, 3)
             val list = requireMutableList(args[0], name)
             val index = requireListIndex(args[1], list.size, allowEnd = false)
-            if (!isSupportedListItem(args[2])) {
-                throw ScriptRuntimeFailure("invalid_list_item", "Phần tử chỉ được là số, chuỗi hoặc giá trị ĐÚNG/SAI.")
-            }
-            list[index] = args[2]
-            args[2]
+            val copiedValue = copySupportedValue(args[2])
+            list[index] = copiedValue
+            copiedValue
         }
         "XÓA_PHẦN_TỬ" -> {
             requireArgs(name, args, 2)
@@ -798,11 +811,8 @@ class ScriptExecutionEngine(
                 val key = args[index] as? String
                     ?: throw ScriptRuntimeFailure("invalid_map_key", "Khóa bản đồ phải là chuỗi.")
                 if (key.isBlank()) throw ScriptRuntimeFailure("invalid_map_key", "Khóa bản đồ không được để trống.")
-                if (!isSupportedMapValue(args[index + 1])) {
-                    throw ScriptRuntimeFailure("invalid_map_value", "Giá trị bản đồ chỉ được là số, chuỗi hoặc ĐÚNG/SAI.")
-                }
                 if (map.containsKey(key)) throw ScriptRuntimeFailure("duplicate_map_key", "Khóa bản đồ bị trùng: " + key + ".")
-                map[key] = args[index + 1]
+                map[key] = copySupportedValue(args[index + 1])
             }
             map
         }
@@ -817,14 +827,12 @@ class ScriptExecutionEngine(
             requireArgs(name, args, 3)
             val map = requireMutableMap(args[0], name)
             val key = requireMapKey(args[1])
-            if (!isSupportedMapValue(args[2])) {
-                throw ScriptRuntimeFailure("invalid_map_value", "Giá trị bản đồ chỉ được là số, chuỗi hoặc ĐÚNG/SAI.")
-            }
             if (!map.containsKey(key) && map.size >= ScriptCompiler.MAX_MAP_ENTRIES) {
                 throw ScriptRuntimeFailure("map_too_large", "Bản đồ đã đạt giới hạn ${ScriptCompiler.MAX_MAP_ENTRIES} cặp khóa–giá trị.")
             }
-            map[key] = args[2]
-            args[2]
+            val copiedValue = copySupportedValue(args[2])
+            map[key] = copiedValue
+            copiedValue
         }
         "XÓA_KHÓA" -> {
             requireArgs(name, args, 2)
@@ -918,10 +926,84 @@ class ScriptExecutionEngine(
         else -> false
     }
 
-    private fun isSupportedListItem(value: Any?): Boolean =
-        (value is Number && value.toDouble().isFinite()) || value is String || value is Boolean
+    private fun copySupportedValue(value: Any?): Any? =
+        copySupportedValueInternal(value, 0, IdentityHashMap(), intArrayOf(0))
 
-    private fun isSupportedMapValue(value: Any?): Boolean = isSupportedListItem(value)
+    private fun copySupportedValueInternal(
+        value: Any?,
+        depth: Int,
+        ancestors: IdentityHashMap<Any, Boolean>,
+        budget: IntArray
+    ): Any? {
+        budget[0]++
+        if (budget[0] > ScriptCompiler.MAX_COLLECTION_VALUES) {
+            throw ScriptRuntimeFailure(
+                "collection_too_large",
+                "Cấu trúc dữ liệu vượt quá ${ScriptCompiler.MAX_COLLECTION_VALUES} giá trị."
+            )
+        }
+        return when (value) {
+            null -> null
+            is String -> {
+                if (value.length > 4_096) {
+                    throw ScriptRuntimeFailure("string_too_large", "Chuỗi trong cấu trúc dữ liệu vượt quá 4.096 ký tự.")
+                }
+                value
+            }
+            is Boolean -> value
+            is Number -> value.toDouble().takeIf { it.isFinite() }
+                ?: throw ScriptRuntimeFailure("invalid_collection_number", "Số trong cấu trúc dữ liệu phải hữu hạn.")
+            is List<*> -> {
+                if (depth >= ScriptCompiler.MAX_COLLECTION_DEPTH) {
+                    throw ScriptRuntimeFailure("collection_depth_exceeded", "Danh sách/bản đồ lồng nhau quá sâu.")
+                }
+                if (value.size > ScriptCompiler.MAX_LIST_ITEMS) {
+                    throw ScriptRuntimeFailure("list_too_large", "Danh sách lồng nhau vượt quá ${ScriptCompiler.MAX_LIST_ITEMS} phần tử.")
+                }
+                if (ancestors.containsKey(value)) {
+                    throw ScriptRuntimeFailure("cyclic_collection", "Không cho phép cấu trúc dữ liệu tự tham chiếu.")
+                }
+                ancestors[value] = true
+                try {
+                    value.map { item ->
+                        copySupportedValueInternal(item, depth + 1, ancestors, budget)
+                    }.toMutableList()
+                } finally {
+                    ancestors.remove(value)
+                }
+            }
+            is Map<*, *> -> {
+                if (depth >= ScriptCompiler.MAX_COLLECTION_DEPTH) {
+                    throw ScriptRuntimeFailure("collection_depth_exceeded", "Danh sách/bản đồ lồng nhau quá sâu.")
+                }
+                if (value.size > ScriptCompiler.MAX_MAP_ENTRIES) {
+                    throw ScriptRuntimeFailure("map_too_large", "Bản đồ lồng nhau vượt quá ${ScriptCompiler.MAX_MAP_ENTRIES} khóa.")
+                }
+                if (ancestors.containsKey(value)) {
+                    throw ScriptRuntimeFailure("cyclic_collection", "Không cho phép cấu trúc dữ liệu tự tham chiếu.")
+                }
+                ancestors[value] = true
+                try {
+                    val result = linkedMapOf<String, Any?>()
+                    value.forEach { (rawKey, rawValue) ->
+                        val key = rawKey as? String
+                            ?: throw ScriptRuntimeFailure("invalid_map_key", "Khóa bản đồ phải là chuỗi.")
+                        if (key.isBlank()) {
+                            throw ScriptRuntimeFailure("invalid_map_key", "Khóa bản đồ không được để trống.")
+                        }
+                        result[key] = copySupportedValueInternal(rawValue, depth + 1, ancestors, budget)
+                    }
+                    result
+                } finally {
+                    ancestors.remove(value)
+                }
+            }
+            else -> throw ScriptRuntimeFailure(
+                "invalid_collection_value",
+                "Danh sách/bản đồ chỉ hỗ trợ số, chuỗi, luận lý, RỖNG, danh sách và bản đồ."
+            )
+        }
+    }
 
     @Suppress("UNCHECKED_CAST")
     private fun requireMutableMap(value: Any?, functionName: String): MutableMap<String, Any?> =
@@ -1164,6 +1246,7 @@ class ScriptExecutionEngine(
             is ScriptExpression.NumberLiteral -> expression.value.isFinite()
             is ScriptExpression.StringLiteral -> expression.value.length <= 4_096
             is ScriptExpression.BooleanLiteral -> true
+            ScriptExpression.NullLiteral -> true
             is ScriptExpression.Variable -> expression.name.isNotBlank()
             is ScriptExpression.Unary -> expression.operator in setOf("KHÔNG", "+", "-") && validateExpression(expression.operand, depth + 1)
             is ScriptExpression.Binary -> expression.operator in setOf("VÀ", "HOẶC", "==", "!=", ">", ">=", "<", "<=", "+", "-", "*", "/", "%", "^") &&
