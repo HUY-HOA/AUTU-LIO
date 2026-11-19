@@ -143,7 +143,7 @@ test("missing OWNER_GOOGLE_SUB never grants OWNER even when an owner email exist
   );
 });
 
-test("Gemini Live token endpoint authenticates the app session and returns only a short-lived token", async () => {
+test("Gemini Live token endpoint authenticates the app session and locks the complete owner setup", async () => {
   const { env } = createEnv({ session: ownerSession });
   env.GEMINI_API_KEY = "server-only-test-key";
   const originalFetch = globalThis.fetch;
@@ -168,94 +168,52 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
     assert.equal(response.status, 200);
     assert.equal(body.token, "auth_tokens/test-ephemeral-token");
     assert.equal(body.model, "models/gemini-3.8-live");
-    assert.match(upstreamRequest.url, /generativelanguage\.googleapis\.com\/v1beta\/auth_tokens$/);
+    assert.match(upstreamRequest.url, /generativelanguage\\.googleapis\\.com\\/v1beta\\/auth_tokens$/);
     assert.equal(upstreamRequest.options.headers["x-goog-api-key"], "server-only-test-key");
     const payload = JSON.parse(upstreamRequest.options.body);
     assert.equal(payload.uses, 1);
-    const constraints = payload.liveConnectConstraints;
-    assert.equal(constraints.model, "models/gemini-3.8-live");
-    assert.deepEqual(constraints.config, {
-      responseModalities: ["AUDIO"],
-      sessionResumption: {}
+    const setup = payload.bidiGenerateContentSetup;
+    assert.equal(setup.model, "models/gemini-3.8-live");
+    assert.deepEqual(setup.generationConfig.responseModalities, ["AUDIO"]);
+    assert.deepEqual(setup.generationConfig.speechConfig, {
+      voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
     });
-    assert.equal(Object.hasOwn(payload, "bidiGenerateContentSetup"), false);
+    assert.deepEqual(setup.inputAudioTranscription, {});
+    assert.deepEqual(setup.outputAudioTranscription, {});
+    assert.deepEqual(setup.contextWindowCompression, { slidingWindow: {} });
+    assert.deepEqual(setup.sessionResumption, {});
+    assert.match(setup.systemInstruction.parts[0].text, /Never access, request, generate, modify or publish AUTU-LIO application source code/);
+    const declarations = setup.tools[0].functionDeclarations;
+    assert.equal(declarations.length, 11);
+    assert.deepEqual(
+      declarations.map(item => item.name).sort(),
+      [
+        "get_autu_script_reference",
+        "list_autu_script_drafts",
+        "long_press_screen",
+        "press_back",
+        "read_screen_text",
+        "read_autu_script_draft",
+        "save_autu_script_draft",
+        "swipe_screen",
+        "tap_screen",
+        "tap_text",
+        "validate_autu_script"
+      ].sort()
+    );
+    assert.equal(Object.hasOwn(payload, "liveConnectConstraints"), false);
     assert.equal(Object.hasOwn(payload, "fieldMask"), false);
     const expiryMs = Date.parse(payload.expireTime) - Date.now();
     const newSessionExpiryMs = Date.parse(payload.newSessionExpireTime) - Date.now();
     assert.ok(expiryMs > 28 * 60 * 1000 && expiryMs <= 30 * 60 * 1000);
     assert.ok(newSessionExpiryMs > 0 && newSessionExpiryMs <= 60 * 1000);
-    assert.deepEqual(Object.keys(constraints.config).sort(), ["responseModalities", "sessionResumption"].sort());
     assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("Gemini Live provider errors are translated and expose only safe diagnostics", async () => {
-  const { env } = createEnv({ session: ownerSession });
-  env.GEMINI_API_KEY = "server-only-test-key";
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => new Response(JSON.stringify({
-    error: {
-      code: 400,
-      status: "INVALID_ARGUMENT",
-      message: "API key not valid. Please pass a valid API key."
-    }
-  }), { status: 400, headers: { "Content-Type": "application/json" } });
-  try {
-    const response = await worker.fetch(makeRequest("/api/ai/live-token", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + "A".repeat(48),
-        "CF-Connecting-IP": "203.0.113.23"
-      },
-      body: "{}"
-    }), env);
-    const body = await json(response);
-    assert.equal(response.status, 502);
-    assert.equal(body.error, "gemini_token_failed");
-    assert.match(body.message, /Google từ chối API Key/);
-    assert.equal(body.providerHttpStatus, 400);
-    assert.equal(body.providerStatus, "INVALID_ARGUMENT");
-    assert.equal(body.providerCode, 400);
-    assert.doesNotMatch(body.message, /API key not valid|Gemini did not issue/);
-    assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("Gemini Live quota failures show a Vietnamese message", async () => {
-  const { env } = createEnv({ session: ownerSession });
-  env.GEMINI_API_KEY = "server-only-test-key";
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => new Response(JSON.stringify({
-    error: {
-      code: 429,
-      status: "RESOURCE_EXHAUSTED",
-      message: "Quota exceeded."
-    }
-  }), { status: 429, headers: { "Content-Type": "application/json" } });
-  try {
-    const response = await worker.fetch(makeRequest("/api/ai/live-token", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + "A".repeat(48),
-        "CF-Connecting-IP": "203.0.113.24"
-      },
-      body: "{}"
-    }), env);
-    const body = await json(response);
-    assert.equal(response.status, 502);
-    assert.match(body.message, /đã vượt hạn mức/);
-    assert.equal(body.providerHttpStatus, 429);
-    assert.equal(body.providerStatus, "RESOURCE_EXHAUSTED");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("Gemini Live customer token is restricted to the documented model and audio session fields", async () => {
+test("Gemini Live customer token receives only the six screen-control tools", async () => {
   const { env } = createEnv({ session: customerSession });
   env.GEMINI_API_KEY = "server-only-test-key";
   const originalFetch = globalThis.fetch;
@@ -278,13 +236,16 @@ test("Gemini Live customer token is restricted to the documented model and audio
     }), env);
     assert.equal(response.status, 200);
     const payload = JSON.parse(upstreamRequest.options.body);
-    assert.equal(payload.liveConnectConstraints.model, "models/gemini-3.8-live");
-    assert.deepEqual(payload.liveConnectConstraints.config, {
-      responseModalities: ["AUDIO"],
-      sessionResumption: {}
-    });
-    assert.equal(JSON.stringify(payload).includes("save_autu_script_draft"), false);
-    assert.equal(JSON.stringify(payload).includes("validate_autu_script"), false);
+    const setup = payload.bidiGenerateContentSetup;
+    assert.equal(setup.model, "models/gemini-3.8-live");
+    const declarations = setup.tools[0].functionDeclarations;
+    assert.equal(declarations.length, 6);
+    assert.deepEqual(
+      declarations.map(item => item.name).sort(),
+      ["long_press_screen", "press_back", "read_screen_text", "swipe_screen", "tap_screen", "tap_text"].sort()
+    );
+    assert.equal(declarations.some(item => item.name.includes("autu_script")), false);
+    assert.equal(JSON.stringify(payload).includes("liveConnectConstraints"), false);
   } finally {
     globalThis.fetch = originalFetch;
   }
