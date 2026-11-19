@@ -489,6 +489,7 @@ private fun GeminiLiveScreen(
 internal class GeminiLiveController(
     private val callbacks: Callbacks,
     private val serverSetupTemplate: JSONObject,
+    private val screenFrameProvider: () -> ByteArray?,
     private val scriptWorkspace: GeminiAutuScriptWorkspace? = null
 ) {
     interface Callbacks {
@@ -1009,8 +1010,7 @@ internal class GeminiLiveController(
         frameScheduler = scheduler
         scheduler.scheduleWithFixedDelay({
             if (!active.get() || !ready.get() || toolPending.get()) return@scheduleWithFixedDelay
-            val service = AutoClickAccessibilityService.current() ?: return@scheduleWithFixedDelay
-            val jpeg = service.captureScreenJpegForLive() ?: return@scheduleWithFixedDelay
+            val jpeg = screenFrameProvider() ?: return@scheduleWithFixedDelay
             val payload = JSONObject().put(
                 "realtimeInput",
                 JSONObject().put(
