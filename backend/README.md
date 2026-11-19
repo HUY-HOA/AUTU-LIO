@@ -2,6 +2,8 @@
 
 Cloudflare Worker + D1 backend for one Android APK with server-verified account roles. Firebase is not used.
 
+**Current rollout scope:** only OWNER and CUSTOMER accounts are being used. The collaboration roles and invitation/project workflow remain in the source for a later phase; do not onboard AUTU writers yet.
+
 ## Current implementation
 
 - Google ID token signature validation against Google's published signing keys.
@@ -35,7 +37,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001`–`0005` are applied to the remote `autu_lio_auth` D1 database (20 application tables). The Worker `autu-lio-auth-api` was deployed on 19 November 2026 and its workers.dev endpoint is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. The D1 binding and authentication rate-limit bindings are configured on the Worker. The Google Web Client ID and package master key are configured as Worker secrets; the Android OAuth Client ID is configured in `GOOGLE_ALLOWED_AZP`. `OWNER_GOOGLE_SUB` is still missing, so no account can yet be provisioned as OWNER. Keep every SQL migration in source control as the schema history.
+Migrations `0001`–`0005` are applied to the remote `autu_lio_auth` D1 database (20 application tables). The Worker `autu-lio-auth-api` was deployed on 19 November 2026 and its workers.dev endpoint is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. The D1 binding and authentication rate-limit bindings are configured on the Worker. The Google Web Client ID, `OWNER_GOOGLE_SUB` and package master key are configured as Worker secrets; the Android OAuth Client ID is configured in `GOOGLE_ALLOWED_AZP`. The owner account has completed Google sign-in and is stored as the single active OWNER in D1. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
@@ -62,12 +64,12 @@ From this directory:
 1. Install Wrangler locally as a development dependency using the official current Wrangler release.
 2. Run `npx wrangler types` after reviewing the D1 binding in `wrangler.jsonc`.
 3. Run `npm run check`.
-4. Set `GOOGLE_CLIENT_ID` and `OWNER_GOOGLE_SUB` with `npx wrangler secret put` after verifying the OAuth client and copying only the owner's verified `sub` claim. Never use an email address as the OWNER identifier.
-5. Generate a separate 32-byte random package master key and set it with npx wrangler secret put PACKAGE_MASTER_KEY_V1. Do not use a password or reuse the Android signing key.
+4. Confirm the Production secrets `GOOGLE_CLIENT_ID` and `OWNER_GOOGLE_SUB` are present. Never use an email address as the OWNER identifier. Do not rotate or replace the owner `sub` without an explicit owner-account migration plan.
+5. Confirm `PACKAGE_MASTER_KEY_V1` is present. Do not replace it while published packages still depend on it; follow the key-rotation procedure below.
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
 
-The Worker source is deployed and the five D1 migrations are applied. Before owner sign-in can be completed, set the verified owner's exact Google OpenID Connect `sub` as the `OWNER_GOOGLE_SUB` Worker secret. Do not use an email address as the OWNER identifier. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. A new APK has not yet been built; the GitHub Actions workflow now passes this URL and the Web Client ID into both build variants.
+The Worker source is deployed and the five D1 migrations are applied. Production secrets and OAuth allowlist are configured; the owner has signed in successfully and D1 confirms exactly one active OWNER. Other Google accounts are assigned CUSTOMER by default. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`.
 
 ## API
 
