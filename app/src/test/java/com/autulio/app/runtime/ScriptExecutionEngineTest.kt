@@ -23,10 +23,10 @@ class ScriptExecutionEngineTest {
         try {
             val program = compile(
                 """
-                ĐẶT i = 0
+                ĐẶT I = 0
                 LẶP(3) {
-                    CHẠM(i, 20)
-                    i = i + 1
+                    CHẠM(I, 20)
+                    I = I + 1
                 }
                 """
             )
@@ -76,13 +76,13 @@ class ScriptExecutionEngineTest {
         try {
             val program = compile(
                 """
-                ĐẶT i = 0
-                LẶP_KHI (i < 10) {
-                    i = i + 1
-                    NẾU (i == 3) {
+                ĐẶT I = 0
+                LẶP_KHI (I < 10) {
+                    I = I + 1
+                    NẾU (I == 3) {
                         THOÁT_LẶP
                     }
-                    CHẠM(i, 20)
+                    CHẠM(I, 20)
                 }
                 """
             )
@@ -105,13 +105,13 @@ class ScriptExecutionEngineTest {
         try {
             val program = compile(
                 """
-                ĐẶT i = 0
+                ĐẶT I = 0
                 LẶP(3) {
-                    i = i + 1
-                    NẾU (i == 2) {
+                    I = I + 1
+                    NẾU (I == 2) {
                         BỎ_QUA_LƯỢT
                     }
-                    CHẠM(i, 30)
+                    CHẠM(I, 30)
                 }
                 """
             )
@@ -360,10 +360,10 @@ class ScriptExecutionEngineTest {
         try {
             val program = compile(
                 """
-                ĐẶT dem = 0
-                LẶP_ĐẾN_KHI(dem >= 3) {
-                    dem = dem + 1
-                    CHẠM(dem, 30)
+                ĐẶT DEM = 0
+                LẶP_ĐẾN_KHI(DEM >= 3) {
+                    DEM = DEM + 1
+                    CHẠM(DEM, 30)
                 }
                 """.trimIndent()
             )
