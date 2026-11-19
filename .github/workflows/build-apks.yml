@@ -66,7 +66,7 @@ jobs:
         id: signing
         shell: bash
         env:
-          REQUESTED_BUILD_VARIANT: ${{ inputs.build_variant }}
+          REQUESTED_BUILD_VARIANT: ${{ inputs.build_variant || 'release' }}
           AUTU_LIO_RELEASE_KEYSTORE_BASE64: ${{ secrets.AUTU_LIO_RELEASE_KEYSTORE_BASE64 }}
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
           AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
