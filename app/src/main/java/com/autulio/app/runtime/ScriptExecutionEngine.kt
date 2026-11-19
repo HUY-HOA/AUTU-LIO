@@ -1229,6 +1229,7 @@ class ScriptExecutionEngine(
                         "CHẠM" -> 2
                         "NHẤN_GIỮ" -> 3
                         "VUỐT" -> 5
+                        "CHẠM_ĐA_ĐIỂM", "VUỐT_ĐA_ĐIỂM" -> 2
                         "CHỜ", "MỞ_ỨNG_DỤNG" -> 1
                         "QUAY_LẠI", "VỀ_MÀN_HÌNH_CHÍNH",
                         "MỞ_ỨNG_DỤNG_GẦN_ĐÂY", "MỞ_THANH_THÔNG_BÁO", "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
