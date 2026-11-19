@@ -3,7 +3,7 @@ name: AUTU-LIO Android APK
 run-name: AUTU-LIO single APK build - ${{ github.ref_name }}
 
 on:
-  # Scoped build trigger; this update requests a signed Release build of the latest Gemini Live integration.
+  # Scoped build trigger; request a signed Release APK containing Gemini Live startup safeguards and diagnostics.
   push:
     paths:
       - ".github/workflows/build-apks.yml"
