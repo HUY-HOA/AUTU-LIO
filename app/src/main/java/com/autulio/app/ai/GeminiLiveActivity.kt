@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -82,11 +83,19 @@ import java.util.concurrent.atomic.AtomicBoolean
 class GeminiLiveActivity : ComponentActivity() {
     @Volatile
     private var activeController: GeminiLiveController? = null
+    var accessibilityReady by mutableStateOf(false)
+        private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val accessToken = intent.getStringExtra(EXTRA_ACCESS_TOKEN).orEmpty()
         setContent { GeminiLiveScreen(accessToken = accessToken, onBack = { finish() }) }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        accessibilityReady = AutoClickAccessibilityService.current() != null &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
     }
 
     internal fun attachController(controller: GeminiLiveController?) {
@@ -121,7 +130,7 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
     var connected by remember { mutableStateOf(false) }
     var allowActions by rememberSaveable { mutableStateOf(false) }
     var prompt by rememberSaveable { mutableStateOf("") }
-    var accessibilityReady by remember { mutableStateOf(AutoClickAccessibilityService.current() != null) }
+    val accessibilityReady = activity.accessibilityReady
     val transcripts = remember { mutableStateListOf<TranscriptLine>() }
     val controller = remember {
         GeminiLiveController(
@@ -357,7 +366,7 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
     }
 }
 
-private class GeminiLiveController(
+internal class GeminiLiveController(
     private val context: Activity,
     private val callbacks: Callbacks
 ) {
@@ -436,6 +445,8 @@ private class GeminiLiveController(
         runCatching { audioTrack?.pause() }
         runCatching { audioTrack?.flush() }
         runCatching { audioTrack?.stop() }
+        runCatching { audioTrack?.release() }
+        audioTrack = null
         socket?.close(1000, "User stopped Gemini Live")
         socket = null
         callbacks.onDisconnected()
@@ -620,6 +631,7 @@ private class GeminiLiveController(
                 fail("Không khởi tạo được bộ phát âm thanh.")
                 return
             }
+            runCatching { audioTrack?.release() }
             audioRecord = recorder
             audioTrack = player
             player.play()
@@ -707,6 +719,8 @@ private class GeminiLiveController(
         runCatching { audioTrack?.pause() }
         runCatching { audioTrack?.flush() }
         runCatching { audioTrack?.stop() }
+        runCatching { audioTrack?.release() }
+        audioTrack = null
         callbacks.onDisconnected()
     }
 
