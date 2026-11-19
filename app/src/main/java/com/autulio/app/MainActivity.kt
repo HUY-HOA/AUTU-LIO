@@ -785,6 +785,10 @@ private fun EditorScreen(
                         tr("5. Khi cửa sổ chạy xuất hiện, chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi. Có thể Tạm dừng, Tiếp tục, Dừng hoặc thu nhỏ bất cứ lúc nào.", "5. When the runner appears, switch to the target app and press Run on the floating window. You can pause, resume, stop or collapse it.")
                     )
                     Text(
+                        tr(
+                            "Văn bản chỉ đọc từ cây Android Accessibility mà ứng dụng đích công khai. AUTU-LIO không tích hợp OCR, nhận diện ảnh hoặc trợ lý AI.",
+                            "Text is read only from the target app's public Android Accessibility tree. AUTU-LIO does not include OCR, image recognition or an AI assistant."
+                        )
                     )
                 }
             },
