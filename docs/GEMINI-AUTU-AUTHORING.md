@@ -43,6 +43,12 @@ Giới hạn hiện tại: tên bản nháp tối đa 100 ký tự, tối đa 10
 - Bản nháp được lưu qua `SecureScriptDraftStore` với Android Keystore AES-GCM, namespace `admin`, trên thiết bị hiện tại. Nội dung bản nháp không được lưu vào Worker/D1 bởi các công cụ này.
 - Nếu chủ sở hữu tắt công tắc, các function call viết AUTU bị từ chối ở phía ứng dụng. Quyền điều khiển màn hình là công tắc riêng.
 
+## Dữ liệu bản nháp và quyền riêng tư
+
+Khi người dùng bật **Cho phép AI viết AUTU**, mã nguồn bản nháp được gửi cho Google Gemini trong phiên Live nếu AI cần đọc/chỉnh sửa; nội dung AUTU do AI tạo cũng được trả về từ Google. Kho lưu trữ sau thao tác vẫn là kho mã hóa trên thiết bị, không phải Worker/D1. Tuy vậy, nội dung đã truyền tới Google để xử lý không thể được xem là bí mật với Google và vẫn chịu điều khoản/chính sách dữ liệu của dịch vụ Google đang sử dụng.
+
+Âm thanh micro và ảnh màn hình cũng được gửi tới Gemini Live khi phiên hoạt động, theo thông báo trên màn hình Gemini Live. Không bật quyền viết AUTU nếu nội dung bản nháp không được phép gửi tới dịch vụ AI bên ngoài.
+
 ## Quy trình sử dụng
 
 1. Chủ sở hữu mở Gemini Live và bắt đầu phiên.
