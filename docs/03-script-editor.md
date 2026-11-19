@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.17
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.18
 
-**Phiên bản cú pháp:** `1.17`  
+**Phiên bản cú pháp:** `1.18`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -289,9 +289,17 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `ỨNG_DỤNG_ĐANG_MỞ("tên.gói")` | 1 | Kiểm tra gói đang ở foreground |
 | `CHIỀU_RỘNG_MÀN_HÌNH()` | 0 | Chiều rộng pixel |
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
+| `CHIỀU_RỘNG_DP()` / `CHIỀU_CAO_DP()` | 0 | Kích thước màn hình theo DP hiện tại |
+| `TỶ_LỆ_KHUNG_HÌNH()` | 0 | Tỷ lệ chiều rộng pixel / chiều cao pixel |
+| `HƯỚNG_MÀN_HÌNH()` | 0 | `NGANG`, `DỌC` hoặc `VUÔNG` |
+| `XOAY_MÀN_HÌNH()` | 0 | Chỉ số rotation Android 0–3 |
+| `GÓC_XOAY_MÀN_HÌNH()` | 0 | Góc xoay 0°, 90°, 180° hoặc 270° |
+| `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` | 0 | Package foreground gần nhất được gửi từ sự kiện Trợ năng |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.17 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm DP dùng density hiện tại; tỷ lệ khung hình và hướng được suy ra từ kích thước pixel thực. Chỉ số xoay 0–3 là rotation Android, góc xoay là 0°/90°/180°/270°. Package foreground chỉ có khi AccessibilityService nhận được sự kiện cửa sổ, nên có thể rỗng khi dịch vụ chưa bật hoặc chưa nhận sự kiện.
+ 
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.18 bổ sung dữ liệu hiển thị theo DP, hướng/xoay màn hình và package foreground.
 
 ## 8. Kết nối API qua HTTPS
 
