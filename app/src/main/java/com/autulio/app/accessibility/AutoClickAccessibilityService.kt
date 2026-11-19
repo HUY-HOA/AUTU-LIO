@@ -230,6 +230,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         return dispatchPath(path, durationMs)
     }
 
+    override fun multiTouch(paths: List<List<Int>>, durationMs: Int): Boolean =
+        dispatchMultiTouchPaths(paths, durationMs)
+
     override fun openApp(packageName: String): Boolean {
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return false
         return runCatching {
@@ -1339,6 +1342,30 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     }
 
+    private fun dispatchMultiTouchPaths(paths: List<List<Int>>, durationMs: Int): Boolean {
+        if (paths.size !in 2..5 || durationMs !in 1..ScriptCompiler.MAX_GESTURE_MS) return false
+        val metrics = readDisplayMetrics()
+        val gesturePaths = mutableListOf<Path>()
+        for (coordinates in paths) {
+            if (coordinates.size < 4 || coordinates.size % 2 != 0 ||
+                coordinates.size > ScriptCompiler.MAX_MULTI_TOUCH_PATH_POINTS * 2
+            ) return false
+            val points = coordinates.chunked(2)
+            if (points.any { pair ->
+                    pair.size != 2 || !insideDisplay(pair[0], pair[1], metrics)
+                }
+            ) return false
+            val path = Path().apply {
+                moveTo(points.first()[0].toFloat(), points.first()[1].toFloat())
+                points.drop(1).forEach { point ->
+                    lineTo(point[0].toFloat(), point[1].toFloat())
+                }
+            }
+            gesturePaths += path
+        }
+        return dispatchPaths(gesturePaths, durationMs)
+    }
+
     private fun dispatchPointGesture(x: Int, y: Int, durationMs: Int): Boolean {
         val metrics = readDisplayMetrics()
         if (!insideDisplay(x, y, metrics)) return false
@@ -1361,23 +1388,30 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         return metrics
     }
 
-    private fun dispatchPath(path: Path, durationMs: Int): Boolean {
-        if (Looper.myLooper() == Looper.getMainLooper()) return false
+    private fun dispatchPath(path: Path, durationMs: Int): Boolean =
+        dispatchPaths(listOf(path), durationMs)
+
+    private fun dispatchPaths(paths: List<Path>, durationMs: Int): Boolean {
+        if (Looper.myLooper() == Looper.getMainLooper() || paths.isEmpty() || paths.size > 5) {
+            return false
+        }
 
         val finished = CountDownLatch(1)
         val accepted = AtomicBoolean(false)
         val completed = AtomicBoolean(false)
 
         val posted = mainHandler.post {
-            val gesture = GestureDescription.Builder()
-                .addStroke(
+            val builder = GestureDescription.Builder()
+            paths.forEach { path ->
+                builder.addStroke(
                     GestureDescription.StrokeDescription(
                         path,
                         0L,
                         durationMs.toLong()
                     )
                 )
-                .build()
+            }
+            val gesture = builder.build()
 
             accepted.set(
                 dispatchGesture(
