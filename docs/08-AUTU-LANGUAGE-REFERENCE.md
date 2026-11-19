@@ -1,9 +1,9 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.8
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.9
 
-**Ngôn ngữ:** AUTU-LIO Script 1.8  
+**Ngôn ngữ:** AUTU-LIO Script 1.9  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
-Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.8; các tên cũ được giữ làm bí danh tương thích.
+Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.9; các tên cũ được giữ làm bí danh tương thích.
 
 ## 1. Kiểu dữ liệu
 
@@ -185,6 +185,17 @@ Mô hình gắn nhãn ảnh cơ bản nhận diện nhãn tổng quát, không p
 
 Các thao tác này chỉ tác động node mà ứng dụng đích công khai qua AccessibilityService. Nếu ứng dụng không cung cấp node, phần tử không bật, không thể nhấn/nhập hoặc nội dung nằm trong canvas/game, hàm sẽ trả về SAI/ danh sách rỗng. Không có cách bảo đảm mọi ứng dụng đều phơi bày cây giao diện.
 
+### Nhận diện vật thể và hộp giới hạn
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH | PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH() | Danh sách tối đa 5 bản đồ vật thể |
+| MÀN_HÌNH_CÓ_VẬT_THỂ | MÀN_HÌNH_CÓ_VẬT_THỂ("Food") | Kiểm tra nhãn phân loại có chứa từ khóa |
+| TÌM_TỌA_ĐỘ_VẬT_THỂ | TÌM_TỌA_ĐỘ_VẬT_THỂ("Food") | Trả về [X,Y] tâm hộp giới hạn đầu tiên khớp nhãn |
+| ĐẾM_VẬT_THỂ_MÀN_HÌNH | ĐẾM_VẬT_THỂ_MÀN_HÌNH() | Số vật thể phát hiện trong ảnh |
+
+Mỗi bản đồ vật thể gồm X, Y, RỘNG, CAO theo pixel ảnh chụp màn hình và NHÃN là danh sách bản đồ có TÊN, CHỈ_SỐ, ĐỘ_TIN_CẬY. Bộ nhận diện ảnh tĩnh bật phân loại và phát hiện nhiều vật thể, tối đa 5 vật thể. Phân loại mặc định chỉ đưa ra nhóm tổng quát như thời trang, thực phẩm, đồ gia dụng, địa điểm hoặc cây cối; không phải mô hình nhận diện tên cụ thể mọi vật thể. Không có tracking ID trong chế độ ảnh tĩnh. Kết quả phụ thuộc kích thước/vị trí vật thể, độ nét và cảnh ảnh.
+
 ## 9. Lệnh Android
 
 `CHẠM(X,Y)`, `NHẤN_GIỮ(X,Y,MS)`, `VUỐT(X1,Y1,X2,Y2,MS)`, `CHỜ(MS)`, `MỞ_ỨNG_DỤNG("TÊN_GÓI")`, `QUAY_LẠI()`, `VỀ_MÀN_HÌNH_CHÍNH()`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY()`, `MỞ_THANH_THÔNG_BÁO()`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH()`, `MỞ_HỘP_THOẠI_NGUỒN()`, `KHÓA_MÀN_HÌNH()`, `BẬT_TẮT_CHIA_MÀN_HÌNH()`.
@@ -225,6 +236,6 @@ Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_B
 
 ## 12. Chưa hỗ trợ
 
-AUTU Script 1.8 bổ sung JSON, giá trị RỖNG và cấu trúc danh sách/bản đồ lồng nhau có giới hạn. Các phần còn thiếu gồm nhận diện vật thể có hộp giới hạn, tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, đọc/ghi tệp, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
+AUTU Script 1.9 bổ sung nhận diện vật thể cơ bản có hộp giới hạn và nhãn phân loại tổng quát. Phần còn thiếu gồm tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, đọc/ghi tệp, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
