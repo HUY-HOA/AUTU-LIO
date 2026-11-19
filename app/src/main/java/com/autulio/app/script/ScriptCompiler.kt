@@ -203,6 +203,7 @@ object ScriptCompiler {
                     "*" -> left * right
                     "/" -> if (right == 0.0) null else left / right
                     "%" -> if (right == 0.0) null else left % right
+                    "^" -> Math.pow(left, right)
                     else -> null
                 }?.takeIf { it.isFinite() }
             }
@@ -318,7 +319,7 @@ object ScriptCompiler {
                 advance()
                 return
             }
-            if (current in "(){} ,;+-*/%=!<>^:") {
+            if (current in "(){} ,;+-*/%=<>^:") {
                 if (current == ';') tokens += Token(TokenType.SEMICOLON, ";", startLine, startColumn)
                 else if (current != ' ') tokens += Token(TokenType.SYMBOL, current.toString(), startLine, startColumn)
                 advance()
