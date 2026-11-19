@@ -1,6 +1,6 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.16
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.17
 
-**Ngôn ngữ:** AUTU-LIO Script 1.16  
+**Ngôn ngữ:** AUTU-LIO Script 1.17  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
 Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.11; các tên cũ được giữ làm bí danh tương thích.
@@ -330,13 +330,34 @@ CHẠM(X, Y)
 
 Tỷ lệ 0 ứng với pixel đầu tiên, tỷ lệ 1 ứng với pixel cuối cùng trên trục tương ứng. Các hàm đọc kích thước màn hình tại thời điểm được gọi nên có thể dùng lại cùng một kịch bản trên nhiều độ phân giải. Chúng không tự hiệu chỉnh status bar, navigation bar, vùng camera cutout hoặc vùng bị ứng dụng che; kết quả là hệ tọa độ màn hình mà AccessibilityService đang sử dụng.
 
+### Thao tác đa điểm và đa ngón
+
+| Lệnh | Cú pháp | Giới hạn |
+|---|---|---|
+| CHẠM_ĐA_ĐIỂM | CHẠM_ĐA_ĐIỂM(DANH_SÁCH_ĐIỂM, MS) | Chạm đồng thời từ 2 đến 5 điểm; mỗi điểm là [X, Y] |
+| VUỐT_ĐA_ĐIỂM | VUỐT_ĐA_ĐIỂM(DANH_SÁCH_ĐƯỜNG, MS) | Vuốt đồng thời từ 2 đến 5 đường; mỗi đường chứa 2–16 cặp X/Y |
+
+Ví dụ thu phóng hai ngón:
+
+```text
+VUỐT_ĐA_ĐIỂM(
+    TẠO_DANH_SÁCH(
+        TẠO_DANH_SÁCH(200, 400, 150, 350),
+        TẠO_DANH_SÁCH(400, 400, 450, 350)
+    ),
+    300
+)
+```
+
+Các đường bắt đầu cùng thời điểm và có cùng thời lượng. Tọa độ được kiểm tra theo giới hạn runtime rồi theo kích thước màn hình thực tế. Android/ứng dụng đích có thể hủy hoặc từ chối cử chỉ đa điểm; thiết bị và ứng dụng không hỗ trợ đa chạm sẽ không thực hiện được. Lệnh không mô phỏng phần cứng cảm ứng và không vượt qua giới hạn bảo mật Android.
+
 ## 12. Lệnh Android
 
 `CHẠM(X,Y)`, `NHẤN_GIỮ(X,Y,MS)`, `VUỐT(X1,Y1,X2,Y2,MS)`, `CHỜ(MS)`, `MỞ_ỨNG_DỤNG("TÊN_GÓI")`, `QUAY_LẠI()`, `VỀ_MÀN_HÌNH_CHÍNH()`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY()`, `MỞ_THANH_THÔNG_BÁO()`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH()`, `MỞ_HỘP_THOẠI_NGUỒN()`, `KHÓA_MÀN_HÌNH()`, `BẬT_TẮT_CHIA_MÀN_HÌNH()`.
 
 Các thao tác cần AccessibilityService hoạt động và chịu giới hạn Android. Tọa độ phải nằm trong màn hình thực tế; hành động bị Android từ chối sẽ làm runtime báo lỗi.
 
-## 13. Xử lý lỗi có cấu trúc
+## 14. Xử lý lỗi có cấu trúc
 
 Cú pháp:
 
@@ -353,7 +374,7 @@ THỬ {
 
 Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_BÁO". BẮT_LỖI bắt lỗi thực thi của kịch bản; không bắt lệnh dừng, thoát vòng lặp, bỏ qua lượt hoặc trả về hàm. LUÔN_THỰC_HIỆN luôn chạy khi rời khối THỬ, kể cả khi lỗi không được xử lý. Nếu LUÔN_THỰC_HIỆN phát sinh lỗi mới, lỗi mới được truyền ra ngoài. Có thể dùng THỬ với LUÔN_THỰC_HIỆN mà không có BẮT_LỖI.
 
-## 14. Giới hạn thực thi
+## 15. Giới hạn thực thi
 
 | Hạng mục | Giới hạn |
 |---|---:|
@@ -368,7 +389,7 @@ Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_B
 | Lượt thực thi | 5.000 |
 | Thời lượng tĩnh | 10 phút |
 
-## 15. Chưa hỗ trợ
+## 16. Chưa hỗ trợ
 
 AUTU Script 1.13 hiện có kho tệp riêng, HTTP(S) giới hạn, SQLite nội bộ, OCR màn hình/vùng, nhận diện nhãn ảnh, vật thể, QR/mã vạch và phân tích màu RGB lấy mẫu. Phần còn thiếu gồm nhập ảnh qua bộ chọn tệp/URI để OCR và nhận diện, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, đoạn tọa độ DP/tương đối cơ bản đã có; hiệu chỉnh vùng an toàn, kéo-thả/đa điểm, sự kiện và lịch nền, module dùng chung, regex/ngày giờ và debugger từng bước. Các phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
