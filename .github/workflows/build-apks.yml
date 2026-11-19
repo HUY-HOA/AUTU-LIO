@@ -1,6 +1,6 @@
 name: AUTU-LIO Android APK
 
-run-name: AUTU-LIO signed development APK - Gemini Live v1alpha - ${{ github.ref_name }}
+run-name: AUTU-LIO Release APK - canonical Gemini Live setup - ${{ github.ref_name }}
 
 on:
   push:
