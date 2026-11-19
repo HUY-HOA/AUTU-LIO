@@ -885,12 +885,15 @@ object ScriptCompiler {
             }
             return if (isSymbol("(")) {
                 advance()
+                skipArgumentNewlines()
                 val args = mutableListOf<ScriptExpression>()
                 if (!isSymbol(")")) {
                     while (true) {
                         args += parseExpression()
+                        skipArgumentNewlines()
                         if (!isSymbol(",")) break
                         advance()
+                        skipArgumentNewlines()
                     }
                 }
                 expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng hàm.", "Expected ')' after function arguments.")
@@ -908,6 +911,10 @@ object ScriptCompiler {
                 if (expected == null) functionCallTokens += token
                 ScriptExpression.FunctionCall(normalizedName, args)
             } else ScriptExpression.Variable(token.text)
+        }
+
+        private fun skipArgumentNewlines() {
+            while (current().type == TokenType.NEWLINE) advance()
         }
 
         private fun currentOperator(): String? {
