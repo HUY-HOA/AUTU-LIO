@@ -538,6 +538,100 @@ class ScriptExecutionEngine(
             requireArgs(name, args, 1)
             args[0]?.toString() ?: ""
         }
+        "CHỮ_HOA" -> {
+            requireArgs(name, args, 1)
+            (args[0] as? String)?.uppercase(Locale.ROOT)
+                ?: throw ScriptRuntimeFailure("invalid_argument", "CHỮ_HOA cần một chuỗi.")
+        }
+        "CHỮ_THƯỜNG" -> {
+            requireArgs(name, args, 1)
+            (args[0] as? String)?.lowercase(Locale.ROOT)
+                ?: throw ScriptRuntimeFailure("invalid_argument", "CHỮ_THƯỜNG cần một chuỗi.")
+        }
+        "CẮT_KHOẢNG_TRẮNG" -> {
+            requireArgs(name, args, 1)
+            (args[0] as? String)?.trim()
+                ?: throw ScriptRuntimeFailure("invalid_argument", "CẮT_KHOẢNG_TRẮNG cần một chuỗi.")
+        }
+        "CHỨA_CHUỖI" -> {
+            requireArgs(name, args, 2)
+            val source = args[0] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "CHỨA_CHUỖI cần chuỗi ở tham số đầu.")
+            val part = args[1] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "CHỨA_CHUỖI cần chuỗi ở tham số thứ hai.")
+            source.contains(part)
+        }
+        "BẮT_ĐẦU_BẰNG" -> {
+            requireArgs(name, args, 2)
+            val source = args[0] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "BẮT_ĐẦU_BẰNG cần chuỗi ở tham số đầu.")
+            val prefix = args[1] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "BẮT_ĐẦU_BẰNG cần chuỗi ở tham số thứ hai.")
+            source.startsWith(prefix)
+        }
+        "KẾT_THÚC_BẰNG" -> {
+            requireArgs(name, args, 2)
+            val source = args[0] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "KẾT_THÚC_BẰNG cần chuỗi ở tham số đầu.")
+            val suffix = args[1] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "KẾT_THÚC_BẰNG cần chuỗi ở tham số thứ hai.")
+            source.endsWith(suffix)
+        }
+        "THAY_THẾ" -> {
+            requireArgs(name, args, 3)
+            val source = args[0] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "THAY_THẾ cần chuỗi nguồn.")
+            val oldValue = args[1] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "THAY_THẾ cần chuỗi cần thay.")
+            val newValue = args[2] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "THAY_THẾ cần chuỗi thay thế.")
+            if (oldValue.isEmpty()) throw ScriptRuntimeFailure("empty_search_text", "Chuỗi cần thay không được để trống.")
+            source.replace(oldValue, newValue)
+        }
+        "TÁCH_CHUỖI" -> {
+            requireArgs(name, args, 2)
+            val source = args[0] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "TÁCH_CHUỖI cần chuỗi nguồn.")
+            val delimiter = args[1] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "TÁCH_CHUỖI cần chuỗi phân cách.")
+            if (delimiter.isEmpty()) throw ScriptRuntimeFailure("empty_delimiter", "Chuỗi phân cách không được để trống.")
+            val parts = source.split(delimiter)
+            if (parts.size > ScriptCompiler.MAX_LIST_ITEMS) {
+                throw ScriptRuntimeFailure("list_too_large", "Kết quả TÁCH_CHUỖI vượt quá ${ScriptCompiler.MAX_LIST_ITEMS} phần tử.")
+            }
+            parts.toMutableList()
+        }
+        "NỐI_CHUỖI" -> {
+            requireArgs(name, args, 2)
+            val values = args[0] as? List<*>
+                ?: throw ScriptRuntimeFailure("invalid_argument", "NỐI_CHUỖI cần danh sách chuỗi.")
+            val separator = args[1] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "NỐI_CHUỖI cần chuỗi phân cách.")
+            if (values.any { it !is String }) {
+                throw ScriptRuntimeFailure("invalid_list_item", "NỐI_CHUỖI chỉ nhận danh sách gồm chuỗi.")
+            }
+            values.joinToString(separator) { it as String }
+        }
+        "KÝ_TỰ_TẠI" -> {
+            requireArgs(name, args, 2)
+            val source = args[0] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "KÝ_TỰ_TẠI cần một chuỗi.")
+            val codePoints = source.codePoints().toArray()
+            val index = requireListIndex(args[1], codePoints.size, allowEnd = false)
+            String(codePoints, index, 1)
+        }
+        "CẮT_CHUỖI" -> {
+            requireArgs(name, args, 3)
+            val source = args[0] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "CẮT_CHUỖI cần một chuỗi.")
+            val codePoints = source.codePoints().toArray()
+            val start = requireInteger(args[1], "Vị trí bắt đầu phải là số nguyên.")
+            val length = requireInteger(args[2], "Độ dài cần cắt phải là số nguyên.")
+            if (start < 0 || length < 0 || start > codePoints.size || length > codePoints.size - start) {
+                throw ScriptRuntimeFailure("string_range", "Vị trí hoặc độ dài CẮT_CHUỖI nằm ngoài chuỗi.")
+            }
+            String(codePoints, start, length)
+        }
         "LÀM_TRÒN" -> {
             requireArgs(name, args, 1)
             round(requireNumber(args[0], "LÀM_TRÒN cần một số."))
