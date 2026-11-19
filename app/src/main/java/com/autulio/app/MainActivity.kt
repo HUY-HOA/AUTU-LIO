@@ -708,6 +708,9 @@ private fun EditorScreen(
                     Text("LẶP_ĐẾN_KHI(SO_LAN >= 10) { ... }")
                     Text("ĐẶT DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20, 30)")
                     Text("LẶP_MỖI (PHAN_TU TRONG DANH_SÁCH) { CHẠM(PHAN_TU, 400) }")
+                    Text("ĐẶT CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ(\"TEN\", \"AUTU-LIO\", \"SO\", 3)")
+                    Text("ĐẶT_GIÁ_TRỊ(CAU_HINH, \"SO\", 4) · LẤY_GIÁ_TRỊ(CAU_HINH, \"SO\")")
+                    Text("CÓ_KHÓA(CAU_HINH, \"SO\") · XÓA_KHÓA(CAU_HINH, \"SO\") · DANH_SÁCH_KHÓA(CAU_HINH)")
                     Text("CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ(\"com.example.game\"), 15000, 250)")
                     Text("THOÁT_LẶP  ·  BỎ_QUA_LƯỢT")
                     Text("ĐỊNH_NGHĨA_HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ { TRẢ_VỀ A + B }")
@@ -721,7 +724,7 @@ private fun EditorScreen(
                     Text("ỨNG_DỤNG_ĐÃ_CÀI(\"tên.gói\"), ỨNG_DỤNG_ĐANG_MỞ(\"tên.gói\")")
                     Text("CHIỀU_RỘNG_MÀN_HÌNH(), CHIỀU_CAO_MÀN_HÌNH(), THỜI_GIAN_MS()")
                     Text("Toán tử: +  -  *  /  %  ^  ==  !=  >  >=  <  <=  VÀ  HOẶC  KHÔNG")
-                    Text(tr("Danh sách chứa tối đa 64 phần tử kiểu số, chuỗi hoặc ĐÚNG/SAI; LẶP_MỖI duyệt theo bản sao an toàn của danh sách.", "Lists hold up to 64 numbers, strings or booleans; LẶP_MỖI iterates over a safe snapshot."))
+                    Text(tr("Danh sách chứa tối đa 64 phần tử; LẶP_MỖI duyệt bản sao an toàn. BẢN_ĐỒ chứa tối đa 64 cặp khóa–giá trị, khóa là CHUỖI không rỗng.", "Lists hold up to 64 items; LẶP_MỖI iterates a safe snapshot. BẢN_ĐỒ holds up to 64 key-value pairs with non-empty CHUỖI keys."))
                     Text(tr("Hàm tự định nghĩa phải viết HOA, khai báo ở cấp cao nhất; tối đa 16 tham số và 16 cấp gọi lồng nhau.", "User functions must be uppercase and declared at top level; up to 16 parameters and 16 nested calls."))
                     Text(
                         tr("3. Nhấn Kiểm tra mã để tìm lỗi cú pháp. Chỉ khi mã hợp lệ mới chuẩn bị được cửa sổ chạy.", "3. Tap Check code to find syntax errors. Only valid code can be prepared for running.")
