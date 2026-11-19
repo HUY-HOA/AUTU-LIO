@@ -184,18 +184,7 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
     const newSessionExpiryMs = Date.parse(payload.newSessionExpireTime) - Date.now();
     assert.ok(expiryMs > 28 * 60 * 1000 && expiryMs <= 30 * 60 * 1000);
     assert.ok(newSessionExpiryMs > 0 && newSessionExpiryMs <= 60 * 1000);
-    const declarations = GEMINI_LIVE_AUTU_SCRIPT_TOOLS;
-    assert.equal(declarations.length, 5);
-    assert.deepEqual(
-      declarations.map(item => item.name).sort(),
-      [
-        "get_autu_script_reference",
-        "list_autu_script_drafts",
-        "read_autu_script_draft",
-        "validate_autu_script",
-        "save_autu_script_draft"
-      ].sort()
-    );
+    assert.deepEqual(Object.keys(constraints.config).sort(), ["responseModalities", "sessionResumption"].sort());
     assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
   } finally {
     globalThis.fetch = originalFetch;
