@@ -75,7 +75,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.8"
+    const val LANGUAGE_VERSION = "1.9"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -170,7 +170,11 @@ object ScriptCompiler {
         "NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH" to 0,
         "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" to 1,
         "QUÉT_MÃ_QR_MÀN_HÌNH" to 0,
-        "QUÉT_MÃ_VẠCH_MÀN_HÌNH" to 0
+        "QUÉT_MÃ_VẠCH_MÀN_HÌNH" to 0,
+        "PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH" to 0,
+        "MÀN_HÌNH_CÓ_VẬT_THỂ" to 1,
+        "TÌM_TỌA_ĐỘ_VẬT_THỂ" to 1,
+        "ĐẾM_VẬT_THỂ_MÀN_HÌNH" to 0
     )
 
     private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ")
