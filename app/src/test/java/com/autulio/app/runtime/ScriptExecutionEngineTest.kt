@@ -727,6 +727,42 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun runsSandboxedFileAndJsonStorageFunctions() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT NỘI_DUNG: CHUỖI = ĐỌC_TỆP("settings/config.txt")
+                GHI_TỆP("settings/config.txt", NỘI_DUNG + " updated")
+                NẾU (TỆP_TỒN_TẠI("settings/config.txt")) {
+                    ĐẶT CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
+                    GHI_JSON_TỆP("settings/backup.json", CẤU_HÌNH)
+                }
+                TẠO_THƯ_MỤC("settings/backup")
+                ĐẶT TỆP: DANH_SÁCH = LIỆT_KÊ_TỆP("settings")
+                XÓA_TỆP("settings/old.txt")
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(ScriptExecutionState.COMPLETED, engine.snapshot().state)
+            assertEquals(
+                listOf(
+                    "writeFile:settings/config.txt=AUTU-LIO updated",
+                    "writeJson:settings/backup.json"
+                ),
+                dispatcher.actions
+            )
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
@@ -850,6 +886,20 @@ class ScriptExecutionEngineTest {
                 "MÀN_HÌNH_CÓ_VẬT_THỂ" -> arguments.firstOrNull() == "Food"
                 "TÌM_TỌA_ĐỘ_VẬT_THỂ" -> listOf(30, 50)
                 "ĐẾM_VẬT_THỂ_MÀN_HÌNH" -> 1
+                "ĐỌC_TỆP" -> "AUTU-LIO"
+                "GHI_TỆP" -> {
+                    actions += "writeFile:${arguments.firstOrNull()}=${arguments.getOrNull(1)}"
+                    true
+                }
+                "TỆP_TỒN_TẠI" -> true
+                "XÓA_TỆP" -> true
+                "TẠO_THƯ_MỤC" -> true
+                "LIỆT_KÊ_TỆP" -> listOf("config.json", "state.txt")
+                "ĐỌC_JSON_TỆP" -> linkedMapOf("VALUE" to 7.0)
+                "GHI_JSON_TỆP" -> {
+                    actions += "writeJson:${arguments.firstOrNull()}"
+                    true
+                }
                 else -> name == "CÓ_MẠNG"
             }
         }
