@@ -416,12 +416,12 @@ class ScriptExecutionEngine(
             }
             "QUAY_LẠI" -> dispatcher.goBack()
             "VỀ_MÀN_HÌNH_CHÍNH" -> dispatcher.goHome()
-            "ỨNG_DỤNG_GẦN_ĐÂY" -> dispatcher.showRecents()
-            "MỞ_THÔNG_BÁO" -> dispatcher.showNotifications()
-            "MỞ_CÀI_ĐẶT_NHANH" -> dispatcher.showQuickSettings()
-            "HIỆN_MENU_NGUỒN" -> dispatcher.showPowerDialog()
+            "MỞ_ỨNG_DỤNG_GẦN_ĐÂY" -> dispatcher.showRecents()
+            "MỞ_THANH_THÔNG_BÁO" -> dispatcher.showNotifications()
+            "MỞ_BẢNG_CÀI_ĐẶT_NHANH" -> dispatcher.showQuickSettings()
+            "MỞ_HỘP_THOẠI_NGUỒN" -> dispatcher.showPowerDialog()
             "KHÓA_MÀN_HÌNH" -> dispatcher.lockScreen()
-            "CHIA_MÀN_HÌNH" -> dispatcher.toggleSplitScreen()
+            "BẬT_TẮT_CHIA_MÀN_HÌNH" -> dispatcher.toggleSplitScreen()
             else -> throw ScriptRuntimeFailure("unsupported_command", "Lệnh '" + instruction.name + "' chưa được hỗ trợ.")
         }
         if (!success) {
@@ -1014,8 +1014,8 @@ class ScriptExecutionEngine(
                         "VUỐT" -> 5
                         "CHỜ", "MỞ_ỨNG_DỤNG" -> 1
                         "QUAY_LẠI", "VỀ_MÀN_HÌNH_CHÍNH",
-                        "ỨNG_DỤNG_GẦN_ĐÂY", "MỞ_THÔNG_BÁO", "MỞ_CÀI_ĐẶT_NHANH",
-                        "HIỆN_MENU_NGUỒN", "KHÓA_MÀN_HÌNH", "CHIA_MÀN_HÌNH" -> 0
+                        "MỞ_ỨNG_DỤNG_GẦN_ĐÂY", "MỞ_THANH_THÔNG_BÁO", "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
+                        "MỞ_HỘP_THOẠI_NGUỒN", "KHÓA_MÀN_HÌNH", "BẬT_TẮT_CHIA_MÀN_HÌNH" -> 0
                         else -> return@all false
                     }
                     instruction.arguments.size == arity && instruction.arguments.all { validateExpression(it, 0) }
