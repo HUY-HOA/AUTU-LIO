@@ -68,18 +68,8 @@ private fun AutuLioAppEntry() {
             .getOrDefault(AccessRole.CUSTOMER)
         when (role) {
             AccessRole.OWNER -> AdminApp(accessToken = null, onLogout = { previewRole = null })
-            AccessRole.CUSTOMER -> CustomerApp(
+            else -> CustomerApp(
                 accessToken = null,
-                email = tr("Tài khoản xem thử", "Preview account"),
-                onLogout = { previewRole = null },
-                onRoleUpdated = {}
-            )
-            AccessRole.DEVELOPER,
-            AccessRole.DESIGNER,
-            AccessRole.REVIEWER -> CollaboratorWorkspace(
-                accessToken = "",
-                role = role,
-                permissions = role.defaultPermissions(),
                 email = tr("Tài khoản xem thử", "Preview account"),
                 onLogout = { previewRole = null }
             )
@@ -121,21 +111,6 @@ private fun RolePreviewChooser(
                     Icon(Icons.Outlined.AdminPanelSettings, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text(tr("Xem thử giao diện Chủ sở hữu", "Preview Owner interface"))
-                }
-                OutlinedButton(onClick = { onOpenRole(AccessRole.DEVELOPER) }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Outlined.Code, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(tr("Xem thử Nhà phát triển", "Preview Developer"))
-                }
-                OutlinedButton(onClick = { onOpenRole(AccessRole.DESIGNER) }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Outlined.Palette, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(tr("Xem thử Nhà thiết kế", "Preview Designer"))
-                }
-                OutlinedButton(onClick = { onOpenRole(AccessRole.REVIEWER) }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Outlined.FactCheck, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(tr("Xem thử Người kiểm duyệt", "Preview Reviewer"))
                 }
                 OutlinedButton(onClick = { onOpenRole(AccessRole.CUSTOMER) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Outlined.Person, contentDescription = null)
