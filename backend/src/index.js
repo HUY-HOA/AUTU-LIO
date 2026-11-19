@@ -1882,14 +1882,27 @@ async function createGeminiLiveToken(request, env, session) {
   const newSessionExpireTime = new Date(now + 60 * 1000).toISOString();
   // Google's ephemeral-token REST resource uses LiveConnectConfig under
   // liveConnectConstraints. Do not send the raw WebSocket setup-frame format here.
-  const liveConnectConstraints = {
+  // The currently deployed Gemini auth-token REST schema accepts
+  // bidiGenerateContentSetup inside AuthToken. The liveConnectConstraints
+  // sample in the guide is not accepted by the endpoint used by this project.
+  // With no fieldMask, this complete server-side setup is authoritative.
+  const bidiGenerateContentSetup = {
     model: GEMINI_LIVE_MODEL,
-    config: {
-      // Keep only the documented token-lock fields. System instructions, tools,
-      // transcription and context compression are supplied by the Android setup frame.
+    generationConfig: {
       responseModalities: ["AUDIO"],
-      sessionResumption: {}
-    }
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
+    },
+    inputAudioTranscription: {},
+    outputAudioTranscription: {},
+    contextWindowCompression: { slidingWindow: {} },
+    sessionResumption: {},
+    systemInstruction: { parts: [{ text: GEMINI_LIVE_SYSTEM_PROMPT }] },
+    tools: [{
+      functionDeclarations: [
+        ...GEMINI_LIVE_TOOLS.flatMap(group => group.functionDeclarations),
+        ...(session.role === "OWNER" ? GEMINI_LIVE_AUTU_SCRIPT_TOOLS : [])
+      ]
+    }]
   };
 
   let upstream;
@@ -1904,7 +1917,7 @@ async function createGeminiLiveToken(request, env, session) {
         uses: 1,
         expireTime,
         newSessionExpireTime,
-        liveConnectConstraints
+        bidiGenerateContentSetup
       })
     });
   } catch {
