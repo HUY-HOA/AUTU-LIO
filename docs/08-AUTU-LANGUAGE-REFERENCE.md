@@ -1,6 +1,6 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.15
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.16
 
-**Ngôn ngữ:** AUTU-LIO Script 1.15  
+**Ngôn ngữ:** AUTU-LIO Script 1.16  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
 Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.11; các tên cũ được giữ làm bí danh tương thích.
@@ -307,13 +307,36 @@ Cơ sở dữ liệu được lưu trong vùng riêng của AUTU-LIO; script kh�
 
 Giới hạn: câu SQL tối đa 8.192 ký tự; 64 tham số; kết quả tối đa 256 dòng, 64 cột và 1 MiB văn bản. Một ô văn bản hoặc tham số chuỗi tối đa 4.096 ký tự. SQLite không nhận tham số nhị phân, danh sách hoặc bản đồ. Đây là SQLite nội bộ của AUTU-LIO, không thay thế công cụ quản trị database tổng quát.
 
-## 11. Lệnh Android
+## 11. Tọa độ DP và tỷ lệ màn hình
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| MẬT_ĐỘ_MÀN_HÌNH | MẬT_ĐỘ_MÀN_HÌNH() | Hệ số density hiện tại của màn hình |
+| DP_SANG_PIXEL | DP_SANG_PIXEL(DP) | Đổi DP sang pixel theo density hiện tại, làm tròn số nguyên |
+| PIXEL_SANG_DP | PIXEL_SANG_DP(PIXEL) | Đổi pixel sang DP |
+| TỌA_ĐỘ_X_THEO_TỶ_LỆ | TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ) | Tỷ lệ 0–1 thành tọa độ X theo chiều rộng hiện tại |
+| TỌA_ĐỘ_Y_THEO_TỶ_LỆ | TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ) | Tỷ lệ 0–1 thành tọa độ Y theo chiều cao hiện tại |
+| TỶ_LỆ_X_THEO_TỌA_ĐỘ | TỶ_LỆ_X_THEO_TỌA_ĐỘ(X) | Đổi tọa độ X pixel sang tỷ lệ 0–1 |
+| TỶ_LỆ_Y_THEO_TỌA_ĐỘ | TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y) | Đổi tọa độ Y pixel sang tỷ lệ 0–1 |
+
+Ví dụ:
+
+```text
+ĐẶT X: SỐ = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.5)
+ĐẶT Y: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.75)
+CHẠM(X, Y)
+ĐẶT X_DP: SỐ = PIXEL_SANG_DP(X)
+```
+
+Tỷ lệ 0 ứng với pixel đầu tiên, tỷ lệ 1 ứng với pixel cuối cùng trên trục tương ứng. Các hàm đọc kích thước màn hình tại thời điểm được gọi nên có thể dùng lại cùng một kịch bản trên nhiều độ phân giải. Chúng không tự hiệu chỉnh status bar, navigation bar, vùng camera cutout hoặc vùng bị ứng dụng che; kết quả là hệ tọa độ màn hình mà AccessibilityService đang sử dụng.
+
+## 12. Lệnh Android
 
 `CHẠM(X,Y)`, `NHẤN_GIỮ(X,Y,MS)`, `VUỐT(X1,Y1,X2,Y2,MS)`, `CHỜ(MS)`, `MỞ_ỨNG_DỤNG("TÊN_GÓI")`, `QUAY_LẠI()`, `VỀ_MÀN_HÌNH_CHÍNH()`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY()`, `MỞ_THANH_THÔNG_BÁO()`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH()`, `MỞ_HỘP_THOẠI_NGUỒN()`, `KHÓA_MÀN_HÌNH()`, `BẬT_TẮT_CHIA_MÀN_HÌNH()`.
 
 Các thao tác cần AccessibilityService hoạt động và chịu giới hạn Android. Tọa độ phải nằm trong màn hình thực tế; hành động bị Android từ chối sẽ làm runtime báo lỗi.
 
-## 12. Xử lý lỗi có cấu trúc
+## 13. Xử lý lỗi có cấu trúc
 
 Cú pháp:
 
@@ -330,7 +353,7 @@ THỬ {
 
 Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_BÁO". BẮT_LỖI bắt lỗi thực thi của kịch bản; không bắt lệnh dừng, thoát vòng lặp, bỏ qua lượt hoặc trả về hàm. LUÔN_THỰC_HIỆN luôn chạy khi rời khối THỬ, kể cả khi lỗi không được xử lý. Nếu LUÔN_THỰC_HIỆN phát sinh lỗi mới, lỗi mới được truyền ra ngoài. Có thể dùng THỬ với LUÔN_THỰC_HIỆN mà không có BẮT_LỖI.
 
-## 13. Giới hạn thực thi
+## 14. Giới hạn thực thi
 
 | Hạng mục | Giới hạn |
 |---|---:|
@@ -345,8 +368,8 @@ Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_B
 | Lượt thực thi | 5.000 |
 | Thời lượng tĩnh | 10 phút |
 
-## 14. Chưa hỗ trợ
+## 15. Chưa hỗ trợ
 
-AUTU Script 1.13 hiện có kho tệp riêng, HTTP(S) giới hạn, SQLite nội bộ, OCR màn hình/vùng, nhận diện nhãn ảnh, vật thể, QR/mã vạch và phân tích màu RGB lấy mẫu. Phần còn thiếu gồm nhập ảnh qua bộ chọn tệp/URI để OCR và nhận diện, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, tọa độ DP/tương đối, kéo-thả/đa điểm, sự kiện và lịch nền, module dùng chung, regex/ngày giờ và debugger từng bước. Các phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
+AUTU Script 1.13 hiện có kho tệp riêng, HTTP(S) giới hạn, SQLite nội bộ, OCR màn hình/vùng, nhận diện nhãn ảnh, vật thể, QR/mã vạch và phân tích màu RGB lấy mẫu. Phần còn thiếu gồm nhập ảnh qua bộ chọn tệp/URI để OCR và nhận diện, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, đoạn tọa độ DP/tương đối cơ bản đã có; hiệu chỉnh vùng an toàn, kéo-thả/đa điểm, sự kiện và lịch nền, module dùng chung, regex/ngày giờ và debugger từng bước. Các phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
