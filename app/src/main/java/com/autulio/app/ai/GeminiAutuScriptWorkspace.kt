@@ -3,6 +3,7 @@ package com.autulio.app.ai
 import android.content.Context
 import com.autulio.app.SecureScriptDraftStore
 import com.autulio.app.script.ScriptCompiler
+import com.autulio.app.script.ScriptCompileResult
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -61,7 +62,7 @@ internal class GeminiAutuScriptWorkspace(context: Context) {
     private fun validate(args: JSONObject): JSONObject {
         val source = requireString(args, "source", ScriptCompiler.MAX_SOURCE_LENGTH)
         if (source.isBlank()) return failure("empty_source", "AUTU script source is empty.")
-        return compileResult(source)
+        return compileResult(ScriptCompiler.compile(source))
     }
 
     private fun save(args: JSONObject): JSONObject {
@@ -71,7 +72,7 @@ internal class GeminiAutuScriptWorkspace(context: Context) {
         if (source.isBlank()) return failure("empty_source", "AUTU script source is empty.")
 
         val compilation = ScriptCompiler.compile(source)
-        if (!compilation.isSuccess) return compileResult(source, compilation)
+        if (!compilation.isSuccess) return compileResult(compilation)
 
         val snapshot = store.load()
         val existingName = snapshot.names.firstOrNull { it.equals(requestedName, ignoreCase = true) }
@@ -98,11 +99,7 @@ internal class GeminiAutuScriptWorkspace(context: Context) {
             .put("published", false)
     }
 
-    private fun compileResult(
-        source: String,
-        existing: com.autulio.app.script.ScriptCompileResult? = null
-    ): JSONObject {
-        val compilation = existing ?: ScriptCompiler.compile(source)
+    private fun compileResult(compilation: ScriptCompileResult): JSONObject {
         val diagnostics = JSONArray()
         compilation.diagnostics.take(MAX_DIAGNOSTICS).forEach { diagnostic ->
             diagnostics.put(
@@ -140,7 +137,7 @@ internal class GeminiAutuScriptWorkspace(context: Context) {
     }
 
     private fun requireValidName(name: String) {
-        if (name.isBlank() || name.length > MAX_NAME_LENGTH || name.any(Char::isISOControl)) {
+        if (name.isBlank() || name.length > MAX_NAME_LENGTH || name.any { it.isISOControl() }) {
             throw IllegalArgumentException("Draft name must contain 1 to $MAX_NAME_LENGTH printable characters.")
         }
     }
