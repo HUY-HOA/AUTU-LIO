@@ -207,7 +207,7 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
         "validate_autu_script"
       ].sort()
     );
-    assert.match(payload.liveConnectConstraints.config.systemInstruction.parts[0].text, /Never access, request, generate, modify or publish AUTU-LIO application source code/);
+    assert.match(setup.systemInstruction.parts[0].text, /Never access, request, generate, modify or publish AUTU-LIO application source code/);
     assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
   } finally {
     globalThis.fetch = originalFetch;
