@@ -478,7 +478,7 @@ internal class GeminiLiveController(
         val token = sessionToken
         if (!active.get() || token.isNullOrBlank()) return
         val encodedToken = URLEncoder.encode(token, Charsets.UTF_8.name())
-        val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=$encodedToken"
+        val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=$encodedToken"
         val request = Request.Builder().url(url).build()
         val generation = synchronized(inputLock) {
             connectionGeneration += 1
@@ -841,7 +841,7 @@ internal class GeminiLiveController(
                         }
                     }
                 } catch (_: Exception) {
-                    if (active.get()) callbacks.onStatus("Microphone stream đã dừng.")
+                    if (active.get()) callbacks.onStatus("Luồng micro đã dừng.")
                 } finally {
                     runCatching { recorder.stop() }
                     recorder.release()
@@ -1049,8 +1049,7 @@ internal class GeminiLiveController(
                 )
             )
         )
-        val setup = JSONObject()
-            .put("model", "models/gemini-3.8-live")
+        val generationConfig = JSONObject()
             .put("responseModalities", JSONArray().put("AUDIO"))
             .put(
                 "speechConfig",
@@ -1062,6 +1061,9 @@ internal class GeminiLiveController(
                     )
                 )
             )
+        val setup = JSONObject()
+            .put("model", "models/gemini-3.8-live")
+            .put("generationConfig", generationConfig)
             .put("inputAudioTranscription", JSONObject())
             .put("outputAudioTranscription", JSONObject())
             .put("contextWindowCompression", JSONObject().put("slidingWindow", JSONObject()))
