@@ -1882,7 +1882,8 @@ async function createGeminiLiveToken(request, env, session) {
   const newSessionExpireTime = new Date(now + 60 * 1000).toISOString();
   // The Gemini Developer API wire format uses bidiGenerateContentSetup;
   // the SDK's liveConnectConstraints object is only a client-side abstraction.
-  // Auth-token provisioning and constrained Live WebSockets are v1alpha.
+  // Gemini 3.8 Live and the current Developer API auth-token/WebSocket
+  // endpoints use the same v1beta API version on both sides of the connection.
   const liveSetup = {
     model: GEMINI_LIVE_MODEL,
     generationConfig: {
