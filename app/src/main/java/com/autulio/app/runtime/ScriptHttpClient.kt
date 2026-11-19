@@ -77,7 +77,7 @@ class ScriptHttpClient(
             connection.readTimeout = timeoutMs
             connection.instanceFollowRedirects = false
             connection.useCaches = false
-            connection.setRequestProperty("Accept", safeHeaders["Accept"] ?: "application/json, text/plain, */*")
+            connection.setRequestProperty("Accept", safeHeaders.entries.firstOrNull { it.key.equals("Accept", ignoreCase = true) }?.value ?: "application/json, text/plain, */*")
             connection.setRequestProperty("Accept-Encoding", "identity")
             safeHeaders.forEach { (name, value) ->
                 if (!name.equals("Accept", ignoreCase = true) &&
@@ -101,7 +101,7 @@ class ScriptHttpClient(
             val responseStream = if (status >= HttpURLConnection.HTTP_BAD_REQUEST) {
                 connection.errorStream
             } else {
-                runCatching { connection.inputStream }.getOrNull() ?: connection.errorStream
+                connection.inputStream
             }
             val responseBytes = responseStream?.use { readLimited(it, maxResponseBytes) } ?: ByteArray(0)
             val charset = responseCharset(connection.contentType)
