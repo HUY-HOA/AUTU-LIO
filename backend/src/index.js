@@ -1,6 +1,7 @@
 const encoder = new TextEncoder();
 
 const GEMINI_LIVE_MODEL = "models/gemini-3.8-live";
+const GEMINI_LIVE_API_VERSION = "v1beta";
 const GEMINI_LIVE_SYSTEM_PROMPT = [
   "You are AUTU-LIO Gemini Live, an Android screen assistant.",
   "Observe the latest shared screen frame and listen to the user's spoken instructions.",
