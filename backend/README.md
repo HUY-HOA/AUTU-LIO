@@ -28,7 +28,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001`–`0006` are applied to the remote `autu_lio_auth` D1 database (20 application tables). The Worker `autu-lio-auth-api` was deployed on 19 November 2026 and its workers.dev endpoint is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. The D1 binding and authentication rate-limit bindings are configured on the Worker. The Google Web Client ID, `OWNER_GOOGLE_SUB` and package master key are configured as Worker secrets; the Android OAuth Client ID is configured in `GOOGLE_ALLOWED_AZP`. The owner account has completed Google sign-in and is stored as the single active OWNER in D1. Keep every SQL migration in source control as the schema history.
+Migrations `0001`–`0006` are applied to the remote `autu_lio_auth` D1 database. After migration `0006`, 10 application tables remain (excluding SQLite/D1 internal tables). The seven collaboration-related tables have been dropped. The Worker `autu-lio-auth-api` latest owner/customer-only version was deployed on 19 November 2026 at 21:52 UTC with 100% traffic and its workers.dev endpoint is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. The D1 binding and authentication rate-limit bindings are configured on the Worker. The Google Web Client ID, `OWNER_GOOGLE_SUB` and package master key are configured as Worker secrets; the Android OAuth Client ID is configured in `GOOGLE_ALLOWED_AZP`. The owner account has completed Google sign-in and is stored as the single active OWNER in D1. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
@@ -60,7 +60,7 @@ From this directory:
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
 
-The Worker source is deployed and the five D1 migrations are applied. Production secrets and OAuth allowlist are configured; the owner has signed in successfully and D1 confirms exactly one active OWNER. Other Google accounts are assigned CUSTOMER by default. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`.
+The Worker source is deployed and all six D1 migrations are applied. Production secrets and OAuth allowlist are configured; the owner has signed in successfully and D1 confirms exactly one active OWNER. Other Google accounts are assigned CUSTOMER by default. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`.
 
 ## API
 

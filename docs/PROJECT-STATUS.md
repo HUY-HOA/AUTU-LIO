@@ -16,11 +16,11 @@
 ## 2. Hạ tầng đã triển khai và xác nhận
 
 - Cloudflare Worker `autu-lio-auth-api` đã triển khai tại `https://autu-lio-auth-api.coc-lio-data.workers.dev`.
-- Cloudflare D1 `autu_lio_auth` cần áp dụng migration `0006_remove_collaboration_features.sql` để xóa bảng cộng tác và chuyển vai trò cũ về CUSTOMER.
+- Cloudflare D1 `autu_lio_auth` đã áp dụng migration `0006_remove_collaboration_features.sql`; 7 bảng cộng tác đã bị xóa, còn 10 bảng ứng dụng.
 - Worker có D1 binding, hai rate-limit bindings, Google Web Client ID, Android OAuth Client ID allowlist và package master key.
 - Secret `OWNER_GOOGLE_SUB` đã được cấu hình trong Production và Worker đã triển khai phiên bản mới.
 - Đăng nhập Google trên thiết bị đã thành công. Truy vấn D1 xác nhận tài khoản chủ sở hữu có `role=OWNER`, `status=ACTIVE`.
-- Tài khoản OWNER từng đăng nhập thành công trước thay đổi hiện tại; cần kiểm tra lại sau khi deploy Worker mới.
+- D1 hiện có đúng một tài khoản OWNER và một CUSTOMER; chưa kiểm thử lại đăng nhập trên điện thoại sau lần deploy Worker mới nhất.
 
 ## 3. Mã nguồn chức năng hiện có
 
@@ -35,6 +35,7 @@
 - Runtime chạy trên luồng riêng; có trạng thái chạy, tạm dừng, tiếp tục, dừng, hủy và lỗi.
 - Accessibility Service phát gesture Android, gọi hành động hệ thống được hỗ trợ và tạo cửa sổ điều khiển nổi.
 - ML Kit được bật trong mọi Android build: OCR, QR/mã vạch, nhãn ảnh và phát hiện vật thể chạy cục bộ; không có Gemini.
+- Android source checks và Worker checks đều xanh trên mã nguồn mới nhất đã kiểm tra.
 - Unit tests hiện có cho parser/compiler và runtime; CI chạy unit tests và lint.
 - Mã nguồn có tính năng không đồng nghĩa đã nghiệm thu trên thiết bị thật. Cần kiểm tra độ chính xác gesture, vòng đời service, quyền Trợ năng, overlay và khả năng dừng trong các tình huống thực tế.
 

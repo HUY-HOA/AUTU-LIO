@@ -9,7 +9,7 @@
 - Session bearer token được lưu dưới dạng mã hóa AES-GCM bằng khóa Android Keystore. Chỉ lưu token session, không lưu Google ID token.
 - Mỗi lần mở app, ứng dụng hỏi máy chủ `/api/auth/me`; UI role chỉ mở sau khi máy chủ xác minh phiên.
 
-Luồng Android và Worker đã được triển khai. Worker URL: `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Google Web Client ID, Android Client ID allowlist, `OWNER_GOOGLE_SUB` và package master key đã được cấu hình. Worker chỉ cấp OWNER cho Google `sub` khớp secret này; tài khoản khác nhận CUSTOMER. Sau khi deploy Worker cập nhật cần kiểm thử lại đăng nhập và quyền trên thiết bị.
+Luồng Android và Worker đã được triển khai. Worker URL: `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Google Web Client ID, Android Client ID allowlist, các Worker secret cần thiết và package master key đã có binding. Worker chỉ cấp OWNER cho Google `sub` khớp `OWNER_GOOGLE_SUB`; tài khoản khác nhận CUSTOMER. Phiên bản Worker mới nhất đã được triển khai sau khi gỡ API cộng tác.
 
 ## 2. Google Cloud Console
 
@@ -71,8 +71,8 @@ Trước khi deploy:
 1. Xác nhận `GOOGLE_CLIENT_ID` và `OWNER_GOOGLE_SUB` đã được cấu hình an toàn.
 2. Kiểm tra binding D1 `autu_lio_auth` trong `backend/wrangler.jsonc`.
 3. Cài Wrangler theo phiên bản ổn định phù hợp và chạy `npm run check`.
-4. D1 `autu_lio_auth` đã áp dụng migrations `0001`–`0005`; cần áp dụng migration `0006` để xóa các bảng cộng tác đã ngừng sử dụng.
-5. Deploy Worker, gọi `GET /health`, xác nhận database và cấu hình Google đều báo sẵn sàng.
+4. D1 `autu_lio_auth` đã áp dụng migrations `0001`–`0006`; migration `0006` đã xóa các bảng cộng tác và chuyển mọi vai trò cũ khác OWNER/CUSTOMER về CUSTOMER.
+5. Worker phiên bản hiện tại đã deploy 100% lưu lượng; sau các lần chỉnh sửa tiếp theo, deploy rồi kiểm tra `GET /health`.
 6. Kiểm thử đăng nhập OWNER và CUSTOMER; Google account khác OWNER chỉ nhận CUSTOMER.
 
 Không deploy Auth API trước khi hoàn tất cấu hình OAuth và xác nhận Google `sub` của chủ sở hữu. Không tự ý thay thế Google `sub` của chủ sở hữu bằng email GitHub.
@@ -86,8 +86,6 @@ AUTU-LIO chỉ còn OWNER và CUSTOMER. Vai trò Developer/Designer/Reviewer, l�
 
 ## 7. Phạm vi chưa hoàn tất
 
-- Worker đã deploy tại `https://autu-lio-auth-api.coc-lio-data.workers.dev`; `workers.dev` đã được bật. Còn thiếu `OWNER_GOOGLE_SUB` và kiểm thử đăng nhập thực tế.
-- Chưa thử đăng nhập thực trên điện thoại.
-- Các API mời cộng tác, project workspace và review submission đã bị gỡ khỏi phạm vi.
-- `AUTU_LIO_AUTH_API_BASE_URL` và `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID` hiện chưa được đặt trong môi trường build; để trống sẽ khóa đăng nhập có chủ đích.
+- Worker phiên bản 17 đã được triển khai 100% lưu lượng; các secret Google và khóa package vẫn còn binding. Cần kiểm thử đăng nhập trên điện thoại với bản APK mới.
+- Chưa kiểm thử lại đăng nhập thực tế trên điện thoại sau lần deploy Worker mới nhất.
 - Cần nghiệm thu runtime AutoClick, cấp phép và đăng ký thiết bị trên thiết bị thật.

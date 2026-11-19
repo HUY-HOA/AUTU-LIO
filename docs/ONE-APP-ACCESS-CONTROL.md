@@ -31,7 +31,7 @@ OWNER là vai trò duy nhất được quản lý khách hàng, license, thiết
 
 ## Những chức năng đã loại khỏi phạm vi hiện tại
 
-Đã xóa khỏi Android và Worker; migration D1 `0006` dọn các bảng dữ liệu liên quan:
+Đã xóa khỏi Android và Worker; migration D1 `0006` đã áp dụng lên database và xóa các bảng dữ liệu liên quan:
 - Vai trò Developer, Designer và Reviewer.
 - Lời mời, chấp nhận/hủy lời mời và quản lý cộng tác viên.
 - Permission override theo từng cộng tác viên.
