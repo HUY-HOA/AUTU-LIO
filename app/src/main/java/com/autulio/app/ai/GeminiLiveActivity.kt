@@ -314,7 +314,7 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
                         Column(Modifier.weight(1f)) {
                             Text("Cho phép AI điều khiển", fontWeight = FontWeight.SemiBold)
                             Text(
-                                "Tắt: chỉ quan sát và trả lời. Bật: cho phép chạm, vuốt, nhấn giữ và quay lại.",
+                                "Tắt: chỉ quan sát, đọc nhãn giao diện và trả lời. Bật: cho phép chạm, vuốt, nhấn giữ, chạm theo nhãn chữ và quay lại.",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
