@@ -830,7 +830,7 @@ class ScriptExecutionEngine(
                                 parameter.name == parameter.name.uppercase(Locale.ROOT) &&
                                 (parameter.declaredType == null || parameter.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẤT_KỲ"))
                         } &&
-                        (instruction.returnType == null || instruction.returnType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "BẤT_KỲ")) &&
+                        (instruction.returnType == null || instruction.returnType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẤT_KỲ")) &&
                         validateBlock(instruction.body, depth + 1, 0, true)
                 is ScriptInstruction.Return ->
                     inFunction && validateExpression(instruction.value, 0)
@@ -852,7 +852,7 @@ class ScriptExecutionEngine(
                         instruction.name == instruction.name.uppercase(Locale.ROOT) &&
                         instruction.name.first().let { it.isLetter() || it == '_' } &&
                         instruction.name.all { it.isLetterOrDigit() || it == '_' } &&
-                        (instruction.declaredType == null || instruction.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "BẤT_KỲ")) &&
+                        (instruction.declaredType == null || instruction.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẤT_KỲ")) &&
                         validateExpression(instruction.value, 0)
                 is ScriptInstruction.If ->
                     validateExpression(instruction.condition, 0) &&
@@ -868,6 +868,13 @@ class ScriptExecutionEngine(
                     validateExpression(instruction.condition, 0) &&
                         validateExpression(instruction.timeoutMs, 0) &&
                         validateExpression(instruction.intervalMs, 0)
+                is ScriptInstruction.ForEach ->
+                    loopDepth < ScriptCompiler.MAX_NESTING_DEPTH &&
+                        instruction.variableName.isNotBlank() &&
+                        instruction.variableName == instruction.variableName.uppercase(Locale.ROOT) &&
+                        instruction.variableName.all { it.isLetterOrDigit() || it == '_' } &&
+                        validateExpression(instruction.iterable, 0) &&
+                        validateBlock(instruction.body, depth + 1, loopDepth + 1, inFunction)
                 ScriptInstruction.BreakLoop, ScriptInstruction.ContinueLoop -> loopDepth > 0
             }
         }
@@ -883,7 +890,7 @@ class ScriptExecutionEngine(
             is ScriptExpression.Unary -> expression.operator in setOf("KHÔNG", "+", "-") && validateExpression(expression.operand, depth + 1)
             is ScriptExpression.Binary -> expression.operator in setOf("VÀ", "HOẶC", "==", "!=", ">", ">=", "<", "<=", "+", "-", "*", "/", "%", "^") &&
                 validateExpression(expression.left, depth + 1) && validateExpression(expression.right, depth + 1)
-            is ScriptExpression.FunctionCall -> expression.name.isNotBlank() && expression.arguments.size <= 16 &&
+            is ScriptExpression.FunctionCall -> expression.name.isNotBlank() && expression.arguments.size <= ScriptCompiler.MAX_LIST_ITEMS &&
                 expression.arguments.all { validateExpression(it, depth + 1) }
         }
     }
