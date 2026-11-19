@@ -1,6 +1,6 @@
 # AUTU-LIO — Trạng thái phát triển ứng dụng Android
 
-**Cập nhật:** 19/11/2026  
+**Cập nhật:** 20/11/2026  
 **Repository:** `HUY-HOA/AUTU-LIO`  
 **Nhánh tích hợp:** `main`
 
@@ -10,17 +10,17 @@
 - Không có website, web dashboard, web app hoặc web preview.
 - `backend/` là Cloudflare Worker REST API phục vụ ứng dụng Android; đây không phải giao diện web.
 - Phạm vi vận hành hiện tại chỉ gồm **OWNER** và **CUSTOMER**. Chỉ tài khoản Google đã xác minh theo secret `OWNER_GOOGLE_SUB` được bootstrap thành OWNER; tài khoản Google khác mặc định là CUSTOMER.
-- Quy trình Collaboration invitations and shared workspaces have been removed from the current scope.
+- Chỉ hỗ trợ OWNER/CUSTOMER; không còn lời mời, cộng tác viên, shared workspace hoặc review submission.
 - Debug và Release dùng cùng luồng xác thực; không cấp quyền bằng bộ chọn vai trò cục bộ.
 
 ## 2. Hạ tầng đã triển khai và xác nhận
 
 - Cloudflare Worker `autu-lio-auth-api` đã triển khai tại `https://autu-lio-auth-api.coc-lio-data.workers.dev`.
-- Cloudflare D1 `autu_lio_auth` có 20 bảng ứng dụng; migrations `0001`–`0005` đã áp dụng.
+- Cloudflare D1 `autu_lio_auth` cần áp dụng migration `0006_remove_collaboration_features.sql` để xóa bảng cộng tác và chuyển vai trò cũ về CUSTOMER.
 - Worker có D1 binding, hai rate-limit bindings, Google Web Client ID, Android OAuth Client ID allowlist và package master key.
 - Secret `OWNER_GOOGLE_SUB` đã được cấu hình trong Production và Worker đã triển khai phiên bản mới.
 - Đăng nhập Google trên thiết bị đã thành công. Truy vấn D1 xác nhận tài khoản chủ sở hữu có `role=OWNER`, `status=ACTIVE`.
-- Dữ liệu D1 tại lần rà soát gần nhất: có một tài khoản OWNER; chưa có khách hàng, thiết bị, giấy phép, package hoặc dự án. Các số 0 ở Admin Studio phản ánh dữ liệu chưa phát sinh, không phải lỗi xác thực.
+- Tài khoản OWNER từng đăng nhập thành công trước thay đổi hiện tại; cần kiểm tra lại sau khi deploy Worker mới.
 
 ## 3. Mã nguồn chức năng hiện có
 
@@ -34,6 +34,7 @@
 - Parser/compiler tạo AST, báo lỗi theo dòng/cột; có giới hạn mã nguồn, số lệnh và thời lượng.
 - Runtime chạy trên luồng riêng; có trạng thái chạy, tạm dừng, tiếp tục, dừng, hủy và lỗi.
 - Accessibility Service phát gesture Android, gọi hành động hệ thống được hỗ trợ và tạo cửa sổ điều khiển nổi.
+- ML Kit được bật trong mọi Android build: OCR, QR/mã vạch, nhãn ảnh và phát hiện vật thể chạy cục bộ; không có Gemini.
 - Unit tests hiện có cho parser/compiler và runtime; CI chạy unit tests và lint.
 - Mã nguồn có tính năng không đồng nghĩa đã nghiệm thu trên thiết bị thật. Cần kiểm tra độ chính xác gesture, vòng đời service, quyền Trợ năng, overlay và khả năng dừng trong các tình huống thực tế.
 

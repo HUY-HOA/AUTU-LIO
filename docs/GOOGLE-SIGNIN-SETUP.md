@@ -9,7 +9,7 @@
 - Session bearer token được lưu dưới dạng mã hóa AES-GCM bằng khóa Android Keystore. Chỉ lưu token session, không lưu Google ID token.
 - Mỗi lần mở app, ứng dụng hỏi máy chủ `/api/auth/me`; UI role chỉ mở sau khi máy chủ xác minh phiên.
 
-Luồng Android và Worker đã được triển khai. Worker URL: `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Google Web Client ID, Android Client ID allowlist và package master key đã được cấu hình. Còn thiếu `OWNER_GOOGLE_SUB` của tài khoản chủ sở hữu; đến khi secret này được đặt, tài khoản đăng nhập không được cấp vai trò OWNER. Chưa build APK mới hoặc kiểm thử đăng nhập trên thiết bị.
+Luồng Android và Worker đã được triển khai. Worker URL: `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Google Web Client ID, Android Client ID allowlist, `OWNER_GOOGLE_SUB` và package master key đã được cấu hình. Worker chỉ cấp OWNER cho Google `sub` khớp secret này; tài khoản khác nhận CUSTOMER. Sau khi deploy Worker cập nhật cần kiểm thử lại đăng nhập và quyền trên thiết bị.
 
 ## 2. Google Cloud Console
 
@@ -71,28 +71,23 @@ Trước khi deploy:
 1. Xác nhận `GOOGLE_CLIENT_ID` và `OWNER_GOOGLE_SUB` đã được cấu hình an toàn.
 2. Kiểm tra binding D1 `autu_lio_auth` trong `backend/wrangler.jsonc`.
 3. Cài Wrangler theo phiên bản ổn định phù hợp và chạy `npm run check`.
-4. D1 `autu_lio_auth` hiện có 20 bảng và đã áp dụng migrations `0001`–`0005` trên database từ xa.
+4. D1 `autu_lio_auth` đã áp dụng migrations `0001`–`0005`; cần áp dụng migration `0006` để xóa các bảng cộng tác đã ngừng sử dụng.
 5. Deploy Worker, gọi `GET /health`, xác nhận database và cấu hình Google đều báo sẵn sàng.
-6. Kiểm thử đăng nhập bằng tài khoản chủ sở hữu trước khi mời tài khoản khác.
+6. Kiểm thử đăng nhập OWNER và CUSTOMER; Google account khác OWNER chỉ nhận CUSTOMER.
 
 Không deploy Auth API trước khi hoàn tất cấu hình OAuth và xác nhận Google `sub` của chủ sở hữu. Không tự ý thay thế Google `sub` của chủ sở hữu bằng email GitHub.
 
 ## 6. Kiểm tra quyền
 
-- OWNER: được mở Admin Studio và quản lý cộng tác viên.
-- DEVELOPER: chỉ mở không gian viết mã / bản nháp.
-- DESIGNER: chỉ mở không gian thiết kế và xem trước.
-- REVIEWER: chỉ mở hàng chờ kiểm duyệt.
-- CUSTOMER: chỉ mở AutoClick và kịch bản được cấp phép.
+- OWNER: mở Admin Studio, quản lý khách hàng, giấy phép, thiết bị và gói AUTU.
+- CUSTOMER: dùng AutoClick và package đã được cấp phép.
 
-Màn hình mời/quản lý cộng tác viên và workspace dự án đã được nối với API trong mã Android. Chủ sở hữu tạo dự án, phân công cộng tác viên; Developer lưu script, Designer lưu UI draft và Reviewer kiểm duyệt snapshot. Các màn hình này chưa thể hoạt động trực tuyến cho tới khi Worker deploy và Android được cấu hình Auth API URL + Server Client ID. Bản xem thử Debug không cấp quyền thật.
+AUTU-LIO chỉ còn OWNER và CUSTOMER. Vai trò Developer/Designer/Reviewer, lời mời, cộng tác viên, dự án dùng chung và review đã bị gỡ khỏi app và Worker.
 
 ## 7. Phạm vi chưa hoàn tất
 
-- Chưa có Google OAuth Client IDs.
-- Chưa có `OWNER_GOOGLE_SUB` được cấu hình trong Cloudflare Worker Secret.
 - Worker đã deploy tại `https://autu-lio-auth-api.coc-lio-data.workers.dev`; `workers.dev` đã được bật. Còn thiếu `OWNER_GOOGLE_SUB` và kiểm thử đăng nhập thực tế.
 - Chưa thử đăng nhập thực trên điện thoại.
-- Màn hình Android đã nối API quản lý cộng tác viên, thu hồi lời mời, chấp nhận mã, quản lý dự án, lưu script/UI draft và duyệt submission; chưa thể dùng trực tuyến cho tới khi Worker deploy và secrets Google được cấu hình.
+- Các API mời cộng tác, project workspace và review submission đã bị gỡ khỏi phạm vi.
 - `AUTU_LIO_AUTH_API_BASE_URL` và `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID` hiện chưa được đặt trong môi trường build; để trống sẽ khóa đăng nhập có chủ đích.
-- Chưa có runtime AutoClick thật, cấp phép thật hoặc tự động gửi email lời mời.
+- Cần nghiệm thu runtime AutoClick, cấp phép và đăng ký thiết bị trên thiết bị thật.
