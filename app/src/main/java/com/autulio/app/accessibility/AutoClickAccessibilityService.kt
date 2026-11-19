@@ -72,6 +72,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         private const val TAP_DURATION_MS = 80
         private const val GESTURE_TIMEOUT_GRACE_MS = 3_000L
+        private const val MAX_SCREEN_COLOR_SAMPLES = 262_144
+        private const val MAX_REGION_COLOR_SAMPLES = 65_536
 
         fun current(): AutoClickAccessibilityService? = activeInstance
     }
@@ -336,6 +338,60 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 5)
                 val query = requireTextArgument(name, arguments[0])
                 findTextInScreenRegion(name, query, arguments.drop(1).toTypedArray())
+            }
+            "MÀU_TẠI" -> {
+                requireArgumentCount(name, arguments, 2)
+                withRequiredCapturedScreen { bitmap ->
+                    val x = requirePositiveOrZeroInt(name, arguments[0], "X")
+                    val y = requirePositiveOrZeroInt(name, arguments[1], "Y")
+                    require(x < bitmap.width && y < bitmap.height) {
+                        "Tọa độ màu nằm ngoài màn hình " + bitmap.width + "x" + bitmap.height + "."
+                    }
+                    ScreenColorAnalyzer.describe(bitmap.getPixel(x, y))
+                }
+            }
+            "MÀN_HÌNH_CÓ_MÀU" -> {
+                requireArgumentCount(name, arguments, 4)
+                val target = requireColorArguments(name, arguments, 0)
+                withRequiredCapturedScreen { bitmap ->
+                    val sample = sampleBitmapPixels(bitmap, MAX_SCREEN_COLOR_SAMPLES)
+                    ScreenColorAnalyzer.findFirstNear(
+                        sample.pixels, sample.width, sample.height,
+                        bitmap.width, bitmap.height,
+                        target[0], target[1], target[2], target[3]
+                    ) != null
+                }
+            }
+            "TÌM_VỊ_TRÍ_MÀU" -> {
+                requireArgumentCount(name, arguments, 4)
+                val target = requireColorArguments(name, arguments, 0)
+                withRequiredCapturedScreen { bitmap ->
+                    val sample = sampleBitmapPixels(bitmap, MAX_SCREEN_COLOR_SAMPLES)
+                    ScreenColorAnalyzer.findFirstNear(
+                        sample.pixels, sample.width, sample.height,
+                        bitmap.width, bitmap.height,
+                        target[0], target[1], target[2], target[3]
+                    ) ?: emptyList<Int>()
+                }
+            }
+            "TỶ_LỆ_MÀU_TRONG_VÙNG" -> {
+                requireArgumentCount(name, arguments, 8)
+                val target = requireColorArguments(name, arguments, 0)
+                withRequiredCapturedScreen { bitmap ->
+                    val region = requireScreenRegion(name, arguments.drop(4).toTypedArray(), bitmap)
+                    val cropped = Bitmap.createBitmap(
+                        bitmap, region.left, region.top, region.width(), region.height()
+                    )
+                    try {
+                        val sample = sampleBitmapPixels(cropped, MAX_REGION_COLOR_SAMPLES)
+                        ScreenColorAnalyzer.matchingPercentage(
+                            sample.pixels, sample.width, sample.height,
+                            target[0], target[1], target[2], target[3]
+                        )
+                    } finally {
+                        cropped.recycle()
+                    }
+                }
             }
             "NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
@@ -727,6 +783,65 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             cropped.recycle()
         }
     } ?: emptyList()
+
+    private data class ScreenPixelSample(
+        val pixels: IntArray,
+        val width: Int,
+        val height: Int
+    )
+
+    private fun requireColorArguments(
+        name: String,
+        arguments: List<Any?>,
+        offset: Int
+    ): IntArray {
+        val labels = listOf("ĐỎ", "XANH_LÁ", "XANH_DƯƠNG", "SAI_SỐ")
+        return IntArray(4) { index ->
+            val value = requirePositiveOrZeroInt(name, arguments[offset + index], labels[index])
+            require(value in 0..255) {
+                "Tham số " + labels[index] + " của '" + name + "' phải từ 0 đến 255."
+            }
+            value
+        }
+    }
+
+    private fun sampleBitmapPixels(bitmap: Bitmap, maxSamples: Int): ScreenPixelSample {
+        require(maxSamples > 0) { "Giới hạn lấy mẫu màu không hợp lệ." }
+        val totalPixels = bitmap.width.toLong() * bitmap.height.toLong()
+        require(totalPixels > 0L) { "Ảnh màn hình rỗng." }
+
+        var sampleWidth = bitmap.width
+        var sampleHeight = bitmap.height
+        if (totalPixels > maxSamples.toLong()) {
+            val scale = kotlin.math.sqrt(maxSamples.toDouble() / totalPixels.toDouble())
+            sampleWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
+            sampleHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
+            while (sampleWidth.toLong() * sampleHeight.toLong() > maxSamples.toLong()) {
+                if (sampleWidth >= sampleHeight && sampleWidth > 1) sampleWidth--
+                else if (sampleHeight > 1) sampleHeight--
+                else break
+            }
+        }
+
+        val sampledBitmap = if (sampleWidth == bitmap.width && sampleHeight == bitmap.height) {
+            bitmap
+        } else {
+            Bitmap.createScaledBitmap(bitmap, sampleWidth, sampleHeight, false)
+        }
+        try {
+            val pixels = IntArray(sampleWidth * sampleHeight)
+            sampledBitmap.getPixels(
+                pixels, 0, sampleWidth, 0, 0, sampleWidth, sampleHeight
+            )
+            return ScreenPixelSample(pixels, sampleWidth, sampleHeight)
+        } finally {
+            if (sampledBitmap !== bitmap && !sampledBitmap.isRecycled) sampledBitmap.recycle()
+        }
+    }
+
+    private inline fun <T> withRequiredCapturedScreen(block: (Bitmap) -> T): T =
+        withCapturedScreen(block)
+            ?: throw IllegalStateException("Không thể chụp màn hình. Kiểm tra AccessibilityService và quyền chụp màn hình.")
 
     private fun recognizeScreenImageLabels(): List<String> =
         withCapturedScreen { bitmap ->
