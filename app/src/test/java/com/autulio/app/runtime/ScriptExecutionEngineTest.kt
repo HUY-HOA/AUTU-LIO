@@ -581,6 +581,47 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun findsAndActsOnAccessibilityElementsByTextAndResourceId() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                NẾU (TÌM_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập")) {
+                    NHẤN_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập")
+                    NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN("Tên người dùng", "LIO")
+                    ĐẶT TOA_DO: DANH_SÁCH = TÌM_TỌA_ĐỘ_THÀNH_PHẦN("Đăng nhập")
+                    CHẠM(LẤY_PHẦN_TỬ(TOA_DO, 0), LẤY_PHẦN_TỬ(TOA_DO, 1))
+                }
+                NẾU (TÌM_THÀNH_PHẦN_THEO_ID("login_button")) {
+                    NHẤN_THÀNH_PHẦN_THEO_ID("login_button")
+                }
+                NHẬP_VĂN_BẢN_THEO_ID("username", "AUTU")
+                CUỘN_XUỐNG()
+                CUỘN_LÊN()
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(
+                listOf(
+                    "accessibilityClick:Đăng nhập",
+                    "accessibilitySetText:Tên người dùng=LIO",
+                    "tap:150,250",
+                    "accessibilityClickId:login_button",
+                    "accessibilitySetTextId:username=AUTU"
+                ),
+                dispatcher.actions
+            )
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
@@ -658,6 +699,27 @@ class ScriptExecutionEngineTest {
                 "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> "AUTU-LIO Đăng nhập"
                 "MÀN_HÌNH_CHỨA_CHỮ" -> arguments.firstOrNull() == "Đăng nhập"
                 "TÌM_VỊ_TRÍ_CHỮ" -> listOf(100, 200)
+                "TÌM_THÀNH_PHẦN_VĂN_BẢN" -> arguments.firstOrNull() == "Đăng nhập"
+                "NHẤN_THÀNH_PHẦN_VĂN_BẢN" -> {
+                    actions += "accessibilityClick:${arguments.firstOrNull()}"
+                    true
+                }
+                "NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN" -> {
+                    actions += "accessibilitySetText:${arguments.firstOrNull()}=${arguments.getOrNull(1)}"
+                    true
+                }
+                "TÌM_TỌA_ĐỘ_THÀNH_PHẦN" -> listOf(150, 250)
+                "TÌM_THÀNH_PHẦN_THEO_ID" -> arguments.firstOrNull() == "login_button"
+                "NHẤN_THÀNH_PHẦN_THEO_ID" -> {
+                    actions += "accessibilityClickId:${arguments.firstOrNull()}"
+                    true
+                }
+                "NHẬP_VĂN_BẢN_THEO_ID" -> {
+                    actions += "accessibilitySetTextId:${arguments.firstOrNull()}=${arguments.getOrNull(1)}"
+                    true
+                }
+                "CUỘN_XUỐNG" -> true
+                "CUỘN_LÊN" -> true
                 else -> name == "CÓ_MẠNG"
             }
         }
