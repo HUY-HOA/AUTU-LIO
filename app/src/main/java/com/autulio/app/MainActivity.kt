@@ -738,6 +738,8 @@ private fun EditorScreen(
                     Text("ĐỌC_VĂN_BẢN_MÀN_HÌNH(), MÀN_HÌNH_CHỨA_CHỮ(\"nội dung\"), TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")")
                     Text("ĐỌC_VĂN_BẢN_VÙNG(X, Y, RỘNG, CAO), MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(\"OK\", X, Y, RỘNG, CAO)")
                     Text("TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG(\"OK\", X, Y, RỘNG, CAO)")
+                    Text("PHÂN_TÍCH_JSON(\"{\\\"A\\\":1}\"), CHUYỂN_JSON(GIÁ_TRỊ), RỖNG")
+                    Text(tr("DANH_SÁCH và BẢN_ĐỒ có thể lồng nhau; giới hạn 8 cấp, 512 giá trị.", "Lists and maps can be nested; limited to 8 levels and 512 values."))
                     Text("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH(), MÀN_HÌNH_CHỨA_NHÃN_ẢNH(\"Phone\")")
                     Text("QUÉT_MÃ_QR_MÀN_HÌNH(), QUÉT_MÃ_VẠCH_MÀN_HÌNH()")
                     Text(tr("OCR vùng trả tọa độ pixel toàn màn hình; nhận diện ảnh trả nhãn tổng quát; quét mã trả nội dung đã giải mã.", "Region OCR returns full-screen pixel coordinates; image labeling returns general labels; barcode scans return decoded values."))
