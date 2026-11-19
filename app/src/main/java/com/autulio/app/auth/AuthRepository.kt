@@ -39,6 +39,7 @@ data class AuthSession(
 
 data class GeminiLiveSessionConfig(
     val token: String,
+    val apiVersion: String,
     val setup: JSONObject
 )
 
@@ -315,6 +316,11 @@ class AuthRepository(context: Context) {
             throw IOException("Máy chủ không trả về token Gemini Live hợp lệ.")
         }
 
+        val apiVersion = result.optString("apiVersion")
+        if (apiVersion != GEMINI_LIVE_API_VERSION) {
+            throw IOException("Phiên bản API Gemini Live từ máy chủ không được hỗ trợ.")
+        }
+
         val model = result.optString("model")
         val setup = result.optJSONObject("setup")
             ?: throw IOException("Máy chủ không trả về cấu hình Gemini Live thống nhất.")
@@ -360,12 +366,14 @@ class AuthRepository(context: Context) {
 
         return GeminiLiveSessionConfig(
             token = token,
+            apiVersion = apiVersion,
             setup = JSONObject(setup.toString())
         )
     }
 
     private companion object {
         const val GEMINI_LIVE_MODEL = "models/gemini-3.8-live"
+        const val GEMINI_LIVE_API_VERSION = "v1alpha"
     }
 
     suspend fun currentUser(accessToken: String): AuthenticatedUser {
