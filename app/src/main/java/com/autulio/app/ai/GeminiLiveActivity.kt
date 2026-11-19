@@ -358,7 +358,7 @@ private fun GeminiLiveScreen(
                             Column(Modifier.weight(1f)) {
                                 Text("Cho phép AI viết AUTU", fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    "Bật để Gemini đọc, kiểm tra và lưu bản nháp AUTU đã hợp lệ vào bộ nhớ mã hóa trên thiết bị. AI không được sửa mã nguồn ứng dụng và không thể tự chạy hoặc phát hành kịch bản.",
+                                    "Khi bật, nội dung bản nháp Gemini đọc hoặc tạo sẽ được gửi tới Google để xử lý trong phiên Live. Bản nháp chỉ lưu trong bộ nhớ mã hóa trên thiết bị; AI không sửa mã nguồn ứng dụng, không tự chạy hoặc phát hành kịch bản.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp
                                 )
