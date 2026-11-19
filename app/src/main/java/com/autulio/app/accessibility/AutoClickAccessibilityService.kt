@@ -75,6 +75,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         private const val GESTURE_TIMEOUT_GRACE_MS = 3_000L
         private const val MAX_SCREEN_COLOR_SAMPLES = 262_144
         private const val MAX_REGION_COLOR_SAMPLES = 65_536
+        private const val MAX_OCR_STRUCTURED_BLOCKS = 64
+        private const val MAX_OCR_STRUCTURED_LINES = 256
 
         fun current(): AutoClickAccessibilityService? = activeInstance
     }
@@ -306,6 +308,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
                 readScreenTextItems().joinToString("\n") { it.text }
+            }
+            "ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                recognizeStructuredScreenText()
             }
             "MÀN_HÌNH_CHỨA_CHỮ" -> {
                 requireArgumentCount(name, arguments, 1)
@@ -869,6 +875,48 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 .mapNotNull { it.rawValue?.takeIf(String::isNotBlank) }
                 .distinct()
                 .take(64)
+        } ?: emptyList()
+
+    private fun recognizeStructuredScreenText(): List<Any?> =
+        withCapturedScreen { bitmap ->
+            val recognized = Tasks.await(
+                getTextRecognizer().process(InputImage.fromBitmap(bitmap, 0)),
+                15,
+                TimeUnit.SECONDS
+            )
+            var remainingLines = MAX_OCR_STRUCTURED_LINES
+            recognized.textBlocks
+                .asSequence()
+                .take(MAX_OCR_STRUCTURED_BLOCKS)
+                .mapNotNull { block ->
+                    val bounds = block.boundingBox
+                    val lines = block.lines
+                        .asSequence()
+                        .take(remainingLines)
+                        .map { line ->
+                            val lineBounds = line.boundingBox
+                            linkedMapOf<String, Any?>(
+                                "VĂN_BẢN" to line.text,
+                                "X" to (lineBounds?.left?.toDouble()),
+                                "Y" to (lineBounds?.top?.toDouble()),
+                                "RỘNG" to (lineBounds?.width()?.toDouble()),
+                                "CAO" to (lineBounds?.height()?.toDouble())
+                            )
+                        }
+                        .toList()
+                        .toMutableList<Any?>()
+                    remainingLines -= lines.size
+                    linkedMapOf<String, Any?>(
+                        "VĂN_BẢN" to block.text,
+                        "X" to (bounds?.left?.toDouble()),
+                        "Y" to (bounds?.top?.toDouble()),
+                        "RỘNG" to (bounds?.width()?.toDouble()),
+                        "CAO" to (bounds?.height()?.toDouble()),
+                        "CÁC_DÒNG" to lines
+                    )
+                }
+                .toList()
+                .toMutableList<Any?>()
         } ?: emptyList()
 
     private fun getTextRecognizer(): TextRecognizer {
