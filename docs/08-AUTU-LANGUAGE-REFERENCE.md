@@ -136,7 +136,7 @@ AUTU-LIO đọc cây giao diện trợ năng và dùng OCR trên ảnh màn hìn
 
 Các thao tác cần AccessibilityService hoạt động và chịu giới hạn Android. Tọa độ phải nằm trong màn hình thực tế; hành động bị Android từ chối sẽ làm runtime báo lỗi.
 
-## 9. Giới hạn thực thi
+## 10. Giới hạn thực thi
 
 | Hạng mục | Giới hạn |
 |---|---:|
@@ -151,7 +151,7 @@ Các thao tác cần AccessibilityService hoạt động và chịu giới hạn
 | Lượt thực thi | 5.000 |
 | Thời lượng tĩnh | 10 phút |
 
-## 10. Chưa hỗ trợ
+## 11. Chưa hỗ trợ
 
 Bản đồ khóa–giá trị, xử lý lỗi TRY/CATCH do người viết định nghĩa, lịch/sự kiện nền, OCR, nhận diện ảnh, đọc nội dung ứng dụng, tọa độ tương đối, đa điểm và thư viện hàm dùng chung chưa được tích hợp đầy đủ. Không dùng chúng như lệnh hợp lệ.
 
