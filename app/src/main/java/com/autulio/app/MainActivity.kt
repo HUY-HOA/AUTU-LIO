@@ -742,6 +742,8 @@ private fun EditorScreen(
                     Text("ĐỌC_TỆP(\"settings/a.txt\"), GHI_TỆP(\"settings/a.txt\", NỘI_DUNG)")
                     Text("TỆP_TỒN_TẠI(\"settings/a.txt\"), XÓA_TỆP(\"settings/a.txt\"), TẠO_THƯ_MỤC(\"settings\")")
                     Text("LIỆT_KÊ_TỆP(\"settings\"), ĐỌC_JSON_TỆP(\"settings/a.json\"), GHI_JSON_TỆP(\"settings/a.json\", GIÁ_TRỊ)")
+                    Text("GỬI_YÊU_CẦU_HTTP(\"GET\", \"https://api.example.com/status\", RỖNG, TẠO_BẢN_ĐỒ(), 10000)")
+                    Text(tr("HTTP chỉ dùng HTTPS; GET/POST/PUT/DELETE/HEAD; tối đa 1 MiB mỗi chiều và timeout 30 giây.", "HTTP uses HTTPS only; GET/POST/PUT/DELETE/HEAD; 1 MiB request/response limit and 30-second timeout."))
                     Text(tr("Tệp lưu trong vùng riêng AUTU-LIO, đường dẫn tương đối, tối đa 1 MiB mỗi tệp.", "Files stay in AUTU-LIO private storage, use relative paths, and are limited to 1 MiB per file."))
                     Text(tr("DANH_SÁCH và BẢN_ĐỒ có thể lồng nhau; giới hạn 8 cấp, 512 giá trị.", "Lists and maps can be nested; limited to 8 levels and 512 values."))
                     Text("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH(), MÀN_HÌNH_CHỨA_NHÃN_ẢNH(\"Phone\")")
