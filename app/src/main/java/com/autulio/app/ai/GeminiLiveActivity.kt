@@ -715,7 +715,10 @@ internal class GeminiLiveController(
                 401, 403 -> "Google từ chối token hoặc quyền truy cập Gemini Live (mã " + code + ")."
                 404 -> "Google không tìm thấy mô hình Gemini Live (mã 404)."
                 429 -> "Gemini Live đã vượt hạn mức yêu cầu (mã 429)."
-                else -> "Google Gemini trả về lỗi khi thiết lập phiên Live" + if (code >= 0) " (mã " + code + ")" else "" + "."
+                else -> {
+                    val suffix = if (code >= 0) " (mã " + code + ")" else ""
+                    "Google Gemini trả về lỗi khi thiết lập phiên Live" + suffix + "."
+                }
             }
             fail(messageText)
         }
