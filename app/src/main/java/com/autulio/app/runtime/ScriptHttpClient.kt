@@ -133,7 +133,7 @@ class ScriptHttpClient(
         require(uri.scheme.equals("https", ignoreCase = true)) {
             "Chỉ cho phép URL HTTPS để bảo vệ dữ liệu truyền đi."
         }
-        require(!uri.rawUserInfo.let { !it.isNullOrEmpty() }) {
+        require(uri.rawUserInfo.isNullOrEmpty()) {
             "URL không được nhúng tên người dùng hoặc mật khẩu."
         }
         require(!uri.host.isNullOrBlank() && uri.host.length <= 253) { "URL thiếu tên máy chủ hợp lệ." }
