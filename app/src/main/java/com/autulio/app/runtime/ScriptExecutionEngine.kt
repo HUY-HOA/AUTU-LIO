@@ -69,6 +69,8 @@ class ScriptExecutionEngine(
     private var closed = false
     private var lastErrorCode: String? = null
     private var lastMessage: String? = null
+    private var activeFunctions: Map<String, ScriptInstruction.FunctionDefinition> = emptyMap()
+    private val maxFunctionCallDepth = 16
 
     fun snapshot(): ScriptExecutionSnapshot = lock.withLock { snapshotLocked() }
 
@@ -161,10 +163,16 @@ class ScriptExecutionEngine(
 
     private fun execute(runId: Long, program: ScriptProgram) {
         try {
-            executeBlock(runId, program.instructions, mutableMapOf(), mutableMapOf())
+            activeFunctions = program.instructions
+                .filterIsInstance<ScriptInstruction.FunctionDefinition>()
+                .associateBy { it.name }
+            val mainInstructions = program.instructions.filterNot { it is ScriptInstruction.FunctionDefinition }
+            executeBlock(runId, mainInstructions, mutableMapOf(), mutableMapOf(), 0)
             finish(runId, ScriptExecutionState.COMPLETED, null, null)
         } catch (_: StopRequested) {
             finish(runId, ScriptExecutionState.CANCELLED, null, null)
+        } catch (returned: ReturnValue) {
+            finish(runId, ScriptExecutionState.FAILED, "return_outside_function", "TRẢ_VỀ không thể thoát ra ngoài hàm.")
         } catch (error: ScriptRuntimeFailure) {
             val cancelled = lock.withLock { cancellationRequested || state == ScriptExecutionState.STOPPING || closed }
             if (cancelled) finish(runId, ScriptExecutionState.CANCELLED, null, null)
@@ -176,6 +184,8 @@ class ScriptExecutionEngine(
             else finish(runId, ScriptExecutionState.FAILED, "interrupted", "Kịch bản bị gián đoạn.")
         } catch (error: Exception) {
             finish(runId, ScriptExecutionState.FAILED, "runtime_error", error.message ?: "Lỗi thực thi không xác định.")
+        } finally {
+            activeFunctions = emptyMap()
         }
     }
 
@@ -183,14 +193,23 @@ class ScriptExecutionEngine(
         runId: Long,
         instructions: List<ScriptInstruction>,
         variables: MutableMap<String, Any?>,
-        declaredTypes: MutableMap<String, String>
+        declaredTypes: MutableMap<String, String>,
+        callDepth: Int
     ) {
         for (instruction in instructions) {
             checkpoint(runId)
             when (instruction) {
-                is ScriptInstruction.Command -> executeCommand(runId, instruction, variables)
+                is ScriptInstruction.FunctionDefinition ->
+                    throw ScriptRuntimeFailure("nested_function", "Không thể khai báo hàm bên trong khối lệnh.")
+                is ScriptInstruction.Return -> {
+                    val value = evaluate(instruction.value, variables, declaredTypes, runId, callDepth)
+                    completeInstruction(runId)
+                    throw ReturnValue(value)
+                }
+                is ScriptInstruction.Command ->
+                    executeCommand(runId, instruction, variables, declaredTypes, callDepth)
                 is ScriptInstruction.SetVariable -> {
-                    val value = evaluate(instruction.value, variables)
+                    val value = evaluate(instruction.value, variables, declaredTypes, runId, callDepth)
                     val previousType = declaredTypes[instruction.name]
                     val declaredType = instruction.declaredType
                     if (declaredType != null && previousType != null) {
@@ -205,20 +224,32 @@ class ScriptExecutionEngine(
                     completeInstruction(runId)
                 }
                 is ScriptInstruction.If -> {
-                    val condition = requireBoolean(evaluate(instruction.condition, variables), "Điều kiện NẾU phải trả về ĐÚNG hoặc SAI.")
+                    val condition = requireBoolean(
+                        evaluate(instruction.condition, variables, declaredTypes, runId, callDepth),
+                        "Điều kiện NẾU phải trả về ĐÚNG hoặc SAI."
+                    )
                     completeInstruction(runId)
-                    executeBlock(runId, if (condition) instruction.thenBody else instruction.elseBody, variables, declaredTypes)
+                    executeBlock(
+                        runId,
+                        if (condition) instruction.thenBody else instruction.elseBody,
+                        variables,
+                        declaredTypes,
+                        callDepth
+                    )
                 }
                 is ScriptInstruction.Repeat -> {
-                    val count = requireInteger(evaluate(instruction.count, variables), "Số lần lặp phải là số nguyên.")
+                    val count = requireInteger(
+                        evaluate(instruction.count, variables, declaredTypes, runId, callDepth),
+                        "Số lần lặp phải là số nguyên."
+                    )
                     if (count !in 1..ScriptCompiler.MAX_REPEAT_COUNT) {
-                        throw ScriptRuntimeFailure("repeat_range", "Số lần lặp phải từ 1 đến ${ScriptCompiler.MAX_REPEAT_COUNT}.")
+                        throw ScriptRuntimeFailure("repeat_range", "Số lần lặp phải từ 1 đến " + ScriptCompiler.MAX_REPEAT_COUNT + ".")
                     }
                     var shouldBreak = false
                     for (iteration in 0 until count) {
                         checkpoint(runId)
                         try {
-                            executeBlock(runId, instruction.body, variables, declaredTypes)
+                            executeBlock(runId, instruction.body, variables, declaredTypes, callDepth)
                         } catch (_: ContinueLoop) {
                             Unit
                         } catch (_: BreakLoop) {
@@ -227,20 +258,24 @@ class ScriptExecutionEngine(
                         if (shouldBreak) break
                     }
                 }
-                is ScriptInstruction.WaitUntil -> executeWaitUntil(runId, instruction, variables)
+                is ScriptInstruction.WaitUntil ->
+                    executeWaitUntil(runId, instruction, variables, declaredTypes, callDepth)
                 is ScriptInstruction.While -> {
                     var terminated = false
                     var iteration = 0
                     while (iteration < ScriptCompiler.MAX_WHILE_ITERATIONS) {
                         checkpoint(runId)
-                        val condition = requireBoolean(evaluate(instruction.condition, variables), "Điều kiện LẶP_KHI phải trả về ĐÚNG hoặc SAI.")
+                        val condition = requireBoolean(
+                            evaluate(instruction.condition, variables, declaredTypes, runId, callDepth),
+                            "Điều kiện LẶP_KHI phải trả về ĐÚNG hoặc SAI."
+                        )
                         completeInstruction(runId)
                         if (!condition) {
                             terminated = true
                             break
                         }
                         try {
-                            executeBlock(runId, instruction.body, variables, declaredTypes)
+                            executeBlock(runId, instruction.body, variables, declaredTypes, callDepth)
                         } catch (_: ContinueLoop) {
                             Unit
                         } catch (_: BreakLoop) {
@@ -250,7 +285,10 @@ class ScriptExecutionEngine(
                         iteration++
                     }
                     if (!terminated) {
-                        throw ScriptRuntimeFailure("loop_limit_reached", "Vòng lặp đã chạm giới hạn ${ScriptCompiler.MAX_WHILE_ITERATIONS} lượt để tránh chạy vô hạn.")
+                        throw ScriptRuntimeFailure(
+                            "loop_limit_reached",
+                            "Vòng lặp đã chạm giới hạn " + ScriptCompiler.MAX_WHILE_ITERATIONS + " lượt để tránh chạy vô hạn."
+                        )
                     }
                 }
                 ScriptInstruction.BreakLoop -> {
@@ -268,20 +306,26 @@ class ScriptExecutionEngine(
     private fun executeWaitUntil(
         runId: Long,
         instruction: ScriptInstruction.WaitUntil,
-        variables: MutableMap<String, Any?>
+        variables: MutableMap<String, Any?>,
+        declaredTypes: MutableMap<String, String>,
+        callDepth: Int
     ) {
         val timeoutMs = requireDuration(
-            evaluate(instruction.timeoutMs, variables),
+            evaluate(instruction.timeoutMs, variables, declaredTypes, runId, callDepth),
             1,
             ScriptCompiler.MAX_WAIT_MS
         )
-        val intervalMs = requireDuration(evaluate(instruction.intervalMs, variables), 50, 5_000)
+        val intervalMs = requireDuration(
+            evaluate(instruction.intervalMs, variables, declaredTypes, runId, callDepth),
+            50,
+            5_000
+        )
         val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs.toLong())
 
         while (true) {
             checkpoint(runId)
             val ready = requireBoolean(
-                evaluate(instruction.condition, variables),
+                evaluate(instruction.condition, variables, declaredTypes, runId, callDepth),
                 "Điều kiện CHỜ_ĐẾN_KHI phải trả về ĐÚNG hoặc SAI."
             )
             if (ready) {
@@ -291,10 +335,7 @@ class ScriptExecutionEngine(
 
             val remainingNanos = deadlineNanos - System.nanoTime()
             if (remainingNanos <= 0L) {
-                throw ScriptRuntimeFailure(
-                    "wait_until_timeout",
-                    "Đã hết thời hạn chờ điều kiện trở thành ĐÚNG."
-                )
+                throw ScriptRuntimeFailure("wait_until_timeout", "Đã hết thời hạn chờ điều kiện trở thành ĐÚNG.")
             }
             val remainingMs = TimeUnit.NANOSECONDS.toMillis(remainingNanos).coerceAtLeast(1L)
             waitInterruptibly(runId, minOf(intervalMs.toLong(), remainingMs).toInt())
@@ -304,9 +345,13 @@ class ScriptExecutionEngine(
     private fun executeCommand(
         runId: Long,
         instruction: ScriptInstruction.Command,
-        variables: MutableMap<String, Any?>
+        variables: MutableMap<String, Any?>,
+        declaredTypes: MutableMap<String, String>,
+        callDepth: Int
     ) {
-        val args = instruction.arguments.map { evaluate(it, variables) }
+        val args = instruction.arguments.map {
+            evaluate(it, variables, declaredTypes, runId, callDepth)
+        }
         val success = when (instruction.name) {
             "CHẠM" -> dispatcher.tap(requireCoordinate(args[0]), requireCoordinate(args[1]))
             "NHẤN_GIỮ" -> dispatcher.longPress(
@@ -341,22 +386,32 @@ class ScriptExecutionEngine(
             "HIỆN_MENU_NGUỒN" -> dispatcher.showPowerDialog()
             "KHÓA_MÀN_HÌNH" -> dispatcher.lockScreen()
             "CHIA_MÀN_HÌNH" -> dispatcher.toggleSplitScreen()
-            else -> throw ScriptRuntimeFailure("unsupported_command", "Lệnh '${instruction.name}' chưa được hỗ trợ.")
+            else -> throw ScriptRuntimeFailure("unsupported_command", "Lệnh '" + instruction.name + "' chưa được hỗ trợ.")
         }
-        if (!success) throw ScriptRuntimeFailure("dispatch_failed", "Không thực hiện được lệnh '${instruction.name}'. Hãy kiểm tra quyền và trạng thái Android.")
+        if (!success) {
+            throw ScriptRuntimeFailure("dispatch_failed", "Không thực hiện được lệnh '" + instruction.name + "'. Hãy kiểm tra quyền và trạng thái Android.")
+        }
         completeInstruction(runId)
     }
 
-    private fun evaluate(expression: ScriptExpression, variables: MutableMap<String, Any?>): Any? = when (expression) {
+    private fun evaluate(
+        expression: ScriptExpression,
+        variables: MutableMap<String, Any?>,
+        declaredTypes: MutableMap<String, String>,
+        runId: Long,
+        callDepth: Int
+    ): Any? = when (expression) {
         is ScriptExpression.NumberLiteral -> expression.value
         is ScriptExpression.StringLiteral -> expression.value
         is ScriptExpression.BooleanLiteral -> expression.value
         is ScriptExpression.Variable -> {
-            if (!variables.containsKey(expression.name)) throw ScriptRuntimeFailure("unknown_variable", "Chưa khai báo biến '${expression.name}'.")
+            if (!variables.containsKey(expression.name)) {
+                throw ScriptRuntimeFailure("unknown_variable", "Chưa khai báo biến '" + expression.name + "'.")
+            }
             variables[expression.name]
         }
         is ScriptExpression.Unary -> {
-            val value = evaluate(expression.operand, variables)
+            val value = evaluate(expression.operand, variables, declaredTypes, runId, callDepth)
             when (expression.operator) {
                 "KHÔNG" -> !requireBoolean(value, "Toán tử KHÔNG chỉ dùng với ĐÚNG/SAI.")
                 "-" -> -requireNumber(value, "Dấu trừ chỉ dùng với số.")
@@ -364,27 +419,39 @@ class ScriptExecutionEngine(
                 else -> throw ScriptRuntimeFailure("invalid_operator", "Toán tử một ngôi không hợp lệ.")
             }
         }
-        is ScriptExpression.Binary -> evaluateBinary(expression, variables)
+        is ScriptExpression.Binary ->
+            evaluateBinary(expression, variables, declaredTypes, runId, callDepth)
         is ScriptExpression.FunctionCall -> {
-            val args = expression.arguments.map { evaluate(it, variables) }
-            evaluateFunction(expression.name, args)
+            val args = expression.arguments.map {
+                evaluate(it, variables, declaredTypes, runId, callDepth)
+            }
+            evaluateFunction(expression.name, args, variables, declaredTypes, runId, callDepth)
         }
     }
 
     private fun evaluateBinary(
         expression: ScriptExpression.Binary,
-        variables: MutableMap<String, Any?>
+        variables: MutableMap<String, Any?>,
+        declaredTypes: MutableMap<String, String>,
+        runId: Long,
+        callDepth: Int
     ): Any? {
-        val left = evaluate(expression.left, variables)
+        val left = evaluate(expression.left, variables, declaredTypes, runId, callDepth)
         if (expression.operator == "VÀ") {
             val value = requireBoolean(left, "Vế trái của VÀ phải là ĐÚNG/SAI.")
-            return value && requireBoolean(evaluate(expression.right, variables), "Vế phải của VÀ phải là ĐÚNG/SAI.")
+            return value && requireBoolean(
+                evaluate(expression.right, variables, declaredTypes, runId, callDepth),
+                "Vế phải của VÀ phải là ĐÚNG/SAI."
+            )
         }
         if (expression.operator == "HOẶC") {
             val value = requireBoolean(left, "Vế trái của HOẶC phải là ĐÚNG/SAI.")
-            return value || requireBoolean(evaluate(expression.right, variables), "Vế phải của HOẶC phải là ĐÚNG/SAI.")
+            return value || requireBoolean(
+                evaluate(expression.right, variables, declaredTypes, runId, callDepth),
+                "Vế phải của HOẶC phải là ĐÚNG/SAI."
+            )
         }
-        val right = evaluate(expression.right, variables)
+        val right = evaluate(expression.right, variables, declaredTypes, runId, callDepth)
         return when (expression.operator) {
             "+" -> if (left is String || right is String) left.toString() + right.toString()
                 else requireNumber(left, "Phép cộng cần số hoặc chuỗi.") + requireNumber(right, "Phép cộng cần số hoặc chuỗi.")
@@ -415,7 +482,14 @@ class ScriptExecutionEngine(
         }
     }
 
-    private fun evaluateFunction(name: String, args: List<Any?>): Any? = when (name.uppercase(Locale.ROOT)) {
+    private fun evaluateFunction(
+        name: String,
+        args: List<Any?>,
+        variables: MutableMap<String, Any?>,
+        declaredTypes: MutableMap<String, String>,
+        runId: Long,
+        callDepth: Int
+    ): Any? = when (name) {
         "SỐ" -> {
             requireArgs(name, args, 1)
             when (val value = args[0]) {
@@ -449,7 +523,59 @@ class ScriptExecutionEngine(
             requireArgs(name, args, 2)
             max(requireNumber(args[0], "LỚN_NHẤT cần hai số."), requireNumber(args[1], "LỚN_NHẤT cần hai số."))
         }
-        else -> dispatcher.evaluateFunction(name.uppercase(Locale.ROOT), args)
+        else -> {
+            if (activeFunctions.containsKey(name)) {
+                invokeUserFunction(name, args, variables, declaredTypes, runId, callDepth)
+            } else {
+                dispatcher.evaluateFunction(name, args)
+            }
+        }
+    }
+
+    private fun invokeUserFunction(
+        name: String,
+        args: List<Any?>,
+        variables: MutableMap<String, Any?>,
+        declaredTypes: MutableMap<String, String>,
+        runId: Long,
+        callDepth: Int
+    ): Any? {
+        val function = activeFunctions[name]
+            ?: throw ScriptRuntimeFailure("unknown_function", "Không tìm thấy hàm '" + name + "'.")
+        if (callDepth >= maxFunctionCallDepth) {
+            throw ScriptRuntimeFailure("function_depth_exceeded", "Hàm gọi lồng nhau quá sâu; giới hạn là " + maxFunctionCallDepth + ".")
+        }
+        if (args.size != function.parameters.size) {
+            throw ScriptRuntimeFailure("function_argument_count", "Hàm '" + name + "' cần đúng " + function.parameters.size + " tham số.")
+        }
+
+        val localVariables = variables.toMutableMap()
+        val localTypes = declaredTypes.toMutableMap()
+        function.parameters.forEachIndexed { index, parameter ->
+            val value = args[index]
+            if (parameter.declaredType != null && !matchesDeclaredType(value, parameter.declaredType)) {
+                throw ScriptRuntimeFailure("function_parameter_type", "Tham số '" + parameter.name + "' của hàm '" + name + "' phải có kiểu " + parameter.declaredType + ".")
+            }
+            localVariables[parameter.name] = value
+            if (parameter.declaredType != null) localTypes[parameter.name] = parameter.declaredType
+        }
+
+        return try {
+            executeBlock(runId, function.body, localVariables, localTypes, callDepth + 1)
+            if (function.returnType != null) {
+                throw ScriptRuntimeFailure("missing_return", "Hàm '" + name + "' phải trả về giá trị kiểu " + function.returnType + ".")
+            }
+            null
+        } catch (returned: ReturnValue) {
+            if (function.returnType != null && !matchesDeclaredType(returned.value, function.returnType)) {
+                throw ScriptRuntimeFailure("function_return_type", "Giá trị trả về của hàm '" + name + "' không đúng kiểu " + function.returnType + ".")
+            }
+            returned.value
+        }
+    }
+
+    private fun requireArgs(name: String, args: List<Any?>, count: Int) {
+        if (args.size != count) throw ScriptRuntimeFailure("argument_count", "Hàm '" + name + "' cần " + count + " tham số.")
     }
 
     private fun matchesDeclaredType(value: Any?, type: String): Boolean = when (type) {
@@ -637,5 +763,6 @@ class ScriptExecutionEngine(
     private class StopRequested : RuntimeException()
     private class BreakLoop : RuntimeException()
     private class ContinueLoop : RuntimeException()
+    private class ReturnValue(val value: Any?) : RuntimeException()
     private class ScriptRuntimeFailure(val code: String, message: String) : RuntimeException(message)
 }
