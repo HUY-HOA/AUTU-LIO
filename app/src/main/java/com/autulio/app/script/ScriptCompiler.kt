@@ -30,6 +30,7 @@ sealed interface ScriptInstruction {
         val body: List<ScriptInstruction>
     ) : ScriptInstruction
     data class Return(val value: ScriptExpression) : ScriptInstruction
+    data class ExpressionStatement(val expression: ScriptExpression) : ScriptInstruction
     data class Command(val name: String, val arguments: List<ScriptExpression>) : ScriptInstruction
     data class SetVariable(
         val name: String,
@@ -220,6 +221,7 @@ object ScriptCompiler {
                     cappedAdd(1L, body.first, INSTRUCTION_CAP) to body.second
                 }
                 is ScriptInstruction.Return -> 1L to 0L
+                is ScriptInstruction.ExpressionStatement -> 1L to 0L
                 is ScriptInstruction.If -> {
                     val yes = measureBlock(instruction.thenBody, depth + 1)
                     val no = measureBlock(instruction.elseBody, depth + 1)
@@ -476,9 +478,28 @@ object ScriptCompiler {
                     if (isSymbol("=")) {
                         advance()
                         ScriptInstruction.SetVariable(name.text, parseExpression())
+                    } else if (isSymbol("(")) {
+                        val expression = parseStatementFunctionCall(name)
+                        ScriptInstruction.ExpressionStatement(expression)
                     } else parseCommand(name)
                 }
             }
+        }
+
+        private fun parseStatementFunctionCall(name: Token): ScriptExpression.FunctionCall {
+            val arguments = parseArguments()
+            val expected = builtinFunctionArities[name.text]
+            if (expected == -1 && arguments.size > MAX_LIST_ITEMS) {
+                fail(name.line, name.column, "list_too_large", "Danh sách không được vượt quá $MAX_LIST_ITEMS phần tử.", "A list cannot exceed $MAX_LIST_ITEMS items.")
+            } else if (expected == -2 && arguments.size > MAX_MAP_ENTRIES * 2) {
+                fail(name.line, name.column, "map_too_large", "Bản đồ không được vượt quá $MAX_MAP_ENTRIES cặp khóa–giá trị.", "A map cannot exceed $MAX_MAP_ENTRIES key-value pairs.")
+            } else if (expected == -2 && arguments.size % 2 != 0) {
+                fail(name.line, name.column, "map_argument_count", "TẠO_BẢN_ĐỒ cần số tham số chẵn theo cặp KHÓA, GIÁ_TRỊ.", "TẠO_BẢN_ĐỒ requires an even number of KEY, VALUE arguments.")
+            } else if (expected != null && expected >= 0 && arguments.size != expected) {
+                fail(name.line, name.column, "function_argument_count", "Hàm '" + name.text + "' cần đúng " + expected + " tham số.", "Function '" + name.text + "' requires exactly " + expected + " arguments.")
+            }
+            if (expected == null) functionCallTokens += name
+            return ScriptExpression.FunctionCall(name.text, arguments)
         }
 
         private fun parseFunctionDefinition(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.FunctionDefinition {
