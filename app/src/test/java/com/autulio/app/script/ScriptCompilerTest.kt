@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.2", result.program?.languageVersion)
+        assertEquals("1.3", result.program?.languageVersion)
     }
 
     @Test
@@ -303,7 +303,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.2", result.program?.languageVersion)
+        assertEquals("1.3", result.program?.languageVersion)
     }
 
     @Test
@@ -350,7 +350,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.2", result.program?.languageVersion)
+        assertEquals("1.3", result.program?.languageVersion)
     }
 
     @Test
@@ -389,7 +389,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.2", result.program?.languageVersion)
+        assertEquals("1.3", result.program?.languageVersion)
     }
 
     @Test
@@ -402,6 +402,34 @@ class ScriptCompilerTest {
         )
         assertEquals("map_argument_count", oddPairs.diagnostics.first().code)
         assertEquals("map_too_large", tooMany.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsUppercaseVietnameseStringFunctionSignatures() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT NGUON: CHUỖI = " AUTU-LIO "
+            ĐẶT CHUAN: CHUỖI = CẮT_KHOẢNG_TRẮNG(NGUON)
+            ĐẶT HOA: CHUỖI = CHỮ_HOA(CHUAN)
+            ĐẶT THUONG: CHUỖI = CHỮ_THƯỜNG(HOA)
+            ĐẶT CAC_TU: DANH_SÁCH = TÁCH_CHUỖI("A,B,C", ",")
+            ĐẶT GHEP: CHUỖI = NỐI_CHUỖI(CAC_TU, "-")
+            ĐẶT CAT: CHUỖI = CẮT_CHUỖI(HOA, 0, 4)
+            ĐẶT KY_TU: CHUỖI = KÝ_TỰ_TẠI(HOA, 0)
+            ĐẶT THAY: CHUỖI = THAY_THẾ(HOA, "AUTU", "LIO")
+            NẾU (CHỨA_CHUỖI(HOA, "AUTU") VÀ BẮT_ĐẦU_BẰNG(HOA, "AUTU") VÀ KẾT_THÚC_BẰNG(HOA, "LIO")) {
+                CHỜ(1)
+            }
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.3", result.program?.languageVersion)
+    }
+
+    @Test
+    fun rejectsIncorrectStringFunctionArguments() {
+        val wrongCount = ScriptCompiler.compile("ĐẶT KET_QUA = CHỮ_HOA(\"A\", \"B\")")
+        assertEquals("function_argument_count", wrongCount.diagnostics.first().code)
     }
 
     @Test
