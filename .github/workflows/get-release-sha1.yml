@@ -64,9 +64,9 @@ jobs:
           {
             echo "## AUTU-LIO Release signing certificate"
             echo
-            echo "- SHA-1: `$SHA1`"
+            printf -- "- SHA-1: %s\\n" "$SHA1"
             if [[ -n "$SHA256" ]]; then
-              echo "- SHA-256: `$SHA256`"
+              printf -- "- SHA-256: %s\\n" "$SHA256"
             fi
             echo
             echo "These are public certificate fingerprints. The keystore, passwords and private key were not uploaded as artifacts or printed."
