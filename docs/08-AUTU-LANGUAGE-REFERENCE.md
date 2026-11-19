@@ -153,6 +153,6 @@ Các thao tác cần AccessibilityService hoạt động và chịu giới hạn
 
 ## 11. Chưa hỗ trợ
 
-Bản đồ khóa–giá trị, xử lý lỗi TRY/CATCH do người viết định nghĩa, lịch/sự kiện nền, OCR, nhận diện ảnh, đọc nội dung ứng dụng, tọa độ tương đối, đa điểm và thư viện hàm dùng chung chưa được tích hợp đầy đủ. Không dùng chúng như lệnh hợp lệ.
+Các hàm đọc văn bản/OCR màn hình cơ bản đã có trong 1.5. Phần còn thiếu gồm OCR theo vùng và từ ảnh/tệp, nhận diện vật thể/ảnh mẫu/màu/QR, tìm và thao tác phần tử giao diện theo resource ID, xử lý lỗi TRY/BẮT_LỖI, đọc/ghi tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những mục này chưa phải lệnh hợp lệ cho đến khi được triển khai và kiểm thử.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
