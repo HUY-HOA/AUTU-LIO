@@ -6,6 +6,7 @@ import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import java.io.File
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -36,6 +37,8 @@ import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
 import com.autulio.app.runtime.ScriptExecutionState
+import com.autulio.app.runtime.ScriptFileStore
+import com.autulio.app.runtime.ScriptJsonCodec
 import com.autulio.app.script.ScriptProgram
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
@@ -87,6 +90,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private val screenTextCacheLock = Any()
     private var screenTextCacheTimeMs = 0L
     private var screenTextCache: List<ScreenTextItem> = emptyList()
+
+    private val scriptFileStore: ScriptFileStore by lazy {
+        ScriptFileStore(File(filesDir, "autu-script-data"))
+    }
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var executionEngine: ScriptExecutionEngine? = null
@@ -372,6 +379,43 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "ĐẾM_VẬT_THỂ_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
                 recognizeScreenObjects().size
+            }
+            "ĐỌC_TỆP" -> {
+                requireArgumentCount(name, arguments, 1)
+                scriptFileStore.readText(requireTextArgument(name, arguments[0]))
+            }
+            "GHI_TỆP" -> {
+                requireArgumentCount(name, arguments, 2)
+                val path = requireTextArgument(name, arguments[0])
+                val content = requireTextArgument(name, arguments[1])
+                scriptFileStore.writeText(path, content)
+            }
+            "TỆP_TỒN_TẠI" -> {
+                requireArgumentCount(name, arguments, 1)
+                scriptFileStore.exists(requireTextArgument(name, arguments[0]))
+            }
+            "XÓA_TỆP" -> {
+                requireArgumentCount(name, arguments, 1)
+                scriptFileStore.delete(requireTextArgument(name, arguments[0]))
+            }
+            "TẠO_THƯ_MỤC" -> {
+                requireArgumentCount(name, arguments, 1)
+                scriptFileStore.createDirectory(requireTextArgument(name, arguments[0]))
+            }
+            "LIỆT_KÊ_TỆP" -> {
+                requireArgumentCount(name, arguments, 1)
+                scriptFileStore.listFiles(requireTextArgument(name, arguments[0]))
+            }
+            "ĐỌC_JSON_TỆP" -> {
+                requireArgumentCount(name, arguments, 1)
+                ScriptJsonCodec.parse(
+                    scriptFileStore.readText(requireTextArgument(name, arguments[0]))
+                )
+            }
+            "GHI_JSON_TỆP" -> {
+                requireArgumentCount(name, arguments, 2)
+                val path = requireTextArgument(name, arguments[0])
+                scriptFileStore.writeText(path, ScriptJsonCodec.stringify(arguments[1]))
             }
             "TÌM_THÀNH_PHẦN_VĂN_BẢN" -> {
                 requireArgumentCount(name, arguments, 1)
