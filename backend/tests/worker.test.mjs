@@ -65,7 +65,8 @@ function createEnv({
       DB,
       ALLOWED_ORIGINS: allowedOrigins,
       AUTH_CHALLENGE_LIMITER: { limit: async () => ({ success: challengeLimitSuccess }) },
-      AUTH_LOGIN_LIMITER: { limit: async () => ({ success: loginLimitSuccess }) }
+      AUTH_LOGIN_LIMITER: { limit: async () => ({ success: loginLimitSuccess }) },
+      AI_LIVE_TOKEN_LIMITER: { limit: async () => ({ success: true }) }
     },
     queries
   };
@@ -140,6 +141,52 @@ test("missing OWNER_GOOGLE_SUB never grants OWNER even when an owner email exist
     isConfiguredOwnerIdentity(identity, { OWNER_GOOGLE_SUB: "   " }),
     false
   );
+});
+
+test("Gemini Live token endpoint authenticates the app session and returns only a short-lived token", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  env.GEMINI_API_KEY = "server-only-test-key";
+  const originalFetch = globalThis.fetch;
+  let upstreamRequest;
+  globalThis.fetch = async (url, options) => {
+    upstreamRequest = { url: String(url), options };
+    return new Response(JSON.stringify({
+      name: "auth_tokens/test-ephemeral-token",
+      expireTime: "2026-11-19T22:00:00.000Z"
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const response = await worker.fetch(makeRequest("/api/ai/live-token", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "A".repeat(48),
+        "CF-Connecting-IP": "203.0.113.21"
+      },
+      body: "{}"
+    }), env);
+    const body = await json(response);
+    assert.equal(response.status, 200);
+    assert.equal(body.token, "auth_tokens/test-ephemeral-token");
+    assert.equal(body.model, "models/gemini-3.8-live");
+    assert.match(upstreamRequest.url, /generativelanguage\.googleapis\.com\/v1beta\/auth_tokens$/);
+    assert.equal(upstreamRequest.options.headers["x-goog-api-key"], "server-only-test-key");
+    const payload = JSON.parse(upstreamRequest.options.body);
+    assert.equal(payload.uses, 1);
+    assert.equal(payload.liveConnectConstraints.model, "models/gemini-3.8-live");
+    assert.equal(payload.liveConnectConstraints.config.responseModalities[0], "AUDIO");
+    assert.equal(payload.liveConnectConstraints.config.tools[0].functionDeclarations.length, 4);
+    assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Gemini Live token endpoint rejects unauthenticated requests", async () => {
+  const { env, queries } = createEnv();
+  const response = await worker.fetch(makeRequest("/api/ai/live-token", { method: "POST" }), env);
+  assert.equal(response.status, 401);
+  assert.equal((await json(response)).error, "authentication_required");
+  assert.equal(queries.length, 0);
 });
 
 test("public health endpoint exposes only minimal service status", async () => {
