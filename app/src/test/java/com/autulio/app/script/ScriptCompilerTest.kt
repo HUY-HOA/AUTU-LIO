@@ -551,4 +551,33 @@ class ScriptCompilerTest {
         assertTrue(result.diagnostics.toString(), result.isSuccess)
     }
 
+    @Test
+    fun supportsAccessibilityElementActionsByTextAndResourceId() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT CÓ_NÚT: LUẬN_LÝ = TÌM_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập")
+            ĐẶT CÓ_ID: LUẬN_LÝ = TÌM_THÀNH_PHẦN_THEO_ID("login_button")
+            ĐẶT TỌA_ĐỘ: DANH_SÁCH = TÌM_TỌA_ĐỘ_THÀNH_PHẦN("Đăng nhập")
+            NHẤN_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập")
+            NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN("Tên", "LIO")
+            NHẤN_THÀNH_PHẦN_THEO_ID("login_button")
+            NHẬP_VĂN_BẢN_THEO_ID("username", "AUTU")
+            CUỘN_XUỐNG()
+            CUỘN_LÊN()
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.6", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesAccessibilityElementFunctionArgumentCounts() {
+        val missingText = ScriptCompiler.compile("ĐẶT X = TÌM_THÀNH_PHẦN_VĂN_BẢN()")
+        val wrongSetText = ScriptCompiler.compile("ĐẶT X = NHẬP_VĂN_BẢN_THEO_ID(\"username\")")
+        val tooManyScrollArguments = ScriptCompiler.compile("ĐẶT X = CUỘN_XUỐNG(1)")
+        assertEquals("function_argument_count", missingText.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongSetText.diagnostics.first().code)
+        assertEquals("function_argument_count", tooManyScrollArguments.diagnostics.first().code)
+    }
+
 }
