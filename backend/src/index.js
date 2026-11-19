@@ -5,16 +5,45 @@ const GEMINI_LIVE_API_VERSION = "v1alpha";
 const GEMINI_LIVE_SYSTEM_PROMPT = [
   "You are AUTU-LIO Gemini Live, an Android screen assistant.",
   "Observe the latest shared screen frame and listen to the user's spoken instructions.",
-  "Use only the declared screen-control functions. Coordinates are physical screen pixels from the top-left corner.",
+  "Use only the declared functions. Coordinates are physical screen pixels from the top-left corner.",
   "Never request or interact with passwords, one-time codes, banking, payment, purchases, account recovery, or security settings.",
   "Never confirm or submit destructive actions such as deleting data, sending messages, publishing, or making purchases. Ask the user to perform those actions manually.",
   "Before navigating away from a form with unsaved content, explain the risk and ask the user.",
   "Use read_screen_text when visual labels or coordinates are unclear; it excludes editable and password fields. Prefer tap_text for a clear, exact visible label instead of guessing coordinates.",
-  "If the screen is unclear, ask a question instead of guessing. Do not claim an action succeeded unless the tool result says it succeeded.",
-  "When AUTU script tools are declared for the OWNER, you may only create, inspect, validate and save AUTU Script drafts inside AUTU-LIO.",
+  "If the screen is unclear, ask a question instead of guessing. Do not claim an action succeeded unless the tool result says it succeeded."
+].join(" ");
+
+const GEMINI_LIVE_AUTU_SCRIPT_POLICY = [
+  "The AUTU script authoring tools are available only in this OWNER session because the owner explicitly enabled that capability before connecting.",
+  "You may only create, inspect, validate and save AUTU Script drafts inside AUTU-LIO.",
   "Never access, request, generate, modify or publish AUTU-LIO application source code, Kotlin, Java, Gradle, XML, Worker code, database schema, app settings or APK files.",
   "Saving a draft never executes it. The user must review the saved AUTU script and start it manually from the app."
 ].join(" ");
+
+function buildGeminiLiveSetup(session, enableAutuScriptAuthoring) {
+  const canAuthorAutuScripts = session.role === "OWNER" && enableAutuScriptAuthoring === true;
+  const prompt = canAuthorAutuScripts
+    ? GEMINI_LIVE_SYSTEM_PROMPT + " " + GEMINI_LIVE_AUTU_SCRIPT_POLICY
+    : GEMINI_LIVE_SYSTEM_PROMPT + " This session does not have AUTU script authoring capability. Do not offer or attempt to create, read, validate or save AUTU script drafts.";
+  return {
+    model: GEMINI_LIVE_MODEL,
+    generationConfig: {
+      responseModalities: ["AUDIO"],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
+    },
+    inputAudioTranscription: {},
+    outputAudioTranscription: {},
+    contextWindowCompression: { slidingWindow: {} },
+    sessionResumption: {},
+    systemInstruction: { parts: [{ text: prompt }] },
+    tools: [{
+      functionDeclarations: [
+        ...GEMINI_LIVE_TOOLS.flatMap(group => group.functionDeclarations),
+        ...(canAuthorAutuScripts ? GEMINI_LIVE_AUTU_SCRIPT_TOOLS : [])
+      ]
+    }]
+  };
+}
 
 const GEMINI_LIVE_TOOLS = [{
   functionDeclarations: [
@@ -1876,34 +1905,23 @@ async function createGeminiLiveToken(request, env, session) {
     throw new HttpError(503, "gemini_not_configured", "Dịch vụ Gemini Live chưa được cấu hình trên máy chủ.");
   }
 
+  const body = await readBody(request, 2_000);
+  const enableAutuScriptAuthoring = body.enableAutuScriptAuthoring === true;
+  if (enableAutuScriptAuthoring && session.role !== "OWNER") {
+    throw new HttpError(403, "owner_required", "Chỉ Chủ sở hữu mới được bật công cụ viết AUTU.");
+  }
+  if (body.enableAutuScriptAuthoring !== undefined &&
+      typeof body.enableAutuScriptAuthoring !== "boolean") {
+    throw new HttpError(400, "invalid_live_capability", "Cấu hình quyền Gemini Live không hợp lệ.");
+  }
+
+  // Do not bind an independently-authored setup to the ephemeral token.
+  // Google explicitly supports tokens without Live constraints; the client
+  // then sends the canonical setup returned by this same authenticated endpoint.
+  const liveSetup = buildGeminiLiveSetup(session, enableAutuScriptAuthoring);
   const now = Date.now();
-  // Keep the one-use token available for session resumption, not for creating later sessions.
   const expireTime = new Date(now + 30 * 60 * 1000).toISOString();
   const newSessionExpireTime = new Date(now + 60 * 1000).toISOString();
-  // Google's ephemeral-token REST resource uses LiveConnectConfig under
-  // liveConnectConstraints. Do not send the raw WebSocket setup-frame format here.
-  // The currently deployed Gemini auth-token REST schema accepts
-  // bidiGenerateContentSetup inside AuthToken. The liveConnectConstraints
-  // sample in the guide is not accepted by the endpoint used by this project.
-  // With no fieldMask, this complete server-side setup is authoritative.
-  const bidiGenerateContentSetup = {
-    model: GEMINI_LIVE_MODEL,
-    generationConfig: {
-      responseModalities: ["AUDIO"],
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
-    },
-    inputAudioTranscription: {},
-    outputAudioTranscription: {},
-    contextWindowCompression: { slidingWindow: {} },
-    sessionResumption: {},
-    systemInstruction: { parts: [{ text: GEMINI_LIVE_SYSTEM_PROMPT }] },
-    tools: [{
-      functionDeclarations: [
-        ...GEMINI_LIVE_TOOLS.flatMap(group => group.functionDeclarations),
-        ...(session.role === "OWNER" ? GEMINI_LIVE_AUTU_SCRIPT_TOOLS : [])
-      ]
-    }]
-  };
 
   let upstream;
   try {
@@ -1916,8 +1934,7 @@ async function createGeminiLiveToken(request, env, session) {
       body: JSON.stringify({
         uses: 1,
         expireTime,
-        newSessionExpireTime,
-        bidiGenerateContentSetup
+        newSessionExpireTime
       })
     });
   } catch {
@@ -1956,7 +1973,8 @@ async function createGeminiLiveToken(request, env, session) {
   }
   return response(request, {
     token: tokenData.name,
-    model: GEMINI_LIVE_MODEL,
+    model: liveSetup.model,
+    setup: liveSetup,
     expiresAt: tokenData.expireTime || expireTime,
     sessionExpiresAt: tokenData.newSessionExpireTime || newSessionExpireTime
   }, 200, env);
