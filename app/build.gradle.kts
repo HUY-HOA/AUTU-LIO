@@ -23,6 +23,16 @@ val releaseSigningConfigured = listOf(
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
 
+val mlVisionEnabled = providers.gradleProperty("AUTU_LIO_ENABLE_ML_VISION")
+    .map { value ->
+        when (value.lowercase()) {
+            "true" -> true
+            "false" -> false
+            else -> throw GradleException("AUTU_LIO_ENABLE_ML_VISION must be true or false.")
+        }
+    }
+    .getOrElse(false)
+
 android {
     namespace = "com.autulio.app"
     compileSdk = 37
@@ -43,6 +53,7 @@ android {
         val escapedGoogleServerClientId = googleServerClientId.replace("\\", "\\\\").replace("\"", "\\\"")
         buildConfigField("String", "AUTH_API_BASE_URL", "\"$escapedAuthApiBaseUrl\"")
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$escapedGoogleServerClientId\"")
+        buildConfigField("boolean", "ML_VISION_ENABLED", mlVisionEnabled.toString())
     }
 
     signingConfigs {
@@ -73,6 +84,10 @@ android {
         buildConfig = true
     }
 
+    if (mlVisionEnabled) {
+        sourceSets.getByName("main").java.srcDir("src/mlVision/java")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -91,10 +106,12 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.google.identity.googleid)
-    implementation(libs.mlkit.text.recognition)
-    implementation(libs.mlkit.image.labeling)
-    implementation(libs.mlkit.barcode.scanning)
-    implementation(libs.mlkitObjectDetection)
+    if (mlVisionEnabled) {
+        implementation(libs.mlkit.text.recognition)
+        implementation(libs.mlkit.image.labeling)
+        implementation(libs.mlkit.barcode.scanning)
+        implementation(libs.mlkitObjectDetection)
+    }
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
