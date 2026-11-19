@@ -258,6 +258,39 @@ class ScriptExecutionEngine(
                         if (shouldBreak) break
                     }
                 }
+                is ScriptInstruction.ForEach -> {
+                    val value = evaluate(instruction.iterable, variables, declaredTypes, runId, callDepth)
+                    val sourceList = value as? List<*>
+                        ?: throw ScriptRuntimeFailure("foreach_requires_list", "LẶP_MỖI cần một giá trị kiểu DANH_SÁCH.")
+                    if (sourceList.size > ScriptCompiler.MAX_LIST_ITEMS) {
+                        throw ScriptRuntimeFailure("list_too_large", "Danh sách vượt quá ${ScriptCompiler.MAX_LIST_ITEMS} phần tử.")
+                    }
+                    val snapshot = sourceList.toList()
+                    val hadPreviousValue = variables.containsKey(instruction.variableName)
+                    val previousValue = variables[instruction.variableName]
+                    val previousType = declaredTypes.remove(instruction.variableName)
+                    try {
+                        var shouldBreak = false
+                        for (item in snapshot) {
+                            checkpoint(runId)
+                            variables[instruction.variableName] = item
+                            completeInstruction(runId)
+                            try {
+                                executeBlock(runId, instruction.body, variables, declaredTypes, callDepth)
+                            } catch (_: ContinueLoop) {
+                                Unit
+                            } catch (_: BreakLoop) {
+                                shouldBreak = true
+                            }
+                            if (shouldBreak) break
+                        }
+                    } finally {
+                        if (hadPreviousValue) variables[instruction.variableName] = previousValue
+                        else variables.remove(instruction.variableName)
+                        if (previousType != null) declaredTypes[instruction.variableName] = previousType
+                        else declaredTypes.remove(instruction.variableName)
+                    }
+                }
                 is ScriptInstruction.WaitUntil ->
                     executeWaitUntil(runId, instruction, variables, declaredTypes, callDepth)
                 is ScriptInstruction.While -> {
@@ -512,8 +545,60 @@ class ScriptExecutionEngine(
         }
         "ĐỘ_DÀI" -> {
             requireArgs(name, args, 1)
-            (args[0] as? String)?.length?.toDouble()
-                ?: throw ScriptRuntimeFailure("invalid_argument", "ĐỘ_DÀI cần một chuỗi.")
+            when (val value = args[0]) {
+                is String -> value.length.toDouble()
+                is List<*> -> value.size.toDouble()
+                else -> throw ScriptRuntimeFailure("invalid_argument", "ĐỘ_DÀI cần một chuỗi hoặc danh sách.")
+            }
+        }
+        "TẠO_DANH_SÁCH" -> {
+            if (args.size > ScriptCompiler.MAX_LIST_ITEMS) {
+                throw ScriptRuntimeFailure("list_too_large", "Danh sách không được vượt quá ${ScriptCompiler.MAX_LIST_ITEMS} phần tử.")
+            }
+            if (args.any { !isSupportedListItem(it) }) {
+                throw ScriptRuntimeFailure("invalid_list_item", "Danh sách chỉ chứa số, chuỗi hoặc giá trị ĐÚNG/SAI.")
+            }
+            args.toMutableList()
+        }
+        "LẤY_PHẦN_TỬ" -> {
+            requireArgs(name, args, 2)
+            val list = requireMutableList(args[0], name)
+            val index = requireListIndex(args[1], list.size, allowEnd = false)
+            list[index]
+        }
+        "THÊM_PHẦN_TỬ" -> {
+            requireArgs(name, args, 2)
+            val list = requireMutableList(args[0], name)
+            if (!isSupportedListItem(args[1])) {
+                throw ScriptRuntimeFailure("invalid_list_item", "Phần tử chỉ được là số, chuỗi hoặc giá trị ĐÚNG/SAI.")
+            }
+            if (list.size >= ScriptCompiler.MAX_LIST_ITEMS) {
+                throw ScriptRuntimeFailure("list_too_large", "Danh sách đã đạt giới hạn ${ScriptCompiler.MAX_LIST_ITEMS} phần tử.")
+            }
+            list.add(args[1])
+            list.size.toDouble()
+        }
+        "ĐẶT_PHẦN_TỬ" -> {
+            requireArgs(name, args, 3)
+            val list = requireMutableList(args[0], name)
+            val index = requireListIndex(args[1], list.size, allowEnd = false)
+            if (!isSupportedListItem(args[2])) {
+                throw ScriptRuntimeFailure("invalid_list_item", "Phần tử chỉ được là số, chuỗi hoặc giá trị ĐÚNG/SAI.")
+            }
+            list[index] = args[2]
+            args[2]
+        }
+        "XÓA_PHẦN_TỬ" -> {
+            requireArgs(name, args, 2)
+            val list = requireMutableList(args[0], name)
+            val index = requireListIndex(args[1], list.size, allowEnd = false)
+            list.removeAt(index)
+        }
+        "CÓ_PHẦN_TỬ" -> {
+            requireArgs(name, args, 2)
+            val list = args[0] as? List<*>
+                ?: throw ScriptRuntimeFailure("invalid_argument", "CÓ_PHẦN_TỬ cần danh sách ở tham số đầu.")
+            list.contains(args[1])
         }
         "NHỎ_NHẤT" -> {
             requireArgs(name, args, 2)
@@ -582,8 +667,26 @@ class ScriptExecutionEngine(
         "SỐ" -> value is Number
         "CHUỖI" -> value is String
         "LUẬN_LÝ" -> value is Boolean
+        "DANH_SÁCH" -> value is List<*>
         "BẤT_KỲ" -> true
         else -> false
+    }
+
+    private fun isSupportedListItem(value: Any?): Boolean =
+        value is Number || value is String || value is Boolean
+
+    @Suppress("UNCHECKED_CAST")
+    private fun requireMutableList(value: Any?, functionName: String): MutableList<Any?> =
+        value as? MutableList<Any?>
+            ?: throw ScriptRuntimeFailure("invalid_argument", "Hàm '$functionName' cần danh sách được tạo bằng TẠO_DANH_SÁCH.")
+
+    private fun requireListIndex(value: Any?, size: Int, allowEnd: Boolean): Int {
+        val index = requireInteger(value, "Chỉ số danh sách phải là số nguyên.")
+        val upper = if (allowEnd) size else size - 1
+        if (index < 0 || index > upper) {
+            throw ScriptRuntimeFailure("list_index_out_of_range", "Chỉ số danh sách nằm ngoài phạm vi.")
+        }
+        return index
     }
 
     private fun valuesEqual(left: Any?, right: Any?): Boolean =
@@ -725,7 +828,7 @@ class ScriptExecutionEngine(
                         instruction.parameters.all { parameter ->
                             parameter.name.isNotBlank() &&
                                 parameter.name == parameter.name.uppercase(Locale.ROOT) &&
-                                (parameter.declaredType == null || parameter.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "BẤT_KỲ"))
+                                (parameter.declaredType == null || parameter.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẤT_KỲ"))
                         } &&
                         (instruction.returnType == null || instruction.returnType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "BẤT_KỲ")) &&
                         validateBlock(instruction.body, depth + 1, 0, true)
