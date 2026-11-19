@@ -750,6 +750,8 @@ private fun EditorScreen(
                     Text(tr("DANH_SÁCH và BẢN_ĐỒ có thể lồng nhau; giới hạn 8 cấp, 512 giá trị.", "Lists and maps can be nested; limited to 8 levels and 512 values."))
                     Text("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH(), MÀN_HÌNH_CHỨA_NHÃN_ẢNH(\"Phone\")")
                     Text("QUÉT_MÃ_QR_MÀN_HÌNH(), QUÉT_MÃ_VẠCH_MÀN_HÌNH()")
+                    Text("CHI_TIẾT_MÃ_QR_MÀN_HÌNH(), CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()")
+                    Text(tr("Trả về giá trị gốc/hiển thị, định dạng, loại nội dung và hộp tọa độ; không tự mở liên kết.", "Returns raw/display value, format, content type and bounds; does not open links automatically."))
                     Text("PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH(), MÀN_HÌNH_CÓ_VẬT_THỂ(\"Food\")")
                     Text("TÌM_TỌA_ĐỘ_VẬT_THỂ(\"Food\"), ĐẾM_VẬT_THỂ_MÀN_HÌNH()")
                     Text("MÀU_TẠI(X, Y), MÀN_HÌNH_CÓ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)")
