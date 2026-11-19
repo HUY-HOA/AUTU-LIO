@@ -2,7 +2,7 @@
 
 Cloudflare Worker + D1 backend for one Android APK with server-verified account roles. Firebase is not used.
 
-**Current rollout scope:** only OWNER and CUSTOMER accounts are being used. The collaboration roles and invitation/project workflow remain in the source for a later phase; do not onboard AUTU writers yet.
+**Account model:** only OWNER and CUSTOMER roles are supported. Invitations, collaborator roles, shared projects and review workflows have been removed.
 
 ## Current implementation
 
@@ -11,15 +11,7 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Short-lived sign-in challenge and hashed bearer sessions.
 - Server-side role lookup on every protected request.
 - One-owner bootstrap by the exact Google OpenID Connect `sub` claim configured as the `OWNER_GOOGLE_SUB` Worker secret; email is not used to grant OWNER.
-- Owner-only invitation creation, invitation preview and single-use acceptance tied to the signed-in Google email.
-- Owner-only collaborator listing, role changes and access revocation, including active sessions.
-- Role-based permission defaults plus owner-managed permission overrides for Developer, Designer and Reviewer.
-- Permission changes are audited; changing a collaborator role resets overrides to that role's defaults.
-- Project creation and explicit membership management, with project data isolated by membership checks.
-- Owner-managed project roster; only active Developer, Designer and Reviewer accounts can be added.
 - UI design drafts store title, subtitle, button label, accent color and selected components as JSON; Android provides a form editor and live preview.
-- Server-backed script drafts and UI design drafts with revision checks to prevent silent overwrites.
-- Immutable snapshots for review submissions, review decisions and audit records.
 - D1 schema migrations and local migration validation.
 - Owner-only publication of immutable AUTU package versions.
 - AES-256-GCM encryption with a fresh random 256-bit data key and 96-bit nonce for every published version; only ciphertext is stored in D1.
@@ -37,7 +29,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001`–`0005` are applied to the remote `autu_lio_auth` D1 database (20 application tables). The Worker `autu-lio-auth-api` was deployed on 19 November 2026 and its workers.dev endpoint is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. The D1 binding and authentication rate-limit bindings are configured on the Worker. The Google Web Client ID, `OWNER_GOOGLE_SUB` and package master key are configured as Worker secrets; the Android OAuth Client ID is configured in `GOOGLE_ALLOWED_AZP`. The owner account has completed Google sign-in and is stored as the single active OWNER in D1. Keep every SQL migration in source control as the schema history.
+Migrations `0001`–`0006` are applied to the remote `autu_lio_auth` D1 database (20 application tables). The Worker `autu-lio-auth-api` was deployed on 19 November 2026 and its workers.dev endpoint is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. The D1 binding and authentication rate-limit bindings are configured on the Worker. The Google Web Client ID, `OWNER_GOOGLE_SUB` and package master key are configured as Worker secrets; the Android OAuth Client ID is configured in `GOOGLE_ALLOWED_AZP`. The owner account has completed Google sign-in and is stored as the single active OWNER in D1. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
@@ -102,45 +94,6 @@ Package source is encrypted by the Worker before D1 writes. The package-version 
 
 RSA-OAEP SHA-1/MGF1-SHA1 is used only to wrap the 32-byte AES data key for compatibility with Android Keystore devices exposing the legacy OAEP MGF1 default. AUTU source is encrypted with AES-256-GCM. A future protocol revision can negotiate RSA-OAEP-SHA256 where device support is available.
 
-### Invitations and collaborators
-
-- Invitation preview through URL query tokens is disabled to avoid leaking invitation tokens through URL history/logs. Accept invitations only after sign-in with `POST /api/invitations/accept`.
-- `POST /api/invitations/accept`
-- `GET /api/admin/collaborators` — OWNER
-- `POST /api/admin/invitations` — OWNER
-- `DELETE /api/admin/invitations/:invitationId` — OWNER
-- `PATCH /api/admin/collaborators/:userId` — OWNER
-- `DELETE /api/admin/collaborators/:userId` — OWNER
-
-### Granular permissions
-
-- `GET /api/admin/collaborators/:userId/permissions` — OWNER
-- `PUT /api/admin/collaborators/:userId/permissions` — OWNER
-
-### Shared projects and workspaces
-
-- `GET /api/projects` — list active projects available to the signed-in account
-- `POST /api/admin/projects` — OWNER creates a project
-- `GET /api/projects/:projectId` — project member or OWNER
-- `GET /api/admin/projects/:projectId/members` — OWNER lists project members
-- `POST /api/admin/projects/:projectId/members` — OWNER adds an active Developer, Designer or Reviewer
-- `DELETE /api/admin/projects/:projectId/members/:userId` — OWNER removes a member
-- `GET /api/projects/:projectId/scripts` — script editor or reviewer access
-- `POST /api/projects/:projectId/scripts` — create a shared script draft; requires `EDIT_SCRIPTS`
-- `PUT /api/projects/:projectId/scripts/:scriptId` — revision-checked script update; requires `EDIT_SCRIPTS`
-- `DELETE /api/projects/:projectId/scripts/:scriptId` — delete a draft; requires `EDIT_SCRIPTS`
-- `GET /api/projects/:projectId/ui-drafts` — UI designer or preview access
-- `PUT /api/projects/:projectId/ui-drafts/:screenKey` — revision-checked UI design save; requires `EDIT_UI_DESIGN`
-- `POST /api/projects/:projectId/submissions` — submit a current script/UI revision for review; requires `SUBMIT_RELEASE`
-- `GET /api/projects/:projectId/submissions` — list submissions; requires `REVIEW_RELEASE`
-- `PATCH /api/projects/:projectId/submissions/:submissionId` — approve/reject a pending submission; requires `REVIEW_RELEASE` and forbids self-review
-
-Script source and UI JSON are size-limited. Every project API checks project membership and the relevant account permission. Script and UI updates use expected revisions, returning HTTP 409 when another collaborator has saved a newer revision. Submission records keep the submitted snapshot even if the draft is edited later.
-
-The permission API returns only permissions configurable for the selected role. The Worker rejects permissions outside that role's allowlist. A role change clears previous overrides to avoid carrying permissions into an incompatible role.
-
-The Worker returns a one-time invitation token for the owner to copy and share manually. The owner can list and revoke pending invitations; the Worker does not send email. Invitation acceptance requires a signed-in POST request matching the invited Google email. There is no public invitation-preview endpoint, so invitation tokens are not carried in URL query strings. Invitation tokens are stored only as SHA-256 hashes; access tokens are also stored hashed. All protected actions require a live server session.
-
 ## Local validation
 
-`npm run check` checks Worker JavaScript syntax, runs the Node.js API behavior test suite with a mocked D1 binding, and executes every SQL migration against an in-memory SQLite database. The API tests cover health/config reporting, the unconfigured Google challenge gate, unauthenticated access denial, OWNER-only collaborator and package operations, missing package encryption secrets, package encryption/decryption round-trip, license/device enforcement, malformed/oversized request bodies and CORS origin rules. Migration validation checks the single-owner constraint, foreign keys, project membership, case-insensitive script/package-name uniqueness, UI draft storage, allowed submission kinds, immutable package versions and encrypted-only package columns. These are source-level tests; they do not deploy the Worker, call the live D1 database or validate a live Google OAuth client.
+`npm run check` checks Worker JavaScript syntax, runs the Node.js API behavior test suite with a mocked D1 binding, and executes every SQL migration against an in-memory SQLite database. The API tests cover health/config reporting, the unconfigured Google challenge gate, unauthenticated access denial, removed collaboration routes and OWNER-only package operations, missing package encryption secrets, package encryption/decryption round-trip, license/device enforcement, malformed/oversized request bodies and CORS origin rules. Migration validation checks the single-owner constraint, foreign keys, immutable package versions and encrypted-only package columns. These are source-level tests; they do not deploy the Worker, call the live D1 database or validate a live Google OAuth client.

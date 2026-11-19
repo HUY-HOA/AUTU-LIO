@@ -10,7 +10,7 @@
 - Không có website, web dashboard, web app hoặc web preview.
 - `backend/` là Cloudflare Worker REST API phục vụ ứng dụng Android; đây không phải giao diện web.
 - Phạm vi vận hành hiện tại chỉ gồm **OWNER** và **CUSTOMER**. Chỉ tài khoản Google đã xác minh theo secret `OWNER_GOOGLE_SUB` được bootstrap thành OWNER; tài khoản Google khác mặc định là CUSTOMER.
-- Quy trình cộng tác viên/nhà phát triển, nhà thiết kế và người kiểm duyệt được để dành cho giai đoạn sau. Chưa onboarding cộng tác viên trong đợt hiện tại.
+- Quy trình Collaboration invitations and shared workspaces have been removed from the current scope.
 - Debug và Release dùng cùng luồng xác thực; không cấp quyền bằng bộ chọn vai trò cục bộ.
 
 ## 2. Hạ tầng đã triển khai và xác nhận

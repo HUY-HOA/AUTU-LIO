@@ -16,20 +16,22 @@ required_tables = {
     "users",
     "auth_challenges",
     "sessions",
-    "invitations",
-    "permission_overrides",
     "audit_logs",
     "app_settings",
-    "projects",
-    "project_memberships",
-    "script_drafts",
-    "ui_drafts",
-    "change_submissions",
     "licenses",
     "devices",
     "device_enrollment_challenges",
     "script_packages",
     "script_package_versions",
+}
+removed_tables = {
+    "invitations",
+    "permission_overrides",
+    "projects",
+    "project_memberships",
+    "script_drafts",
+    "ui_drafts",
+    "change_submissions",
 }
 actual_tables = {
     row[0]
@@ -41,6 +43,10 @@ missing = sorted(required_tables - actual_tables)
 if missing:
     raise SystemExit(f"Missing tables: {', '.join(missing)}")
 
+leftover = sorted(removed_tables & actual_tables)
+if leftover:
+    raise SystemExit(f"Collaboration tables remain: {', '.join(leftover)}")
+
 owner_index = database.execute(
     "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_users_single_owner'"
 ).fetchone()
@@ -49,9 +55,7 @@ if owner_index is None:
 
 users = [
     ("owner-1", "google-owner", "owner@example.com", "OWNER"),
-    ("developer-1", "google-developer", "developer@example.com", "DEVELOPER"),
-    ("designer-1", "google-designer", "designer@example.com", "DESIGNER"),
-    ("reviewer-1", "google-reviewer", "reviewer@example.com", "REVIEWER"),
+    ("customer-1", "google-customer", "customer@example.com", "CUSTOMER"),
 ]
 for user_id, google_sub, email, role in users:
     database.execute(
@@ -69,63 +73,6 @@ except sqlite3.IntegrityError:
     pass
 else:
     raise SystemExit("Database accepted more than one OWNER")
-
-database.execute(
-    "INSERT INTO projects (id, name, description, created_by, created_at, updated_at) "
-    "VALUES ('project-1', 'Main project', '', 'owner-1', 1, 1)"
-)
-database.execute(
-    "INSERT INTO project_memberships (project_id, user_id, added_by, created_at) "
-    "VALUES ('project-1', 'developer-1', 'owner-1', 1)"
-)
-
-try:
-    database.execute(
-        "INSERT INTO project_memberships (project_id, user_id, added_by, created_at) "
-        "VALUES ('project-1', 'missing-user', 'owner-1', 1)"
-    )
-except sqlite3.IntegrityError:
-    pass
-else:
-    raise SystemExit("Project membership accepted a user that does not exist")
-
-database.execute(
-    "INSERT INTO script_drafts "
-    "(id, project_id, name, source, language_version, revision, created_by, updated_by, created_at, updated_at) "
-    "VALUES ('script-1', 'project-1', 'Example', 'tap(10, 20)', '0.1', 1, 'developer-1', 'developer-1', 1, 1)"
-)
-try:
-    database.execute(
-        "INSERT INTO script_drafts "
-        "(id, project_id, name, source, language_version, revision, created_by, updated_by, created_at, updated_at) "
-        "VALUES ('script-2', 'project-1', 'example', '', '0.1', 1, 'developer-1', 'developer-1', 1, 1)"
-    )
-except sqlite3.IntegrityError:
-    pass
-else:
-    raise SystemExit("Script names are not unique within a project (case-insensitive)")
-
-database.execute(
-    "INSERT INTO ui_drafts "
-    "(id, project_id, screen_key, design_json, revision, created_by, updated_by, created_at, updated_at) "
-    "VALUES ('ui-1', 'project-1', 'home', '{\"layout\":\"column\"}', 1, 'designer-1', 'designer-1', 1, 1)"
-)
-database.execute(
-    "INSERT INTO change_submissions "
-    "(id, project_id, kind, item_id, revision, submitted_snapshot, submitted_by, status, created_at) "
-    "VALUES ('submission-1', 'project-1', 'SCRIPT', 'script-1', 1, '{\"name\":\"Example\"}', 'developer-1', 'PENDING', 1)"
-)
-
-try:
-    database.execute(
-        "INSERT INTO change_submissions "
-        "(id, project_id, kind, item_id, revision, submitted_snapshot, submitted_by, status, created_at) "
-        "VALUES ('submission-2', 'project-1', 'INVALID', 'script-1', 1, '{}', 'developer-1', 'PENDING', 1)"
-    )
-except sqlite3.IntegrityError:
-    pass
-else:
-    raise SystemExit("Submission accepted an unsupported change kind")
 
 database.execute(
     "INSERT INTO licenses "
@@ -220,5 +167,5 @@ if foreign_key_errors:
 
 print(
     f"OK: {len(required_tables)} required tables, {len(migrations)} migrations, "
-    "single-owner, project membership, draft uniqueness, submissions, licenses, device limits, unique device keys, encrypted package schema and immutable versions"
+    "single-owner, removed collaboration schema, licenses, device limits, unique device keys, encrypted package schema and immutable versions"
 )

@@ -13,9 +13,9 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 5. Mỗi tính năng phải có giới hạn tài nguyên, lỗi xác định, test unit hoặc test tích hợp và tài liệu.
 6. Tính năng phải kiểm tra phiên bản Android, quyền, trạng thái dịch vụ và khả năng của thiết bị trước khi chạy.
 
-## Nguyên tắc không tích hợp AI
+## On-device ML Kit screen vision
 
-AUTU-LIO không tích hợp trợ lý AI, mô hình ngôn ngữ, dịch vụ sinh mã hoặc API suy luận đám mây. Việc soạn, biên dịch, kiểm tra và chạy AUTU Script được thực hiện bằng công cụ cục bộ của ứng dụng; người dùng tự xem lại và quyết định chạy kịch bản.
+AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, structured OCR, region OCR, image labels, object detection and bounding boxes, QR scanning and common barcode formats. ML Kit runs locally on the device; there is no Gemini or generative-AI integration. Screen capture depends on Android Accessibility screenshot support (Android 11/API 30 or newer), and secure windows may block capture.
 
 ## Ma trận tính năng
 

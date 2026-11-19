@@ -194,16 +194,28 @@ test("CORS never treats wildcard as an allowed origin", async () => {
   assert.equal((await json(response)).error, "origin_not_allowed");
 });
 
-test("invitation preview endpoint is disabled and never looks up URL tokens", async () => {
-  const { env, queries } = createEnv();
-  const response = await worker.fetch(
-    makeRequest("/api/invitations/preview?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
-    env
-  );
-
-  assert.equal(response.status, 404);
-  assert.equal((await json(response)).error, "route_not_found");
-  assert.equal(queries.some(sql => sql.includes("FROM invitations WHERE token_hash")), false);
+test("legacy collaboration and invitation routes are removed", async () => {
+  const { env, queries } = createEnv({ session: ownerSession });
+  const paths = [
+    ["/api/admin/collaborators", "GET"],
+    ["/api/admin/invitations", "POST"],
+    ["/api/invitations/accept", "POST"],
+    ["/api/projects", "GET"]
+  ];
+  for (const [path, method] of paths) {
+    const response = await worker.fetch(
+      makeRequest(path, {
+        method,
+        headers: { Authorization: `Bearer ${"C".repeat(48)}` }
+      }),
+      env
+    );
+    assert.equal(response.status, 404, path);
+    assert.equal((await json(response)).error, "route_not_found", path);
+  }
+  assert.equal(queries.some(sql =>
+    /invitations|permission_overrides|projects|project_memberships|script_drafts|ui_drafts|change_submissions/i.test(sql)
+  ), false);
 });
 
 test("auth challenge requests are rate limited before creating D1 rows", async () => {
@@ -274,58 +286,13 @@ test("Google challenge is disabled until the server client ID is configured", as
 
 test("protected routes reject requests without a bearer session", async () => {
   const { env, queries } = createEnv();
-  const response = await worker.fetch(makeRequest("/api/admin/collaborators"), env);
+  const response = await worker.fetch(makeRequest("/api/admin/audit-logs"), env);
   const body = await json(response);
 
   assert.equal(response.status, 401);
   assert.equal(body.error, "authentication_required");
   assert.equal(queries.length, 0);
 });
-
-test("Developer cannot access the owner-only collaborator directory", async () => {
-  const developer = { ...ownerSession, role: "DEVELOPER", user_id: "developer-user" };
-  const { env } = createEnv({ session: developer });
-  const response = await worker.fetch(
-    makeRequest("/api/admin/collaborators", {
-      headers: { Authorization: `Bearer ${"A".repeat(48)}` }
-    }),
-    env
-  );
-  const body = await json(response);
-
-  assert.equal(response.status, 403);
-  assert.equal(body.error, "insufficient_permissions");
-});
-
-test("Reviewer cannot access the owner-only collaborator directory", async () => {
-  const reviewer = { ...ownerSession, role: "REVIEWER", user_id: "reviewer-user" };
-  const { env } = createEnv({ session: reviewer });
-  const response = await worker.fetch(
-    makeRequest("/api/admin/collaborators", {
-      headers: { Authorization: `Bearer ${"B".repeat(48)}` }
-    }),
-    env
-  );
-
-  assert.equal(response.status, 403);
-  assert.equal((await json(response)).error, "insufficient_permissions");
-});
-
-test("Owner can open the collaborator directory", async () => {
-  const { env } = createEnv({ session: ownerSession });
-  const response = await worker.fetch(
-    makeRequest("/api/admin/collaborators", {
-      headers: { Authorization: `Bearer ${"C".repeat(48)}` }
-    }),
-    env
-  );
-  const body = await json(response);
-
-  assert.equal(response.status, 200);
-  assert.deepEqual(body.collaborators, []);
-  assert.deepEqual(body.pendingInvitations, []);
-});
-
 
 test("customer account endpoint returns the signed-in account and empty license/device state", async () => {
   const { env } = createEnv({ session: customerSession });
