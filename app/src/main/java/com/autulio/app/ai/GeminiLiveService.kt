@@ -110,7 +110,9 @@ class GeminiLiveService : Service() {
             return START_NOT_STICKY
         }
         val capture = try {
-            MediaProjectionScreenCapture(this, projectionResultCode, projectionData)
+            MediaProjectionScreenCapture(this, projectionResultCode, projectionData) {
+                mainHandlerPost { stopLive() }
+            }
         } catch (exception: Exception) {
             starting.set(false)
             stopWithError("Không khởi tạo được chia sẻ màn hình Android: ${exception.message.orEmpty()}")
@@ -329,7 +331,8 @@ class GeminiLiveService : Service() {
 internal class MediaProjectionScreenCapture(
     context: Context,
     resultCode: Int,
-    resultData: Intent
+    resultData: Intent,
+    private val onProjectionStopped: () -> Unit
 ) : AutoCloseable {
     private val lock = Any()
     private val stopped = AtomicBoolean(false)
@@ -342,6 +345,7 @@ internal class MediaProjectionScreenCapture(
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
             releaseResources(stopProjection = false)
+            onProjectionStopped()
         }
     }
 
