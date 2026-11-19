@@ -25,12 +25,7 @@ object ScreenColorAnalyzer {
 
     fun isNear(argb: Int, red: Int, green: Int, blue: Int, tolerance: Int): Boolean {
         validateTarget(red, green, blue, tolerance)
-        val actualRed = (argb shr 16) and 0xFF
-        val actualGreen = (argb shr 8) and 0xFF
-        val actualBlue = argb and 0xFF
-        return abs(actualRed - red) <= tolerance &&
-            abs(actualGreen - green) <= tolerance &&
-            abs(actualBlue - blue) <= tolerance
+        return isNearUnchecked(argb, red, green, blue, tolerance)
     }
 
     fun findFirstNear(
@@ -49,7 +44,7 @@ object ScreenColorAnalyzer {
         validateTarget(red, green, blue, tolerance)
         for (y in 0 until sampleHeight) {
             for (x in 0 until sampleWidth) {
-                if (isNear(pixels[y * sampleWidth + x], red, green, blue, tolerance)) {
+                if (isNearUnchecked(pixels[y * sampleWidth + x], red, green, blue, tolerance)) {
                     val screenX = (((x + 0.5) * screenWidth) / sampleWidth).toInt()
                         .coerceIn(0, screenWidth - 1)
                     val screenY = (((y + 0.5) * screenHeight) / sampleHeight).toInt()
@@ -75,9 +70,18 @@ object ScreenColorAnalyzer {
         if (pixels.isEmpty()) return 0.0
         var matches = 0
         for (pixel in pixels) {
-            if (isNear(pixel, red, green, blue, tolerance)) matches++
+            if (isNearUnchecked(pixel, red, green, blue, tolerance)) matches++
         }
         return matches * 100.0 / pixels.size
+    }
+
+    private fun isNearUnchecked(argb: Int, red: Int, green: Int, blue: Int, tolerance: Int): Boolean {
+        val actualRed = (argb shr 16) and 0xFF
+        val actualGreen = (argb shr 8) and 0xFF
+        val actualBlue = argb and 0xFF
+        return abs(actualRed - red) <= tolerance &&
+            abs(actualGreen - green) <= tolerance &&
+            abs(actualBlue - blue) <= tolerance
     }
 
     private fun validatePixels(pixels: IntArray, width: Int, height: Int) {
