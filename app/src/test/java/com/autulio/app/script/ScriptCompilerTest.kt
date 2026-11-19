@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -489,7 +489,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -504,6 +504,28 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun supportsDetailedBarcodeScanBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT MA_QR: DANH_SÁCH = CHI_TIẾT_MÃ_QR_MÀN_HÌNH()
+            ĐẶT MA_VACH: DANH_SÁCH = CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()
+            """.trimIndent()
+        )
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.15", result.program?.languageVersion)
+    }
+
+    @Test
+    fun rejectsArgumentsForDetailedBarcodeScanBuiltins() {
+        val qr = ScriptCompiler.compile("ĐẶT MA_QR = CHI_TIẾT_MÃ_QR_MÀN_HÌNH(1)")
+        val barcode = ScriptCompiler.compile("ĐẶT MA_VACH = CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH(1)")
+
+        assertEquals("function_argument_count", qr.diagnostics.first().code)
+        assertEquals("function_argument_count", barcode.diagnostics.first().code)
+    }
+
+    @Test
     fun supportsStructuredScreenOcrBuiltin() {
         val result = ScriptCompiler.compile(
             """
@@ -512,7 +534,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -525,7 +547,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -550,7 +572,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -605,7 +627,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -632,7 +654,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -661,7 +683,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -683,7 +705,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -709,7 +731,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -738,7 +760,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
@@ -788,7 +810,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.14", result.program?.languageVersion)
+        assertEquals("1.15", result.program?.languageVersion)
     }
 
     @Test
