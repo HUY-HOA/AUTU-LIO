@@ -295,6 +295,20 @@ class AuthRepository(context: Context) {
         return AuthSession(accessToken, user)
     }
 
+    suspend fun createGeminiLiveToken(accessToken: String): String {
+        val result = apiRequest(
+            path = "/api/ai/live-token",
+            method = "POST",
+            body = JSONObject(),
+            bearerToken = accessToken
+        )
+        val token = result.optString("token")
+        if (!token.startsWith("auth_tokens/") || token.length > 4_096) {
+            throw IOException("Máy chủ không trả về token Gemini Live hợp lệ.")
+        }
+        return token
+    }
+
     suspend fun currentUser(accessToken: String): AuthenticatedUser {
         val response = apiRequest(
             path = "/api/auth/me",
