@@ -226,7 +226,10 @@ test("Gemini Live owner setup omits AUTU script tools when the owner has not ena
   try {
     const response = await worker.fetch(makeRequest("/api/ai/live-token", {
       method: "POST",
-      headers: { Authorization: "Bearer " + "A".repeat(48) },
+      headers: {
+        Authorization: "Bearer " + "A".repeat(48),
+        "CF-Connecting-IP": "203.0.113.23"
+      },
       body: JSON.stringify({ enableAutuScriptAuthoring: false })
     }), env);
     const body = await json(response);
@@ -291,7 +294,10 @@ test("Gemini Live customer cannot request owner-only AUTU script tools", async (
   try {
     const response = await worker.fetch(makeRequest("/api/ai/live-token", {
       method: "POST",
-      headers: { Authorization: "Bearer " + "C".repeat(48) },
+      headers: {
+        Authorization: "Bearer " + "C".repeat(48),
+        "CF-Connecting-IP": "203.0.113.24"
+      },
       body: JSON.stringify({ enableAutuScriptAuthoring: true })
     }), env);
     assert.equal(response.status, 403);
