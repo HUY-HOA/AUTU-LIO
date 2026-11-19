@@ -2,6 +2,7 @@ package com.autulio.app.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.ScreenshotResult
+import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -443,7 +444,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         } catch (_: RuntimeException) {
                             captured.set(null)
                         } finally {
-                            screenshot.hardwareBuffer.close()
+                            runCatching { screenshot.hardwareBuffer.close() }
                             finished.countDown()
                         }
                     }
