@@ -405,11 +405,17 @@ internal class GeminiLiveController(
     private val toolExecutor = Executors.newSingleThreadExecutor()
     private val playbackExecutor = Executors.newSingleThreadExecutor()
     private val microphoneExecutor = Executors.newSingleThreadExecutor()
+    private val reconnectScheduler = Executors.newSingleThreadScheduledExecutor()
+    private val reconnectScheduled = AtomicBoolean(false)
     private var frameScheduler: ScheduledExecutorService? = null
     @Volatile private var socket: WebSocket? = null
     @Volatile private var audioRecord: AudioRecord? = null
     @Volatile private var audioTrack: AudioTrack? = null
     @Volatile private var actionsEnabled = false
+    @Volatile private var sessionToken: String? = null
+    @Volatile private var resumeHandle: String? = null
+    @Volatile private var connectionGeneration = 0L
+    @Volatile private var reconnectAttempts = 0
 
     fun setActionsEnabled(enabled: Boolean) {
         actionsEnabled = enabled
@@ -417,30 +423,104 @@ internal class GeminiLiveController(
 
     fun connect(token: String) {
         if (!active.compareAndSet(false, true)) return
+        sessionToken = token
         callbacks.onStatus("Đang kết nối Gemini Live…")
+        openSocket()
+    }
+
+    private fun openSocket() {
+        val token = sessionToken
+        if (!active.get() || token.isNullOrBlank()) return
         val encodedToken = URLEncoder.encode(token, Charsets.UTF_8.name())
         val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=$encodedToken"
         val request = Request.Builder().url(url).build()
-        socket = client.newWebSocket(request, object : WebSocketListener() {
+        val generation = synchronized(inputLock) {
+            connectionGeneration += 1
+            connectionGeneration
+        }
+        val nextSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                socket = webSocket
-                if (!webSocket.send(buildSetupMessage().toString())) {
-                    fail("Không gửi được cấu hình Gemini Live.")
+                if (!isCurrentSocket(webSocket, generation)) {
+                    webSocket.close(1000, "Superseded connection")
+                    return
+                }
+                if (!webSocket.send(buildSetupMessage(resumeHandle).toString())) {
+                    recoverConnection(webSocket, generation, "Không gửi được cấu hình Gemini Live.", 750L)
                 }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                handleServerMessage(text)
+                if (isCurrentSocket(webSocket, generation)) {
+                    handleServerMessage(webSocket, generation, text)
+                }
             }
 
             override fun onFailure(webSocket: WebSocket, error: Throwable, response: Response?) {
-                fail("Kết nối Gemini Live thất bại: ${error.message ?: "lỗi mạng"}")
+                recoverConnection(
+                    webSocket,
+                    generation,
+                    "Kết nối Gemini Live bị gián đoạn: ${error.message ?: "lỗi mạng"}",
+                    750L
+                )
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                finishSession()
+                recoverConnection(
+                    webSocket,
+                    generation,
+                    "Gemini Live đã đóng kết nối ($code).",
+                    500L
+                )
             }
         })
+        socket = nextSocket
+    }
+
+    private fun isCurrentSocket(webSocket: WebSocket, generation: Long): Boolean =
+        active.get() && generation == connectionGeneration && socket === webSocket
+
+    private fun recoverConnection(
+        webSocket: WebSocket,
+        generation: Long,
+        reason: String,
+        minimumDelayMs: Long
+    ) {
+        if (!isCurrentSocket(webSocket, generation)) return
+        if (resumeHandle.isNullOrBlank()) {
+            fail("$reason Chưa có mốc tiếp tục phiên; hãy bắt đầu phiên Live mới.")
+            return
+        }
+        if (!reconnectScheduled.compareAndSet(false, true)) return
+
+        ready.set(false)
+        frameScheduler?.shutdownNow()
+        frameScheduler = null
+        runCatching { audioRecord?.stop() }
+        runCatching { audioTrack?.pause() }
+        runCatching { audioTrack?.flush() }
+        socket = null
+        val attempt = synchronized(inputLock) {
+            reconnectAttempts += 1
+            reconnectAttempts
+        }
+        if (attempt > MAX_RESUME_ATTEMPTS) {
+            reconnectScheduled.set(false)
+            fail("Không thể tự nối lại Gemini Live sau $MAX_RESUME_ATTEMPTS lần thử.")
+            return
+        }
+
+        callbacks.onStatus("$reason Đang tự nối lại phiên ($attempt/$MAX_RESUME_ATTEMPTS)…")
+        webSocket.close(1000, "Resume Gemini Live session")
+        val backoffMs = maxOf(minimumDelayMs, 350L * (1L shl (attempt - 1)))
+        try {
+            reconnectScheduler.schedule({
+                reconnectScheduled.set(false)
+                if (active.get()) openSocket()
+            }, backoffMs, TimeUnit.MILLISECONDS)
+        } catch (_: Exception) {
+            reconnectScheduled.set(false)
+            fail("Không thể lên lịch nối lại Gemini Live.")
+        }
     }
 
     fun sendText(text: String): Boolean {
@@ -463,8 +543,10 @@ internal class GeminiLiveController(
         runCatching { audioTrack?.stop() }
         runCatching { audioTrack?.release() }
         audioTrack = null
+        synchronized(inputLock) { connectionGeneration += 1 }
         socket?.close(1000, "User stopped Gemini Live")
         socket = null
+        reconnectScheduler.shutdownNow()
         toolExecutor.shutdownNow()
         playbackExecutor.shutdownNow()
         microphoneExecutor.shutdownNow()
@@ -473,9 +555,20 @@ internal class GeminiLiveController(
         callbacks.onDisconnected()
     }
 
-    private fun handleServerMessage(raw: String) {
+    private fun handleServerMessage(webSocket: WebSocket, generation: Long, raw: String) {
         val message = runCatching { JSONObject(raw) }.getOrNull() ?: return
+        val resumptionUpdate = message.optJSONObject("sessionResumptionUpdate")
+        if (resumptionUpdate?.optBoolean("resumable", false) == true) {
+            val newHandle = resumptionUpdate.optString("newHandle").takeIf { it.isNotBlank() }
+            if (newHandle != null) {
+                resumeHandle = newHandle
+                callbacks.onStatus("Đã lưu mốc khôi phục phiên Gemini Live.")
+            }
+        }
+
         if (message.has("setupComplete")) {
+            synchronized(inputLock) { reconnectAttempts = 0 }
+            reconnectScheduled.set(false)
             if (ready.compareAndSet(false, true)) {
                 callbacks.onConnected()
                 startMicrophone()
@@ -508,7 +601,8 @@ internal class GeminiLiveController(
         val toolCall = message.optJSONObject("toolCall")
         if (toolCall != null) handleToolCall(toolCall)
         message.optJSONObject("goAway")?.let {
-            callbacks.onStatus("Gemini sắp kết thúc phiên; hãy bắt đầu phiên mới.")
+            callbacks.onStatus("Gemini sắp đặt lại kết nối; AUTU-LIO đang khôi phục phiên…")
+            recoverConnection(webSocket, generation, "Gemini yêu cầu nối lại phiên.", 250L)
         }
         message.optJSONObject("error")?.let {
             fail(it.optString("message").ifBlank { "Gemini trả về lỗi." })
@@ -551,38 +645,53 @@ internal class GeminiLiveController(
         if (!active.get()) {
             return JSONObject().put("ok", false).put("error", "Live session has stopped.")
         }
-        if (!actionsEnabled) {
+        if (name != "read_screen_text" && !actionsEnabled) {
             return JSONObject().put("ok", false).put("error", "User has not enabled screen control.")
         }
         val service = AutoClickAccessibilityService.current()
             ?: return JSONObject().put("ok", false).put("error", "Accessibility service is not connected.")
-        val success = try {
-            when (name) {
-                "tap_screen" -> service.tap(
-                    requireInt(args, "x", 0, 10_000),
-                    requireInt(args, "y", 0, 10_000)
-                )
-                "swipe_screen" -> service.swipe(
-                    requireInt(args, "startX", 0, 10_000),
-                    requireInt(args, "startY", 0, 10_000),
-                    requireInt(args, "endX", 0, 10_000),
-                    requireInt(args, "endY", 0, 10_000),
-                    requireInt(args, "durationMs", 150, 2_000)
-                )
-                "long_press_screen" -> service.longPress(
-                    requireInt(args, "x", 0, 10_000),
-                    requireInt(args, "y", 0, 10_000),
-                    requireInt(args, "durationMs", 300, 2_000)
-                )
-                "press_back" -> service.goBack()
-                else -> false
+        return try {
+            if (name == "read_screen_text") {
+                val text = service.readAccessibilityTextForLive()
+                JSONObject()
+                    .put("ok", true)
+                    .put("text", text)
+                    .put("message", if (text.isBlank()) "No accessible text labels are exposed by this app." else "Visible accessibility labels returned.")
+            } else {
+                val success = when (name) {
+                    "tap_screen" -> service.tap(
+                        requireInt(args, "x", 0, 10_000),
+                        requireInt(args, "y", 0, 10_000)
+                    )
+                    "swipe_screen" -> service.swipe(
+                        requireInt(args, "startX", 0, 10_000),
+                        requireInt(args, "startY", 0, 10_000),
+                        requireInt(args, "endX", 0, 10_000),
+                        requireInt(args, "endY", 0, 10_000),
+                        requireInt(args, "durationMs", 150, 2_000)
+                    )
+                    "long_press_screen" -> service.longPress(
+                        requireInt(args, "x", 0, 10_000),
+                        requireInt(args, "y", 0, 10_000),
+                        requireInt(args, "durationMs", 300, 2_000)
+                    )
+                    "press_back" -> service.goBack()
+                    "tap_text" -> {
+                        val query = args.optString("text").trim()
+                        if (query.isBlank() || query.length > 100) {
+                            throw IOException("Invalid text label.")
+                        }
+                        service.tapAccessibilityTextForLive(query)
+                    }
+                    else -> false
+                }
+                JSONObject()
+                    .put("ok", success)
+                    .put("message", if (success) "Android accepted and completed the action." else "No matching accessible control was activated.")
             }
-        } catch (_: Exception) {
-            false
+        } catch (exception: Exception) {
+            JSONObject().put("ok", false).put("error", exception.message?.take(160) ?: "Invalid tool arguments.")
         }
-        return JSONObject()
-            .put("ok", success)
-            .put("message", if (success) "Android accepted and completed the gesture." else "Android rejected the gesture or the coordinates were outside the screen.")
     }
 
     private fun requireInt(args: JSONObject, key: String, min: Int, max: Int): Int {
@@ -745,6 +854,9 @@ internal class GeminiLiveController(
         runCatching { audioTrack?.stop() }
         runCatching { audioTrack?.release() }
         audioTrack = null
+        synchronized(inputLock) { connectionGeneration += 1 }
+        socket = null
+        reconnectScheduler.shutdownNow()
         toolExecutor.shutdownNow()
         playbackExecutor.shutdownNow()
         microphoneExecutor.shutdownNow()
@@ -753,7 +865,7 @@ internal class GeminiLiveController(
         callbacks.onDisconnected()
     }
 
-    private fun buildSetupMessage(): JSONObject {
+    private fun buildSetupMessage(resumeFrom: String?): JSONObject {
         val declarations = JSONArray()
             .put(
                 functionDeclaration(
@@ -797,6 +909,25 @@ internal class GeminiLiveController(
                     JSONArray()
                 )
             )
+            .put(
+                functionDeclaration(
+                    "read_screen_text",
+                    "Read visible non-editable UI labels and their pixel bounds. Password and editable fields are omitted.",
+                    JSONObject(),
+                    JSONArray()
+                )
+            )
+            .put(
+                functionDeclaration(
+                    "tap_text",
+                    "Tap a visible non-editable UI element by its displayed text or accessibility label.",
+                    JSONObject().put(
+                        "text",
+                        JSONObject().put("type", "STRING").put("description", "A short visible label, not private user-entered content.")
+                    ),
+                    JSONArray().put("text")
+                )
+            )
         val tools = JSONArray().put(JSONObject().put("functionDeclarations", declarations))
         val systemInstruction = JSONObject().put(
             "parts",
@@ -809,6 +940,7 @@ internal class GeminiLiveController(
                         "Never request or interact with passwords, one-time codes, banking, payment, purchases, account recovery, or security settings. " +
                         "Never confirm or submit destructive actions such as deleting data, sending messages, publishing, or making purchases. Ask the user to perform those actions manually. " +
                         "Before navigating away from a form with unsaved content, explain the risk and ask the user. " +
+                        "Use read_screen_text when labels or coordinates are unclear; it excludes editable and password fields. Prefer tap_text for a clear, exact visible label instead of guessing coordinates. " +
                         "If the screen is unclear, ask a question instead of guessing. Do not claim an action succeeded unless the tool result says it succeeded."
                 )
             )
@@ -828,6 +960,10 @@ internal class GeminiLiveController(
             )
             .put("inputAudioTranscription", JSONObject())
             .put("outputAudioTranscription", JSONObject())
+            .put("contextWindowCompression", JSONObject().put("slidingWindow", JSONObject()))
+            .put("sessionResumption", JSONObject().apply {
+                if (!resumeFrom.isNullOrBlank()) put("handle", resumeFrom)
+            })
             .put("systemInstruction", systemInstruction)
             .put("tools", tools)
         return JSONObject().put("setup", setup)
@@ -853,4 +989,8 @@ internal class GeminiLiveController(
         JSONObject().put("type", "INTEGER").apply {
             if (!description.isNullOrBlank()) put("description", description)
         }
+
+    companion object {
+        private const val MAX_RESUME_ATTEMPTS = 3
+    }
 }
