@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -487,7 +487,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -512,7 +512,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -567,7 +567,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -594,7 +594,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -623,7 +623,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -645,7 +645,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -671,7 +671,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -700,7 +700,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.11", result.program?.languageVersion)
+        assertEquals("1.12", result.program?.languageVersion)
     }
 
     @Test
@@ -729,6 +729,36 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
+    @Test
+    fun supportsPrivateSqliteQueryAndMutationSignatures() {
+        val result = ScriptCompiler.compile(
+            """
+            SQL_THỰC_THI(
+                "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT)",
+                TẠO_DANH_SÁCH()
+            )
+            ĐẶT THAY_ĐỔI: BẢN_ĐỒ = SQL_THỰC_THI(
+                "INSERT INTO users(name) VALUES (?)",
+                TẠO_DANH_SÁCH("LIO")
+            )
+            ĐẶT NGƯỜI_DÙNG: DANH_SÁCH = SQL_TRUY_VẤN(
+                "SELECT id, name FROM users WHERE name = ?",
+                TẠO_DANH_SÁCH("LIO")
+            )
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.12", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesSqlFunctionArgumentCounts() {
+        val missingParams = ScriptCompiler.compile("""ĐẶT X = SQL_TRUY_VẤN("SELECT 1")""")
+        val tooMany = ScriptCompiler.compile("""ĐẶT X = SQL_THỰC_THI("DELETE FROM users", TẠO_DANH_SÁCH(), 1)""")
+        assertEquals("function_argument_count", missingParams.diagnostics.first().code)
+        assertEquals("function_argument_count", tooMany.diagnostics.first().code)
     }
 
 }
