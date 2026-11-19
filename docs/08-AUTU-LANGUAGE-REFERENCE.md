@@ -235,7 +235,7 @@ Tọa độ X/Y bắt đầu từ góc trái trên. RỘNG/CAO phải là số n
 | CHI_TIẾT_MÃ_QR_MÀN_HÌNH | CHI_TIẾT_MÃ_QR_MÀN_HÌNH() | Danh sách giá trị, định dạng, loại nội dung và hộp tọa độ của mã QR |
 | CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH | CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH() | Danh sách chi tiết mã vạch của các định dạng được hỗ trợ |
 
-Các hàm CHI_TIẾT_MÃ_QR_MÀN_HÌNH và CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH trả về GIÁ_TRỊ_GỐC, GIÁ_TRỊ_HIỂN_THỊ, ĐỊNH_DẠNG, LOẠI_NỘI_DUNG và X/Y/RỘNG/CAO nếu ML Kit xác định được hộp giới hạn. Dữ liệu quét chỉ được trả về cho kịch bản; ứng dụng không tự mở liên kết, gọi điện hoặc kết nối Wi‑Fi.
+Các hàm CHI_TIẾT_MÃ_QR_MÀN_HÌNH và CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH trả về GIÁ_TRỊ_GỐC, GIÁ_TRỊ_HIỂN_THỊ, ĐỊNH_DẠNG, LOẠI_NỘI_DUNG và X/Y/RỘNG/CAO nếu ML Kit xác định được hộp giới hạn. Dữ liệu quét chỉ được trả về cho kịch bản; ứng dụng không tự mở liên kết, gọi điện hoặc kết nối Wi‑Fi. Kết quả chi tiết tối đa 56 mã mỗi lần; giá trị văn bản mỗi trường được giới hạn 4.096 ký tự.
 
 Mô hình gắn nhãn ảnh cơ bản nhận diện nhãn tổng quát, không phải mô hình phát hiện mọi vật thể hay xác định tọa độ từng vật. Quét mã cần đủ độ phân giải và độ nét; giá trị trả về là nội dung giải mã, không tự mở liên kết hoặc thực hiện hành động.
 
