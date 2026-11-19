@@ -29,24 +29,6 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 
 Permission overrides are restricted to each role's allowed set. Owner-only controls, such as managing collaborators and licenses or final publishing, cannot be granted to collaborators.
 
-## Gemini Live
-
-Gemini Live uses the authenticated Worker as the only source of session configuration. The permanent Gemini API key is stored only as the Cloudflare Worker secret `GEMINI_API_KEY`; Android requests a single-use ephemeral token and its canonical `setup` object from `POST /api/ai/live-token` using its existing AUTU bearer session. The Worker builds the model, audio settings, system instruction and function declarations from one setup factory, with AUTU script tools included only when an authenticated OWNER enables that capability before starting the session. The ephemeral token is intentionally minted without a locked `bidiGenerateContentSetup`/Live constraint; Google then accepts the exact setup object returned by the Worker. Android validates the model, audio mode, instructions and exact role-specific tool set, then sends that object unchanged, adding only a session-resumption handle when resuming. This prevents a second, independently maintained Android setup from drifting away from the Worker. The Worker rate-limits token minting and never returns the permanent API key. Tokens are single-use for new sessions, valid for up to 30 minutes, and the new-session window is 60 seconds.
-
-The Gemini Developer API ephemeral-token broker and Android `BidiGenerateContentConstrained` WebSocket both use API version `v1alpha`, as required by the current Google GenAI SDK's ephemeral-token path. This is distinct from the regular API-key Live WebSocket documented under `v1beta`. Android connects with the `access_token` query parameter.
-
-Configure the secret in the Worker environment before deploying:
-
-```sh
-npx wrangler secret put GEMINI_API_KEY
-```
-
-The app requires Android 11 or newer and the AUTU-LIO Accessibility Service for screen capture and gestures, plus runtime microphone permission for voice conversations. Screen images are compressed JPEG frames, sent at approximately one frame per 1.2 seconds while the user keeps the Live session active. Audio is sent as 16 kHz mono PCM and Gemini audio is played as 24 kHz mono PCM. Session context compression and resumption are enabled: the app stores the latest resumable handle in memory and automatically reconnects when Gemini sends `goAway` or the WebSocket drops, with up to three retry attempts. Accessible screen labels and pixel bounds can be read on demand; editable and password nodes are omitted. `tap_text` can activate a matching visible, non-editable label when the Android app exposes it. A microphone foreground service keeps the session active when the Live activity moves to the background; the user can stop it in the app or from its persistent notification.
-
-The user must separately enable the “Cho phép AI điều khiển” switch before function calls can tap, swipe, long-press, or press Back. The assistant is instructed not to handle passwords, OTPs, payments, purchases, destructive actions, or message submission. This is a model instruction plus a narrow local tool allow-list, not a guarantee that the model always interprets every screen correctly; users should supervise all automation. Android secure windows can block screenshot capture.
-
-The API key secret and the Worker route must be configured/deployed for the feature to connect. The Android source change alone does not deploy the Worker. Gemini Live usage is billed or rate-limited according to the selected Google AI API plan and model policy.
-
 ## D1
 
 Database name: `autu_lio_auth`
@@ -64,7 +46,6 @@ Set these only after the values have been confirmed:
 - `GOOGLE_CLIENT_ID`: Google OAuth Web/server client ID used as the expected ID-token audience.
 - `OWNER_GOOGLE_SUB`: exact `sub` claim from the owner's Google ID token after the Worker verifies its signature, issuer, audience, expiry and nonce. This value, not the email address, selects the one account eligible for OWNER.
 - `PACKAGE_MASTER_KEY_V1`: base64-encoded cryptographically random 32-byte key. Generate it securely and set it as a Worker secret; never commit it, send it through chat or put it in the APK.
-- `GEMINI_API_KEY`: Google Gemini Developer API key used only by the Worker to mint single-use Live ephemeral tokens. Do not store it in Android or Git.
 
 Worker variables:
 - `PACKAGE_MASTER_KEY_VERSION`: active package master-key version, set to `V1` in `wrangler.jsonc`. The matching secret is `PACKAGE_MASTER_KEY_V1`.
@@ -91,10 +72,6 @@ From this directory:
 The Worker source is deployed and the five D1 migrations are applied. Production secrets and OAuth allowlist are configured; the owner has signed in successfully and D1 confirms exactly one active OWNER. Other Google accounts are assigned CUSTOMER by default. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`.
 
 ## API
-
-### Gemini Live
-
-- `POST /api/ai/live-token` — OWNER or CUSTOMER with a valid session; mints one short-lived Gemini Live ephemeral token. Token requests are rate-limited.
 
 ### Authentication
 

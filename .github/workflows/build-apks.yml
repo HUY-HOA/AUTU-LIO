@@ -1,6 +1,6 @@
 name: AUTU-LIO Android APK
 
-run-name: AUTU-LIO Release APK - Gemini Live v1alpha token and WebSocket - ${{ github.ref_name }}
+run-name: AUTU-LIO Release APK - ${{ github.ref_name }}
 
 on:
   push:
@@ -15,11 +15,6 @@ on:
           - debug
           - release
         default: release
-        required: true
-      include_ml_vision:
-        description: "Bật ML Kit OCR, nhận diện vật thể, nhãn ảnh và QR/mã vạch (chỉ khi phát hành công khai)"
-        type: boolean
-        default: false
         required: true
 
 permissions:
@@ -131,7 +126,6 @@ jobs:
       - name: Write build summary
         env:
           APK_VARIANT: ${{ steps.signing.outputs.variant }}
-          ML_VISION_ENABLED: ${{ inputs.include_ml_vision || false }}
         run: |
           {
             echo "## AUTU-LIO APK build"
@@ -141,11 +135,6 @@ jobs:
               echo "- Output: R8-minified, resource-shrunk, release-signed APK"
             else
               echo "- Output: Debug test APK; not suitable for stable customer updates"
-            fi
-            if [[ "$ML_VISION_ENABLED" == "true" ]]; then
-              echo "- ML vision: enabled (OCR, image labels, object detection, QR/barcodes)"
-            else
-              echo "- ML vision: disabled (development build; smaller APK)"
             fi
             echo "- Progress is shown by completed GitHub Actions steps; Gradle does not provide a reliable overall percentage."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -160,7 +149,7 @@ jobs:
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
           AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
           AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
-        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintRelease :app:assembleRelease -PAUTU_LIO_ENABLE_ML_VISION=${{ inputs.include_ml_vision || false }} -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintRelease :app:assembleRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Validate and build Debug test APK
         if: steps.signing.outputs.configured != 'true'
@@ -168,7 +157,7 @@ jobs:
         env:
           AUTU_LIO_AUTH_API_BASE_URL: https://autu-lio-auth-api.coc-lio-data.workers.dev
           AUTU_LIO_GOOGLE_SERVER_CLIENT_ID: 45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
-        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintDebug :app:assembleDebug -PAUTU_LIO_ENABLE_ML_VISION=${{ inputs.include_ml_vision || false }} -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintDebug :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Name AUTU-LIO APK with version
         env:

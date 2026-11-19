@@ -13,13 +13,9 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 5. Mỗi tính năng phải có giới hạn tài nguyên, lỗi xác định, test unit hoặc test tích hợp và tài liệu.
 6. Tính năng phải kiểm tra phiên bản Android, quyền, trạng thái dịch vụ và khả năng của thiết bị trước khi chạy.
 
-## Gemini Live — soạn AUTU bên trong ứng dụng
+## Nguyên tắc không tích hợp AI
 
-Gemini Live có chế độ viết AUTU riêng, chỉ dành cho phiên OWNER và phải được bật bằng công tắc **Cho phép AI viết AUTU**. Chế độ này chỉ thao tác với bản nháp qua `SecureScriptDraftStore` namespace `admin` trên thiết bị.
-
-Các công cụ chỉ gồm: đọc tài liệu AUTU, liệt kê/đọc bản nháp, biên dịch kiểm tra và lưu mã đã hợp lệ. Không có công cụ sửa mã nguồn Android, Worker, cấu hình, schema, APK, chạy hoặc phát hành AUTU. Worker không khai báo các tool viết AUTU cho CUSTOMER. Việc điều khiển màn hình có công tắc riêng.
-
-Sau khi AI lưu, người dùng phải mở bản nháp trong tab Kịch bản, kiểm tra lại và tự thực hiện thao tác chạy. AUTU Script compiler/runtime vẫn chạy độc lập khi không dùng Gemini. Chi tiết: [Gemini AUTU authoring](GEMINI-AUTU-AUTHORING.md).
+AUTU-LIO không tích hợp trợ lý AI, mô hình ngôn ngữ, dịch vụ sinh mã hoặc API suy luận đám mây. Việc soạn, biên dịch, kiểm tra và chạy AUTU Script được thực hiện bằng công cụ cục bộ của ứng dụng; người dùng tự xem lại và quyết định chạy kịch bản.
 
 ## Ma trận tính năng
 
@@ -34,9 +30,9 @@ Sau khi AI lưu, người dùng phải mở bản nháp trong tab Kịch bản, 
 | Mạng | HTTPS GET/POST/PUT/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn; PATCH/multipart/upload/download còn thiếu |
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Đã có SQLite nội bộ, SQL allow-list, bind tham số và transaction mỗi câu ghi; hệ thống di trú schema còn thiếu |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
-| OCR | Đọc màn hình/vùng, tìm chữ, trả tọa độ | Đã có OCR màn hình/vùng và cấu trúc khối-dòng kèm tọa độ (giới hạn 32 khối/40 dòng mỗi lần gọi); OCR từ URI/tệp và chờ chữ chuyên dụng còn thiếu |
+| Văn bản giao diện | Đọc cây Trợ năng, tìm nhãn và trả tọa độ | Chỉ đọc nội dung mà ứng dụng đang mở công khai qua cây Trợ năng; không có OCR hoặc nhận diện bằng mô hình |
 | Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch và chi tiết mã có định dạng/loại nội dung/bounds; RGB lấy mẫu màn hình bổ sung ở 1.13; khớp ảnh mẫu và so sánh khung hình còn thiếu |
-| Ảnh và khung hình | Chụp màn hình, crop vùng để OCR/nhận diện | Đã có chụp màn hình và crop nội bộ; xử lý ảnh/tệp và so sánh khung hình còn thiếu |
+| Ảnh và màu màn hình | Lấy mẫu điểm ảnh để đọc màu khi người dùng gọi lệnh | Chỉ phân tích màu cục bộ; không dùng mô hình nhận diện ảnh |
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt và chạm/vuốt đồng thời 2–5 ngón, tối đa 16 điểm mỗi đường; kéo-thả đường cong chuyên biệt còn thiếu |
 | Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel, DP, tỷ lệ 0–1 và truy vấn hướng/góc xoay đã có; hiệu chỉnh vùng an toàn và chuyển đổi hệ tọa độ theo xoay còn thiếu |
 | Sự kiện | Thay đổi cửa sổ, nội dung, thông báo do người dùng cấp quyền, trạng thái ứng dụng | Còn thiếu |
@@ -61,15 +57,9 @@ Các hàm HÀNG_SẢN_XUẤT(), MẪU_THIẾT_BỊ(), PHIÊN_BẢN_ANDROID(), M�
 
 ## Danh mục API dự kiến
 
-### OCR và văn bản trên màn hình
-Đã có: ĐỌC_VĂN_BẢN_MÀN_HÌNH(), ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() (khối và dòng kèm bounds), MÀN_HÌNH_CHỨA_CHỮ(CHUỖI), TÌM_VỊ_TRÍ_CHỮ(CHUỖI), ĐỌC_VĂN_BẢN_VÙNG(X,Y,RỘNG,CAO), MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG và TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG.
+### Văn bản giao diện qua Trợ năng
 
-Còn thiếu: đọc ảnh từ URI/tệp, trả về cấu trúc dòng/khối có confidence công khai, chờ chữ xuất hiện/biến mất có timeout riêng.
-
-### Nhận diện hình ảnh
-Đã có: nhãn ảnh tổng quát, phát hiện vật thể cơ bản, hộp giới hạn, quét QR/mã vạch và chi tiết định dạng/loại nội dung/vị trí của mã trên màn hình.
-
-Còn thiếu: tìm màu/vùng màu, so khớp ảnh mẫu do người dùng cung cấp, so sánh khung hình và API ảnh đầu vào từ tệp/URI. Không tuyên bố nhãn tổng quát là nhận diện chính xác mọi vật thể.
+Các lệnh đọc văn bản chỉ dùng nhãn, nội dung và tọa độ mà ứng dụng đích cung cấp qua cây Android Accessibility. AUTU-LIO không chạy OCR, không phân tích ảnh bằng mô hình và không gửi ảnh hoặc âm thanh đến dịch vụ AI.
 
 ### Trợ năng và điều khiển giao diện
 - Tìm theo văn bản, mô tả nội dung, resource ID, loại thành phần và trạng thái.
@@ -93,7 +83,7 @@ Còn thiếu: tìm màu/vùng màu, so khớp ảnh mẫu do người dùng cung
 
 - Ảnh chụp màn hình qua AccessibilityService yêu cầu Android 11/API 30 trở lên và khai báo capability tương ứng. Màn hình bảo mật hoặc ứng dụng chặn chụp có thể không đọc được.
 - Cây giao diện trợ năng chỉ cung cấp dữ liệu mà ứng dụng đích phơi bày; canvas/game/custom view có thể không có text node.
-- OCR và mô hình ảnh phụ thuộc độ phân giải, độ nét, ngôn ngữ và khả năng thiết bị; kết quả có thể sai và phải kiểm tra trước khi thao tác.
+- Cây Trợ năng chỉ cung cấp dữ liệu mà ứng dụng đích công khai; không thể đọc mọi canvas, video hoặc thành phần tùy chỉnh.
 - Android có thể chặn thao tác hệ thống, đa điểm, nền, clipboard hoặc truy cập dữ liệu của ứng dụng khác.
 - Không hỗ trợ vượt khóa bảo mật, né cơ chế bảo vệ, trích xuất thông tin xác thực, ghi phím bí mật hoặc giám sát ẩn.
 
@@ -110,15 +100,13 @@ Một mô-đun chỉ được đánh dấu **Đã triển khai** khi có đủ:
 
 ## Lộ trình triển khai
 
-1. Hoàn thiện OCR ảnh đầu vào từ URI/SAF, trả cấu trúc dòng/khối và chờ chữ.
-2. Nhận diện ảnh: khớp ảnh mẫu do người dùng chọn, so sánh khung hình và tinh chỉnh vùng màu.
-3. Hoàn thiện hiệu chỉnh vùng an toàn, tọa độ theo xoay màn hình, kéo-thả và đánh giá đa điểm theo khả năng Android.
-4. HTTP/API có timeout, HTTPS, giới hạn payload và chính sách dữ liệu.
-5. Hoàn thiện di trú schema, kiểm tra dữ liệu và backup/restore cho SQLite nội bộ.
-6. Sự kiện, lịch, hàng đợi và tác vụ nền có thể hủy.
-7. Module/thư viện dùng chung và regex/ngày giờ.
-8. Trình soạn thảo: tô màu, autocomplete, định dạng và debugger từng bước.
-9. Kiểm thử thiết bị thật: Xiaomi/HyperOS, Android nhiều API, quyền, vòng đời service, pin và độ phân giải.
-10. Rà soát bảo mật, hiệu năng, khả năng tiếp cận và tương thích trước phát hành.
+1. Hoàn thiện hiệu chỉnh vùng an toàn, tọa độ theo xoay màn hình, kéo-thả và đánh giá đa điểm theo khả năng Android.
+2. HTTP/API có timeout, HTTPS, giới hạn payload và chính sách dữ liệu.
+3. Hoàn thiện di trú schema, kiểm tra dữ liệu và backup/restore cho SQLite nội bộ.
+4. Sự kiện, lịch, hàng đợi và tác vụ nền có thể hủy.
+5. Module/thư viện dùng chung và regex/ngày giờ.
+6. Trình soạn thảo: tô màu, autocomplete, định dạng và debugger từng bước.
+7. Kiểm thử thiết bị thật: Xiaomi/HyperOS, Android nhiều API, quyền, vòng đời service, pin và độ phân giải.
+8. Rà soát bảo mật, hiệu năng, khả năng tiếp cận và tương thích trước phát hành.
 
 **Ghi chú:** Không có danh sách hữu hạn nào bao quát mọi API OEM, mọi ứng dụng và mọi phiên bản Android. Mục tiêu là bao phủ toàn diện các khả năng công khai, được cấp quyền và có thể kiểm thử trên Android, đồng thời công bố trung thực các giới hạn.

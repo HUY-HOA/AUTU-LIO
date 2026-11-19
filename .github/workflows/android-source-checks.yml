@@ -77,5 +77,3 @@ jobs:
       - name: Compile sources and run script compiler unit tests without APK packaging
         run: gradle --no-daemon --build-cache --parallel --console=plain :app:testDebugUnitTest :app:lintRelease
 
-      - name: Compile optional public ML vision sources without APK packaging
-        run: gradle --no-daemon --build-cache --parallel --console=plain :app:compileReleaseKotlin -PAUTU_LIO_ENABLE_ML_VISION=true

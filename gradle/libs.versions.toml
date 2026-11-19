@@ -5,20 +5,12 @@ composeBom = "2026.09.00"
 activityCompose = "1.13.0"
 credentials = "1.6.0"
 googleId = "1.2.1"
-mlkitTextRecognition = "16.0.1"
-mlkitImageLabeling = "17.0.9"
-mlkitBarcodeScanning = "17.3.0"
-mlkitObjectDetection = "17.0.2"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 google-identity-googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleId" }
-mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkitTextRecognition" }
-mlkit-image-labeling = { module = "com.google.mlkit:image-labeling", version.ref = "mlkitImageLabeling" }
-mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkitBarcodeScanning" }
-mlkitObjectDetection = { module = "com.google.mlkit:object-detection", version.ref = "mlkitObjectDetection" }
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
