@@ -303,7 +303,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.0", result.program?.languageVersion)
+        assertEquals("1.1", result.program?.languageVersion)
     }
 
     @Test
