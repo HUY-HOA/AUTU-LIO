@@ -174,38 +174,26 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
     assert.equal(payload.uses, 1);
     const constraints = payload.liveConnectConstraints;
     assert.equal(constraints.model, "gemini-3.8-live");
-    assert.deepEqual(constraints.config.responseModalities, ["AUDIO"]);
-    assert.deepEqual(constraints.config.speechConfig, {
-      voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
+    assert.deepEqual(constraints.config, {
+      responseModalities: ["AUDIO"],
+      sessionResumption: {}
     });
-    assert.deepEqual(constraints.config.sessionResumption, {});
-    assert.deepEqual(constraints.config.contextWindowCompression, { slidingWindow: {} });
-    assert.deepEqual(constraints.config.inputAudioTranscription, {});
-    assert.deepEqual(constraints.config.outputAudioTranscription, {});
-    assert.ok(Array.isArray(constraints.config.tools[0].functionDeclarations));
-    assert.match(constraints.config.systemInstruction.parts[0].text, /Never access, request, generate, modify or publish AUTU-LIO application source code/);
     assert.equal(Object.hasOwn(payload, "bidiGenerateContentSetup"), false);
     assert.equal(Object.hasOwn(payload, "fieldMask"), false);
     const expiryMs = Date.parse(payload.expireTime) - Date.now();
     const newSessionExpiryMs = Date.parse(payload.newSessionExpireTime) - Date.now();
     assert.ok(expiryMs > 28 * 60 * 1000 && expiryMs <= 30 * 60 * 1000);
     assert.ok(newSessionExpiryMs > 0 && newSessionExpiryMs <= 60 * 1000);
-    const declarations = constraints.config.tools[0].functionDeclarations;
-    assert.equal(declarations.length, 11);
+    const declarations = GEMINI_LIVE_AUTU_SCRIPT_TOOLS;
+    assert.equal(declarations.length, 5);
     assert.deepEqual(
       declarations.map(item => item.name).sort(),
       [
         "get_autu_script_reference",
         "list_autu_script_drafts",
-        "long_press_screen",
-        "press_back",
-        "read_screen_text",
         "read_autu_script_draft",
-        "save_autu_script_draft",
-        "swipe_screen",
-        "tap_screen",
-        "tap_text",
-        "validate_autu_script"
+        "validate_autu_script",
+        "save_autu_script_draft"
       ].sort()
     );
     assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
