@@ -342,7 +342,7 @@ Các hàm chỉ phân tích màn hình khi kịch bản gọi chúng. AUTU-LIO k
 ĐẶT CÁC_DÒNG: DANH_SÁCH = LẤY_GIÁ_TRỊ(KHỐI_ĐẦU, "CÁC_DÒNG")
 ```
 
-Mỗi khối trả về VĂN_BẢN, X, Y, RỘNG, CAO và danh sách CÁC_DÒNG. Mỗi dòng có VĂN_BẢN cùng bounds riêng. Kết quả được giới hạn tối đa 64 khối và 256 dòng để tránh tạo cấu trúc dữ liệu quá lớn. Tọa độ là pixel của ảnh chụp màn hình.
+Mỗi khối trả về VĂN_BẢN, X, Y, RỘNG, CAO và danh sách CÁC_DÒNG. Mỗi dòng có VĂN_BẢN cùng bounds riêng. Kết quả được giới hạn tối đa 32 khối và 40 dòng, mỗi đoạn văn bản tối đa 4.096 ký tự để tránh tạo cấu trúc dữ liệu quá lớn. Tọa độ là pixel của ảnh chụp màn hình.
 
 ### OCR theo vùng và nhận diện ảnh
 
@@ -386,7 +386,7 @@ LẶP_MỖI (MỘT_MÃ TRONG CÁC_MÃ) {
 ĐẶT MÃ_VẠCH: DANH_SÁCH = CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()
 ```
 
-Mỗi kết quả chứa GIÁ_TRỊ_GỐC, GIÁ_TRỊ_HIỂN_THỊ, ĐỊNH_DẠNG, LOẠI_NỘI_DUNG và bounds X/Y/RỘNG/CAO nếu có. Không phải mọi mã đều có giá trị văn bản UTF-8 hoặc bounds. Kịch bản tự quyết định xử lý tiếp; ứng dụng không tự mở URL hoặc kết nối tới dữ liệu được quét.
+Mỗi kết quả chứa GIÁ_TRỊ_GỐC, GIÁ_TRỊ_HIỂN_THỊ, ĐỊNH_DẠNG, LOẠI_NỘI_DUNG và bounds X/Y/RỘNG/CAO nếu có. Kết quả chi tiết tối đa 56 mã mỗi lần; mỗi trường văn bản giới hạn 4.096 ký tự. Không phải mọi mã đều có giá trị văn bản UTF-8 hoặc bounds. Kịch bản tự quyết định xử lý tiếp; ứng dụng không tự mở URL hoặc kết nối tới dữ liệu được quét.
 
 ### Phân tích màu RGB trên màn hình
 
