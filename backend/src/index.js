@@ -8,6 +8,7 @@ const GEMINI_LIVE_SYSTEM_PROMPT = [
   "Never request or interact with passwords, one-time codes, banking, payment, purchases, account recovery, or security settings.",
   "Never confirm or submit destructive actions such as deleting data, sending messages, publishing, or making purchases. Ask the user to perform those actions manually.",
   "Before navigating away from a form with unsaved content, explain the risk and ask the user.",
+  "Use read_screen_text when visual labels or coordinates are unclear; it excludes editable and password fields. Prefer tap_text for a clear, exact visible label instead of guessing coordinates.",
   "If the screen is unclear, ask a question instead of guessing. Do not claim an action succeeded unless the tool result says it succeeded."
 ].join(" ");
 
@@ -57,6 +58,20 @@ const GEMINI_LIVE_TOOLS = [{
       name: "press_back",
       description: "Press the Android Back action.",
       parameters: { type: "OBJECT", properties: {} }
+    },
+    {
+      name: "read_screen_text",
+      description: "Read visible non-editable UI labels and their screen coordinates. Password and editable fields are omitted.",
+      parameters: { type: "OBJECT", properties: {} }
+    },
+    {
+      name: "tap_text",
+      description: "Tap a visible, non-editable and non-sensitive UI element by its displayed text or accessibility label.",
+      parameters: {
+        type: "OBJECT",
+        properties: { text: { type: "STRING", description: "A short visible label, not private user-entered content." } },
+        required: ["text"]
+      }
     }
   ]
 }];
@@ -1791,13 +1806,16 @@ async function createGeminiLiveToken(request, env, session) {
   }
 
   const now = Date.now();
-  const expireTime = new Date(now + 10 * 60 * 1000).toISOString();
-  const newSessionExpireTime = new Date(now + 5 * 60 * 1000).toISOString();
+  // Keep the one-use token available for session resumption, not for creating later sessions.
+  const expireTime = new Date(now + 30 * 60 * 1000).toISOString();
+  const newSessionExpireTime = new Date(now + 60 * 1000).toISOString();
   const config = {
     responseModalities: ["AUDIO"],
     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } },
     inputAudioTranscription: {},
     outputAudioTranscription: {},
+    contextWindowCompression: { slidingWindow: {} },
+    sessionResumption: {},
     systemInstruction: { parts: [{ text: GEMINI_LIVE_SYSTEM_PROMPT }] },
     tools: GEMINI_LIVE_TOOLS
   };
