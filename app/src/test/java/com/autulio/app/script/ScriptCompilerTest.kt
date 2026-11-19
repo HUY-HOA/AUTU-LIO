@@ -602,29 +602,7 @@ class ScriptCompilerTest {
     }
 
     @Test
-    fun supportsDetailedBarcodeScanBuiltins() {
-        val result = ScriptCompiler.compile(
-            """
-            ĐẶT MA_QR: DANH_SÁCH = CHI_TIẾT_MÃ_QR_MÀN_HÌNH()
-            ĐẶT MA_VACH: DANH_SÁCH = CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()
-            """.trimIndent()
-        )
-
-        assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.19", result.program?.languageVersion)
-    }
-
-    @Test
-    fun rejectsArgumentsForDetailedBarcodeScanBuiltins() {
-        val qr = ScriptCompiler.compile("ĐẶT MA_QR = CHI_TIẾT_MÃ_QR_MÀN_HÌNH(1)")
-        val barcode = ScriptCompiler.compile("ĐẶT MA_VACH = CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH(1)")
-
-        assertEquals("function_argument_count", qr.diagnostics.first().code)
-        assertEquals("function_argument_count", barcode.diagnostics.first().code)
-    }
-
-    @Test
-    fun supportsStructuredScreenOcrBuiltin() {
+    fun supportsStructuredAccessibilityTextBuiltin() {
         val result = ScriptCompiler.compile(
             """
             ĐẶT CÁC_KHỐI: DANH_SÁCH = ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()
@@ -636,7 +614,7 @@ class ScriptCompilerTest {
     }
 
     @Test
-    fun supportsOnDemandScreenOcrBuiltins() {
+    fun supportsOnDemandAccessibilityTextBuiltins() {
         val result = ScriptCompiler.compile(
             """
             ĐẶT VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()
@@ -649,7 +627,7 @@ class ScriptCompilerTest {
     }
 
     @Test
-    fun validatesScreenOcrFunctionArgumentCounts() {
+    fun validatesAccessibilityTextFunctionArgumentCounts() {
         val missingQuery = ScriptCompiler.compile("ĐẶT X = MÀN_HÌNH_CHỨA_CHỮ()")
         val tooMany = ScriptCompiler.compile("ĐẶT X = TÌM_VỊ_TRÍ_CHỮ(\"A\", \"B\")")
         assertEquals("function_argument_count", missingQuery.diagnostics.first().code)
@@ -739,35 +717,6 @@ class ScriptCompilerTest {
     }
 
     @Test
-    fun supportsRegionOcrImageLabelsAndBarcodeScanning() {
-        val result = ScriptCompiler.compile(
-            """
-            ĐẶT VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_VÙNG(10, 20, 300, 200)
-            ĐẶT CO_CHU: LUẬN_LÝ = MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("OK", 0, 0, 400, 300)
-            ĐẶT VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("OK", 0, 0, 400, 300)
-            ĐẶT NHAN: DANH_SÁCH = NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()
-            ĐẶT CO_NHAN: LUẬN_LÝ = MÀN_HÌNH_CHỨA_NHÃN_ẢNH("phone")
-            ĐẶT QR: DANH_SÁCH = QUÉT_MÃ_QR_MÀN_HÌNH()
-            ĐẶT MA_VACH: DANH_SÁCH = QUÉT_MÃ_VẠCH_MÀN_HÌNH()
-            """.trimIndent()
-        )
-        assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.19", result.program?.languageVersion)
-    }
-
-    @Test
-    fun validatesRegionOcrVisionAndBarcodeFunctionArgumentCounts() {
-        val wrongRegionOcr = ScriptCompiler.compile("ĐẶT X = ĐỌC_VĂN_BẢN_VÙNG(1, 2, 3)")
-        val wrongRegionSearch = ScriptCompiler.compile("ĐẶT X = MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(\"OK\", 1, 2, 3)")
-        val wrongLabelSearch = ScriptCompiler.compile("ĐẶT X = MÀN_HÌNH_CHỨA_NHÃN_ẢNH()")
-        val wrongQrScan = ScriptCompiler.compile("ĐẶT X = QUÉT_MÃ_QR_MÀN_HÌNH(1)")
-        assertEquals("function_argument_count", wrongRegionOcr.diagnostics.first().code)
-        assertEquals("function_argument_count", wrongRegionSearch.diagnostics.first().code)
-        assertEquals("function_argument_count", wrongLabelSearch.diagnostics.first().code)
-        assertEquals("function_argument_count", wrongQrScan.diagnostics.first().code)
-    }
-
-    @Test
     fun supportsNullLiteralNestedCollectionsAndJsonBuiltins() {
         val result = ScriptCompiler.compile(
             """
@@ -790,28 +739,6 @@ class ScriptCompilerTest {
         val wrongSerialize = ScriptCompiler.compile("ĐẶT X = CHUYỂN_JSON(1, 2)")
         assertEquals("function_argument_count", wrongParse.diagnostics.first().code)
         assertEquals("function_argument_count", wrongSerialize.diagnostics.first().code)
-    }
-
-    @Test
-    fun supportsObjectDetectionAndBoundingBoxQueries() {
-        val result = ScriptCompiler.compile(
-            """
-            ĐẶT CÁC_VẬT_THỂ: DANH_SÁCH = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()
-            ĐẶT SO_LUONG: SỐ = ĐẾM_VẬT_THỂ_MÀN_HÌNH()
-            ĐẶT CO_THUC_AN: LUẬN_LÝ = MÀN_HÌNH_CÓ_VẬT_THỂ("Food")
-            ĐẶT VI_TRI: DANH_SÁCH = TÌM_TỌA_ĐỘ_VẬT_THỂ("Food")
-            """.trimIndent()
-        )
-        assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.19", result.program?.languageVersion)
-    }
-
-    @Test
-    fun validatesObjectDetectionFunctionArgumentCounts() {
-        val wrongCount = ScriptCompiler.compile("ĐẶT X = MÀN_HÌNH_CÓ_VẬT_THỂ()")
-        val tooMany = ScriptCompiler.compile("ĐẶT X = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH(1)")
-        assertEquals("function_argument_count", wrongCount.diagnostics.first().code)
-        assertEquals("function_argument_count", tooMany.diagnostics.first().code)
     }
 
     @Test
