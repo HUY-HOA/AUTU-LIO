@@ -240,8 +240,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     onCreate = { createDialog = true },
                     onOpen = { name ->
                         editorLauncher.launch(ScriptEditorActivity.intent(context, name))
-                    },
-                    onPermissions = { page = "collaborators" }
+                    }
                 )
                 "customers" -> CustomersAdminScreen(
                     accessToken = accessToken,
@@ -256,7 +255,6 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     page,
                     onSelect = { page = it },
                     onTheme = { dark = !dark },
-                    onMessage = { scope.launch { host.showSnackbar(it) } },
                     onLogout = onLogout,
                     accessToken = accessToken,
                     onOpenTemplate = { template ->
@@ -294,19 +292,13 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 }
 
 @Composable
-internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit, onRoleUpdated: () -> Unit) {
+internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit) {
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
-    var scriptDetail by rememberSaveable { mutableStateOf(false) }
-    val context = LocalContext.current
-    val authRepository = remember(context) { AuthRepository(context) }
-    val host = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     AppTheme(dark) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
-            snackbarHost = { SnackbarHost(host) },
             bottomBar = {
                 NavigationBar {
                     customerTabs.forEach { tab ->
@@ -339,24 +331,8 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                 )
                 else -> SettingsScreen(
                     Modifier.padding(padding),
-                    accessToken = accessToken,
                     onTheme = { dark = !dark },
-                    onLogout = onLogout,
-                    onAcceptInvitation = { invitationToken ->
-                        if (accessToken.isNullOrBlank()) {
-                            scope.launch { host.showSnackbar(tr("Chế độ xem thử không nhận lời mời thật.", "Preview mode cannot accept real invitations.")) }
-                        } else {
-                            scope.launch {
-                                try {
-                                    authRepository.acceptInvitation(accessToken, invitationToken)
-                                    host.showSnackbar(tr("Đã chấp nhận lời mời. Đang cập nhật quyền tài khoản…", "Invitation accepted. Refreshing account access…"))
-                                    onRoleUpdated()
-                                } catch (error: Exception) {
-                                    host.showSnackbar(error.message ?: tr("Không chấp nhận được lời mời.", "Could not accept invitation."))
-                                }
-                            }
-                        }
-                    }
+                    onLogout = onLogout
                 )
             }
         }
@@ -486,16 +462,10 @@ private fun ScriptsScreen(
     modifier: Modifier,
     scripts: List<String>,
     onCreate: () -> Unit,
-    onOpen: (String) -> Unit,
-    onPermissions: () -> Unit
+    onOpen: (String) -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    var filter by rememberSaveable { mutableStateOf("all") }
-    val filtered = scripts.filter { name ->
-        val matchesQuery = name.contains(query, ignoreCase = true)
-        val matchesStatus = filter == "all" || filter == "draft"
-        matchesQuery && matchesStatus
-    }
+    val filtered = scripts.filter { name -> name.contains(query, ignoreCase = true) }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
@@ -517,15 +487,6 @@ private fun ScriptsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            OutlinedButton(
-                onClick = onPermissions,
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-                modifier = Modifier.height(42.dp)
-            ) {
-                Icon(Icons.Outlined.Security, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(5.dp))
-                Text(tr("Quyền", "Access"), fontSize = 12.sp)
-            }
             FilledIconButton(
                 onClick = onCreate,
                 modifier = Modifier.size(46.dp)
@@ -545,17 +506,12 @@ private fun ScriptsScreen(
             leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
             placeholder = { Text(tr("Tìm kiếm kịch bản", "Search scripts")) }
         )
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("all" to tr("Tất cả", "All"), "draft" to tr("Bản nháp", "Draft"), "published" to tr("Đã phát hành", "Published")).forEach {
-                FilterChip(filter == it.first, onClick = { filter = it.first }, label = { Text(it.second) })
-            }
-        }
         Text(tr("Bản nháp được lưu trên thiết bị này; chưa đồng bộ máy chủ.", "Drafts are saved on this device and are not synced to a server."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (filtered.isEmpty()) {
             EmptyState(
                 Icons.Outlined.ListAlt,
-                if (filter == "published") tr("Chưa có kịch bản phát hành", "No published scripts") else tr("Chưa có kịch bản nào", "No scripts yet"),
-                if (filter == "published") tr("Các kịch bản đã phát hành sẽ xuất hiện tại đây sau khi được kết nối.", "Published scripts will appear here after the service is connected.") else tr("Tạo kịch bản đầu tiên để bắt đầu.", "Create your first script to get started.")
+                tr("Chưa có kịch bản nào", "No scripts yet"),
+                tr("Tạo kịch bản đầu tiên để bắt đầu.", "Create your first script to get started.")
             )
         } else filtered.forEach { name ->
             Card(
@@ -803,11 +759,29 @@ private fun MoreScreen(
     page: String,
     onSelect: (String) -> Unit,
     onTheme: () -> Unit,
-    onMessage: (String) -> Unit,
     onLogout: () -> Unit,
     accessToken: String?,
     onOpenTemplate: (ScriptTemplate) -> Unit
 ) {
+    if (page == "collaborators" || page == "projects") {
+        Column(
+            modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            BrandHeader(admin = true)
+            TextButton(onClick = { onSelect("more") }) { Text(tr("← Quay lại", "← Back")) }
+            Heading(
+                tr("Chức năng đang tạm hoãn", "Feature temporarily unavailable"),
+                tr("AUTU-LIO hiện chỉ sử dụng hai vai trò: Chủ sở hữu và Người dùng AUTU.", "AUTU-LIO currently uses only two roles: Owner and AUTU Customer.")
+            )
+            Text(
+                tr("Mời người viết AUTU và không gian cộng tác sẽ được mở ở giai đoạn sau.", "AUTU writer invitations and shared workspaces will be enabled in a later phase."),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+        }
+        return
+    }
     if (page == "licenses") {
         LicensesAdminScreen(accessToken = accessToken, modifier = modifier)
         return
@@ -824,24 +798,10 @@ private fun MoreScreen(
         )
         return
     }
-    if (page == "projects") {
-        if (!accessToken.isNullOrBlank()) {
-            ProjectsAdminScreen(accessToken, modifier = modifier, onBack = { onSelect("more") })
-        } else {
-            Column(modifier.fillMaxSize().padding(16.dp)) {
-                TextButton(onClick = { onSelect("more") }) { Text(tr("← Quay lại", "← Back")) }
-                EmptyState(Icons.Outlined.CloudOff, tr("Chưa có phiên đăng nhập", "No signed-in session"), tr("Đăng nhập lại để quản lý dự án.", "Sign in again to manage projects."))
-            }
-        }
-        return
-    }
     val items = listOf(
-        Triple("collaborators", tr("Cộng tác viên", "Collaborators"), Icons.Outlined.PersonAdd),
-        Triple("projects", tr("Dự án cộng tác", "Shared projects"), Icons.Outlined.FolderOpen),
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện mẫu AUTU", "AUTU template library"), Icons.Outlined.ListAlt),
         Triple("packages", tr("Gói AUTU", "AUTU packages"), Icons.Outlined.Code),
-        Triple("release", tr("Phát hành", "Releases"), Icons.Outlined.PlayArrow),
         Triple("logs", tr("Nhật ký", "Logs"), Icons.Outlined.Info),
         Triple("settings", tr("Cài đặt", "Settings"), Icons.Outlined.Settings)
     )
@@ -902,27 +862,12 @@ private fun MoreScreen(
                     modifier = Modifier.fillMaxSize(),
                     onBack = { onSelect("more") }
                 )
-                "release" -> {
-                    CardBox {
-                        Text(tr("Quy trình phát hành", "Release workflow"), fontWeight = FontWeight.SemiBold)
-                        Text(tr("Kiểm tra · Tăng phiên bản · Ghi chú · Chọn kênh · Xác nhận · Phân phối", "Validate · Version · Notes · Channel · Confirm · Distribute"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                    }
-                    EmptyState(Icons.Outlined.PlayArrow, tr("Chưa có bản phát hành", "No releases yet"), tr("Chỉ phát hành khi gói đã được kiểm tra và ký xác thực.", "A package can only be released after validation and signing."))
-                }
                 "logs" -> AdminAuditLogsScreen(accessToken = accessToken)
                 "settings" -> {
                     SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
-                    SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · 0.1.0")
+                    SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
                     SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Vai trò và quyền được xác minh từ máy chủ.", "Roles and permissions are verified by the server."))
                     SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
-                }
-            }
-            if (page !in setOf("packages", "logs")) {
-                OutlinedButton(
-                    onClick = { onMessage(tr("Máy chủ chưa được kết nối. Thao tác chưa thể lưu dữ liệu thật.", "The server is not connected. This action cannot save live data yet.")) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(tr("Kiểm tra kết nối máy chủ", "Check server connection"))
                 }
             }
         }
@@ -1223,42 +1168,15 @@ private fun CustomerDeviceLicensePage(modifier: Modifier) {
 @Composable
 private fun SettingsScreen(
     modifier: Modifier,
-    accessToken: String?,
     onTheme: () -> Unit,
-    onLogout: () -> Unit,
-    onAcceptInvitation: (String) -> Unit
+    onLogout: () -> Unit
 ) {
-    var invitationToken by rememberSaveable { mutableStateOf("") }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         BrandHeader(admin = false)
         Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
         SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
         SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
-        CardBox {
-            Text(tr("Bạn có mã lời mời cộng tác viên?", "Have a collaborator invitation token?"), fontWeight = FontWeight.SemiBold)
-            Text(
-                tr("Đăng nhập bằng đúng Gmail đã nhận lời mời, sau đó nhập mã bên dưới để chấp nhận và nhận vai trò.",
-                    "Sign in with the exact Google account that received the invitation, then enter its token below to accept the assigned role."),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                lineHeight = 18.sp
-            )
-            OutlinedTextField(
-                value = invitationToken,
-                onValueChange = { invitationToken = it.trim() },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(tr("Mã lời mời", "Invitation token")) },
-                minLines = 2
-            )
-            Button(
-                onClick = { onAcceptInvitation(invitationToken.trim()) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !accessToken.isNullOrBlank() && invitationToken.isNotBlank()
-            ) {
-                Text(tr("Chấp nhận lời mời", "Accept invitation"))
-            }
-        }
         SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
     }
 }
