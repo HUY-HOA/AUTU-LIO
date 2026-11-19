@@ -1,6 +1,6 @@
 # AUTU-LIO — Đặc tả ngôn ngữ và bộ máy tự động hóa
 
-**Trạng thái triển khai:** AUTU Script 1.0 đã có parser/compiler Kotlin, runtime và kiểm thử nguồn.  
+**Trạng thái triển khai:** AUTU Script 1.4 có parser/compiler Kotlin, runtime và kiểm thử nguồn; xem tài liệu tham chiếu để biết đầy đủ kiểu, danh sách, bản đồ và hàm chuỗi.  
 **Nguyên tắc:** chỉ công bố lệnh/hàm có parser, kiểm tra tham số/kiểu, runtime handler và unit tests. Không đưa lệnh giả để làm giao diện trông đầy đủ.
 
 ## 1. Quy tắc ngôn ngữ
@@ -11,7 +11,7 @@
 - Mỗi câu lệnh trên một dòng hoặc ngăn cách bằng `;`.
 - Không dùng `eval`, shell, reflection, script runtime bên ngoài hoặc thực thi mã Kotlin/Java tùy ý.
 
-## 2. Ngữ pháp 1.0 đã triển khai
+## 2. Ngữ pháp nền tảng đã triển khai
 
 ```ebnf
 CHUONG_TRINH  = { KHAI_BAO_HAM | CAU_LENH } ;
@@ -52,13 +52,13 @@ Runtime:
 - Độ sâu gọi hàm tối đa 16; ngân sách lệnh thực tế tối đa 5.000.
 - Hàm và biểu thức chỉ được gọi từ danh sách chuẩn hoặc hàm đã định nghĩa trong chương trình.
 
-## 4. Lệnh Android thực sự nối runtime
+## 4. Tên chuẩn của lệnh Android nối runtime
 
-`CHẠM`, `NHẤN_GIỮ`, `VUỐT`, `CHỜ`, `MỞ_ỨNG_DỤNG`, `QUAY_LẠI`, `VỀ_MÀN_HÌNH_CHÍNH`, `ỨNG_DỤNG_GẦN_ĐÂY`, `MỞ_THÔNG_BÁO`, `MỞ_CÀI_ĐẶT_NHANH`, `HIỆN_MENU_NGUỒN`, `KHÓA_MÀN_HÌNH`, `CHIA_MÀN_HÌNH`.
+`CHẠM`, `NHẤN_GIỮ`, `VUỐT`, `CHỜ`, `MỞ_ỨNG_DỤNG`, `QUAY_LẠI`, `VỀ_MÀN_HÌNH_CHÍNH`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY`, `MỞ_THANH_THÔNG_BÁO`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH`, `MỞ_HỘP_THOẠI_NGUỒN`, `KHÓA_MÀN_HÌNH`, `BẬT_TẮT_CHIA_MÀN_HÌNH`.
 
 Lệnh cử chỉ chạy qua Android AccessibilityService. Lệnh hệ thống có thể thất bại do Android/API hoặc trạng thái quyền; runtime báo lỗi thay vì giả lập thành công.
 
-## 5. Hàm dựng sẵn thực sự có trong runtime
+## 5. Hàm dựng sẵn
 
 Toán học/chuỗi: `SỐ`, `CHUỖI`, `LÀM_TRÒN`, `TUYỆT_ĐỐI`, `ĐỘ_DÀI`, `NHỎ_NHẤT`, `LỚN_NHẤT`.
 
@@ -66,7 +66,7 @@ Thiết bị: `PIN`, `PHẦN_TRĂM_PIN`, `ĐANG_SẠC`, `CÓ_MẠNG`, `MÀN_HÌN
 
 ## 6. Những phần chưa triển khai
 
-- Danh sách/mảng, bản đồ dữ liệu, vòng lặp CHO_MỖI và truy cập chỉ mục.
+- Danh sách và bản đồ đã được hỗ trợ; giá trị lồng nhau và truy cập chỉ mục bằng cú pháp ngoặc vuông chưa được hỗ trợ.
 - TRY/CATCH/FINALLY và cơ chế phục hồi lỗi ở cấp ngôn ngữ.
 - Ghi nhật ký có cấu trúc từ mã AUTU.
 - Tọa độ theo phần trăm, vùng thao tác, đa điểm.
@@ -74,7 +74,7 @@ Thiết bị: `PIN`, `PHẦN_TRĂM_PIN`, `ĐANG_SẠC`, `CÓ_MẠNG`, `MÀN_HÌN
 - MediaProjection, quét ảnh, OCR hoặc đọc nội dung màn hình.
 - Debugger từng bước, breakpoint, biến theo dõi và tô màu cú pháp.
 
-Các mục này không được xem là hỗ trợ cho đến khi có AST, giới hạn an toàn, quyền người dùng, runtime thật, test và kiểm thử Android thật.
+Các mục này không được xem là hỗ trợ cho đến khi có AST, giới hạn an toàn, quyền người dùng, runtime thật, test và kiểm thử Android thật. Xem `docs/08-AUTU-LANGUAGE-REFERENCE.md` để tra cứu chính xác cú pháp đang hoạt động.
 
 ## 7. Ngân sách thực thi
 
