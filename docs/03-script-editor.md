@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.6
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.7
 
-**Phiên bản cú pháp:** `1.6`  
+**Phiên bản cú pháp:** `1.7`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -236,7 +236,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.6 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.7 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. OCR và văn bản trên màn hình
 
@@ -247,6 +247,24 @@ Các hàm thiết bị trả về thông tin Android hiện được dispatcher 
 | TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("Đăng nhập") | Danh sách [X, Y] là tâm vị trí; rỗng nếu không tìm thấy |
 
 Các hàm chỉ phân tích màn hình khi kịch bản gọi chúng. AUTU-LIO kết hợp cây giao diện trợ năng với OCR on-device. Ảnh màn hình không được tải lên máy chủ. Trên Android 11/API 30 trở lên, OCR có thể dùng ảnh màn hình của AccessibilityService; Android cũ hơn chỉ đọc được nội dung mà cây trợ năng cung cấp. Màn hình bảo mật, ứng dụng chặn chụp và vùng đồ họa không phơi bày nội dung có thể không đọc được. OCR có thể nhận sai chữ hoặc dấu; phải kiểm tra kết quả trước thao tác quan trọng.
+
+### OCR theo vùng và nhận diện ảnh
+
+```text
+ĐẶT VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_VÙNG(100, 200, 500, 300)
+NẾU (MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("Đăng nhập", 100, 200, 500, 300)) {
+    ĐẶT VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("Đăng nhập", 100, 200, 500, 300)
+    CHẠM(LẤY_PHẦN_TỬ(VI_TRI, 0), LẤY_PHẦN_TỬ(VI_TRI, 1))
+}
+
+ĐẶT NHAN: DANH_SÁCH = NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()
+NẾU (MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone")) {
+    ĐẶT QR: DANH_SÁCH = QUÉT_MÃ_QR_MÀN_HÌNH()
+    ĐẶT MA_VACH: DANH_SÁCH = QUÉT_MÃ_VẠCH_MÀN_HÌNH()
+}
+```
+
+Tọa độ vùng là pixel toàn màn hình, gốc ở góc trái trên. Vùng phải nằm trọn trong ảnh chụp. Gắn nhãn ảnh trả về nhãn tổng quát của toàn khung hình, không trả hộp giới hạn từng vật thể. Quét QR và mã vạch trả về nội dung giải mã; không tự mở URL. Ảnh phải đủ nét và mã đủ lớn để giải mã.
 
 ### Tìm và thao tác phần tử giao diện bằng Trợ năng
 
@@ -333,7 +351,7 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 
 ## 11. Những phần chưa được triển khai
 
-Các mô-đun còn cần phát triển gồm xử lý lỗi TRY/BẮT_LỖI, nhận diện vật thể và ảnh mẫu, đọc văn bản theo vùng, tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, tô màu cú pháp, tự hoàn thành và debugger. Chỉ công bố từng lệnh sau khi runtime và kiểm thử đã có. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
+Các mô-đun còn cần phát triển gồm nhận diện vật thể có hộp giới hạn, khớp ảnh mẫu, tìm vùng màu, OCR từ tệp, đọc/ghi tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, tô màu cú pháp, tự hoàn thành và debugger. Chỉ công bố từng lệnh sau khi runtime và kiểm thử đã có. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
 
 ## 12. Quy trình chạy
 
