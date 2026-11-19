@@ -525,6 +525,62 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun catchesRuntimeFailureAndAlwaysRunsFinallyBlock() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                THỬ {
+                    MỞ_ỨNG_DỤNG("invalid")
+                } BẮT_LỖI (LỖI) {
+                    ĐẶT MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
+                    NẾU (MÃ_LỖI == "invalid_package_name") {
+                        CHẠM(10, 20)
+                    }
+                } LUÔN_THỰC_HIỆN {
+                    CHẠM(30, 40)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:10,20", "tap:30,40"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
+    fun runsFinallyBeforePropagatingAnUncaughtFailure() {
+        val dispatcher = RecordingDispatcher()
+        val failed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.FAILED) failed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                THỬ {
+                    MỞ_ỨNG_DỤNG("invalid")
+                } LUÔN_THỰC_HIỆN {
+                    CHẠM(50, 60)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(failed.await(3, TimeUnit.SECONDS))
+            assertEquals("invalid_package_name", engine.snapshot().errorCode)
+            assertEquals(listOf("tap:50,60"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
