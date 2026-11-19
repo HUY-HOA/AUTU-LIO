@@ -136,6 +136,59 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun everyRegisteredSystemCommandHasTheCorrectVietnameseSignature() {
+        val validCommands = listOf(
+            "CHẠM(1, 2)",
+            "NHẤN_GIỮ(1, 2, 100)",
+            "VUỐT(1, 2, 3, 4, 100)",
+            "CHỜ(100)",
+            "MỞ_ỨNG_DỤNG(\"com.example.game\")",
+            "QUAY_LẠI()",
+            "VỀ_MÀN_HÌNH_CHÍNH()",
+            "ỨNG_DỤNG_GẦN_ĐÂY()",
+            "MỞ_THÔNG_BÁO()",
+            "MỞ_CÀI_ĐẶT_NHANH()",
+            "HIỆN_MENU_NGUỒN()",
+            "KHÓA_MÀN_HÌNH()",
+            "CHIA_MÀN_HÌNH()"
+        )
+        validCommands.forEach { source ->
+            val result = ScriptCompiler.compile(source)
+            assertTrue("$source: ${result.diagnostics}", result.isSuccess)
+        }
+
+        val invalidCommands = listOf(
+            "ỨNG_DỤNG_GẦN_ĐÂY(1)",
+            "MỞ_THÔNG_BÁO(1)",
+            "MỞ_CÀI_ĐẶT_NHANH(1)",
+            "HIỆN_MENU_NGUỒN(1)",
+            "CHIA_MÀN_HÌNH(1)"
+        )
+        invalidCommands.forEach { source ->
+            val result = ScriptCompiler.compile(source)
+            assertFalse(source, result.isSuccess)
+            assertEquals("argument_count", result.diagnostics.first().code)
+        }
+    }
+
+    @Test
+    fun canonicalVietnameseKeywordsPreserveDiacriticsAndCompileInUppercase() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT sốLần = 2
+            NẾU (sốLần > 1 VÀ ĐÚNG) {
+                LẶP(sốLần) {
+                    CHẠM(10, 20)
+                }
+            } NGƯỢC_LẠI {
+                CHỜ(100)
+            }
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
+    @Test
     fun rejectsUnknownCommands() {
         val result = ScriptCompiler.compile("DỊCH_CHUYỂN(1, 2)")
 
