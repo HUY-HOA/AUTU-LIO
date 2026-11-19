@@ -10,18 +10,23 @@ import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
+import android.os.SystemClock
 import android.accessibilityservice.GestureDescription
+import android.graphics.Bitmap
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
+import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.autulio.app.runtime.ScriptActionDispatcher
@@ -29,9 +34,17 @@ import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
 import com.autulio.app.runtime.ScriptExecutionState
 import com.autulio.app.script.ScriptProgram
+import com.google.android.gms.tasks.Tasks
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.util.Locale
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispatcher {
 
@@ -44,6 +57,15 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         fun current(): AutoClickAccessibilityService? = activeInstance
     }
+
+
+    private data class ScreenTextItem(val text: String, val bounds: Rect)
+
+    @Volatile
+    private var textRecognizer: TextRecognizer? = null
+    private val screenTextCacheLock = Any()
+    private var screenTextCacheTimeMs = 0L
+    private var screenTextCache: List<ScreenTextItem> = emptyList()
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var executionEngine: ScriptExecutionEngine? = null
@@ -83,6 +105,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     override fun onDestroy() {
         executionEngine?.close()
         executionEngine = null
+        textRecognizer?.close()
+        textRecognizer = null
         removeFloatingWindow()
         pendingProgram = null
         if (activeInstance === this) activeInstance = null
@@ -230,6 +254,28 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "CHIỀU_RỘNG_MÀN_HÌNH" -> readDisplayMetrics().widthPixels
             "CHIỀU_CAO_MÀN_HÌNH" -> readDisplayMetrics().heightPixels
             "THỜI_GIAN_MS" -> System.currentTimeMillis()
+            "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                readScreenTextItems().joinToString("\\n") { it.text }
+            }
+            "MÀN_HÌNH_CHỨA_CHỮ" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = arguments[0] as? String
+                    ?: throw IllegalArgumentException("MÀN_HÌNH_CHỨA_CHỮ cần một chuỗi.")
+                readScreenTextItems().any { it.text.contains(query, ignoreCase = true) }
+            }
+            "TÌM_VỊ_TRÍ_CHỮ" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = arguments[0] as? String
+                    ?: throw IllegalArgumentException("TÌM_VỊ_TRÍ_CHỮ cần một chuỗi.")
+                val match = readScreenTextItems().firstOrNull {
+                    it.text.contains(query, ignoreCase = true) && !it.bounds.isEmpty
+                }
+                if (match == null) emptyList<Int>() else listOf(
+                    (match.bounds.left + match.bounds.right) / 2,
+                    (match.bounds.top + match.bounds.bottom) / 2
+                )
+            }
             else -> throw UnsupportedOperationException("Hàm '$name' chưa được hỗ trợ trên thiết bị này.")
         }
     }
@@ -278,6 +324,138 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val capabilities = manager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+
+    private fun getTextRecognizer(): TextRecognizer {
+        textRecognizer?.let { return it }
+        return synchronized(this) {
+            textRecognizer ?: TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                .also { textRecognizer = it }
+        }
+    }
+
+    /**
+     * Reads text only when a script explicitly requests it. Results are kept in memory
+     * for a short interval so CHỜ_ĐẾN_KHI does not trigger a screenshot on every poll.
+     */
+    private fun readScreenTextItems(): List<ScreenTextItem> {
+        val now = SystemClock.elapsedRealtime()
+        synchronized(screenTextCacheLock) {
+            if (screenTextCacheTimeMs != 0L && now - screenTextCacheTimeMs < 300L) {
+                return screenTextCache
+            }
+        }
+
+        val accessibilityItems = readAccessibilityTextItems()
+        val bitmap = captureDisplayBitmap()
+        val recognizedItems = if (bitmap == null) {
+            emptyList()
+        } else {
+            try {
+                val result = Tasks.await(
+                    getTextRecognizer().process(InputImage.fromBitmap(bitmap, 0)),
+                    15,
+                    TimeUnit.SECONDS
+                )
+                result.textBlocks.mapNotNull { block ->
+                    val text = block.text.trim()
+                    val bounds = block.boundingBox
+                    if (text.isEmpty() || bounds == null) null
+                    else ScreenTextItem(text, Rect(bounds))
+                }
+            } catch (_: Exception) {
+                emptyList()
+            } finally {
+                bitmap.recycle()
+            }
+        }
+
+        // Prefer accessibility nodes first because their bounds are often clickable UI bounds.
+        // OCR adds text rendered inside canvases, games and custom views.
+        val merged = (accessibilityItems + recognizedItems)
+            .filter { it.text.isNotBlank() }
+            .distinctBy { it.text.trim().lowercase(Locale.ROOT) }
+            .take(512)
+
+        synchronized(screenTextCacheLock) {
+            screenTextCache = merged
+            screenTextCacheTimeMs = now
+        }
+        return merged
+    }
+
+    private fun readAccessibilityTextItems(): List<ScreenTextItem> {
+        val root = rootInActiveWindow ?: return emptyList()
+        val output = mutableListOf<ScreenTextItem>()
+
+        fun visit(node: AccessibilityNodeInfo, depth: Int) {
+            if (depth > 32 || output.size >= 512) return
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            val text = node.text?.toString()?.trim().orEmpty()
+            val description = node.contentDescription?.toString()?.trim().orEmpty()
+            if (text.isNotEmpty()) output += ScreenTextItem(text, Rect(bounds))
+            if (description.isNotEmpty() && !description.equals(text, ignoreCase = true)) {
+                output += ScreenTextItem(description, Rect(bounds))
+            }
+            for (index in 0 until node.childCount) {
+                if (output.size >= 512) break
+                val child = runCatching { node.getChild(index) }.getOrNull() ?: continue
+                try {
+                    visit(child, depth + 1)
+                } finally {
+                    @Suppress("DEPRECATION")
+                    child.recycle()
+                }
+            }
+        }
+
+        try {
+            visit(root, 0)
+        } catch (_: RuntimeException) {
+            // Some apps expose stale accessibility nodes while changing screens.
+        } finally {
+            @Suppress("DEPRECATION")
+            root.recycle()
+        }
+        return output
+    }
+
+    private fun captureDisplayBitmap(): Bitmap? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        val finished = CountDownLatch(1)
+        val captured = AtomicReference<Bitmap?>(null)
+
+        return try {
+            takeScreenshot(
+                Display.DEFAULT_DISPLAY,
+                Executor { command -> mainHandler.post(command) },
+                object : TakeScreenshotCallback() {
+                    override fun onSuccess(screenshot: ScreenshotResult) {
+                        try {
+                            val buffer = screenshot.hardwareBuffer
+                            captured.set(
+                                Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
+                                    ?.copy(Bitmap.Config.ARGB_8888, false)
+                            )
+                        } catch (_: RuntimeException) {
+                            captured.set(null)
+                        } finally {
+                            screenshot.hardwareBuffer.close()
+                            finished.countDown()
+                        }
+                    }
+
+                    override fun onFailure(errorCode: Int) {
+                        finished.countDown()
+                    }
+                }
+            )
+            if (finished.await(8, TimeUnit.SECONDS)) captured.get() else null
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun dispatchPointGesture(x: Int, y: Int, durationMs: Int): Boolean {
