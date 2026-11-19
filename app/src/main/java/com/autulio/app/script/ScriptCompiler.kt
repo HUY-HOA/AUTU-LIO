@@ -49,6 +49,12 @@ sealed interface ScriptInstruction {
         val iterable: ScriptExpression,
         val body: List<ScriptInstruction>
     ) : ScriptInstruction
+    data class TryCatch(
+        val tryBody: List<ScriptInstruction>,
+        val errorVariable: String?,
+        val catchBody: List<ScriptInstruction>,
+        val finallyBody: List<ScriptInstruction>
+    ) : ScriptInstruction
     data object BreakLoop : ScriptInstruction
     data object ContinueLoop : ScriptInstruction
 }
@@ -67,7 +73,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.5"
+    const val LANGUAGE_VERSION = "1.6"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -149,7 +155,7 @@ object ScriptCompiler {
     private val reservedWords = setOf(
         "ĐẶT", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
         "LẶP", "LẶP_KHI", "LẶP_ĐẾN_KHI", "LẶP_MỖI", "TRONG", "CHỜ_ĐẾN_KHI",
-        "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "ĐỊNH_NGHĨA_HÀM", "TRẢ_VỀ",
+        "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "ĐỊNH_NGHĨA_HÀM", "TRẢ_VỀ", "THỬ", "BẮT_LỖI", "LUÔN_THỰC_HIỆN",
         "ĐÚNG", "SAI", "VÀ", "HOẶC", "KHÔNG"
     )
 
@@ -225,6 +231,15 @@ object ScriptCompiler {
                     val nested = measureBlock(instruction.body, depth + 1)
                     cappedAdd(1L, cappedMultiply(nested.first, MAX_LIST_ITEMS.toLong(), INSTRUCTION_CAP), INSTRUCTION_CAP) to
                         cappedMultiply(nested.second, MAX_LIST_ITEMS.toLong(), DURATION_CAP)
+                }
+                is ScriptInstruction.TryCatch -> {
+                    val attempt = measureBlock(instruction.tryBody, depth + 1)
+                    val recovery = measureBlock(instruction.catchBody, depth + 1)
+                    val cleanup = measureBlock(instruction.finallyBody, depth + 1)
+                    val protectedPath = cappedAdd(attempt.first, recovery.first, INSTRUCTION_CAP)
+                    val count = cappedAdd(1L, cappedAdd(protectedPath, cleanup.first, INSTRUCTION_CAP), INSTRUCTION_CAP)
+                    val duration = cappedAdd(maxOf(attempt.second, recovery.second), cleanup.second, DURATION_CAP)
+                    count to duration
                 }
                 ScriptInstruction.BreakLoop, ScriptInstruction.ContinueLoop -> 1L to 0L
             }
@@ -430,6 +445,7 @@ object ScriptCompiler {
                 "LẶP_MỖI" -> parseForEach(name, depth, loopDepth)
                 "CHỜ_ĐẾN_KHI" -> parseWaitUntil(name)
                 "ĐỊNH_NGHĨA_HÀM" -> parseFunctionDefinition(name, depth, loopDepth)
+                "THỬ" -> parseTryCatch(name, depth, loopDepth)
                 "TRẢ_VỀ" -> {
                     if (!insideFunction) fail(name.line, name.column, "return_outside_function", "TRẢ_VỀ chỉ được dùng bên trong hàm.", "TRẢ_VỀ can only be used inside a function.")
                     ScriptInstruction.Return(parseExpression())
@@ -560,6 +576,54 @@ object ScriptCompiler {
                 }
             }
             return ScriptInstruction.If(condition, thenBody, elseBody)
+        }
+
+        private fun parseTryCatch(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.TryCatch {
+            requireNesting(name, depth)
+            val tryBody = parseBraceBlock(depth + 1, loopDepth)
+            if (tryBody.isEmpty()) {
+                fail(name.line, name.column, "empty_try", "Khối THỬ không được để trống.", "The THỬ block cannot be empty.")
+            }
+
+            var errorVariable: String? = null
+            var catchBody = emptyList<ScriptInstruction>()
+            val afterTry = index
+            skipSeparators()
+            if (isIdentifier("BẮT_LỖI")) {
+                val catchToken = advance()
+                expectSymbol("(", "expected_catch_variable", "BẮT_LỖI cần biến lỗi trong dấu ngoặc.", "BẮT_LỖI requires an error variable in parentheses.")
+                val variable = expect(TokenType.IDENTIFIER, "expected_catch_variable", "Cần tên biến lỗi viết HOA.", "Expected an uppercase error variable.")
+                requireUppercaseIdentifier(variable, "biến lỗi")
+                if (variable.text in reservedWords || variable.text in commandAliases || builtinFunctionArities.containsKey(variable.text)) {
+                    fail(variable.line, variable.column, "reserved_catch_variable", "Tên biến lỗi bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "The error variable conflicts with a keyword, command or built-in function.")
+                }
+                expectSymbol(")", "expected_catch_parenthesis", "Thiếu ')' sau biến lỗi.", "Expected ')' after the error variable.")
+                catchBody = parseBraceBlock(depth + 1, loopDepth)
+                if (catchBody.isEmpty()) {
+                    fail(catchToken.line, catchToken.column, "empty_catch", "Khối BẮT_LỖI không được để trống.", "The BẮT_LỖI block cannot be empty.")
+                }
+                errorVariable = variable.text
+            } else {
+                index = afterTry
+            }
+
+            var finallyBody = emptyList<ScriptInstruction>()
+            val afterCatch = index
+            skipSeparators()
+            if (isIdentifier("LUÔN_THỰC_HIỆN")) {
+                val finallyToken = advance()
+                finallyBody = parseBraceBlock(depth + 1, loopDepth)
+                if (finallyBody.isEmpty()) {
+                    fail(finallyToken.line, finallyToken.column, "empty_finally", "Khối LUÔN_THỰC_HIỆN không được để trống.", "The LUÔN_THỰC_HIỆN block cannot be empty.")
+                }
+            } else {
+                index = afterCatch
+            }
+
+            if (errorVariable == null && finallyBody.isEmpty()) {
+                fail(name.line, name.column, "missing_catch_or_finally", "THỬ cần BẮT_LỖI hoặc LUÔN_THỰC_HIỆN.", "THỬ requires BẮT_LỖI or LUÔN_THỰC_HIỆN.")
+            }
+            return ScriptInstruction.TryCatch(tryBody, errorVariable, catchBody, finallyBody)
         }
 
         private fun parseRepeat(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.Repeat {
