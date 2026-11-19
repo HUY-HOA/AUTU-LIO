@@ -44,6 +44,11 @@ sealed interface ScriptInstruction {
         val timeoutMs: ScriptExpression,
         val intervalMs: ScriptExpression
     ) : ScriptInstruction
+    data class ForEach(
+        val variableName: String,
+        val iterable: ScriptExpression,
+        val body: List<ScriptInstruction>
+    ) : ScriptInstruction
     data object BreakLoop : ScriptInstruction
     data object ContinueLoop : ScriptInstruction
 }
@@ -62,11 +67,12 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.0"
+    const val LANGUAGE_VERSION = "1.1"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
     const val MAX_WHILE_ITERATIONS = 900
+    const val MAX_LIST_ITEMS = 64
     const val MAX_NESTING_DEPTH = 8
     const val MAX_EXPANDED_INSTRUCTIONS = 5_000L
     const val MAX_TOTAL_DURATION_MS = 600_000L
@@ -110,13 +116,19 @@ object ScriptCompiler {
         "ĐANG_SẠC" to 0, "CÓ_MẠNG" to 0, "MÀN_HÌNH_SÁNG" to 0,
         "ỨNG_DỤNG_ĐÃ_CÀI" to 1, "ỨNG_DỤNG_ĐANG_MỞ" to 1,
         "CHIỀU_RỘNG_MÀN_HÌNH" to 0, "CHIỀU_CAO_MÀN_HÌNH" to 0,
-        "THỜI_GIAN_MS" to 0
+        "THỜI_GIAN_MS" to 0,
+        "TẠO_DANH_SÁCH" to -1,
+        "LẤY_PHẦN_TỬ" to 2,
+        "THÊM_PHẦN_TỬ" to 2,
+        "ĐẶT_PHẦN_TỬ" to 3,
+        "XÓA_PHẦN_TỬ" to 2,
+        "CÓ_PHẦN_TỬ" to 2
     )
 
-    private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "BẤT_KỲ")
+    private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẤT_KỲ")
     private val reservedWords = setOf(
         "ĐẶT", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
-        "LẶP", "LẶP_KHI", "LẶP_ĐẾN_KHI", "CHỜ_ĐẾN_KHI",
+        "LẶP", "LẶP_KHI", "LẶP_ĐẾN_KHI", "LẶP_MỖI", "TRONG", "CHỜ_ĐẾN_KHI",
         "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "ĐỊNH_NGHĨA_HÀM", "TRẢ_VỀ",
         "ĐÚNG", "SAI", "VÀ", "HOẶC", "KHÔNG"
     )
@@ -189,6 +201,11 @@ object ScriptCompiler {
                         cappedMultiply(nested.second, MAX_WHILE_ITERATIONS.toLong(), DURATION_CAP)
                 }
                 is ScriptInstruction.WaitUntil -> 1L to expressionUpperBound(instruction.timeoutMs, MAX_WAIT_MS.toLong())
+                is ScriptInstruction.ForEach -> {
+                    val nested = measureBlock(instruction.body, depth + 1)
+                    cappedAdd(1L, cappedMultiply(nested.first, MAX_LIST_ITEMS.toLong(), INSTRUCTION_CAP), INSTRUCTION_CAP) to
+                        cappedMultiply(nested.second, MAX_LIST_ITEMS.toLong(), DURATION_CAP)
+                }
                 ScriptInstruction.BreakLoop, ScriptInstruction.ContinueLoop -> 1L to 0L
             }
             count = cappedAdd(count, item.first, INSTRUCTION_CAP)
@@ -390,6 +407,7 @@ object ScriptCompiler {
                 "LẶP" -> parseRepeat(name, depth, loopDepth)
                 "LẶP_KHI" -> parseWhile(name, depth, loopDepth)
                 "LẶP_ĐẾN_KHI" -> parseUntil(name, depth, loopDepth)
+                "LẶP_MỖI" -> parseForEach(name, depth, loopDepth)
                 "CHỜ_ĐẾN_KHI" -> parseWaitUntil(name)
                 "ĐỊNH_NGHĨA_HÀM" -> parseFunctionDefinition(name, depth, loopDepth)
                 "TRẢ_VỀ" -> {
@@ -550,6 +568,25 @@ object ScriptCompiler {
             val body = parseBraceBlock(depth + 1, loopDepth + 1)
             if (body.isEmpty()) fail(name.line, name.column, "empty_until", "Khối LẶP_ĐẾN_KHI không được để trống.", "A LẶP_ĐẾN_KHI block cannot be empty.")
             return ScriptInstruction.While(ScriptExpression.Unary("KHÔNG", condition), body)
+        }
+
+        private fun parseForEach(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.ForEach {
+            requireNesting(name, depth)
+            expectSymbol("(", "expected_left_parenthesis", "Thiếu '(' sau LẶP_MỖI.", "Expected '(' after LẶP_MỖI.")
+            val variable = expect(TokenType.IDENTIFIER, "expected_loop_variable", "Sau LẶP_MỖI cần tên biến viết HOA.", "Expected an uppercase loop variable after LẶP_MỖI.")
+            requireUppercaseIdentifier(variable, "tên biến lặp")
+            if (variable.text in reservedWords || variable.text in commandAliases || builtinFunctionArities.containsKey(variable.text)) {
+                fail(variable.line, variable.column, "reserved_loop_variable", "Tên biến lặp bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Loop variable conflicts with a keyword, command or built-in function.")
+            }
+            val inToken = expect(TokenType.IDENTIFIER, "expected_in_keyword", "Cần từ khóa TRONG giữa biến và danh sách.", "Expected TRONG between the loop variable and list.")
+            if (inToken.text != "TRONG") {
+                fail(inToken.line, inToken.column, "expected_in_keyword", "Từ khóa phải là TRONG, viết HOA và đầy đủ dấu.", "The keyword must be TRONG in uppercase.")
+            }
+            val iterable = parseExpression()
+            expectSymbol(")", "expected_right_parenthesis", "Thiếu ')' sau danh sách lặp.", "Expected ')' after the iterable.")
+            val body = parseBraceBlock(depth + 1, loopDepth + 1)
+            if (body.isEmpty()) fail(name.line, name.column, "empty_for_each", "Khối LẶP_MỖI không được để trống.", "A LẶP_MỖI block cannot be empty.")
+            return ScriptInstruction.ForEach(variable.text, iterable, body)
         }
 
         private fun parseWaitUntil(name: Token): ScriptInstruction.WaitUntil {
@@ -715,7 +752,9 @@ object ScriptCompiler {
                 }
                 expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng hàm.", "Expected ')' after function arguments.")
                 val expected = builtinFunctionArities[token.text]
-                if (expected != null && args.size != expected) {
+                if (expected == -1 && args.size > MAX_LIST_ITEMS) {
+                    fail(token.line, token.column, "list_too_large", "Danh sách không được vượt quá $MAX_LIST_ITEMS phần tử.", "A list cannot exceed $MAX_LIST_ITEMS items.")
+                } else if (expected != null && expected >= 0 && args.size != expected) {
                     fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' cần đúng " + expected + " tham số.", "Function '" + token.text + "' requires exactly " + expected + " arguments.")
                 }
                 if (expected == null) functionCallTokens += token
