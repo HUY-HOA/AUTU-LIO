@@ -15,45 +15,43 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 
 ## Ma trận tính năng
 
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.10. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.10; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
 | Ngôn ngữ lõi | Biến, kiểu, biểu thức, điều kiện, vòng lặp, hàm, danh sách, bản đồ | Đã có nền tảng |
-| Điều khiển luồng | THỬ/BẮT_LỖI/LUÔN_THỰC_HIỆN, hủy, thời hạn, luồng tác vụ | Còn thiếu |
-| Chuỗi và dữ liệu | Unicode, phân tích/đóng gói JSON, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Một phần |
-| Tệp | Chọn tệp, đọc/ghi, thư mục được cấp quyền, CSV, JSON, lưu trạng thái | Còn thiếu |
+| Điều khiển luồng | THỬ/BẮT_LỖI/LUÔN_THỰC_HIỆN, hủy, thời hạn, luồng tác vụ | Đã có try/catch, hủy và timeout; chưa có đa luồng script |
+| Chuỗi và dữ liệu | Unicode, JSON lồng nhau, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Đã có Unicode và JSON lồng nhau; regex/ngày giờ/mã hóa còn thiếu |
+| Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI người dùng | Đã có kho tệp riêng và JSON; CSV/chọn URI còn thiếu |
 | Mạng | HTTP(S), GET/POST/PUT/PATCH/DELETE, header, timeout, JSON, tải lên/tải xuống | Còn thiếu |
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Còn thiếu |
-| Trợ năng | Đọc cây giao diện, tìm phần tử theo text/ID/mô tả/lớp, click/scroll/set text | Một phần |
-| OCR | Đọc toàn màn hình/vùng, dòng/khối, tọa độ, tìm chuỗi, chờ chữ xuất hiện/biến mất | Đang triển khai |
-| Thị giác máy tính | Nhãn ảnh, vật thể, khuôn mặt chỉ khi người dùng chủ động, mã vạch/QR, màu, mẫu ảnh, vùng ảnh | Còn thiếu |
-| Ảnh và khung hình | Chụp màn hình, cắt vùng, đổi kích thước, so sánh, lưu ảnh, nhận diện thay đổi | Một phần |
-| Tương tác | Chạm, nhấn giữ, vuốt, kéo-thả, đường vuốt, đa điểm khi Android cho phép | Một phần |
-| Tọa độ | Pixel, DP, phần trăm màn hình, gốc tọa độ, vùng an toàn, xoay màn hình | Còn thiếu |
+| Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
+| OCR | Đọc màn hình/vùng, tìm chữ, trả tọa độ | Đã có OCR màn hình và vùng; OCR từ tệp ảnh và chờ chữ chuyên dụng còn thiếu |
+| Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch; màu và so khớp ảnh mẫu còn thiếu |
+| Ảnh và khung hình | Chụp màn hình, crop vùng để OCR/nhận diện | Đã có chụp màn hình và crop nội bộ; xử lý ảnh/tệp và so sánh khung hình còn thiếu |
+| Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt; kéo-thả đường cong và đa điểm còn thiếu |
+| Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel đã có; API tỷ lệ/DP và hiệu chỉnh vùng an toàn còn thiếu |
 | Sự kiện | Thay đổi cửa sổ, nội dung, thông báo do người dùng cấp quyền, trạng thái ứng dụng | Còn thiếu |
 | Lịch và nền | Lịch chạy, hàng đợi, retry, điều kiện pin/mạng, tác vụ định kỳ và thông báo trạng thái | Còn thiếu |
-| Thiết bị | Pin, sạc, mạng, màn hình, âm lượng, rung, clipboard và trạng thái phần cứng khả dụng | Một phần |
+| Thiết bị | Pin, sạc, mạng, màn hình, ứng dụng foreground và thông số màn hình | Đã có truy vấn cơ bản; âm lượng/rung/clipboard còn thiếu |
 | Giao diện kịch bản | Form, nút, ô nhập, danh sách, bảng điều khiển và biến tương tác | Còn thiếu |
 | Thư viện | Module, import/export, phiên bản thư viện, tái sử dụng hàm | Còn thiếu |
 | Trình soạn thảo | Tô màu, gợi ý, tự hoàn thành, kiểm tra kiểu, mẫu mã, định dạng | Một phần |
 | Gỡ lỗi | Breakpoint, chạy từng bước, xem biến, call stack, nhật ký, xuất báo cáo lỗi | Một phần |
-| Quản lý chạy | Chạy/tạm dừng/tiếp tục/dừng, nhiều kịch bản có hàng đợi, lịch sử thực thi | Một phần |
+| Quản lý chạy | Chạy/tạm dừng/tiếp tục/dừng và cửa sổ nổi | Đã có; hàng đợi nhiều kịch bản và lịch sử chi tiết còn thiếu |
 | Kiểm thử | Test parser/runtime, test thiết bị, test quyền, test tương thích Android | Một phần |
 
 ## Danh mục API dự kiến
 
 ### OCR và văn bản trên màn hình
-- ĐỌC_VĂN_BẢN_MÀN_HÌNH()
-- MÀN_HÌNH_CHỨA_CHỮ(CHUỖI)
-- TÌM_VỊ_TRÍ_CHỮ(CHUỖI)
-- Mở rộng sau: đọc văn bản theo vùng, lấy dòng/khối, chờ chữ xuất hiện hoặc biến mất, đọc văn bản từ ảnh/tệp.
+Đã có: ĐỌC_VĂN_BẢN_MÀN_HÌNH(), MÀN_HÌNH_CHỨA_CHỮ(CHUỖI), TÌM_VỊ_TRÍ_CHỮ(CHUỖI), ĐỌC_VĂN_BẢN_VÙNG(X,Y,RỘNG,CAO), MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG và TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG.
+
+Còn thiếu: đọc ảnh từ URI/tệp, trả về cấu trúc dòng/khối có confidence công khai, chờ chữ xuất hiện/biến mất có timeout riêng.
 
 ### Nhận diện hình ảnh
-- Nhãn ảnh và phân loại cảnh.
-- Nhận diện đối tượng và hộp giới hạn.
-- So khớp mẫu ảnh do người dùng cung cấp.
-- Tìm màu, vùng màu, độ tương đồng và thay đổi giữa hai khung hình.
-- Quét QR/mã vạch.
-- Mỗi API phải trả kết quả có cấu trúc và tọa độ có hệ quy chiếu rõ ràng.
+Đã có: nhãn ảnh tổng quát, phát hiện vật thể cơ bản, hộp giới hạn và quét QR/mã vạch trên màn hình.
+
+Còn thiếu: tìm màu/vùng màu, so khớp ảnh mẫu do người dùng cung cấp, so sánh khung hình và API ảnh đầu vào từ tệp/URI. Không tuyên bố nhãn tổng quát là nhận diện chính xác mọi vật thể.
 
 ### Trợ năng và điều khiển giao diện
 - Tìm theo văn bản, mô tả nội dung, resource ID, loại thành phần và trạng thái.
@@ -94,15 +92,15 @@ Một mô-đun chỉ được đánh dấu **Đã triển khai** khi có đủ:
 
 ## Lộ trình triển khai
 
-1. OCR và đọc cây giao diện.
-2. Nhận diện hình ảnh: nhãn, đối tượng, mẫu ảnh, màu, QR.
-3. Bộ tìm kiếm/thao tác phần tử trợ năng.
-4. Tọa độ tương đối, vùng màn hình, kéo-thả và gesture.
-5. JSON nâng cao, tệp và lưu trạng thái.
-6. HTTP/API và SQLite.
-7. Xử lý lỗi, module/thư viện và sự kiện.
-8. Lịch chạy, hàng đợi và tác vụ nền.
-9. Giao diện kịch bản, trình gợi ý và debugger.
-10. Kiểm thử tương thích trên nhiều phiên bản Android và thiết bị.
+1. Hoàn thiện OCR ảnh đầu vào, dòng/khối và chờ chữ.
+2. Nhận diện ảnh: màu/vùng màu, ảnh mẫu và so sánh khung hình.
+3. Tọa độ tỷ lệ/DP, vùng an toàn, kéo-thả và đánh giá đa điểm theo khả năng Android.
+4. HTTP/API có timeout, HTTPS, giới hạn payload và chính sách dữ liệu.
+5. SQLite với truy vấn tham số, giao dịch và di trú.
+6. Sự kiện, lịch, hàng đợi và tác vụ nền có thể hủy.
+7. Module/thư viện dùng chung và regex/ngày giờ.
+8. Trình soạn thảo: tô màu, autocomplete, định dạng và debugger từng bước.
+9. Kiểm thử thiết bị thật: Xiaomi/HyperOS, Android nhiều API, quyền, vòng đời service, pin và độ phân giải.
+10. Rà soát bảo mật, hiệu năng, khả năng tiếp cận và tương thích trước phát hành.
 
 **Ghi chú:** Không có danh sách hữu hạn nào bao quát mọi API OEM, mọi ứng dụng và mọi phiên bản Android. Mục tiêu là bao phủ toàn diện các khả năng công khai, được cấp quyền và có thể kiểm thử trên Android, đồng thời công bố trung thực các giới hạn.
