@@ -653,6 +653,51 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun parsesAndSerializesNestedJsonWithNullValues() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"A\":[1,{\"B\":2},null]}")
+                ĐẶT CÁC_MỤC: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "A")
+                ĐẶT PHẦN_TỬ: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_MỤC, 1)
+                ĐẶT GIA_TRI_B: SỐ = LẤY_GIÁ_TRỊ(PHẦN_TỬ, "B")
+                ĐẶT JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
+                NẾU (GIA_TRI_B == 2 VÀ LẤY_PHẦN_TỬ(CÁC_MỤC, 2) == RỖNG VÀ CHỨA_CHUỖI(JSON_KẾT_QUẢ, "null")) {
+                    CHẠM(70, 80)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(ScriptExecutionState.COMPLETED, engine.snapshot().state)
+            assertEquals(listOf("tap:70,80"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
+    fun rejectsMalformedJsonInsideScript() {
+        val failed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(RecordingDispatcher()) {
+            if (it.state == ScriptExecutionState.FAILED) failed.countDown()
+        }
+        try {
+            val program = compile("ĐẶT X = PHÂN_TÍCH_JSON(\"{bad}\")")
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(failed.await(3, TimeUnit.SECONDS))
+            assertEquals("invalid_json", engine.snapshot().errorCode)
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
