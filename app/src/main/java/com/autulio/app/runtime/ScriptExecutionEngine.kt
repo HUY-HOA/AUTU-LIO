@@ -23,6 +23,7 @@ interface ScriptActionDispatcher {
     fun tap(x: Int, y: Int): Boolean
     fun longPress(x: Int, y: Int, durationMs: Int): Boolean
     fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int): Boolean
+    fun multiTouch(paths: List<List<Int>>, durationMs: Int): Boolean = false
     fun openApp(packageName: String): Boolean = false
     fun goBack(): Boolean = false
     fun goHome(): Boolean = false
@@ -494,6 +495,23 @@ class ScriptExecutionEngine(
                 requireCoordinate(args[3]),
                 requireDuration(args[4], 1, ScriptCompiler.MAX_GESTURE_MS)
             )
+            "CHẠM_ĐA_ĐIỂM" -> {
+                val points = requireMultiTouchPaths(args[0], minPoints = 1, maxPoints = 1)
+                val tapPaths = points.map { point ->
+                    listOf(point[0], point[1], point[0], point[1])
+                }
+                dispatcher.multiTouch(
+                    tapPaths,
+                    requireDuration(args[1], 1, ScriptCompiler.MAX_GESTURE_MS)
+                )
+            }
+            "VUỐT_ĐA_ĐIỂM" -> {
+                val paths = requireMultiTouchPaths(args[0], minPoints = 2, maxPoints = 16)
+                dispatcher.multiTouch(
+                    paths,
+                    requireDuration(args[1], 1, ScriptCompiler.MAX_GESTURE_MS)
+                )
+            }
             "CHỜ" -> {
                 waitInterruptibly(runId, requireDuration(args[0], 1, ScriptCompiler.MAX_WAIT_MS))
                 true
@@ -1050,6 +1068,30 @@ class ScriptExecutionEngine(
             throw ScriptRuntimeFailure("invalid_integer", message)
         }
         return number.toInt()
+    }
+
+    private fun requireMultiTouchPaths(
+        value: Any?,
+        minPoints: Int,
+        maxPoints: Int
+    ): List<List<Int>> {
+        val rawPaths = value as? List<*>
+            ?: throw ScriptRuntimeFailure("invalid_multitouch_paths", "DANH_SÁCH đường chạm phải là một DANH_SÁCH.")
+        if (rawPaths.size !in 2..5) {
+            throw ScriptRuntimeFailure("multitouch_finger_count", "Thao tác đa điểm cần từ 2 đến 5 ngón tay.")
+        }
+        return rawPaths.mapIndexed { index, rawPath ->
+            val rawCoordinates = rawPath as? List<*>
+                ?: throw ScriptRuntimeFailure("invalid_multitouch_path", "Đường của ngón tay " + (index + 1) + " phải là DANH_SÁCH tọa độ.")
+            if (rawCoordinates.size % 2 != 0) {
+                throw ScriptRuntimeFailure("invalid_multitouch_path", "Mỗi đường cần đủ cặp tọa độ X, Y.")
+            }
+            val pointCount = rawCoordinates.size / 2
+            if (pointCount !in minPoints..maxPoints) {
+                throw ScriptRuntimeFailure("multitouch_path_points", "Mỗi đường cần từ " + minPoints + " đến " + maxPoints + " điểm.")
+            }
+            rawCoordinates.map { requireCoordinate(it) }
+        }
     }
 
     private fun requireCoordinate(value: Any?): Int {
