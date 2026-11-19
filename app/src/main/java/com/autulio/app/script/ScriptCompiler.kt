@@ -22,7 +22,11 @@ sealed interface ScriptExpression {
 
 sealed interface ScriptInstruction {
     data class Command(val name: String, val arguments: List<ScriptExpression>) : ScriptInstruction
-    data class SetVariable(val name: String, val value: ScriptExpression) : ScriptInstruction
+    data class SetVariable(
+        val name: String,
+        val value: ScriptExpression,
+        val declaredType: String? = null
+    ) : ScriptInstruction
     data class If(val condition: ScriptExpression, val thenBody: List<ScriptInstruction>, val elseBody: List<ScriptInstruction>) : ScriptInstruction
     data class Repeat(val count: ScriptExpression, val body: List<ScriptInstruction>) : ScriptInstruction
     data class While(val condition: ScriptExpression, val body: List<ScriptInstruction>) : ScriptInstruction
@@ -49,7 +53,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "0.3"
+    const val LANGUAGE_VERSION = "1.0"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -63,37 +67,49 @@ object ScriptCompiler {
     private const val INSTRUCTION_CAP = MAX_EXPANDED_INSTRUCTIONS + 1
     private const val DURATION_CAP = MAX_TOTAL_DURATION_MS + 1
 
-    // Từ khóa chuẩn luôn viết HOA và có dấu. Bí danh tiếng Anh chỉ để tương thích mã cũ.
+    // AUTU Script 1.0 chỉ chấp nhận lệnh tiếng Việt viết HOA, đúng dấu.
     private val commandAliases = mapOf(
-        "CHẠM" to "CHẠM", "TAP" to "CHẠM",
-        "NHẤN_GIỮ" to "NHẤN_GIỮ", "LONGPRESS" to "NHẤN_GIỮ", "LONG_PRESS" to "NHẤN_GIỮ",
-        "VUỐT" to "VUỐT", "SWIPE" to "VUỐT",
-        "CHỜ" to "CHỜ", "WAIT" to "CHỜ",
-        "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG", "OPENAPP" to "MỞ_ỨNG_DỤNG", "OPEN_APP" to "MỞ_ỨNG_DỤNG",
-        "QUAY_LẠI" to "QUAY_LẠI", "BACK" to "QUAY_LẠI",
-        "VỀ_MÀN_HÌNH_CHÍNH" to "VỀ_MÀN_HÌNH_CHÍNH", "HOME" to "VỀ_MÀN_HÌNH_CHÍNH",
-        "ỨNG_DỤNG_GẦN_ĐÂY" to "ỨNG_DỤNG_GẦN_ĐÂY", "RECENTS" to "ỨNG_DỤNG_GẦN_ĐÂY",
-        "MỞ_THÔNG_BÁO" to "MỞ_THÔNG_BÁO", "NOTIFICATIONS" to "MỞ_THÔNG_BÁO",
-        "MỞ_CÀI_ĐẶT_NHANH" to "MỞ_CÀI_ĐẶT_NHANH", "QUICKSETTINGS" to "MỞ_CÀI_ĐẶT_NHANH", "QUICK_SETTINGS" to "MỞ_CÀI_ĐẶT_NHANH",
-        "HIỆN_MENU_NGUỒN" to "HIỆN_MENU_NGUỒN", "POWERDIALOG" to "HIỆN_MENU_NGUỒN", "POWER_DIALOG" to "HIỆN_MENU_NGUỒN",
-        "KHÓA_MÀN_HÌNH" to "KHÓA_MÀN_HÌNH", "LOCKSCREEN" to "KHÓA_MÀN_HÌNH", "LOCK_SCREEN" to "KHÓA_MÀN_HÌNH",
-        "CHIA_MÀN_HÌNH" to "CHIA_MÀN_HÌNH", "SPLITSCREEN" to "CHIA_MÀN_HÌNH", "SPLIT_SCREEN" to "CHIA_MÀN_HÌNH"
+        "CHẠM" to "CHẠM",
+        "NHẤN_GIỮ" to "NHẤN_GIỮ",
+        "VUỐT" to "VUỐT",
+        "CHỜ" to "CHỜ",
+        "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG",
+        "QUAY_LẠI" to "QUAY_LẠI",
+        "VỀ_MÀN_HÌNH_CHÍNH" to "VỀ_MÀN_HÌNH_CHÍNH",
+        "ỨNG_DỤNG_GẦN_ĐÂY" to "ỨNG_DỤNG_GẦN_ĐÂY",
+        "MỞ_THÔNG_BÁO" to "MỞ_THÔNG_BÁO",
+        "MỞ_CÀI_ĐẶT_NHANH" to "MỞ_CÀI_ĐẶT_NHANH",
+        "HIỆN_MENU_NGUỒN" to "HIỆN_MENU_NGUỒN",
+        "KHÓA_MÀN_HÌNH" to "KHÓA_MÀN_HÌNH",
+        "CHIA_MÀN_HÌNH" to "CHIA_MÀN_HÌNH"
     )
 
     private val commandArgumentCounts = mapOf(
-        "CHẠM" to 2,
-        "NHẤN_GIỮ" to 3,
-        "VUỐT" to 5,
-        "CHỜ" to 1,
-        "MỞ_ỨNG_DỤNG" to 1,
-        "QUAY_LẠI" to 0,
-        "VỀ_MÀN_HÌNH_CHÍNH" to 0,
-        "ỨNG_DỤNG_GẦN_ĐÂY" to 0,
-        "MỞ_THÔNG_BÁO" to 0,
-        "MỞ_CÀI_ĐẶT_NHANH" to 0,
-        "HIỆN_MENU_NGUỒN" to 0,
-        "KHÓA_MÀN_HÌNH" to 0,
-        "CHIA_MÀN_HÌNH" to 0
+        "CHẠM" to 2, "NHẤN_GIỮ" to 3, "VUỐT" to 5,
+        "CHỜ" to 1, "MỞ_ỨNG_DỤNG" to 1,
+        "QUAY_LẠI" to 0, "VỀ_MÀN_HÌNH_CHÍNH" to 0,
+        "ỨNG_DỤNG_GẦN_ĐÂY" to 0, "MỞ_THÔNG_BÁO" to 0,
+        "MỞ_CÀI_ĐẶT_NHANH" to 0, "HIỆN_MENU_NGUỒN" to 0,
+        "KHÓA_MÀN_HÌNH" to 0, "CHIA_MÀN_HÌNH" to 0
+    )
+
+    private val builtinFunctionArities = mapOf(
+        "SỐ" to 1, "CHUỖI" to 1, "LÀM_TRÒN" to 1,
+        "TUYỆT_ĐỐI" to 1, "ĐỘ_DÀI" to 1,
+        "NHỎ_NHẤT" to 2, "LỚN_NHẤT" to 2,
+        "PIN" to 0, "PHẦN_TRĂM_PIN" to 0,
+        "ĐANG_SẠC" to 0, "CÓ_MẠNG" to 0, "MÀN_HÌNH_SÁNG" to 0,
+        "ỨNG_DỤNG_ĐÃ_CÀI" to 1, "ỨNG_DỤNG_ĐANG_MỞ" to 1,
+        "CHIỀU_RỘNG_MÀN_HÌNH" to 0, "CHIỀU_CAO_MÀN_HÌNH" to 0,
+        "THỜI_GIAN_MS" to 0
+    )
+
+    private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "BẤT_KỲ")
+    private val reservedWords = setOf(
+        "ĐẶT", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
+        "LẶP", "LẶP_KHI", "LẶP_ĐẾN_KHI", "CHỜ_ĐẾN_KHI",
+        "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "ĐÚNG", "SAI",
+        "VÀ", "HOẶC", "KHÔNG"
     )
 
     fun compile(source: String): ScriptCompileResult {
@@ -302,7 +318,7 @@ object ScriptCompiler {
                 advance()
                 return
             }
-            if (current in "(){} ,;+-*/%=!<>") {
+            if (current in "(){} ,;+-*/%=!<>^:") {
                 if (current == ';') tokens += Token(TokenType.SEMICOLON, ";", startLine, startColumn)
                 else if (current != ' ') tokens += Token(TokenType.SYMBOL, current.toString(), startLine, startColumn)
                 advance()
@@ -341,13 +357,8 @@ object ScriptCompiler {
 
         private fun parseStatement(depth: Int, loopDepth: Int): ScriptInstruction {
             val name = expect(TokenType.IDENTIFIER, "expected_command", "Cần có lệnh hoặc biến.", "Expected a command or variable.")
-            val rawKeyword = normalize(name.text)
-            val keyword = when (rawKeyword) {
-                "REPEAT" -> "LẶP"
-                "UNTIL", "LOOP_UNTIL" -> "LẶP_ĐẾN_KHI"
-                "WAIT_UNTIL", "WAITUNTIL" -> "CHỜ_ĐẾN_KHI"
-                else -> rawKeyword
-            }
+            requireUppercaseIdentifier(name, "lệnh hoặc tên biến")
+            val keyword = name.text
             return when (keyword) {
                 "ĐẶT" -> parseVariableDeclaration(name)
                 "NẾU" -> parseIf(name, depth, loopDepth)
@@ -366,6 +377,9 @@ object ScriptCompiler {
                     ScriptInstruction.ContinueLoop
                 }
                 else -> {
+                    if (name.text in reservedWords) {
+                        fail(name.line, name.column, "keyword_usage", "Từ khóa '" + name.text + "' không được dùng ở vị trí này.", "Keyword '" + name.text + "' is not valid here.")
+                    }
                     if (isSymbol("=")) {
                         advance()
                         ScriptInstruction.SetVariable(name.text, parseExpression())
@@ -375,9 +389,21 @@ object ScriptCompiler {
         }
 
         private fun parseVariableDeclaration(name: Token): ScriptInstruction.SetVariable {
-            val variable = expect(TokenType.IDENTIFIER, "expected_variable_name", "Sau ĐẶT cần có tên biến.", "Expected a variable name after ĐẶT.")
+            val variable = expect(TokenType.IDENTIFIER, "expected_variable_name", "Sau ĐẶT cần có tên biến viết HOA.", "Expected an uppercase variable name after ĐẶT.")
+            requireUppercaseIdentifier(variable, "tên biến")
+            if (variable.text in reservedWords || variable.text in commandAliases) {
+                fail(variable.line, variable.column, "reserved_identifier", "Tên biến trùng với từ khóa hoặc lệnh đã dành riêng.", "Variable name is reserved.")
+            }
+            val declaredType = if (isSymbol(":")) {
+                advance()
+                val typeToken = expect(TokenType.IDENTIFIER, "expected_type", "Sau ':' cần có kiểu SỐ, CHUỖI, LUẬN_LÝ hoặc BẤT_KỲ.", "Expected SỐ, CHUỖI, LUẬN_LÝ or BẤT_KỲ after ':'.")
+                if (typeToken.text !in supportedTypes) {
+                    fail(typeToken.line, typeToken.column, "unknown_type", "Kiểu '" + typeToken.text + "' chưa được hỗ trợ.", "Type '" + typeToken.text + "' is not supported.")
+                }
+                typeToken.text
+            } else null
             expectSymbol("=", "expected_assignment", "Thiếu dấu '=' khi gán biến.", "Expected '=' in variable assignment.")
-            return ScriptInstruction.SetVariable(variable.text, parseExpression())
+            return ScriptInstruction.SetVariable(variable.text, parseExpression(), declaredType)
         }
 
         private fun parseIf(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.If {
@@ -475,9 +501,8 @@ object ScriptCompiler {
         }
 
         private fun parseCommand(name: Token): ScriptInstruction.Command {
-            val normalized = normalize(name.text)
-            val command = commandAliases[normalized]
-                ?: fail(name.line, name.column, "unknown_command", "Không nhận ra lệnh '" + name.text + "'.", "Unknown command '" + name.text + "'.")
+            val command = commandAliases[name.text]
+                ?: fail(name.line, name.column, "unknown_command", "Không nhận ra lệnh '" + name.text + "'. AUTU Script 1.0 chỉ nhận lệnh tiếng Việt viết HOA và đúng dấu.", "Unknown command '" + name.text + "'. AUTU Script 1.0 accepts only uppercase Vietnamese commands with correct diacritics.")
             val args = parseArguments()
             val expected = commandArgumentCounts[command]
                 ?: fail(name.line, name.column, "unsupported_command", "Lệnh '$command' chưa được đăng ký tham số.", "Command '$command' has no registered argument signature.")
@@ -537,7 +562,7 @@ object ScriptCompiler {
                 val priority = precedence(operator)
                 if (priority < minPrecedence) break
                 advance()
-                val right = parseExpression(priority + 1)
+                val right = parseExpression(if (operator == "^") priority else priority + 1)
                 left = ScriptExpression.Binary(operator, left, right)
             }
             return left
@@ -545,11 +570,11 @@ object ScriptCompiler {
 
         private fun parsePrefix(): ScriptExpression {
             val token = current()
-            if (token.type == TokenType.SYMBOL && token.text in setOf("!", "-", "+")) {
+            if (token.type == TokenType.SYMBOL && token.text in setOf("-", "+")) {
                 advance()
-                return ScriptExpression.Unary(if (token.text == "!") "KHÔNG" else token.text, parseExpression(7))
+                return ScriptExpression.Unary(token.text, parseExpression(7))
             }
-            if (token.type == TokenType.IDENTIFIER && normalize(token.text) == "KHÔNG") {
+            if (token.type == TokenType.IDENTIFIER && token.text == "KHÔNG") {
                 advance()
                 return ScriptExpression.Unary("KHÔNG", parseExpression(7))
             }
@@ -578,31 +603,36 @@ object ScriptCompiler {
 
         private fun parseIdentifierExpression(): ScriptExpression {
             val token = advance()
-            return when (normalize(token.text)) {
-                "ĐÚNG" -> ScriptExpression.BooleanLiteral(true)
-                "SAI" -> ScriptExpression.BooleanLiteral(false)
-                else -> {
-                    if (isSymbol("(")) {
-                        advance()
-                        val args = mutableListOf<ScriptExpression>()
-                        if (!isSymbol(")")) {
-                            while (true) {
-                                args += parseExpression()
-                                if (!isSymbol(",")) break
-                                advance()
-                            }
-                        }
-                        expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng hàm.", "Expected ')' after function arguments.")
-                        ScriptExpression.FunctionCall(normalize(token.text), args)
-                    } else ScriptExpression.Variable(token.text)
-                }
+            if (token.text == "ĐÚNG") return ScriptExpression.BooleanLiteral(true)
+            if (token.text == "SAI") return ScriptExpression.BooleanLiteral(false)
+            requireUppercaseIdentifier(token, "tên biến hoặc hàm")
+            if (token.text in reservedWords || token.text in commandAliases) {
+                fail(token.line, token.column, "reserved_identifier", "Từ khóa hoặc lệnh không thể dùng làm biến/hàm.", "A keyword or command cannot be used as a variable/function.")
             }
+            return if (isSymbol("(")) {
+                advance()
+                val args = mutableListOf<ScriptExpression>()
+                if (!isSymbol(")")) {
+                    while (true) {
+                        args += parseExpression()
+                        if (!isSymbol(",")) break
+                        advance()
+                    }
+                }
+                expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng hàm.", "Expected ')' after function arguments.")
+                val expected = builtinFunctionArities[token.text]
+                    ?: fail(token.line, token.column, "unknown_function", "Không có hàm '" + token.text + "' trong thư viện AUTU Script 1.0.", "Function '" + token.text + "' is not in the AUTU Script 1.0 standard library.")
+                if (args.size != expected) {
+                    fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' cần đúng " + expected + " tham số.", "Function '" + token.text + "' requires exactly " + expected + " arguments.")
+                }
+                ScriptExpression.FunctionCall(token.text, args)
+            } else ScriptExpression.Variable(token.text)
         }
 
         private fun currentOperator(): String? {
             val token = current()
-            if (token.type == TokenType.SYMBOL && token.text in setOf("+", "-", "*", "/", "%", "==", "!=", ">", ">=", "<", "<=")) return token.text
-            if (token.type == TokenType.IDENTIFIER) return when (normalize(token.text)) {
+            if (token.type == TokenType.SYMBOL && token.text in setOf("+", "-", "*", "/", "%", "^", "==", "!=", ">", ">=", "<", "<=")) return token.text
+            if (token.type == TokenType.IDENTIFIER) return when (token.text) {
                 "VÀ" -> "VÀ"
                 "HOẶC" -> "HOẶC"
                 else -> null
@@ -617,6 +647,7 @@ object ScriptCompiler {
             ">", ">=", "<", "<=" -> 4
             "+", "-" -> 5
             "*", "/", "%" -> 6
+            "^" -> 7
             else -> -1
         }
 
@@ -649,7 +680,20 @@ object ScriptCompiler {
         }
 
         private fun isSymbol(symbol: String): Boolean = current().type == TokenType.SYMBOL && current().text == symbol
-        private fun isIdentifier(identifier: String): Boolean = current().type == TokenType.IDENTIFIER && normalize(current().text) == identifier
+        private fun isIdentifier(identifier: String): Boolean = current().type == TokenType.IDENTIFIER && current().text == identifier
+
+        private fun requireUppercaseIdentifier(token: Token, description: String) {
+            if (token.text != normalize(token.text)) {
+                fail(
+                    token.line,
+                    token.column,
+                    "identifier_must_be_uppercase",
+                    "Tên " + description + " '" + token.text + "' phải viết HOA. Ví dụ: SO_LAN, PIN_MUC_TIEU.",
+                    "The " + description + " '" + token.text + "' must be uppercase. Example: SO_LAN, PIN_MUC_TIEU."
+                )
+            }
+        }
+
         private fun current(): Token = tokens[index]
 
         private fun advance(): Token {
