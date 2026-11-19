@@ -735,6 +735,8 @@ private fun EditorScreen(
                     Text("PIN(), PHẦN_TRĂM_PIN(), ĐANG_SẠC(), CÓ_MẠNG(), MÀN_HÌNH_SÁNG()")
                     Text("ỨNG_DỤNG_ĐÃ_CÀI(\"tên.gói\"), ỨNG_DỤNG_ĐANG_MỞ(\"tên.gói\")")
                     Text("CHIỀU_RỘNG_MÀN_HÌNH(), CHIỀU_CAO_MÀN_HÌNH(), THỜI_GIAN_MS()")
+                    Text("ĐỌC_VĂN_BẢN_MÀN_HÌNH(), MÀN_HÌNH_CHỨA_CHỮ(\"nội dung\"), TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")")
+                    Text(tr("OCR đọc chữ theo yêu cầu; vị trí trả về danh sách [X, Y] tính bằng pixel màn hình.", "OCR reads text on demand; the location function returns [X, Y] in screen pixels."))
                     Text("Toán tử: +  -  *  /  %  ^  ==  !=  >  >=  <  <=  VÀ  HOẶC  KHÔNG")
                     Text(tr("Danh sách chứa tối đa 64 phần tử; LẶP_MỖI duyệt bản sao an toàn. BẢN_ĐỒ chứa tối đa 64 cặp khóa–giá trị, khóa là CHUỖI không rỗng.", "Lists hold up to 64 items; LẶP_MỖI iterates a safe snapshot. BẢN_ĐỒ holds up to 64 key-value pairs with non-empty CHUỖI keys."))
                     Text(tr("Hàm tự định nghĩa phải viết HOA, khai báo ở cấp cao nhất; tối đa 16 tham số và 16 cấp gọi lồng nhau.", "User functions must be uppercase and declared at top level; up to 16 parameters and 16 nested calls."))
