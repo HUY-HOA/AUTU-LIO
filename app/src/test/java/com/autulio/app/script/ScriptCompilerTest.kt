@@ -49,7 +49,7 @@ class ScriptCompilerTest {
             """
             ĐẶT I = 0
             LẶP_KHI (I < 10) {
-                I = i + 1
+                I = I + 1
                 NẾU (I == 5) {
                     THOÁT_LẶP
                 }
@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.0", result.program?.languageVersion)
+        assertEquals("1.1", result.program?.languageVersion)
     }
 
     @Test
