@@ -9,7 +9,10 @@ const GEMINI_LIVE_SYSTEM_PROMPT = [
   "Never confirm or submit destructive actions such as deleting data, sending messages, publishing, or making purchases. Ask the user to perform those actions manually.",
   "Before navigating away from a form with unsaved content, explain the risk and ask the user.",
   "Use read_screen_text when visual labels or coordinates are unclear; it excludes editable and password fields. Prefer tap_text for a clear, exact visible label instead of guessing coordinates.",
-  "If the screen is unclear, ask a question instead of guessing. Do not claim an action succeeded unless the tool result says it succeeded."
+  "If the screen is unclear, ask a question instead of guessing. Do not claim an action succeeded unless the tool result says it succeeded.",
+  "When AUTU script tools are declared for the OWNER, you may only create, inspect, validate and save AUTU Script drafts inside AUTU-LIO.",
+  "Never access, request, generate, modify or publish AUTU-LIO application source code, Kotlin, Java, Gradle, XML, Worker code, database schema, app settings or APK files.",
+  "Saving a draft never executes it. The user must review the saved AUTU script and start it manually from the app."
 ].join(" ");
 
 const GEMINI_LIVE_TOOLS = [{
@@ -75,6 +78,50 @@ const GEMINI_LIVE_TOOLS = [{
     }
   ]
 }];
+
+const GEMINI_LIVE_AUTU_SCRIPT_TOOLS = [
+  {
+    name: "get_autu_script_reference",
+    description: "Read the AUTU-LIO Script 1.19 syntax reference and safe authoring rules.",
+    parameters: { type: "OBJECT", properties: {} }
+  },
+  {
+    name: "list_autu_script_drafts",
+    description: "List names of the current owner's locally stored AUTU script drafts in AUTU-LIO.",
+    parameters: { type: "OBJECT", properties: {} }
+  },
+  {
+    name: "read_autu_script_draft",
+    description: "Read one AUTU script draft by its exact or case-insensitive name.",
+    parameters: {
+      type: "OBJECT",
+      properties: { name: { type: "STRING", description: "The draft name." } },
+      required: ["name"]
+    }
+  },
+  {
+    name: "validate_autu_script",
+    description: "Compile and validate AUTU Script 1.19 source without saving or executing it.",
+    parameters: {
+      type: "OBJECT",
+      properties: { source: { type: "STRING", description: "AUTU Script source, maximum 32768 characters." } },
+      required: ["source"]
+    }
+  },
+  {
+    name: "save_autu_script_draft",
+    description: "Save a valid AUTU Script 1.19 draft in the encrypted local AUTU-LIO script store. This never runs or publishes the script.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        name: { type: "STRING", description: "Draft name, 1 to 100 characters." },
+        source: { type: "STRING", description: "Compiled AUTU Script source, maximum 32768 characters." }
+      },
+      required: ["name", "source"]
+    }
+  }
+];
+
 const OWNER_ROLES = new Set(["DEVELOPER", "DESIGNER", "REVIEWER"]);
 const ASSIGNABLE_ROLES = new Set(["CUSTOMER", ...OWNER_ROLES]);
 const ROLE_PERMISSIONS = {
@@ -1817,7 +1864,12 @@ async function createGeminiLiveToken(request, env, session) {
     contextWindowCompression: { slidingWindow: {} },
     sessionResumption: {},
     systemInstruction: { parts: [{ text: GEMINI_LIVE_SYSTEM_PROMPT }] },
-    tools: GEMINI_LIVE_TOOLS
+    tools: [{
+      functionDeclarations: [
+        ...GEMINI_LIVE_TOOLS.flatMap(group => group.functionDeclarations),
+        ...(session.role === "OWNER" ? GEMINI_LIVE_AUTU_SCRIPT_TOOLS : [])
+      ]
+    }]
   };
 
   let upstream;
