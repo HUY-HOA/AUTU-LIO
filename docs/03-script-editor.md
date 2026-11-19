@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.16
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.17
 
-**Phiên bản cú pháp:** `1.16`  
+**Phiên bản cú pháp:** `1.17`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -188,6 +188,24 @@ CHẠM(KẾT_QUẢ, 300)
 
 Hàm có thể gọi hàm khác và tự gọi lại chính nó. Độ sâu gọi hàm tối đa 16 cấp. Runtime kiểm tra số tham số, kiểu tham số, kiểu trả về, lỗi thiếu TRẢ_VỀ và ngân sách lệnh. Mỗi lần gọi hàm có phạm vi biến cục bộ riêng; hàm đọc được giá trị biến của nơi gọi tại thời điểm gọi, nhưng phép gán bên trong hàm không ghi ngược thay đổi vào biến của nơi gọi.
 
+### Cử chỉ đa điểm
+
+```text
+CHẠM_ĐA_ĐIỂM(
+    TẠO_DANH_SÁCH(TẠO_DANH_SÁCH(100, 200), TẠO_DANH_SÁCH(300, 200)),
+    100
+)
+VUỐT_ĐA_ĐIỂM(
+    TẠO_DANH_SÁCH(
+        TẠO_DANH_SÁCH(200, 400, 150, 350),
+        TẠO_DANH_SÁCH(400, 400, 450, 350)
+    ),
+    300
+)
+```
+
+`CHẠM_ĐA_ĐIỂM` chạm đồng thời 2–5 điểm. `VUỐT_ĐA_ĐIỂM` nhận danh sách 2–5 đường; mỗi đường là dãy tọa độ X/Y phẳng, có 2–16 điểm. Các đường chạy đồng thời cùng thời lượng. Ứng dụng đích hoặc Android có thể từ chối thao tác đa chạm.
+
 ### Tọa độ DP và tỷ lệ màn hình
 
 ```text
@@ -273,7 +291,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.16 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.17 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. Kết nối API qua HTTPS
 
