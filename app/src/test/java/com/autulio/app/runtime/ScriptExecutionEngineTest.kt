@@ -500,6 +500,31 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun readsScreenTextFindsTextAndUsesItsCenterCoordinates() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT NOI_DUNG: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()
+                ĐẶT TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ("Đăng nhập")
+                NẾU (MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập") VÀ CHỨA_CHUỖI(NOI_DUNG, "AUTU")) {
+                    CHẠM(LẤY_PHẦN_TỬ(TOA_DO, 0), LẤY_PHẦN_TỬ(TOA_DO, 1))
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:100,200"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
@@ -573,7 +598,12 @@ class ScriptExecutionEngineTest {
 
         override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
             functions += "function:$name"
-            return name == "CÓ_MẠNG"
+            return when (name) {
+                "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> "AUTU-LIO Đăng nhập"
+                "MÀN_HÌNH_CHỨA_CHỮ" -> arguments.firstOrNull() == "Đăng nhập"
+                "TÌM_VỊ_TRÍ_CHỮ" -> listOf(100, 200)
+                else -> name == "CÓ_MẠNG"
+            }
         }
     }
 
