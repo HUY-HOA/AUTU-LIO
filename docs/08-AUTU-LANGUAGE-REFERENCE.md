@@ -1,9 +1,9 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.7
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.8
 
-**Ngôn ngữ:** AUTU-LIO Script 1.7  
+**Ngôn ngữ:** AUTU-LIO Script 1.8  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
-Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.7; các tên cũ được giữ làm bí danh tương thích.
+Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.8; các tên cũ được giữ làm bí danh tương thích.
 
 ## 1. Kiểu dữ liệu
 
@@ -78,6 +78,25 @@ LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
 ```
 
 Hàm phải khai báo ở cấp cao nhất, tối đa 16 tham số và 16 cấp gọi lồng nhau. Kiểu tham số và kiểu trả về có thể bỏ trống; khi khai báo thì runtime kiểm tra kiểu.
+
+### JSON và dữ liệu lồng nhau
+
+| Hàm / giá trị | Cú pháp | Kết quả |
+|---|---|---|
+| RỖNG | RỖNG | Giá trị null của JSON |
+| PHÂN_TÍCH_JSON | PHÂN_TÍCH_JSON(CHUỖI_JSON) | Chuyển JSON thành giá trị AUTU |
+| CHUYỂN_JSON | CHUYỂN_JSON(GIÁ_TRỊ) | Chuyển giá trị AUTU thành chuỗi JSON |
+
+Danh sách và bản đồ có thể chứa nhau nhiều cấp. JSON hỗ trợ object, array, chuỗi Unicode, số hữu hạn, true/false và null. Giới hạn hiện tại: 65.536 ký tự JSON, 64 phần tử/khóa trong mỗi container, độ sâu 8 cấp, tổng 512 giá trị và chuỗi đơn tối đa 4.096 ký tự. Khóa object phải là chuỗi; khóa trùng bị từ chối. Số NaN/vô hạn, JSON sai cú pháp và dữ liệu vượt giới hạn sẽ báo lỗi. Lỗi phân tích JSON có thể xử lý bằng THỬ / BẮT_LỖI.
+
+Ví dụ:
+
+```text
+ĐẶT CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TÊN\":\"AUTU\",\"VẬT_THỂ\":[{\"X\":120,\"Y\":240},null]}")
+ĐẶT DANH_SÁCH: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "VẬT_THỂ")
+ĐẶT VẬT_THỂ: BẢN_ĐỒ = LẤY_PHẦN_TỬ(DANH_SÁCH, 0)
+ĐẶT JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
+```
 
 ## 6. Hàm xử lý dữ liệu, danh sách và bản đồ
 
@@ -206,6 +225,6 @@ Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_B
 
 ## 12. Chưa hỗ trợ
 
-AUTU Script 1.7 bổ sung OCR theo vùng, gắn nhãn ảnh tổng quát và giải mã QR/mã vạch cơ bản. Các phần còn thiếu gồm nhận diện vật thể có hộp giới hạn, tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, đọc/ghi tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
+AUTU Script 1.8 bổ sung JSON, giá trị RỖNG và cấu trúc danh sách/bản đồ lồng nhau có giới hạn. Các phần còn thiếu gồm nhận diện vật thể có hộp giới hạn, tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, đọc/ghi tệp, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
