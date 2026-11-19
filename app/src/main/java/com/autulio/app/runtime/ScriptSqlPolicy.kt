@@ -43,17 +43,18 @@ object ScriptSqlPolicy {
         val scan = scan(sql)
         val verb = scan.tokens.firstOrNull()
             ?: throw IllegalArgumentException("Không tìm thấy lệnh SQL.")
+
         when (mode) {
             Mode.QUERY -> require(verb == "SELECT") {
                 "SQL_TRUY_VẤN chỉ chấp nhận câu SELECT."
             }
             Mode.EXECUTE -> {
+                val second = scan.tokens.getOrNull(1)
                 val allowed = when (verb) {
-                    "CREATE" -> scan.tokens.getOrNull(1) == "TABLE" ||
-                        scan.tokens.getOrNull(1) == "INDEX" ||
-                        (scan.tokens.getOrNull(1) == "UNIQUE" && scan.tokens.getOrNull(2) == "INDEX")
-                    "ALTER", "DROP" -> scan.tokens.getOrNull(1) == "TABLE" ||
-                        (verb == "DROP" && scan.tokens.getOrNull(1) == "INDEX")
+                    "CREATE" -> second == "TABLE" || second == "INDEX" ||
+                        (second == "UNIQUE" && scan.tokens.getOrNull(2) == "INDEX")
+                    "ALTER" -> second == "TABLE"
+                    "DROP" -> second == "TABLE" || second == "INDEX"
                     else -> verb in executeVerbs
                 }
                 require(allowed) {
@@ -73,10 +74,9 @@ object ScriptSqlPolicy {
         val arguments = Array<Any?>(parameters.size) { index ->
             normalizeParameter(parameters[index], index)
         }
-        val queryArguments = Array<String?>(parameters.size) { index ->
+        val queryArguments = Array<String?>(arguments.size) { index ->
             when (val value = arguments[index]) {
                 null -> null
-                is ByteArray -> throw IllegalArgumentException("SQL không hỗ trợ tham số nhị phân.")
                 else -> value.toString()
             }
         }
@@ -85,6 +85,10 @@ object ScriptSqlPolicy {
 
     private data class ScanResult(val tokens: List<String>, val parameterCount: Int)
 
+    /**
+     * Scans SQL outside quoted strings and identifiers. It deliberately rejects
+     * comments, semicolons, named parameters and numbered positional parameters.
+     */
     private fun scan(sql: String): ScanResult {
         val tokens = mutableListOf<String>()
         var parameterCount = 0
@@ -94,11 +98,16 @@ object ScriptSqlPolicy {
             val char = sql[index]
             when {
                 char.isWhitespace() -> index++
-                char == ';' -> throw IllegalArgumentException("Không cho phép dấu ';' hoặc nhiều câu SQL trong một lệnh.")
+
+                char == ';' ->
+                    throw IllegalArgumentException("Không cho phép dấu ';' hoặc nhiều câu SQL trong một lệnh.")
+
                 char == '-' && index + 1 < sql.length && sql[index + 1] == '-' ->
                     throw IllegalArgumentException("Không cho phép chú thích SQL.")
+
                 char == '/' && index + 1 < sql.length && sql[index + 1] == '*' ->
                     throw IllegalArgumentException("Không cho phép chú thích SQL.")
+
                 char == '?' -> {
                     parameterCount++
                     require(index + 1 >= sql.length || !sql[index + 1].isDigit()) {
@@ -106,78 +115,22 @@ object ScriptSqlPolicy {
                     }
                     index++
                 }
-                (char == ':' || char == '@' || char == '
-                char == '\'' || char == '"' || char == '`' || char == '[' -> {
-                    val closing = if (char == '[') ']' else char
-                    index++
-                    var closed = false
-                    while (index < sql.length) {
-                        if (sql[index] == closing) {
-                            if (index + 1 < sql.length && sql[index + 1] == closing && closing != ']') {
-                                index += 2
-                            } else {
-                                index++
-                                closed = true
-                                break
-                            }
-                        } else {
-                            index++
-                        }
-                    }
-                    require(closed) { "Chuỗi hoặc tên cột trong SQL chưa được đóng." }
-                }
-                char.isLetter() || char == '_' -> {
-                    val start = index
-                    index++
-                    while (index < sql.length &&
-                        (sql[index].isLetterOrDigit() || sql[index] == '_')
-                    ) index++
-                    tokens += sql.substring(start, index).uppercase(Locale.ROOT)
-                }
-                else -> index++
-            }
-        }
-        return ScanResult(tokens, parameterCount)
-    }
 
-    private fun normalizeParameter(value: Any?, index: Int): Any? = when (value) {
-        null -> null
-        is String -> {
-            require(value.length <= MAX_CELL_TEXT_LENGTH) {
-                "Tham số SQL " + (index + 1) + " vượt quá giới hạn văn bản."
-            }
-            value
-        }
-        is Boolean -> if (value) 1L else 0L
-        is Byte -> value.toLong()
-        is Short -> value.toLong()
-        is Int -> value.toLong()
-        is Long -> value
-        is Float -> {
-            require(value.isFinite()) { "Tham số SQL phải là số hữu hạn." }
-            value.toDouble()
-        }
-        is Double -> {
-            require(value.isFinite()) { "Tham số SQL phải là số hữu hạn." }
-            value
-        }
-        else -> throw IllegalArgumentException(
-            "Tham số SQL " + (index + 1) + " chỉ nhận RỖNG, chuỗi, số hoặc luận lý; không nhận danh sách/bản đồ."
-        )
-    }
-}
-) &&
+                (char == ':' || char == '@' || char == '$') &&
                     index + 1 < sql.length &&
-                    (sql[index + 1].isLetter() || sql[index + 1] == '_') ->
+                    (sql[index + 1].isLetterOrDigit() || sql[index + 1] == '_') ->
                     throw IllegalArgumentException("Chỉ chấp nhận tham số SQL dạng dấu ?.")
-                
+
                 char == '\'' || char == '"' || char == '`' || char == '[' -> {
                     val closing = if (char == '[') ']' else char
                     index++
                     var closed = false
                     while (index < sql.length) {
                         if (sql[index] == closing) {
-                            if (index + 1 < sql.length && sql[index + 1] == closing && closing != ']') {
+                            if (index + 1 < sql.length &&
+                                sql[index + 1] == closing &&
+                                closing != ']'
+                            ) {
                                 index += 2
                             } else {
                                 index++
@@ -190,17 +143,22 @@ object ScriptSqlPolicy {
                     }
                     require(closed) { "Chuỗi hoặc tên cột trong SQL chưa được đóng." }
                 }
+
                 char.isLetter() || char == '_' -> {
                     val start = index
                     index++
                     while (index < sql.length &&
                         (sql[index].isLetterOrDigit() || sql[index] == '_')
-                    ) index++
+                    ) {
+                        index++
+                    }
                     tokens += sql.substring(start, index).uppercase(Locale.ROOT)
                 }
+
                 else -> index++
             }
         }
+
         return ScanResult(tokens, parameterCount)
     }
 
