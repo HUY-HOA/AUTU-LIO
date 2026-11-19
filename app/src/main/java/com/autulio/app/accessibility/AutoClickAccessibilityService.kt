@@ -1211,13 +1211,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     }
 
-    private fun clickNodeOrClickableAncestor(node: AccessibilityNodeInfo): Boolean {
+    private fun clickNodeOrClickableAncestor(
+        node: AccessibilityNodeInfo,
+        allowEditableOrPasswordAncestor: Boolean = true
+    ): Boolean {
         var current: AccessibilityNodeInfo? = AccessibilityNodeInfo.obtain(node)
         var depth = 0
         while (current != null && depth++ < 16) {
             val parent = runCatching { current.parent }.getOrNull()
             val clicked = runCatching {
                 current.isEnabled && current.isClickable &&
+                    (allowEditableOrPasswordAncestor || (!current.isEditable && !current.isPassword)) &&
                     current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
             }.getOrDefault(false)
             @Suppress("DEPRECATION")
@@ -1403,7 +1407,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             action = { node ->
                 val bounds = Rect()
                 node.getBoundsInScreen(bounds)
-                !bounds.isEmpty && node.isEnabled && clickNodeOrClickableAncestor(node)
+                !bounds.isEmpty && node.isEnabled && clickNodeOrClickableAncestor(node, allowEditableOrPasswordAncestor = false)
             }
         ) ?: false
     }
