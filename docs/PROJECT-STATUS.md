@@ -4,65 +4,65 @@
 **Repository:** `HUY-HOA/AUTU-LIO`  
 **Nhánh tích hợp:** `main`
 
-## 1. Phạm vi sản phẩm
+## 1. Phạm vi sản phẩm và vai trò
 
 - Chỉ phát triển **ứng dụng Android native**, một APK duy nhất: `com.autulio.app`.
-- Sản phẩm không có website, web dashboard, web app hoặc trang web xem trước.
-- `backend/` là Cloudflare Worker REST API để ứng dụng Android gọi; đây không phải giao diện web và cần được giữ lại cho đăng nhập, phân quyền, dự án, thiết bị và giấy phép.
-- Debug và Release cùng dùng luồng xác thực và xác minh vai trò; không cấp quyền bằng bộ chọn vai trò cục bộ.
+- Không có website, web dashboard, web app hoặc web preview.
+- `backend/` là Cloudflare Worker REST API phục vụ ứng dụng Android; đây không phải giao diện web.
+- Phạm vi vận hành hiện tại chỉ gồm **OWNER** và **CUSTOMER**. Chỉ tài khoản Google đã xác minh theo secret `OWNER_GOOGLE_SUB` được bootstrap thành OWNER; tài khoản Google khác mặc định là CUSTOMER.
+- Quy trình cộng tác viên/nhà phát triển, nhà thiết kế và người kiểm duyệt được để dành cho giai đoạn sau. Chưa onboarding cộng tác viên trong đợt hiện tại.
+- Debug và Release dùng cùng luồng xác thực; không cấp quyền bằng bộ chọn vai trò cục bộ.
 
-## 2. Mã nguồn đã có trong nhánh tích hợp Android
+## 2. Hạ tầng đã triển khai và xác nhận
+
+- Cloudflare Worker `autu-lio-auth-api` đã triển khai tại `https://autu-lio-auth-api.coc-lio-data.workers.dev`.
+- Cloudflare D1 `autu_lio_auth` có 20 bảng ứng dụng; migrations `0001`–`0005` đã áp dụng.
+- Worker có D1 binding, hai rate-limit bindings, Google Web Client ID, Android OAuth Client ID allowlist và package master key.
+- Secret `OWNER_GOOGLE_SUB` đã được cấu hình trong Production và Worker đã triển khai phiên bản mới.
+- Đăng nhập Google trên thiết bị đã thành công. Truy vấn D1 xác nhận tài khoản chủ sở hữu có `role=OWNER`, `status=ACTIVE`.
+- Dữ liệu D1 tại lần rà soát gần nhất: có một tài khoản OWNER; chưa có khách hàng, thiết bị, giấy phép, package hoặc dự án. Các số 0 ở Admin Studio phản ánh dữ liệu chưa phát sinh, không phải lỗi xác thực.
+
+## 3. Mã nguồn chức năng hiện có
 
 ### Ứng dụng và xác thực
-- Ứng dụng Kotlin/Jetpack Compose với một application ID.
-- Google Credential Manager lấy Google ID token; AuthRepository gọi API để máy chủ xác minh người dùng và trả về vai trò/quyền.
-- Session lưu bằng Android Keystore, có xác thực dữ liệu và cơ chế xóa phiên.
-- Màn hình được chọn theo vai trò OWNER, DEVELOPER, DESIGNER, REVIEWER hoặc CUSTOMER do máy chủ xác minh.
-- Source editor kiểm tra quyền máy chủ, giới hạn truy cập và bảo vệ nội dung bằng FLAG_SECURE.
-
-### Quản trị và cộng tác
-- Trang quản trị khách hàng, thiết bị, giấy phép, thư viện, phát hành và nhật ký.
-- Mời cộng tác viên, chấp nhận lời mời, phân quyền và thu hồi quyền.
-- Workspace dự án dùng chung; bản nháp mã/UI có revision; gửi yêu cầu và quy trình duyệt.
-- Bản nháp cục bộ và dữ liệu dự án được mã hóa theo thiết kế bảo mật.
+- Ứng dụng Kotlin/Jetpack Compose, một application ID.
+- Google Credential Manager lấy Google ID token; Worker xác minh chữ ký, issuer, audience, expiry, email đã xác minh và nonce.
+- Session lưu bằng Android Keystore; API kiểm tra vai trò và trạng thái tài khoản ở phía máy chủ.
+- Admin Studio tải dữ liệu quản trị từ API; giao diện Customer có luồng tài khoản, package, thiết bị và cài đặt.
 
 ### AUTU Script và chạy tự động
-- Parser/compiler tạo AST, báo lỗi theo dòng/cột và giới hạn tài nguyên.
-- Runtime có luồng thực thi riêng, trạng thái chạy/tạm dừng/tiếp tục/dừng và kiểm soát ngân sách thực thi.
-- Accessibility Service điều phối thao tác Android và cung cấp cửa sổ điều khiển nổi.
-- Nút chạy, tạm dừng, tiếp tục, dừng và mở trình soạn thảo được nối vào runtime; khi sửa script đang chạy, engine tạm dừng và chỉ thay script sau khi kiểm tra biên dịch thành công.
-- Hành vi thực tế của gesture, cửa sổ nổi và chạy nền vẫn phải được xác nhận trên thiết bị Android thật.
+- Parser/compiler tạo AST, báo lỗi theo dòng/cột; có giới hạn mã nguồn, số lệnh và thời lượng.
+- Runtime chạy trên luồng riêng; có trạng thái chạy, tạm dừng, tiếp tục, dừng, hủy và lỗi.
+- Accessibility Service phát gesture Android, gọi hành động hệ thống được hỗ trợ và tạo cửa sổ điều khiển nổi.
+- Unit tests hiện có cho parser/compiler và runtime; CI chạy unit tests và lint.
+- Mã nguồn có tính năng không đồng nghĩa đã nghiệm thu trên thiết bị thật. Cần kiểm tra độ chính xác gesture, vòng đời service, quyền Trợ năng, overlay và khả năng dừng trong các tình huống thực tế.
 
-## 3. Những điều kiện còn thiếu trước khi phát hành
+### Quản lý và phân phối AUTU
+- Backend có API quản lý khách hàng, thiết bị, giấy phép và package.
+- Có cấu trúc mã hóa package AES-GCM, bọc khóa theo thiết bị RSA và xác minh hash ở phía Android.
+- Quy trình end-to-end từ tạo package, phát hành, cấp giấy phép, đăng ký thiết bị, tải xuống, giải mã đến chạy vẫn cần kiểm thử nghiệm thu bằng tài khoản CUSTOMER thật.
 
-1. **Máy chủ:** triển khai Cloudflare Worker, áp dụng đầy đủ D1 migrations cần thiết, cấu hình secrets và kiểm tra endpoint thật.
-2. **Google OAuth:** tạo Web Client ID và Android Client ID đúng package name/chữ ký; cấu hình OAuth phía Worker và ứng dụng.
-3. **Dữ liệu thực:** kiểm thử đăng nhập chủ sở hữu, mời cộng tác viên, vai trò/quyền, đồng bộ workspace, thiết bị, giấy phép, thư viện và package với máy chủ.
-4. **Đóng gói kịch bản:** hoàn thiện quy trình ký, mã hóa, phát hành, tải xuống, xác minh quyền chạy, cập nhật và thu hồi package.
-5. **Kiểm thử thiết bị:** xác nhận thao tác chạm/vuốt, quyền Trợ năng, overlay, vòng đời service, dừng khẩn cấp và hành vi khi chuyển ứng dụng; ưu tiên kiểm tra Xiaomi/HyperOS cùng các Android phiên bản khác.
-6. **Chất lượng:** tất cả Android unit tests, lint, Worker tests và kiểm tra bảo mật phải đạt trước phát hành.
+## 4. Bản Release hiện có
 
-**Tình trạng hạ tầng ngày 19/11/2026:** Worker `autu-lio-auth-api` đã được triển khai trên Cloudflare và bật `workers.dev` tại `https://autu-lio-auth-api.coc-lio-data.workers.dev`. D1 `autu_lio_auth` có 20 bảng và đã áp dụng migrations `0001`–`0005`. Worker đã có binding D1, hai rate-limit bindings, Google Web Client ID và khóa mã hóa package. `GOOGLE_ALLOWED_AZP` đã được cấu hình bằng Android OAuth Client ID. **Còn thiếu `OWNER_GOOGLE_SUB`** của tài khoản chủ sở hữu; chưa được tự gán OWNER theo email. Workflow GitHub Actions đã truyền API URL và Web Client ID vào cả Debug/Release. Chưa build APK mới và chưa hoàn tất kiểm thử đăng nhập trên thiết bị.
+- GitHub Actions đã hoàn tất workflow Release APK run `44486235658`; bước ký và xác minh chữ ký APK thành công, artifact `AUTU-LIO-Release` đã tải lên.
+- Bản ứng dụng người dùng đang mở hiển thị v0.1.12.
+- Không build APK mới nếu chưa nhận đúng lệnh `BUILD APK`.
+- Sửa tài liệu hoặc chạy source checks không đồng nghĩa tạo APK; workflow source checks không đóng gói APK.
 
-## 4. Bản build Release lịch sử
+## 5. Việc cần hoàn thiện tiếp theo
 
-Một APK Release cũ từng được build thành công ngày 17/11/2026 từ nhánh yêu cầu build trước khi chuyển repository. Artifact đó không được xem là bản phát hành hiện tại và không xác nhận mã nguồn trên `main` ngày 19/11/2026.
-
-- Không dùng artifact lịch sử để xác nhận backend, Google OAuth, cấp phép hoặc runtime đã hoạt động.
-- Mọi bản phát hành mới phải được build từ nhánh `main`, ký bằng keystore Release ổn định của AUTU-LIO và xác minh trên thiết bị Android thật.
-- Build thành công không thay thế cho việc triển khai Worker, D1 migrations, secrets và kiểm thử endpoint thật.
-
-## 5. Backend API
-
-- `backend/` chỉ chứa Cloudflare Worker REST API và D1 migrations để ứng dụng Android sử dụng.
-- Không triển khai giao diện web từ thư mục backend.
-- Không tạo lại website, dashboard trên web hoặc trang web xem trước.
+1. **Nghiệm thu tài khoản CUSTOMER:** đăng nhập bằng một Google account khác, xác nhận vai trò mặc định là CUSTOMER và không truy cập được Admin API.
+2. **Giấy phép và thiết bị:** OWNER tạo giấy phép; CUSTOMER đăng ký thiết bị; kiểm tra giới hạn số thiết bị, hết hạn, thu hồi và phiên đăng nhập.
+3. **Đóng gói AUTU:** OWNER tạo package, phát hành phiên bản, xác minh dữ liệu mã hóa; CUSTOMER tải package khi có giấy phép và thiết bị hợp lệ.
+4. **Runtime trên thiết bị thật:** kiểm tra CHẠM, NHẤN_GIỮ, VUỐT, CHỜ, mở ứng dụng, chạy nền có kiểm soát, tạm dừng/tiếp tục/dừng và lỗi quyền Trợ năng.
+5. **Độ ổn định Android:** kiểm tra trên Xiaomi/HyperOS và Android khác; xử lý tối ưu pin, service bị hệ thống dừng, đổi hướng màn hình và độ phân giải.
+6. **Chất lượng:** giữ Worker tests, Kotlin unit tests và lint xanh; kiểm tra bảo mật và không đưa secret vào APK/Git.
 
 ## 6. Quy tắc an toàn và phát hành
 
-- Không báo một chức năng đã hoạt động nếu mới có giao diện hoặc chưa kiểm thử hành vi thật.
-- Không cấp quyền OWNER/DEVELOPER bằng lựa chọn cục bộ; quyền phải do máy chủ xác minh.
+- Không đánh dấu chức năng hoàn thành chỉ vì có giao diện hoặc API; phải kiểm tra hành vi thật.
+- Chỉ OWNER được quản trị; CUSTOMER chỉ sử dụng AUTU đã phát hành với giấy phép hợp lệ.
 - Không đưa token, mật khẩu, khóa riêng hoặc keystore vào Git.
-- Không phát hành APK Debug.
+- Không phát hành APK Debug cho người dùng.
 - Chỉ chạy workflow tạo APK khi chủ ứng dụng gửi đúng cụm `BUILD APK`.
-- Chỉ xác nhận có APK khi workflow hoàn tất và artifact tải được.
+- Mọi báo cáo Release phải có trạng thái workflow, xác nhận chữ ký và artifact thực tế.
