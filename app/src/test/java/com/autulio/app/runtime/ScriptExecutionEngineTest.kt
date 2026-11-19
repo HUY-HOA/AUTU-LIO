@@ -526,7 +526,7 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
-    fun readsStructuredOcrBlocksAndLinesFromDispatcher() {
+    fun readsStructuredAccessibilityTextFromDispatcher() {
         val dispatcher = RecordingDispatcher()
         val completed = CountDownLatch(1)
         val engine = ScriptExecutionEngine(dispatcher) {
@@ -547,31 +547,6 @@ class ScriptExecutionEngineTest {
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
             assertTrue(completed.await(3, TimeUnit.SECONDS))
             assertEquals(listOf("tap:120,240"), dispatcher.actions)
-        } finally {
-            engine.close()
-        }
-    }
-
-    @Test
-    fun readsStructuredBarcodeValueFormatAndBounds() {
-        val dispatcher = RecordingDispatcher()
-        val completed = CountDownLatch(1)
-        val engine = ScriptExecutionEngine(dispatcher) {
-            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
-        }
-        try {
-            val program = compile(
-                """
-                ĐẶT CÁC_MÃ: DANH_SÁCH = CHI_TIẾT_MÃ_QR_MÀN_HÌNH()
-                ĐẶT MÃ_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_MÃ, 0)
-                NẾU (LẤY_GIÁ_TRỊ(MÃ_ĐẦU, "ĐỊNH_DẠNG") == "MÃ_QR") {
-                    CHẠM(LẤY_GIÁ_TRỊ(MÃ_ĐẦU, "X"), LẤY_GIÁ_TRỊ(MÃ_ĐẦU, "Y"))
-                }
-                """.trimIndent()
-            )
-            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
-            assertTrue(completed.await(3, TimeUnit.SECONDS))
-            assertEquals(listOf("tap:30,40"), dispatcher.actions)
         } finally {
             engine.close()
         }
@@ -722,37 +697,6 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
-    fun performsRegionOcrImageLabelingAndBarcodeRecognitionBuiltins() {
-        val dispatcher = RecordingDispatcher()
-        val completed = CountDownLatch(1)
-        val engine = ScriptExecutionEngine(dispatcher) {
-            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
-        }
-        try {
-            val program = compile(
-                """
-                ĐẶT VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_VÙNG(0, 0, 100, 100)
-                NẾU (MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("OK", 0, 0, 200, 200) VÀ CHỨA_CHUỖI(VAN_BAN, "vùng")) {
-                    ĐẶT VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("OK", 0, 0, 200, 200)
-                    CHẠM(LẤY_PHẦN_TỬ(VI_TRI, 0), LẤY_PHẦN_TỬ(VI_TRI, 1))
-                }
-                ĐẶT NHAN: DANH_SÁCH = NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()
-                NẾU (MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone")) {
-                    ĐẶT QR: DANH_SÁCH = QUÉT_MÃ_QR_MÀN_HÌNH()
-                    ĐẶT MA_VACH: DANH_SÁCH = QUÉT_MÃ_VẠCH_MÀN_HÌNH()
-                    CHỜ(1)
-                }
-                """.trimIndent()
-            )
-            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
-            assertTrue(completed.await(3, TimeUnit.SECONDS))
-            assertEquals(listOf("tap:110,220"), dispatcher.actions)
-        } finally {
-            engine.close()
-        }
-    }
-
-    @Test
     fun parsesAndSerializesNestedJsonWithNullValues() {
         val dispatcher = RecordingDispatcher()
         val completed = CountDownLatch(1)
@@ -792,35 +736,6 @@ class ScriptExecutionEngineTest {
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
             assertTrue(failed.await(3, TimeUnit.SECONDS))
             assertEquals("invalid_json", engine.snapshot().errorCode)
-        } finally {
-            engine.close()
-        }
-    }
-
-    @Test
-    fun detectsObjectsAndUsesBoundingBoxCoordinatesFromNestedResults() {
-        val dispatcher = RecordingDispatcher()
-        val completed = CountDownLatch(1)
-        val engine = ScriptExecutionEngine(dispatcher) {
-            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
-        }
-        try {
-            val program = compile(
-                """
-                ĐẶT VẬT_THỂ: DANH_SÁCH = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()
-                ĐẶT SO_LUONG: SỐ = ĐẾM_VẬT_THỂ_MÀN_HÌNH()
-                NẾU (MÀN_HÌNH_CÓ_VẬT_THỂ("Food") VÀ SO_LUONG == 1) {
-                    ĐẶT NHÃN: DANH_SÁCH = LẤY_GIÁ_TRỊ(LẤY_PHẦN_TỬ(VẬT_THỂ, 0), "NHÃN")
-                    ĐẶT TÊN_NHÃN: CHUỖI = LẤY_GIÁ_TRỊ(LẤY_PHẦN_TỬ(NHÃN, 0), "TÊN")
-                    ĐẶT TỌA_ĐỘ: DANH_SÁCH = TÌM_TỌA_ĐỘ_VẬT_THỂ(TÊN_NHÃN)
-                    CHẠM(LẤY_PHẦN_TỬ(TỌA_ĐỘ, 0), LẤY_PHẦN_TỬ(TỌA_ĐỘ, 1))
-                }
-                """.trimIndent()
-            )
-            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
-            assertTrue(completed.await(3, TimeUnit.SECONDS))
-            assertEquals(ScriptExecutionState.COMPLETED, engine.snapshot().state)
-            assertEquals(listOf("tap:30,50"), dispatcher.actions)
         } finally {
             engine.close()
         }
