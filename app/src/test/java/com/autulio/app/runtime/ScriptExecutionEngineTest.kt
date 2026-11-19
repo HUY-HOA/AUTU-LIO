@@ -526,6 +526,33 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
+    fun readsStructuredOcrBlocksAndLinesFromDispatcher() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT CÁC_KHỐI: DANH_SÁCH = ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()
+                ĐẶT KHỐI_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_KHỐI, 0)
+                ĐẶT CÁC_DÒNG: DANH_SÁCH = LẤY_GIÁ_TRỊ(KHỐI_ĐẦU, "CÁC_DÒNG")
+                ĐẶT DÒNG_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_DÒNG, 0)
+                NẾU (LẤY_GIÁ_TRỊ(DÒNG_ĐẦU, "VĂN_BẢN") == "Đăng nhập") {
+                    CHẠM(LẤY_GIÁ_TRỊ(DÒNG_ĐẦU, "X"), LẤY_GIÁ_TRỊ(DÒNG_ĐẦU, "Y"))
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:120,240"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
     fun catchesRuntimeFailureAndAlwaysRunsFinallyBlock() {
         val dispatcher = RecordingDispatcher()
         val completed = CountDownLatch(1)
@@ -878,6 +905,24 @@ class ScriptExecutionEngineTest {
                     "URL" to "https://api.example.com/status"
                 )
                 "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> "AUTU-LIO Đăng nhập"
+                "ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH" -> listOf(
+                    linkedMapOf<String, Any?>(
+                        "VĂN_BẢN" to "Đăng nhập",
+                        "X" to 100.0,
+                        "Y" to 200.0,
+                        "RỘNG" to 160.0,
+                        "CAO" to 40.0,
+                        "CÁC_DÒNG" to listOf(
+                            linkedMapOf<String, Any?>(
+                                "VĂN_BẢN" to "Đăng nhập",
+                                "X" to 120.0,
+                                "Y" to 240.0,
+                                "RỘNG" to 120.0,
+                                "CAO" to 24.0
+                            )
+                        )
+                    )
+                )
                 "MÀN_HÌNH_CHỨA_CHỮ" -> arguments.firstOrNull() == "Đăng nhập"
                 "TÌM_VỊ_TRÍ_CHỮ" -> listOf(100, 200)
                 "TÌM_THÀNH_PHẦN_VĂN_BẢN" -> arguments.firstOrNull() == "Đăng nhập"
