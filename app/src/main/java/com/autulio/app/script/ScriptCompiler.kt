@@ -185,8 +185,7 @@ object ScriptCompiler {
         "GHI_JSON_TỆP" to 2,
         "GỬI_YÊU_CẦU_HTTP" to 5,
         "SQL_THỰC_THI" to 2,
-        "SQL_TRUY_VẤN" to 2,
-        "SQL_THỰC_THI" to 2
+        "SQL_TRUY_VẤN" to 2
     )
 
     private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ")
