@@ -461,6 +461,7 @@ private fun GeminiLiveScreen(
 }
 internal class GeminiLiveController(
     private val callbacks: Callbacks,
+    private val serverSetupTemplate: JSONObject,
     private val scriptWorkspace: GeminiAutuScriptWorkspace? = null
 ) {
     interface Callbacks {
@@ -472,6 +473,7 @@ internal class GeminiLiveController(
     }
 
     private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -494,7 +496,9 @@ internal class GeminiLiveController(
     @Volatile private var resumeHandle: String? = null
     @Volatile private var connectionGeneration = 0L
     @Volatile private var reconnectAttempts = 0
+    @Volatile private var socketOpenTimeout: ScheduledFuture<*>? = null
     @Volatile private var setupTimeout: ScheduledFuture<*>? = null
+    @Volatile private var socketOpenedGeneration = -1L
 
     fun setActionsEnabled(enabled: Boolean) {
         actionsEnabled = enabled
@@ -521,17 +525,23 @@ internal class GeminiLiveController(
             connectionGeneration += 1
             connectionGeneration
         }
+        socketOpenedGeneration = -1L
+        socketOpenTimeout?.cancel(false)
+        setupTimeout?.cancel(false)
         val nextSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 if (!isCurrentSocket(webSocket, generation)) {
                     webSocket.close(1000, "Superseded connection")
                     return
                 }
-                callbacks.onStatus("Đã mở kênh bảo mật tới Google; đang gửi cấu hình phiên…")
+                socketOpenedGeneration = generation
+                socketOpenTimeout?.cancel(false)
+                socketOpenTimeout = null
+                callbacks.onStatus("Đã mở WebSocket tới Google; đang gửi cấu hình phiên thống nhất…")
                 setupTimeout?.cancel(false)
                 setupTimeout = reconnectScheduler.schedule({
                     if (isCurrentSocket(webSocket, generation) && !ready.get()) {
-                        fail("Google đã mở WebSocket nhưng không gửi xác nhận setupComplete sau 20 giây. Đã dùng API v1beta; hãy kiểm tra cấu hình token/mô hình trên máy chủ và gửi thông báo này nếu còn lỗi.")
+                        fail("Google đã nhận kết nối WebSocket nhưng không xác nhận setupComplete sau 20 giây. Model: models/gemini-3.8-live. Mã chẩn đoán: LIVE_SETUP_TIMEOUT.")
                     }
                 }, 20, TimeUnit.SECONDS)
                 if (!webSocket.send(buildSetupMessage(resumeHandle).toString())) {
@@ -539,7 +549,7 @@ internal class GeminiLiveController(
                     setupTimeout = null
                     recoverConnection(webSocket, generation, "Không gửi được cấu hình Gemini Live.", 750L)
                 } else {
-                    callbacks.onStatus("Đã gửi cấu hình Gemini Live; đang chờ Google xác nhận…")
+                    callbacks.onStatus("Đã gửi cấu hình thống nhất; đang chờ Google xác nhận setupComplete…")
                 }
             }
 
@@ -550,19 +560,38 @@ internal class GeminiLiveController(
             }
 
             override fun onFailure(webSocket: WebSocket, error: Throwable, response: Response?) {
+                socketOpenTimeout?.cancel(false)
+                socketOpenTimeout = null
+                setupTimeout?.cancel(false)
+                setupTimeout = null
                 val httpCode = response?.code
+                val responseDetail = runCatching { response?.peekBody(2_048)?.string().orEmpty() }
+                    .getOrDefault("")
+                    .replace(Regex("\\s+"), " ")
+                    .take(180)
+                val networkDetail = error.message.orEmpty()
+                    .replace(Regex("access_token=[^&\\s]+"), "access_token=[đã ẩn]")
+                    .replace(Regex("auth_tokens/[^&\\s]+"), "auth_tokens/[đã ẩn]")
+                    .replace(Regex("\\s+"), " ")
+                    .take(140)
+                val detail = responseDetail.ifBlank { networkDetail }
+                val suffix = if (detail.isBlank()) "" else " Chi tiết: $detail"
                 val message = when (httpCode) {
-                    400 -> "Google từ chối cấu hình phiên Gemini Live (HTTP 400)."
-                    401, 403 -> "Google từ chối token hoặc quyền truy cập Gemini Live (HTTP $httpCode)."
-                    404 -> "Google không tìm thấy mô hình hoặc điểm kết nối Gemini Live (HTTP 404)."
-                    429 -> "Gemini Live đang vượt hạn mức yêu cầu (HTTP 429)."
-                    null -> "Không thể thiết lập kết nối tới Google Gemini Live. Hãy kiểm tra mạng trên điện thoại."
-                    else -> "Google từ chối kết nối Gemini Live (HTTP $httpCode)."
+                    400 -> "Google từ chối cấu hình phiên Gemini Live (HTTP 400).$suffix"
+                    401, 403 -> "Google từ chối token hoặc quyền truy cập Gemini Live (HTTP $httpCode).$suffix"
+                    404 -> "Google không tìm thấy mô hình hoặc điểm kết nối Gemini Live (HTTP 404).$suffix"
+                    429 -> "Gemini Live đang vượt hạn mức yêu cầu (HTTP 429).$suffix"
+                    null -> "Không hoàn tất bắt tay WebSocket tới Google Gemini Live.$suffix"
+                    else -> "Google từ chối kết nối Gemini Live (HTTP $httpCode).$suffix"
                 }
                 recoverConnection(webSocket, generation, message, 750L)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                socketOpenTimeout?.cancel(false)
+                socketOpenTimeout = null
+                setupTimeout?.cancel(false)
+                setupTimeout = null
                 val closeDetail = reason.trim().take(140)
                 val closeSuffix = if (closeDetail.isBlank()) "" else ": $closeDetail"
                 val message = if (!ready.get()) {
@@ -574,6 +603,11 @@ internal class GeminiLiveController(
             }
         })
         socket = nextSocket
+        socketOpenTimeout = reconnectScheduler.schedule({
+            if (isCurrentSocket(nextSocket, generation) && socketOpenedGeneration != generation) {
+                fail("Không nhận được phản hồi mở WebSocket từ Google sau 15 giây. Kiểm tra đường truyền tới generativelanguage.googleapis.com. Mã chẩn đoán: LIVE_WEBSOCKET_OPEN_TIMEOUT.")
+            }
+        }, 15, TimeUnit.SECONDS)
     }
 
     private fun isCurrentSocket(webSocket: WebSocket, generation: Long): Boolean =
@@ -586,6 +620,8 @@ internal class GeminiLiveController(
         minimumDelayMs: Long
     ) {
         if (!isCurrentSocket(webSocket, generation)) return
+        socketOpenTimeout?.cancel(false)
+        socketOpenTimeout = null
         setupTimeout?.cancel(false)
         setupTimeout = null
         if (resumeHandle.isNullOrBlank()) {
@@ -646,6 +682,8 @@ internal class GeminiLiveController(
         runCatching { audioTrack?.release() }
         audioTrack = null
         synchronized(inputLock) { connectionGeneration += 1 }
+        socketOpenTimeout?.cancel(false)
+        socketOpenTimeout = null
         setupTimeout?.cancel(false)
         setupTimeout = null
         socket?.close(1000, "User stopped Gemini Live")
@@ -1001,6 +1039,10 @@ internal class GeminiLiveController(
         runCatching { audioTrack?.release() }
         audioTrack = null
         synchronized(inputLock) { connectionGeneration += 1 }
+        socketOpenTimeout?.cancel(false)
+        socketOpenTimeout = null
+        setupTimeout?.cancel(false)
+        setupTimeout = null
         socket = null
         reconnectScheduler.shutdownNow()
         toolExecutor.shutdownNow()
@@ -1012,173 +1054,19 @@ internal class GeminiLiveController(
     }
 
     private fun buildSetupMessage(resumeFrom: String?): JSONObject {
-        val declarations = JSONArray()
-            .put(
-                functionDeclaration(
-                    "tap_screen",
-                    "Tap one visible, non-sensitive screen control at a precise pixel coordinate.",
-                    JSONObject()
-                        .put("x", integerProperty("Horizontal screen pixel coordinate."))
-                        .put("y", integerProperty("Vertical screen pixel coordinate.")),
-                    JSONArray().put("x").put("y")
-                )
-            )
-            .put(
-                functionDeclaration(
-                    "swipe_screen",
-                    "Swipe between two screen pixel coordinates; use only for ordinary navigation or scrolling.",
-                    JSONObject()
-                        .put("startX", integerProperty())
-                        .put("startY", integerProperty())
-                        .put("endX", integerProperty())
-                        .put("endY", integerProperty())
-                        .put("durationMs", integerProperty("Duration from 150 to 2000 milliseconds.")),
-                    JSONArray().put("startX").put("startY").put("endX").put("endY").put("durationMs")
-                )
-            )
-            .put(
-                functionDeclaration(
-                    "long_press_screen",
-                    "Long-press a visible, non-sensitive screen control.",
-                    JSONObject()
-                        .put("x", integerProperty())
-                        .put("y", integerProperty())
-                        .put("durationMs", integerProperty("Duration from 300 to 2000 milliseconds.")),
-                    JSONArray().put("x").put("y").put("durationMs")
-                )
-            )
-            .put(
-                functionDeclaration(
-                    "press_back",
-                    "Press the Android Back action.",
-                    JSONObject(),
-                    JSONArray()
-                )
-            )
-            .put(
-                functionDeclaration(
-                    "read_screen_text",
-                    "Read visible non-editable UI labels and their pixel bounds. Password and editable fields are omitted.",
-                    JSONObject(),
-                    JSONArray()
-                )
-            )
-            .put(
-                functionDeclaration(
-                    "tap_text",
-                    "Tap a visible non-editable UI element by its displayed text or accessibility label.",
-                    JSONObject().put(
-                        "text",
-                        JSONObject().put("type", "STRING").put("description", "A short visible label, not private user-entered content.")
-                    ),
-                    JSONArray().put("text")
-                )
-            )
-        if (scriptWorkspace != null) {
-            declarations
-                .put(functionDeclaration(
-                    "get_autu_script_reference",
-                    "Read the AUTU-LIO Script 1.19 syntax reference and safe authoring rules.",
-                    JSONObject(),
-                    JSONArray()
-                ))
-                .put(functionDeclaration(
-                    "list_autu_script_drafts",
-                    "List names of the current owner's locally stored AUTU script drafts.",
-                    JSONObject(),
-                    JSONArray()
-                ))
-                .put(functionDeclaration(
-                    "read_autu_script_draft",
-                    "Read one AUTU script draft by name.",
-                    JSONObject().put("name", JSONObject().put("type", "STRING").put("description", "Draft name.")),
-                    JSONArray().put("name")
-                ))
-                .put(functionDeclaration(
-                    "validate_autu_script",
-                    "Compile and validate AUTU Script 1.19 source without saving or executing it.",
-                    JSONObject().put("source", JSONObject().put("type", "STRING").put("description", "AUTU Script source, maximum 32768 characters.")),
-                    JSONArray().put("source")
-                ))
-                .put(functionDeclaration(
-                    "save_autu_script_draft",
-                    "Save a valid AUTU Script draft in the encrypted local store. This never runs or publishes it.",
-                    JSONObject()
-                        .put("name", JSONObject().put("type", "STRING").put("description", "Draft name, 1 to 100 characters."))
-                        .put("source", JSONObject().put("type", "STRING").put("description", "AUTU Script source, maximum 32768 characters.")),
-                    JSONArray().put("name").put("source")
-                ))
+        // Worker returns the canonical setup together with the ephemeral token.
+        // Clone and send it unchanged so prompt/tool definitions cannot drift.
+        // Only the session-resumption handle is added by the Android client.
+        val setup = JSONObject(serverSetupTemplate.toString())
+        val sessionResumption = setup.optJSONObject("sessionResumption") ?: JSONObject()
+        if (!resumeFrom.isNullOrBlank()) {
+            sessionResumption.put("handle", resumeFrom)
+        } else {
+            sessionResumption.remove("handle")
         }
-        val tools = JSONArray().put(JSONObject().put("functionDeclarations", declarations))
-        val systemInstruction = JSONObject().put(
-            "parts",
-            JSONArray().put(
-                JSONObject().put(
-                    "text",
-                    "You are AUTU-LIO Gemini Live, an Android screen assistant. " +
-                        "Observe the latest shared screen frame and listen to the user's spoken instructions. " +
-                        "Use only the declared functions. Coordinates are physical screen pixels from the top-left corner. " +
-                        (if (scriptWorkspace != null) {
-                            "You may create, inspect, validate and save AUTU Script 1.19 drafts only inside AUTU-LIO when the user enables AUTU script authoring. " +
-                                "Never access, request or modify Kotlin, Java, Gradle, XML, Worker source, database schema, app settings, APKs or any application source. " +
-                                "Compile every script before saving; fix compiler diagnostics. Saving never runs or publishes a script. The user must review and run it manually. "
-                        } else {
-                            "This session has no AUTU script authoring capability. "
-                        }) +
-                        "Never request or interact with passwords, one-time codes, banking, payment, purchases, account recovery, or security settings. " +
-                        "Never confirm or submit destructive actions such as deleting data, sending messages, publishing, or making purchases. Ask the user to perform those actions manually. " +
-                        "Before navigating away from a form with unsaved content, explain the risk and ask the user. " +
-                        "Use read_screen_text when labels or coordinates are unclear; it excludes editable and password fields. Prefer tap_text for a clear, exact visible label instead of guessing coordinates. " +
-                        "If the screen is unclear, ask a question instead of guessing. Do not claim an action succeeded unless the tool result says it succeeded."
-                )
-            )
-        )
-        val generationConfig = JSONObject()
-            .put("responseModalities", JSONArray().put("AUDIO"))
-            .put(
-                "speechConfig",
-                JSONObject().put(
-                    "voiceConfig",
-                    JSONObject().put(
-                        "prebuiltVoiceConfig",
-                        JSONObject().put("voiceName", "Puck")
-                    )
-                )
-            )
-        val setup = JSONObject()
-            .put("model", "models/gemini-3.8-live")
-            .put("generationConfig", generationConfig)
-            .put("inputAudioTranscription", JSONObject())
-            .put("outputAudioTranscription", JSONObject())
-            .put("contextWindowCompression", JSONObject().put("slidingWindow", JSONObject()))
-            .put("sessionResumption", JSONObject().apply {
-                if (!resumeFrom.isNullOrBlank()) put("handle", resumeFrom)
-            })
-            .put("systemInstruction", systemInstruction)
-            .put("tools", tools)
+        setup.put("sessionResumption", sessionResumption)
         return JSONObject().put("setup", setup)
     }
-
-    private fun functionDeclaration(
-        name: String,
-        description: String,
-        properties: JSONObject,
-        required: JSONArray
-    ): JSONObject = JSONObject()
-        .put("name", name)
-        .put("description", description)
-        .put(
-            "parameters",
-            JSONObject()
-                .put("type", "OBJECT")
-                .put("properties", properties)
-                .put("required", required)
-        )
-
-    private fun integerProperty(description: String? = null): JSONObject =
-        JSONObject().put("type", "INTEGER").apply {
-            if (!description.isNullOrBlank()) put("description", description)
-        }
 
     companion object {
         private const val MAX_RESUME_ATTEMPTS = 3
