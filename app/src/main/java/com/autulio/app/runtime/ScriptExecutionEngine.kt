@@ -656,6 +656,9 @@ class ScriptExecutionEngine(
         val update = lock.withLock {
             while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
             ensureActiveLocked(runId)
+            if (completedInstructions >= ScriptCompiler.MAX_EXPANDED_INSTRUCTIONS) {
+                throw ScriptRuntimeFailure("instruction_budget_exceeded", "Kịch bản đã chạm giới hạn thực tế 5.000 lượt thực thi lệnh.")
+            }
             completedInstructions++
             snapshotLocked()
         }
@@ -691,8 +694,14 @@ class ScriptExecutionEngine(
         if (program.languageVersion != ScriptCompiler.LANGUAGE_VERSION) {
             return "unsupported_language_version" to "Phiên bản ngôn ngữ AUTU không được hỗ trợ."
         }
-        if (program.instructions.isEmpty()) return "empty_program" to "Kịch bản không có lệnh."
-        if (!validateBlock(program.instructions, 0, 0)) return "invalid_program" to "Kịch bản chứa cấu trúc hoặc lệnh không hợp lệ."
+        if (program.instructions.none { it !is ScriptInstruction.FunctionDefinition }) {
+            return "empty_program" to "Chương trình không có lệnh chạy."
+        }
+        val functionDefinitions = program.instructions.filterIsInstance<ScriptInstruction.FunctionDefinition>()
+        if (functionDefinitions.map { it.name }.distinct().size != functionDefinitions.size) {
+            return "duplicate_function" to "Tên hàm bị trùng."
+        }
+        if (!validateBlock(program.instructions, 0, 0, false)) return "invalid_program" to "Kịch bản chứa cấu trúc hoặc lệnh không hợp lệ."
         val metrics = ScriptCompiler.measureProgram(program.instructions)
         if (metrics.expandedInstructionCount > ScriptCompiler.MAX_EXPANDED_INSTRUCTIONS) return "instruction_budget_exceeded" to "Kịch bản vượt giới hạn số lệnh."
         if (metrics.estimatedDurationMs > ScriptCompiler.MAX_TOTAL_DURATION_MS) return "duration_budget_exceeded" to "Kịch bản vượt giới hạn thời lượng."
@@ -702,10 +711,30 @@ class ScriptExecutionEngine(
         return null
     }
 
-    private fun validateBlock(instructions: List<ScriptInstruction>, depth: Int, loopDepth: Int): Boolean {
+    private fun validateBlock(
+        instructions: List<ScriptInstruction>,
+        depth: Int,
+        loopDepth: Int,
+        inFunction: Boolean
+    ): Boolean {
         if (depth > ScriptCompiler.MAX_NESTING_DEPTH || instructions.isEmpty()) return false
         return instructions.all { instruction ->
             when (instruction) {
+                is ScriptInstruction.FunctionDefinition ->
+                    depth == 0 &&
+                        instruction.name.isNotBlank() &&
+                        instruction.name == instruction.name.uppercase(Locale.ROOT) &&
+                        instruction.parameters.size <= 16 &&
+                        instruction.parameters.map { it.name }.distinct().size == instruction.parameters.size &&
+                        instruction.parameters.all { parameter ->
+                            parameter.name.isNotBlank() &&
+                                parameter.name == parameter.name.uppercase(Locale.ROOT) &&
+                                (parameter.declaredType == null || parameter.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "BẤT_KỲ"))
+                        } &&
+                        (instruction.returnType == null || instruction.returnType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "BẤT_KỲ")) &&
+                        validateBlock(instruction.body, depth + 1, 0, true)
+                is ScriptInstruction.Return ->
+                    inFunction && validateExpression(instruction.value, 0)
                 is ScriptInstruction.Command -> {
                     val arity = when (instruction.name) {
                         "CHẠM" -> 2
@@ -728,14 +757,14 @@ class ScriptExecutionEngine(
                         validateExpression(instruction.value, 0)
                 is ScriptInstruction.If ->
                     validateExpression(instruction.condition, 0) &&
-                        validateBlock(instruction.thenBody, depth + 1, loopDepth) &&
-                        (instruction.elseBody.isEmpty() || validateBlock(instruction.elseBody, depth + 1, loopDepth))
+                        validateBlock(instruction.thenBody, depth + 1, loopDepth, inFunction) &&
+                        (instruction.elseBody.isEmpty() || validateBlock(instruction.elseBody, depth + 1, loopDepth, inFunction))
                 is ScriptInstruction.Repeat ->
                     loopDepth < ScriptCompiler.MAX_NESTING_DEPTH && validateExpression(instruction.count, 0) &&
-                        validateBlock(instruction.body, depth + 1, loopDepth + 1)
+                        validateBlock(instruction.body, depth + 1, loopDepth + 1, inFunction)
                 is ScriptInstruction.While ->
                     loopDepth < ScriptCompiler.MAX_NESTING_DEPTH && validateExpression(instruction.condition, 0) &&
-                        validateBlock(instruction.body, depth + 1, loopDepth + 1)
+                        validateBlock(instruction.body, depth + 1, loopDepth + 1, inFunction)
                 is ScriptInstruction.WaitUntil ->
                     validateExpression(instruction.condition, 0) &&
                         validateExpression(instruction.timeoutMs, 0) &&
