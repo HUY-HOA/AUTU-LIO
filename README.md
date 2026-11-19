@@ -32,4 +32,4 @@ AUTU-LIO đã đăng nhập Google thành công trên thiết bị và tài kho�
 
 Xem [trạng thái và các điều kiện còn thiếu để phát hành](docs/PROJECT-STATUS.md).
 
-Xem [phạm vi toàn diện và lộ trình AUTU Script](docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md) để phân biệt tính năng đã có, còn thiếu và giới hạn của Android.
+Xem [quyền Gemini chỉ viết AUTU trong ứng dụng](docs/GEMINI-AUTU-AUTHORING.md) và Xem [phạm vi toàn diện và lộ trình AUTU Script](docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md) để phân biệt tính năng đã có, còn thiếu và giới hạn của Android.
