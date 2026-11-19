@@ -15,7 +15,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 
 ## Ma trận tính năng
 
-**Trạng thái mã nguồn hiện tại:** AUTU Script 1.17. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.17; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.18. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.18; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
 
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
@@ -29,17 +29,23 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 | OCR | Đọc màn hình/vùng, tìm chữ, trả tọa độ | Đã có OCR màn hình/vùng và cấu trúc khối-dòng kèm tọa độ (giới hạn 32 khối/40 dòng mỗi lần gọi); OCR từ URI/tệp và chờ chữ chuyên dụng còn thiếu |
 | Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch và chi tiết mã có định dạng/loại nội dung/bounds; RGB lấy mẫu màn hình bổ sung ở 1.13; khớp ảnh mẫu và so sánh khung hình còn thiếu |
 | Ảnh và khung hình | Chụp màn hình, crop vùng để OCR/nhận diện | Đã có chụp màn hình và crop nội bộ; xử lý ảnh/tệp và so sánh khung hình còn thiếu |
-| Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt; kéo-thả đường cong và đa điểm còn thiếu |
-| Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel, DP và tỷ lệ 0–1 đã có; hiệu chỉnh vùng an toàn và xử lý hệ tọa độ khi xoay còn thiếu |
+| Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt và chạm/vuốt đồng thời 2–5 ngón, tối đa 16 điểm mỗi đường; kéo-thả đường cong chuyên biệt còn thiếu |
+| Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel, DP, tỷ lệ 0–1 và truy vấn hướng/góc xoay đã có; hiệu chỉnh vùng an toàn và chuyển đổi hệ tọa độ theo xoay còn thiếu |
 | Sự kiện | Thay đổi cửa sổ, nội dung, thông báo do người dùng cấp quyền, trạng thái ứng dụng | Còn thiếu |
 | Lịch và nền | Lịch chạy, hàng đợi, retry, điều kiện pin/mạng, tác vụ định kỳ và thông báo trạng thái | Còn thiếu |
-| Thiết bị | Pin, sạc, mạng, màn hình, ứng dụng foreground và thông số màn hình | Đã có truy vấn cơ bản; âm lượng/rung/clipboard còn thiếu |
+| Thiết bị | Pin, sạc, mạng, màn hình, ứng dụng foreground và thông số màn hình | Đã có pin/sạc/mạng, trạng thái màn hình, kích thước pixel/DP, density, hướng/xoay và package foreground; âm lượng/rung/clipboard còn thiếu |
 | Giao diện kịch bản | Form, nút, ô nhập, danh sách, bảng điều khiển và biến tương tác | Còn thiếu |
 | Thư viện | Module, import/export, phiên bản thư viện, tái sử dụng hàm | Còn thiếu |
 | Trình soạn thảo | Tô màu, gợi ý, tự hoàn thành, kiểm tra kiểu, mẫu mã, định dạng | Một phần |
 | Gỡ lỗi | Breakpoint, chạy từng bước, xem biến, call stack, nhật ký, xuất báo cáo lỗi | Một phần |
 | Quản lý chạy | Chạy/tạm dừng/tiếp tục/dừng và cửa sổ nổi | Đã có; hàng đợi nhiều kịch bản và lịch sử chi tiết còn thiếu |
 | Kiểm thử | Test parser/runtime, test thiết bị, test quyền, test tương thích Android | Một phần |
+
+### Các API màn hình đã nối runtime ở 1.18
+
+- `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()` trả thông số kích thước theo density và pixel.
+- `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()` trả hướng và rotation hiện tại.
+- `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` trả package gần nhất từ sự kiện AccessibilityService; có thể rỗng nếu chưa có sự kiện.
 
 ## Danh mục API dự kiến
 
