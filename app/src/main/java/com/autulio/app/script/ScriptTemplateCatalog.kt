@@ -148,6 +148,20 @@ object ScriptTemplateCatalog {
             """.trimIndent()
         ),
         ScriptTemplate(
+            id = "map_key_values",
+            nameVi = "Tạo và duyệt bản đồ khóa–giá trị",
+            nameEn = "Create and iterate a key-value map",
+            descriptionVi = "Tạo bản đồ cài đặt và duyệt từng khóa để lấy giá trị tương ứng.",
+            descriptionEn = "Create a settings map and iterate through keys to read their values.",
+            source = """
+                ĐẶT CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TOA_DO_X", 120, "TOA_DO_Y", 400)
+                ĐẶT DANH_SACH_KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+                LẶP_MỖI (KHOA TRONG DANH_SACH_KHOA) {
+                    CHẠM(LẤY_GIÁ_TRỊ(CAU_HINH, KHOA), 500)
+                }
+            """.trimIndent()
+        ),
+        ScriptTemplate(
             id = "go_back",
             nameVi = "Quay lại",
             nameEn = "Go back",
