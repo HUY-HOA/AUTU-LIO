@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -487,7 +487,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -512,7 +512,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -567,7 +567,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -594,7 +594,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -623,7 +623,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -645,7 +645,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -671,7 +671,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.10", result.program?.languageVersion)
+        assertEquals("1.11", result.program?.languageVersion)
     }
 
     @Test
@@ -684,6 +684,31 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", wrongWrite.diagnostics.first().code)
         assertEquals("function_argument_count", wrongList.diagnostics.first().code)
         assertEquals("function_argument_count", wrongDelete.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsSecureHttpRequestBuiltInSignature() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
+                "GET",
+                "https://api.example.com/status",
+                RỖNG,
+                TẠO_BẢN_ĐỒ(),
+                10000
+            )
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.11", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesHttpRequestArgumentCount() {
+        val invalid = ScriptCompiler.compile(
+            """ĐẶT PHẢN_HỒI = GỬI_YÊU_CẦU_HTTP("GET", "https://api.example.com", RỖNG, TẠO_BẢN_ĐỒ())"""
+        )
+        assertEquals("function_argument_count", invalid.diagnostics.first().code)
     }
 
 }
