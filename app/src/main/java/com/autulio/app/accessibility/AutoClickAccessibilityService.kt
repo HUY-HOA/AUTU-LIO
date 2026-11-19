@@ -38,6 +38,7 @@ import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
 import com.autulio.app.runtime.ScriptExecutionState
 import com.autulio.app.runtime.ScriptHttpClient
+import com.autulio.app.runtime.ScreenColorAnalyzer
 import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
