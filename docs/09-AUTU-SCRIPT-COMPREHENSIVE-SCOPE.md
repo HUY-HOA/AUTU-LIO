@@ -15,7 +15,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 
 ## Ma trận tính năng
 
-**Trạng thái mã nguồn hiện tại:** AUTU Script 1.10. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.10; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.11. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.11; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
 
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
@@ -23,7 +23,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 | Điều khiển luồng | THỬ/BẮT_LỖI/LUÔN_THỰC_HIỆN, hủy, thời hạn, luồng tác vụ | Đã có try/catch, hủy và timeout; chưa có đa luồng script |
 | Chuỗi và dữ liệu | Unicode, JSON lồng nhau, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Đã có Unicode và JSON lồng nhau; regex/ngày giờ/mã hóa còn thiếu |
 | Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI người dùng | Đã có kho tệp riêng và JSON; CSV/chọn URI còn thiếu |
-| Mạng | HTTP(S), GET/POST/PUT/PATCH/DELETE, header, timeout, JSON, tải lên/tải xuống | Còn thiếu |
+| Mạng | HTTPS GET/POST/PUT/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn; PATCH/multipart/upload/download còn thiếu |
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Còn thiếu |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
 | OCR | Đọc màn hình/vùng, tìm chữ, trả tọa độ | Đã có OCR màn hình và vùng; OCR từ tệp ảnh và chờ chữ chuyên dụng còn thiếu |
@@ -60,10 +60,10 @@ Còn thiếu: tìm màu/vùng màu, so khớp ảnh mẫu do người dùng cung
 - Không giả định ứng dụng bên ngoài cho phép đọc hoặc thao tác mọi thành phần.
 
 ### Tệp, dữ liệu và mạng
-- Chỉ đọc/ghi trong vùng app hoặc URI/thư mục người dùng đã cấp quyền.
+- Đã có kho tệp UTF-8 riêng, JSON lồng nhau và HTTP(S) client giới hạn payload.
+- HTTP hiện hỗ trợ HTTPS GET/POST/PUT/DELETE/HEAD, header map, timeout, response map; không theo redirect tự động.
+- Còn thiếu PATCH, multipart upload/download, API file picker có SAF và SQLite.
 - API mạng phải có timeout, giới hạn kích thước, HTTPS mặc định, kiểm tra phản hồi và không ghi log bí mật.
-- JSON phải có object/array lồng nhau, kiểu null, boolean, số và chuỗi.
-- SQLite dùng tham số truy vấn; không nối chuỗi đầu vào trực tiếp thành SQL.
 
 ### Tác vụ nền và sự kiện
 - Tác vụ nền phải dùng cơ chế Android phù hợp, tuân thủ giới hạn chạy nền và có trạng thái hiển thị.
