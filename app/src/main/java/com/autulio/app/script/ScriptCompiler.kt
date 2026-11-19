@@ -148,7 +148,13 @@ object ScriptCompiler {
         "DANH_SÁCH_KHÓA" to 1,
         "ĐỌC_VĂN_BẢN_MÀN_HÌNH" to 0,
         "MÀN_HÌNH_CHỨA_CHỮ" to 1,
-        "TÌM_VỊ_TRÍ_CHỮ" to 1
+        "TÌM_VỊ_TRÍ_CHỮ" to 1,
+        "TÌM_THÀNH_PHẦN_VĂN_BẢN" to 1,
+        "NHẤN_THÀNH_PHẦN_VĂN_BẢN" to 1,
+        "NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN" to 2,
+        "TÌM_TỌA_ĐỘ_THÀNH_PHẦN" to 1,
+        "CUỘN_XUỐNG" to 0,
+        "CUỘN_LÊN" to 0
     )
 
     private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ")
