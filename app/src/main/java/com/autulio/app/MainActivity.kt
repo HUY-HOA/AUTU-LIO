@@ -185,6 +185,15 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
             draftContents.putAll(updated.contents)
         }
     }
+    val geminiLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        val updated = draftStore.load()
+        scripts.clear()
+        scripts.addAll(updated.names)
+        draftContents.clear()
+        draftContents.putAll(updated.contents)
+    }
 
     AppTheme(dark) {
         Scaffold(
@@ -245,9 +254,10 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     },
                     onOpenGeminiLive = {
                         if (!accessToken.isNullOrBlank()) {
-                            context.startActivity(
+                            geminiLauncher.launch(
                                 Intent(context, GeminiLiveActivity::class.java)
                                     .putExtra(GeminiLiveActivity.EXTRA_ACCESS_TOKEN, accessToken)
+                                    .putExtra(GeminiLiveActivity.EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING, true)
                             )
                         }
                     }
