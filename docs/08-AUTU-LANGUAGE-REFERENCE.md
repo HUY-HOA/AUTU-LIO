@@ -1,6 +1,6 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.18
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.19
 
-**Ngôn ngữ:** AUTU-LIO Script 1.18  
+**Ngôn ngữ:** AUTU-LIO Script 1.19  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
 Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.11; các tên cũ được giữ làm bí danh tương thích.
@@ -341,6 +341,12 @@ Tỷ lệ 0 ứng với pixel đầu tiên, tỷ lệ 1 ứng với pixel cuối
 | XOAY_MÀN_HÌNH | XOAY_MÀN_HÌNH() | Mã xoay Android từ 0 đến 3 |
 | GÓC_XOAY_MÀN_HÌNH | GÓC_XOAY_MÀN_HÌNH() | Góc 0, 90, 180 hoặc 270 độ |
 | GÓI_ỨNG_DỤNG_ĐANG_MỞ | GÓI_ỨNG_DỤNG_ĐANG_MỞ() | Package foreground gần nhất nhận được từ sự kiện Trợ năng |
+| HÀNG_SẢN_XUẤT | HÀNG_SẢN_XUẤT() | Nhà sản xuất thiết bị Android |
+| MẪU_THIẾT_BỊ | MẪU_THIẾT_BỊ() | Model thiết bị Android |
+| PHIÊN_BẢN_ANDROID | PHIÊN_BẢN_ANDROID() | Chuỗi phiên bản Android |
+| MỨC_API_ANDROID | MỨC_API_ANDROID() | Mức API Android dạng số |
+| MÀN_HÌNH_BỊ_KHÓA | MÀN_HÌNH_BỊ_KHÓA() | ĐÚNG khi Keyguard đang khóa màn hình |
+| THIẾT_BỊ_ĐƯỢC_BẢO_MẬT | THIẾT_BỊ_ĐƯỢC_BẢO_MẬT() | ĐÚNG nếu thiết bị có khóa bảo mật được cấu hình |
 
 Ví dụ tự chọn vị trí theo hướng màn hình:
 
@@ -355,7 +361,7 @@ NẾU (HƯỚNG_MÀN_HÌNH() == "DỌC") {
 CHẠM(X, Y)
 ```
 
-CHIỀU_RỘNG_DP/CHIỀU_CAO_DP dùng density hiện tại. TỶ_LỆ_KHUNG_HÌNH dùng kích thước pixel thực. HƯỚNG_MÀN_HÌNH suy ra từ chiều rộng/cao pixel, không phải khóa xoay của ứng dụng. XOAY_MÀN_HÌNH trả về chỉ số rotation của Android; GÓC_XOAY_MÀN_HÌNH đổi chỉ số đó thành độ. GÓI_ỨNG_DỤNG_ĐANG_MỞ có thể rỗng nếu AccessibilityService chưa nhận sự kiện cửa sổ; đây là package từ sự kiện trợ năng, không phải bảo đảm tuyệt đối của hệ thống về foreground trong mọi ứng dụng.
+CHIỀU_RỘNG_DP/CHIỀU_CAO_DP dùng density hiện tại. TỶ_LỆ_KHUNG_HÌNH dùng kích thước pixel thực. HƯỚNG_MÀN_HÌNH suy ra từ chiều rộng/cao pixel, không phải khóa xoay của ứng dụng. XOAY_MÀN_HÌNH trả về chỉ số rotation của Android; GÓC_XOAY_MÀN_HÌNH đổi chỉ số đó thành độ. Các hàm HÀNG_SẢN_XUẤT, MẪU_THIẾT_BỊ, PHIÊN_BẢN_ANDROID và MỨC_API_ANDROID đọc thuộc tính Build cục bộ; MÀN_HÌNH_BỊ_KHÓA và THIẾT_BỊ_ĐƯỢC_BẢO_MẬT đọc trạng thái Keyguard, không mở khóa hoặc thay đổi bảo mật. GÓI_ỨNG_DỤNG_ĐANG_MỞ có thể rỗng nếu AccessibilityService chưa nhận sự kiện cửa sổ; đây là package từ sự kiện trợ năng, không phải bảo đảm tuyệt đối của hệ thống về foreground trong mọi ứng dụng.
 
 ### Thao tác đa điểm và đa ngón
 
@@ -418,6 +424,6 @@ Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_B
 
 ## 17. Chưa hỗ trợ
 
-AUTU Script 1.18 hiện có kho tệp riêng, HTTP(S) giới hạn, SQLite nội bộ, OCR màn hình/vùng, nhận diện nhãn ảnh, vật thể, QR/mã vạch và phân tích màu RGB lấy mẫu. Phần còn thiếu gồm nhập ảnh qua bộ chọn tệp/URI để OCR và nhận diện, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, đoạn tọa độ DP/tương đối cơ bản đã có; hiệu chỉnh vùng an toàn, kéo-thả/đa điểm, sự kiện và lịch nền, module dùng chung, regex/ngày giờ và debugger từng bước. Các phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
+AUTU Script 1.19 hiện có kho tệp riêng, HTTP(S) giới hạn, SQLite nội bộ, OCR màn hình/vùng, nhận diện nhãn ảnh, vật thể, QR/mã vạch và phân tích màu RGB lấy mẫu. Phần còn thiếu gồm nhập ảnh qua bộ chọn tệp/URI để OCR và nhận diện, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, đoạn tọa độ DP/tương đối cơ bản đã có; hiệu chỉnh vùng an toàn, kéo-thả/đa điểm, sự kiện và lịch nền, module dùng chung, regex/ngày giờ và debugger từng bước. Các phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
