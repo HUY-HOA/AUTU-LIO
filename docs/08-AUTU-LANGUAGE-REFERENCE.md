@@ -1,9 +1,9 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.9
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.10
 
-**Ngôn ngữ:** AUTU-LIO Script 1.9  
+**Ngôn ngữ:** AUTU-LIO Script 1.10  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
-Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.9; các tên cũ được giữ làm bí danh tương thích.
+Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.10; các tên cũ được giữ làm bí danh tương thích.
 
 ## 1. Kiểu dữ liệu
 
@@ -78,6 +78,30 @@ LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
 ```
 
 Hàm phải khai báo ở cấp cao nhất, tối đa 16 tham số và 16 cấp gọi lồng nhau. Kiểu tham số và kiểu trả về có thể bỏ trống; khi khai báo thì runtime kiểm tra kiểu.
+
+### Tệp và thư mục riêng của AUTU
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| ĐỌC_TỆP | ĐỌC_TỆP("settings/config.txt") | Đọc văn bản UTF-8 |
+| GHI_TỆP | GHI_TỆP("settings/config.txt", NỘI_DUNG) | Ghi/thay thế tệp UTF-8 |
+| TỆP_TỒN_TẠI | TỆP_TỒN_TẠI("settings/config.txt") | Kiểm tra tệp |
+| XÓA_TỆP | XÓA_TỆP("settings/old.txt") | Xóa một tệp |
+| TẠO_THƯ_MỤC | TẠO_THƯ_MỤC("settings/backup") | Tạo thư mục |
+| LIỆT_KÊ_TỆP | LIỆT_KÊ_TỆP("settings") | Danh sách tệp trực tiếp trong thư mục |
+| ĐỌC_JSON_TỆP | ĐỌC_JSON_TỆP("settings/config.json") | Đọc và phân tích JSON |
+| GHI_JSON_TỆP | GHI_JSON_TỆP("settings/config.json", GIÁ_TRỊ) | Chuyển giá trị thành JSON rồi ghi |
+
+Tệp chỉ được lưu trong vùng dữ liệu riêng của AUTU-LIO, không truy cập tùy ý bộ nhớ chung hoặc thư mục của ứng dụng khác. Đường dẫn phải tương đối; không chấp nhận đường dẫn tuyệt đối, phân đoạn "..", "." hoặc symlink thoát khỏi vùng lưu trữ. Mỗi tệp tối đa 1 MiB. GHI_TỆP thay thế tệp theo cách an toàn; LIỆT_KÊ_TỆP chỉ liệt kê tệp trực tiếp, tối đa 128 mục.
+
+Ví dụ:
+
+```text
+TẠO_THƯ_MỤC("settings")
+GHI_JSON_TỆP("settings/config.json", TẠO_BẢN_ĐỒ("TÊN", "AUTU-LIO", "BẬT", ĐÚNG))
+ĐẶT CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
+ĐẶT TÊN: CHUỖI = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "TÊN")
+```
 
 ### JSON và dữ liệu lồng nhau
 
@@ -236,6 +260,6 @@ Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_B
 
 ## 12. Chưa hỗ trợ
 
-AUTU Script 1.9 bổ sung nhận diện vật thể cơ bản có hộp giới hạn và nhãn phân loại tổng quát. Phần còn thiếu gồm tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, đọc/ghi tệp, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
+AUTU Script 1.10 bổ sung kho tệp riêng cho kịch bản và đọc/ghi JSON. Phần còn thiếu gồm tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
