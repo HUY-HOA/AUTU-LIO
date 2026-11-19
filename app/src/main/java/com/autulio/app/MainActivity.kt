@@ -277,6 +277,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 
 @Composable
 internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit) {
+    val context = LocalContext.current
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
 
