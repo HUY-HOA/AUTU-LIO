@@ -61,8 +61,8 @@ object ScriptTemplateCatalog {
             descriptionVi = "Lặp thao tác chạm theo số lần đã đặt.",
             descriptionEn = "Repeat a tap for the chosen number of iterations.",
             source = """
-                ĐẶT soLan = 3
-                LẶP(soLan) {
+                ĐẶT SO_LAN = 3
+                LẶP(SO_LAN) {
                     CHẠM(200, 400)
                     CHỜ(500)
                 }
@@ -99,9 +99,9 @@ object ScriptTemplateCatalog {
             descriptionVi = "Tăng biến đếm và dừng lặp khi đạt điều kiện.",
             descriptionEn = "Increase a counter and stop when the condition is met.",
             source = """
-                ĐẶT dem = 0
-                LẶP_KHI (dem < 5) {
-                    dem = dem + 1
+                ĐẶT DEM = 0
+                LẶP_KHI (DEM < 5) {
+                    DEM = DEM + 1
                     CHẠM(200, 400)
                     CHỜ(300)
                 }
@@ -125,9 +125,9 @@ object ScriptTemplateCatalog {
             descriptionVi = "Thực hiện thao tác cho đến khi biến đạt điều kiện dừng.",
             descriptionEn = "Repeat actions until a variable reaches the stop condition.",
             source = """
-                ĐẶT dem = 0
-                LẶP_ĐẾN_KHI(dem >= 5) {
-                    dem = dem + 1
+                ĐẶT DEM = 0
+                LẶP_ĐẾN_KHI(DEM >= 5) {
+                    DEM = DEM + 1
                     CHẠM(200, 400)
                     CHỜ(300)
                 }
