@@ -406,6 +406,37 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun createsUpdatesRemovesAndIteratesVietnameseMaps() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("X", 10, "Y", 20)
+                ĐẶT GIA_TRI_X: SỐ = LẤY_GIÁ_TRỊ(CAU_HINH, "X")
+                ĐẶT DA_DAT: SỐ = ĐẶT_GIÁ_TRỊ(CAU_HINH, "Z", 30)
+                ĐẶT CO_Z: LUẬN_LÝ = CÓ_KHÓA(CAU_HINH, "Z")
+                ĐẶT DA_XOA: SỐ = XÓA_KHÓA(CAU_HINH, "Y")
+                ĐẶT KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+                NẾU (GIA_TRI_X == 10 VÀ DA_DAT == 30 VÀ CO_Z VÀ DA_XOA == 20 VÀ ĐỘ_DÀI(CAU_HINH) == 2) {
+                    LẶP_MỖI (K TRONG KHOA) {
+                        CHẠM(ĐỘ_DÀI(K), 40)
+                    }
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:1,40", "tap:1,40"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
