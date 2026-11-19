@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.9
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.10
 
-**Phiên bản cú pháp:** `1.9`  
+**Phiên bản cú pháp:** `1.10`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -47,6 +47,19 @@ KẾT_QUẢ = KẾT_QUẢ + 5
 ```
 
 Biến đã khai báo kiểu sẽ kiểm tra mọi lần gán tiếp theo. Gán sai kiểu làm runtime dừng với lỗi `variable_type_mismatch`.
+
+### Lưu tệp và JSON
+
+```text
+TẠO_THƯ_MỤC("settings")
+GHI_TỆP("settings/note.txt", "AUTU-LIO")
+ĐẶT NỘI_DUNG: CHUỖI = ĐỌC_TỆP("settings/note.txt")
+GHI_JSON_TỆP("settings/config.json", TẠO_BẢN_ĐỒ("TÊN", "AUTU-LIO", "BẬT", ĐÚNG))
+ĐẶT CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
+ĐẶT TỆP: DANH_SÁCH = LIỆT_KÊ_TỆP("settings")
+```
+
+Các tệp nằm trong thư mục riêng của AUTU-LIO. Đường dẫn phải tương đối, cấm "..", "." và đường dẫn tuyệt đối; không truy cập tùy ý bộ nhớ dùng chung hoặc dữ liệu ứng dụng khác. Kích thước mỗi tệp tối đa 1 MiB. LIỆT_KÊ_TỆP chỉ trả về tệp trực tiếp trong thư mục, tối đa 128 tên.
 
 ### JSON và cấu trúc dữ liệu lồng nhau
 
@@ -249,7 +262,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.9 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.10 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. OCR và văn bản trên màn hình
 
