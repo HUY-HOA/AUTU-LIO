@@ -1,6 +1,6 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.14
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.15
 
-**Ngôn ngữ:** AUTU-LIO Script 1.14  
+**Ngôn ngữ:** AUTU-LIO Script 1.15  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
 Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.11; các tên cũ được giữ làm bí danh tương thích.
@@ -232,6 +232,10 @@ Tọa độ X/Y bắt đầu từ góc trái trên. RỘNG/CAO phải là số n
 | MÀN_HÌNH_CHỨA_NHÃN_ẢNH | MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone") | Kiểm tra nhãn có chứa từ khóa |
 | QUÉT_MÃ_QR_MÀN_HÌNH | QUÉT_MÃ_QR_MÀN_HÌNH() | Danh sách dữ liệu QR đã giải mã |
 | QUÉT_MÃ_VẠCH_MÀN_HÌNH | QUÉT_MÃ_VẠCH_MÀN_HÌNH() | Danh sách dữ liệu mã vạch đã giải mã |
+| CHI_TIẾT_MÃ_QR_MÀN_HÌNH | CHI_TIẾT_MÃ_QR_MÀN_HÌNH() | Danh sách giá trị, định dạng, loại nội dung và hộp tọa độ của mã QR |
+| CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH | CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH() | Danh sách chi tiết mã vạch của các định dạng được hỗ trợ |
+
+Các hàm CHI_TIẾT_MÃ_QR_MÀN_HÌNH và CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH trả về GIÁ_TRỊ_GỐC, GIÁ_TRỊ_HIỂN_THỊ, ĐỊNH_DẠNG, LOẠI_NỘI_DUNG và X/Y/RỘNG/CAO nếu ML Kit xác định được hộp giới hạn. Dữ liệu quét chỉ được trả về cho kịch bản; ứng dụng không tự mở liên kết, gọi điện hoặc kết nối Wi‑Fi.
 
 Mô hình gắn nhãn ảnh cơ bản nhận diện nhãn tổng quát, không phải mô hình phát hiện mọi vật thể hay xác định tọa độ từng vật. Quét mã cần đủ độ phân giải và độ nét; giá trị trả về là nội dung giải mã, không tự mở liên kết hoặc thực hiện hành động.
 
