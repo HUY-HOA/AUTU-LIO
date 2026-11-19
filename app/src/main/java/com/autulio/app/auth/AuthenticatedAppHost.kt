@@ -16,7 +16,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.autulio.app.AdminApp
-import com.autulio.app.CollaboratorWorkspace
 import com.autulio.app.CustomerApp
 import com.autulio.app.access.AccessRole
 import com.autulio.app.tr
@@ -94,15 +93,6 @@ internal fun AuthenticatedAppHost() {
             AccessRole.OWNER -> AdminApp(accessToken = currentToken, onLogout = ::signOut)
             AccessRole.CUSTOMER -> CustomerApp(
                 accessToken = currentToken,
-                email = currentUser.email,
-                onLogout = ::signOut
-            )
-            AccessRole.DEVELOPER,
-            AccessRole.DESIGNER,
-            AccessRole.REVIEWER -> CollaboratorWorkspace(
-                accessToken = currentToken,
-                role = currentUser.role,
-                permissions = currentUser.permissions,
                 email = currentUser.email,
                 onLogout = ::signOut
             )

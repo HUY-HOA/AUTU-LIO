@@ -38,7 +38,6 @@ import org.json.JSONArray
 import java.util.Locale
 import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
-import com.autulio.app.access.defaultPermissions
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
@@ -811,25 +810,6 @@ private fun MoreScreen(
     accessToken: String?,
     onOpenTemplate: (ScriptTemplate) -> Unit
 ) {
-    if (page == "collaborators" || page == "projects") {
-        Column(
-            modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            BrandHeader(admin = true)
-            TextButton(onClick = { onSelect("more") }) { Text(tr("← Quay lại", "← Back")) }
-            Heading(
-                tr("Chức năng đang tạm hoãn", "Feature temporarily unavailable"),
-                tr("AUTU-LIO hiện chỉ sử dụng hai vai trò: Chủ sở hữu và Người dùng AUTU.", "AUTU-LIO currently uses only two roles: Owner and AUTU Customer.")
-            )
-            Text(
-                tr("Mời người viết AUTU và không gian cộng tác sẽ được mở ở giai đoạn sau.", "AUTU writer invitations and shared workspaces will be enabled in a later phase."),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp
-            )
-        }
-        return
-    }
     if (page == "licenses") {
         LicensesAdminScreen(accessToken = accessToken, modifier = modifier)
         return
@@ -887,7 +867,6 @@ private fun MoreScreen(
             Heading(
                 selected?.second ?: tr("Quản lý", "Management"),
                 when (page) {
-                    "collaborators" -> tr("Mời và phân quyền nhà phát triển, nhà thiết kế, người kiểm duyệt", "Invite and assign developers, designers and reviewers")
                     "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
                     "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
                     "packages" -> tr("Mã hóa, phát hành phiên bản và phân phối AUTU cho khách hàng", "Encrypt, publish and distribute AUTU versions to customers")
@@ -897,7 +876,6 @@ private fun MoreScreen(
                 }
             )
             when (page) {
-                "collaborators" -> CollaboratorsContent(accessToken = accessToken, onBack = { onSelect("more") })
                 "licenses" -> {
                     CardBox {
                         Text(tr("Thông tin giấy phép", "License information"), fontWeight = FontWeight.SemiBold)

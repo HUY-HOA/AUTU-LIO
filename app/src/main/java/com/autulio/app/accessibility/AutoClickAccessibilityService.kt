@@ -71,6 +71,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private data class ScreenTextItem(val text: String, val bounds: Rect)
 
+    private val screenVisionEngine: ScreenVisionEngine by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        MlKitScreenVisionEngine()
+    }
+
     private val screenTextCacheLock = Any()
     private var screenTextCacheTimeMs = 0L
     private var screenTextCache: List<ScreenTextItem> = emptyList()
@@ -122,6 +126,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     override fun onDestroy() {
         executionEngine?.close()
         executionEngine = null
+        runCatching { screenVisionEngine.close() }
         if (scriptDatabaseStoreLazy.isInitialized()) {
             scriptDatabaseStore.close()
         }
@@ -374,6 +379,82 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     (match.bounds.left + match.bounds.right) / 2,
                     (match.bounds.top + match.bounds.bottom) / 2
                 )
+            }
+            "ĐỌC_VĂN_BẢN_VÙNG" -> {
+                requireArgumentCount(name, arguments, 4)
+                readTextInScreenRegion(name, arguments.toTypedArray())
+            }
+            "MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG" -> {
+                requireArgumentCount(name, arguments, 5)
+                val query = requireTextArgument(name, arguments[0])
+                readTextInScreenRegion(name, arguments.drop(1).toTypedArray())
+                    .contains(query, ignoreCase = true)
+            }
+            "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG" -> {
+                requireArgumentCount(name, arguments, 5)
+                val query = requireTextArgument(name, arguments[0])
+                findTextInScreenRegion(name, query, arguments.drop(1).toTypedArray())
+            }
+            "NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                recognizeScreenImageLabels()
+            }
+            "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = requireTextArgument(name, arguments[0])
+                recognizeScreenImageLabels().any { it.contains(query, ignoreCase = true) }
+            }
+            "CHI_TIẾT_MÃ_QR_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                scanScreenBarcodeDetails(qrOnly = true)
+            }
+            "CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                scanScreenBarcodeDetails(qrOnly = false)
+            }
+            "QUÉT_MÃ_QR_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                scanScreenBarcodes(qrOnly = true)
+            }
+            "QUÉT_MÃ_VẠCH_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                scanScreenBarcodes(qrOnly = false)
+            }
+            "PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                recognizeScreenObjects()
+            }
+            "MÀN_HÌNH_CÓ_VẬT_THỂ" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = requireTextArgument(name, arguments[0])
+                recognizeScreenObjects().any { item ->
+                    val objectMap = item as? Map<*, *> ?: return@any false
+                    val labels = objectMap["NHÃN"] as? List<*> ?: return@any false
+                    labels.any { label ->
+                        val labelMap = label as? Map<*, *> ?: return@any false
+                        (labelMap["TÊN"] as? String)?.contains(query, ignoreCase = true) == true
+                    }
+                }
+            }
+            "TÌM_TỌA_ĐỘ_VẬT_THỂ" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = requireTextArgument(name, arguments[0])
+                val detected = recognizeScreenObjects().firstOrNull { item ->
+                    val objectMap = item as? Map<*, *> ?: return@firstOrNull false
+                    val labels = objectMap["NHÃN"] as? List<*> ?: return@firstOrNull false
+                    labels.any { label ->
+                        val labelMap = label as? Map<*, *> ?: return@any false
+                        (labelMap["TÊN"] as? String)?.contains(query, ignoreCase = true) == true
+                    }
+                } as? Map<*, *>
+                if (detected == null) emptyList<Int>() else listOf(
+                    ((detected["X"] as Number).toInt() + (detected["RỘNG"] as Number).toInt() / 2),
+                    ((detected["Y"] as Number).toInt() + (detected["CAO"] as Number).toInt() / 2)
+                )
+            }
+            "ĐẾM_VẬT_THỂ_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                recognizeScreenObjects().size
             }
             "MÀU_TẠI" -> {
                 requireArgumentCount(name, arguments, 2)
@@ -726,23 +807,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             ?: throw IllegalStateException("Không thể chụp màn hình. Kiểm tra AccessibilityService và quyền chụp màn hình.")
 
     private fun recognizeStructuredScreenText(): List<Any?> =
-        readAccessibilityTextItems().take(32).map { item ->
-            val line = linkedMapOf<String, Any?>(
-                "VĂN_BẢN" to item.text.take(4_096),
-                "X" to item.bounds.left.toDouble(),
-                "Y" to item.bounds.top.toDouble(),
-                "RỘNG" to item.bounds.width().toDouble(),
-                "CAO" to item.bounds.height().toDouble()
-            )
-            linkedMapOf<String, Any?>(
-                "VĂN_BẢN" to item.text.take(4_096),
-                "X" to item.bounds.left.toDouble(),
-                "Y" to item.bounds.top.toDouble(),
-                "RỘNG" to item.bounds.width().toDouble(),
-                "CAO" to item.bounds.height().toDouble(),
-                "CÁC_DÒNG" to listOf(line)
-            )
-        }
+        withCapturedScreen { bitmap ->
+            screenVisionEngine.recognizeStructuredScreenText(bitmap)
+        } ?: emptyList()
 
     /**
      * Reads text only when a script explicitly requests it. Results are kept in memory
@@ -755,16 +822,74 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 return screenTextCache
             }
         }
-        val accessibleItems = readAccessibilityTextItems()
+        val accessibilityItems = readAccessibilityTextItems()
+        val recognizedItems = withCapturedScreen { bitmap ->
+            screenVisionEngine.recognizeScreenTextItems(bitmap).map { item ->
+                ScreenTextItem(item.text, Rect(item.bounds))
+            }
+        }.orEmpty()
+        val merged = (accessibilityItems + recognizedItems)
             .filter { it.text.isNotBlank() }
             .distinctBy { it.text.trim().lowercase(Locale.ROOT) }
             .take(512)
         synchronized(screenTextCacheLock) {
-            screenTextCache = accessibleItems
+            screenTextCache = merged
             screenTextCacheTimeMs = now
         }
-        return accessibleItems
+        return merged
     }
+
+    private fun readTextInScreenRegion(name: String, arguments: Array<out Any?>): String =
+        withCapturedScreen { bitmap ->
+            val region = requireScreenRegion(name, arguments, bitmap)
+            val engine = screenVisionEngine
+            if (engine == null) {
+                readAccessibilityTextItems()
+                    .filter { Rect.intersects(region, it.bounds) }
+                    .joinToString("\n") { it.text }
+            } else {
+                val cropped = Bitmap.createBitmap(
+                    bitmap, region.left, region.top, region.width(), region.height()
+                )
+                try {
+                    engine.readText(cropped)
+                } finally {
+                    cropped.recycle()
+                }
+            }
+        }.orEmpty()
+
+    private fun findTextInScreenRegion(
+        name: String,
+        query: String,
+        arguments: Array<out Any?>
+    ): List<Int> = withCapturedScreen { bitmap ->
+        val region = requireScreenRegion(name, arguments, bitmap)
+        val engine = screenVisionEngine
+        if (engine == null) {
+            val match = readAccessibilityTextItems().firstOrNull {
+                it.text.contains(query, ignoreCase = true) && Rect.intersects(region, it.bounds)
+            }
+            if (match == null) emptyList() else listOf(
+                (match.bounds.left + match.bounds.right) / 2,
+                (match.bounds.top + match.bounds.bottom) / 2
+            )
+        } else {
+            val cropped = Bitmap.createBitmap(
+                bitmap, region.left, region.top, region.width(), region.height()
+            )
+            try {
+                val bounds = engine.findText(cropped, query)
+                if (bounds == null) emptyList() else listOf(
+                    region.left + (bounds.left + bounds.right) / 2,
+                    region.top + (bounds.top + bounds.bottom) / 2
+                )
+            } finally {
+                cropped.recycle()
+            }
+        }
+    } ?: emptyList()
+
 
     private fun requireTextArgument(name: String, value: Any?): String =
         value as? String ?: throw IllegalArgumentException("Hàm '$name' cần tham số dạng chuỗi.")
