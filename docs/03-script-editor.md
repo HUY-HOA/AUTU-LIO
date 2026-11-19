@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.3
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.4
 
-**Phiên bản cú pháp:** `1.3`  
+**Phiên bản cú pháp:** `1.4`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -10,6 +10,7 @@ AUTU Script là ngôn ngữ kịch bản chuyên cho tự động hóa Android t
 ## 1. Quy tắc viết mã
 
 - Lệnh và từ khóa phải viết HOA, đúng dấu: `NẾU`, `LẶP`, `CHẠM`, `NHẤN_GIỮ`.
+- Các tên lệnh điều hướng Android dùng tên mô tả đúng thao tác; tên cũ vẫn được chấp nhận như bí danh tương thích.
 - Tên biến, tham số và hàm tự định nghĩa cũng phải viết HOA: `SO_LAN`, `SỐ_LẦN`, `TINH_TONG`.
 - Tên có thể gồm chữ Unicode, chữ số và dấu gạch dưới `_`; tên phải bắt đầu bằng chữ hoặc `_`.
 - Mã phân biệt chính xác chữ hoa/thường và dấu tiếng Việt. `chạm()`, `CHAM()`, `tap()` đều không hợp lệ.
@@ -172,12 +173,12 @@ Hàm có thể gọi hàm khác và tự gọi lại chính nó. Độ sâu gọ
 | `MỞ_ỨNG_DỤNG("tên.gói")` | tên gói Android | Mở Activity khởi chạy hợp lệ |
 | `QUAY_LẠI()` | không | Hành động Back |
 | `VỀ_MÀN_HÌNH_CHÍNH()` | không | Hành động Home |
-| `ỨNG_DỤNG_GẦN_ĐÂY()` | không | Mở danh sách ứng dụng gần đây |
-| `MỞ_THÔNG_BÁO()` | không | Mở ngăn thông báo |
-| `MỞ_CÀI_ĐẶT_NHANH()` | không | Mở bảng cài đặt nhanh |
-| `HIỆN_MENU_NGUỒN()` | không | Hiện menu nguồn |
+| `MỞ_ỨNG_DỤNG_GẦN_ĐÂY()` | không | Mở danh sách ứng dụng gần đây |
+| `MỞ_THANH_THÔNG_BÁO()` | không | Mở ngăn thông báo |
+| `MỞ_BẢNG_CÀI_ĐẶT_NHANH()` | không | Mở bảng cài đặt nhanh |
+| `MỞ_HỘP_THOẠI_NGUỒN()` | không | Hiện menu nguồn |
 | `KHÓA_MÀN_HÌNH()` | không | Khóa màn hình nếu Android hỗ trợ |
-| `CHIA_MÀN_HÌNH()` | không | Chuyển chế độ chia màn hình nếu hệ thống hỗ trợ |
+| `BẬT_TẮT_CHIA_MÀN_HÌNH()` | không | Chuyển chế độ chia màn hình nếu hệ thống hỗ trợ |
 
 Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ theo kích thước màn hình thực tế và chỉ báo thành công khi Android chấp nhận và hoàn tất thao tác. Hành động hệ thống có thể bị từ chối tùy phiên bản Android, thiết bị hoặc trạng thái Trợ năng.
 
@@ -287,7 +288,7 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 }
 ```
 
-## 10. Những phần chưa thuộc AUTU Script 1.3
+## 10. Những phần chưa thuộc AUTU Script 1.4
 
 Phiên bản 1.3 **chưa** có xử lý lỗi TRY/CATCH do người viết định nghĩa, lập lịch sự kiện, nhận diện ảnh, OCR, chụp màn hình hoặc thao tác đa điểm. Không dùng lệnh giả cho những tính năng này. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
 
