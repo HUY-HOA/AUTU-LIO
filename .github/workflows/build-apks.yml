@@ -130,7 +130,7 @@ jobs:
         run: |
           {
             echo "## AUTU-LIO APK build"
-            echo "- Source branch: `$GITHUB_REF_NAME`"
+            printf -- '- Source branch: `%s`\n' "$GITHUB_REF_NAME"
             echo "- App version: AUTU-LIO v0.1.$GITHUB_RUN_NUMBER"
             if [[ "$APK_VARIANT" == "release" ]]; then
               echo "- Output: R8-minified, resource-shrunk, release-signed APK"
