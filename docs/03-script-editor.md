@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.15
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.16
 
-**Phiên bản cú pháp:** `1.15`  
+**Phiên bản cú pháp:** `1.16`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -188,6 +188,17 @@ CHẠM(KẾT_QUẢ, 300)
 
 Hàm có thể gọi hàm khác và tự gọi lại chính nó. Độ sâu gọi hàm tối đa 16 cấp. Runtime kiểm tra số tham số, kiểu tham số, kiểu trả về, lỗi thiếu TRẢ_VỀ và ngân sách lệnh. Mỗi lần gọi hàm có phạm vi biến cục bộ riêng; hàm đọc được giá trị biến của nơi gọi tại thời điểm gọi, nhưng phép gán bên trong hàm không ghi ngược thay đổi vào biến của nơi gọi.
 
+### Tọa độ DP và tỷ lệ màn hình
+
+```text
+ĐẶT X: SỐ = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.5)
+ĐẶT Y: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.75)
+CHẠM(X, Y)
+ĐẶT KHOẢNG_CÁCH: SỐ = DP_SANG_PIXEL(24)
+```
+
+Dùng `MẬT_ĐỘ_MÀN_HÌNH()`, `DP_SANG_PIXEL(DP)`, `PIXEL_SANG_DP(PIXEL)`, `TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỶ_LỆ_X_THEO_TỌA_ĐỘ(X)` và `TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)`. Tỷ lệ 0–1 ánh xạ từ pixel đầu đến pixel cuối của màn hình. Chưa tự loại trừ status bar, navigation bar hoặc cutout.
+
 ## 6. Lệnh thao tác Android đã nối runtime
 
 | Lệnh | Tham số | Ý nghĩa |
@@ -262,7 +273,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.15 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.16 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. Kết nối API qua HTTPS
 
@@ -455,7 +466,7 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 
 ## 12. Những phần chưa được triển khai
 
-Các mô-đun còn cần phát triển gồm OCR/nhận diện từ ảnh do người dùng chọn qua URI, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, tọa độ DP/tương đối, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, regex/ngày giờ, tô màu cú pháp, tự hoàn thành và debugger từng bước. Chỉ công bố từng lệnh sau khi có parser, runtime, kiểm tra quyền và unit tests tương ứng.
+Các mô-đun còn cần phát triển gồm OCR/nhận diện từ ảnh do người dùng chọn qua URI, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, hiệu chỉnh vùng an toàn cho tọa độ, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, regex/ngày giờ, tô màu cú pháp, tự hoàn thành và debugger từng bước. Chỉ công bố từng lệnh sau khi có parser, runtime, kiểm tra quyền và unit tests tương ứng.
 
 ## 13. Quy trình chạy
 
