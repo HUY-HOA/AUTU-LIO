@@ -128,6 +128,7 @@ private fun GeminiLiveScreen(
     val accessibilityReady = activity.accessibilityReady
     val transcripts = remember { mutableStateListOf<TranscriptLine>() }
     var liveService by remember { mutableStateOf<GeminiLiveService?>(null) }
+    var serviceBound by remember { mutableStateOf(false) }
 
     val callbacks = remember(activity) {
         object : GeminiLiveController.Callbacks {
@@ -176,22 +177,30 @@ private fun GeminiLiveScreen(
             override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
                 val service = (binder as? GeminiLiveService.LocalBinder)?.getService()
                 liveService = service
-                service?.setUiCallbacks(callbacks)
-                service?.setActionsEnabled(allowActions)
-                service?.setScriptAuthoringEnabled(allowAutuScriptAuthoring && canAuthorAutuScripts)
+                serviceBound = service != null
+                if (service == null) {
+                    error = "Android không trả về dịch vụ Gemini Live hợp lệ."
+                } else {
+                    service.setUiCallbacks(callbacks)
+                    service.setActionsEnabled(allowActions)
+                    service.setScriptAuthoringEnabled(allowAutuScriptAuthoring && canAuthorAutuScripts)
+                }
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {
                 liveService = null
+                serviceBound = false
                 connected = false
                 starting = false
+                error = "Dịch vụ nền Gemini Live đã ngắt kết nối."
             }
 
             override fun onBindingDied(name: ComponentName?) {
                 liveService = null
+                serviceBound = false
                 connected = false
                 starting = false
-                error = "Kết nối tới dịch vụ Gemini Live bị gián đoạn."
+                error = "Kết nối tới dịch vụ Gemini Live bị gián đoạn. Hãy quay lại và mở lại mục này."
             }
         }
     }
@@ -204,10 +213,29 @@ private fun GeminiLiveScreen(
                 Context.BIND_AUTO_CREATE
             )
         }.getOrDefault(false)
+        if (!bound) {
+            serviceBound = false
+            error = "Không thể kết nối dịch vụ nền Gemini Live trên thiết bị."
+        }
         onDispose {
             liveService?.setUiCallbacks(null)
+            serviceBound = false
             if (bound) runCatching { activity.unbindService(connection) }
         }
+    }
+
+    val startupTimeoutHandler = remember(activity) { Handler(Looper.getMainLooper()) }
+    DisposableEffect(starting, connected) {
+        val timeout = Runnable {
+            if (starting && !connected) {
+                liveService?.stopLive()
+                status = "Gemini Live không phản hồi"
+                error = "Không nhận được xác nhận kết nối Gemini Live sau 45 giây. Hãy kiểm tra Internet rồi thử lại. Nếu vẫn lỗi, gửi ảnh thông báo này để kiểm tra tiếp."
+                starting = false
+            }
+        }
+        if (starting && !connected) startupTimeoutHandler.postDelayed(timeout, 45_000L)
+        onDispose { startupTimeoutHandler.removeCallbacks(timeout) }
     }
 
     fun beginSession() {
@@ -217,6 +245,11 @@ private fun GeminiLiveScreen(
         }
         if (!accessibilityReady) {
             error = "Hãy bật Dịch vụ trợ năng AUTU-LIO trước khi bắt đầu."
+            return
+        }
+        if (!serviceBound || liveService == null) {
+            error = "Dịch vụ nền Gemini Live chưa sẵn sàng. Hãy đóng màn hình này rồi mở lại mục Gemini Live."
+            starting = false
             return
         }
         starting = true
@@ -242,6 +275,7 @@ private fun GeminiLiveScreen(
     }
 
     val serviceAvailable = accessibilityReady &&
+        serviceBound &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
         accessToken.isNotBlank()
 
@@ -278,18 +312,19 @@ private fun GeminiLiveScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (!serviceAvailable) {
-                        Text(
-                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R)
-                                "Nhận diện màn hình trực tiếp cần Android 11 trở lên."
-                            else
-                                "Hãy bật Dịch vụ trợ năng AUTU-LIO để cho phép chụp màn hình và điều khiển.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        OutlinedButton(
-                            onClick = { activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Mở cài đặt Trợ năng") }
+                        val setupMessage = when {
+                            Build.VERSION.SDK_INT < Build.VERSION_CODES.R -> "Nhận diện màn hình trực tiếp cần Android 11 trở lên."
+                            !accessibilityReady -> "Hãy bật Dịch vụ trợ năng AUTU-LIO để cho phép chụp màn hình và điều khiển."
+                            !serviceBound -> "Đang kết nối dịch vụ nền Gemini Live. Chỉ có thể bắt đầu khi dịch vụ sẵn sàng."
+                            else -> "Phiên đăng nhập chưa sẵn sàng. Hãy đăng nhập lại."
+                        }
+                        Text(setupMessage, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !accessibilityReady) {
+                            OutlinedButton(
+                                onClick = { activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Mở cài đặt Trợ năng") }
+                        }
                     }
                     if (!connected) {
                         Button(
