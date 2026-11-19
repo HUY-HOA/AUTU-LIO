@@ -56,6 +56,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -226,12 +227,13 @@ private fun GeminiLiveScreen(
     }
 
     val startupTimeoutHandler = remember(activity) { Handler(Looper.getMainLooper()) }
+    val latestStatus by rememberUpdatedState(status)
     DisposableEffect(starting, connected) {
         val timeout = Runnable {
             if (starting && !connected) {
                 liveService?.stopLive()
                 status = "Gemini Live không phản hồi"
-                error = "Không nhận được xác nhận kết nối Gemini Live sau 45 giây. Hãy kiểm tra Internet rồi thử lại. Nếu vẫn lỗi, gửi ảnh thông báo này để kiểm tra tiếp."
+                error = "Hết thời gian chờ tổng thể 45 giây. Giai đoạn cuối: ${latestStatus.take(140)}. Mã chẩn đoán: LIVE_START_TIMEOUT."
                 starting = false
             }
         }
@@ -260,6 +262,10 @@ private fun GeminiLiveScreen(
             .setAction(GeminiLiveService.ACTION_START)
             .putExtra(GeminiLiveService.EXTRA_ACCESS_TOKEN, accessToken)
             .putExtra(GeminiLiveService.EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING, canAuthorAutuScripts)
+            .putExtra(
+                GeminiLiveService.EXTRA_ENABLE_AUTU_SCRIPT_AUTHORING,
+                allowAutuScriptAuthoring && canAuthorAutuScripts
+            )
         try {
             ContextCompat.startForegroundService(activity, intent)
             liveService?.setActionsEnabled(allowActions)
@@ -394,13 +400,14 @@ private fun GeminiLiveScreen(
                             Column(Modifier.weight(1f)) {
                                 Text("Cho phép AI viết AUTU", fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    "Khi bật, nội dung bản nháp Gemini đọc hoặc tạo sẽ được gửi tới Google để xử lý trong phiên Live. Bản nháp chỉ lưu trong bộ nhớ mã hóa trên thiết bị; AI không sửa mã nguồn ứng dụng, không tự chạy hoặc phát hành kịch bản.",
+                                    "Chọn trước khi bắt đầu phiên. Khi bật, phiên Live nhận các công cụ viết AUTU; khi tắt, các công cụ này không được gửi cho Gemini. Bản nháp chỉ lưu trong bộ nhớ mã hóa trên thiết bị; AI không sửa mã nguồn ứng dụng, không tự chạy hoặc phát hành kịch bản.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp
                                 )
                             }
                             Switch(
                                 checked = allowAutuScriptAuthoring,
+                                enabled = !starting && !connected,
                                 onCheckedChange = {
                                     allowAutuScriptAuthoring = it
                                     liveService?.setScriptAuthoringEnabled(it && canAuthorAutuScripts)
