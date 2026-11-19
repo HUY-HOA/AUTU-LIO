@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.10
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.11
 
-**Phiên bản cú pháp:** `1.10`  
+**Phiên bản cú pháp:** `1.11`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -262,9 +262,30 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.10 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.11 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
-## 8. OCR và văn bản trên màn hình
+## 8. Kết nối API qua HTTPS
+
+AUTU Script cung cấp `GỬI_YÊU_CẦU_HTTP(PHƯƠNG_THỨC, URL, THÂN, TIÊU_ĐỀ, TIMEOUT_MS)`. Phương thức được hỗ trợ: GET, POST, PUT, DELETE và HEAD. Thân phải là chuỗi hoặc RỖNG; tiêu đề là BẢN_ĐỒ; timeout từ 100 đến 30.000 ms.
+
+Kết quả là bản đồ gồm `TRẠNG_THÁI`, `THÀNH_CÔNG`, `NỘI_DUNG`, `TIÊU_ĐỀ` và `URL`. Dùng `PHÂN_TÍCH_JSON(LẤY_GIÁ_TRỊ(PHẢN_HỒI, "NỘI_DUNG"))` để đọc JSON server trả về.
+
+Client chỉ chấp nhận HTTPS, không tự theo redirect, không cho phép URL nhúng mật khẩu, giới hạn thân gửi/nhận 1 MiB, tối đa 32 tiêu đề và không cho đặt Host/Content-Length/Connection. Các header nhạy cảm như Set-Cookie không được trả lại cho kịch bản. Lỗi HTTP transport, timeout, dữ liệu quá lớn hoặc header không hợp lệ sẽ phát sinh lỗi runtime.
+
+Ví dụ:
+
+```text
+ĐẶT PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
+    "GET",
+    "https://api.example.com/status",
+    RỖNG,
+    TẠO_BẢN_ĐỒ("Accept", "application/json"),
+    10000
+)
+ĐẶT TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
+```
+
+## 9. OCR và văn bản trên màn hình
 
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
@@ -338,7 +359,7 @@ THỬ {
 
 Biến lỗi là BẢN_ĐỒ với hai khóa "MÃ" và "THÔNG_BÁO". LUÔN_THỰC_HIỆN luôn chạy khi rời khối, kể cả khi lỗi không được bắt. Lệnh dừng, thoát vòng lặp, bỏ qua lượt và trả về hàm vẫn giữ nguyên luồng điều khiển, không bị xem là lỗi có thể bắt.
 
-## 9. Giới hạn an toàn và ngân sách
+## 10. Giới hạn an toàn và ngân sách
 
 | Hạng mục | Giới hạn |
 |---|---:|
@@ -362,7 +383,7 @@ Biến lỗi là BẢN_ĐỒ với hai khóa "MÃ" và "THÔNG_BÁO". LUÔN_TH�
 
 Nút Dừng vẫn có thể hủy kịch bản khi chạy. Runtime có bộ đếm lệnh thực tế để chặn trường hợp hàm/vòng lặp lồng nhau vượt quá ngân sách tĩnh.
 
-## 10. Ví dụ hoàn chỉnh
+## 11. Ví dụ hoàn chỉnh
 
 ```text
 // Khai báo dữ liệu và hàm
@@ -388,11 +409,11 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 }
 ```
 
-## 11. Những phần chưa được triển khai
+## 12. Những phần chưa được triển khai
 
 Các mô-đun còn cần phát triển gồm khớp ảnh mẫu, tìm vùng màu, OCR từ tệp, đọc/ghi tệp, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, tô màu cú pháp, tự hoàn thành và debugger. Chỉ công bố từng lệnh sau khi runtime và kiểm thử đã có. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
 
-## 12. Quy trình chạy
+## 13. Quy trình chạy
 
 1. Viết mã bằng cú pháp HOA và đúng dấu.
 2. Nhấn **Kiểm tra mã**. Lỗi trả về mã lỗi, dòng và cột.
