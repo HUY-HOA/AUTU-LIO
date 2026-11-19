@@ -741,6 +741,7 @@ private fun EditorScreen(
                     Text("CHIỀU_RỘNG_MÀN_HÌNH(), CHIỀU_CAO_MÀN_HÌNH(), THỜI_GIAN_MS()")
                     Text("ĐỌC_VĂN_BẢN_MÀN_HÌNH(), MÀN_HÌNH_CHỨA_CHỮ(\"nội dung\"), TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")")
                     Text("ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()")
+                    Text(tr("Đọc nhãn và tọa độ mà ứng dụng đích công khai qua cây Android Accessibility; không dùng OCR hoặc nhận diện ảnh.", "Reads labels and bounds exposed by Android Accessibility; no OCR or image recognition."))
                     Text("PHÂN_TÍCH_JSON(\"{\\\"A\\\":1}\"), CHUYỂN_JSON(GIÁ_TRỊ), RỖNG")
                     Text("ĐỌC_TỆP(\"settings/a.txt\"), GHI_TỆP(\"settings/a.txt\", NỘI_DUNG)")
                     Text("TỆP_TỒN_TẠI(\"settings/a.txt\"), XÓA_TỆP(\"settings/a.txt\"), TẠO_THƯ_MỤC(\"settings\")")
