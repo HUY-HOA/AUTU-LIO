@@ -1,7 +1,7 @@
 const encoder = new TextEncoder();
 
 const GEMINI_LIVE_MODEL = "models/gemini-3.8-live";
-const GEMINI_LIVE_API_VERSION = "v1beta";
+const GEMINI_LIVE_API_VERSION = "v1alpha";
 const GEMINI_LIVE_SYSTEM_PROMPT = [
   "You are AUTU-LIO Gemini Live, an Android screen assistant.",
   "Observe the latest shared screen frame and listen to the user's spoken instructions.",
@@ -1916,7 +1916,7 @@ async function createGeminiLiveToken(request, env, session) {
   }
 
   // Bind the ephemeral token to the exact model and canonical Live config.
-  // The v1beta constrained token flow requires the client setup to match this config.
+  // Google ephemeral auth tokens are supported through v1alpha; the Android WebSocket must use the same version.
   const liveSetup = buildGeminiLiveSetup(session, enableAutuScriptAuthoring);
   const { model: liveModel, ...liveConfig } = liveSetup;
   const now = Date.now();
@@ -1977,6 +1977,7 @@ async function createGeminiLiveToken(request, env, session) {
   }
   return response(request, {
     token: tokenData.name,
+    apiVersion: GEMINI_LIVE_API_VERSION,
     model: liveSetup.model,
     setup: liveSetup,
     expiresAt: tokenData.expireTime || expireTime,
