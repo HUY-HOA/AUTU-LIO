@@ -109,7 +109,7 @@ class ScriptFileStore(
             .sortedBy { it.name.lowercase() }
             .take(MAX_LIST_ITEMS)
             .map { child ->
-                child.canonicalFile.relativeTo(root).path.replace(File.separatorChar, '/')
+                child.name
             }
             .toMutableList()
     }
