@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.7
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.8
 
-**Phiên bản cú pháp:** `1.7`  
+**Phiên bản cú pháp:** `1.8`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -47,6 +47,19 @@ KẾT_QUẢ = KẾT_QUẢ + 5
 ```
 
 Biến đã khai báo kiểu sẽ kiểm tra mọi lần gán tiếp theo. Gán sai kiểu làm runtime dừng với lỗi `variable_type_mismatch`.
+
+### JSON và cấu trúc dữ liệu lồng nhau
+
+```text
+ĐẶT CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TÊN\":\"AUTU\",\"ITEMS\":[1,{\"X\":120},null]}")
+ĐẶT ITEMS: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "ITEMS")
+ĐẶT ITEM: BẢN_ĐỒ = LẤY_PHẦN_TỬ(ITEMS, 1)
+ĐẶT X: SỐ = LẤY_GIÁ_TRỊ(ITEM, "X")
+ĐẶT JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
+ĐẶT KHÔNG_CÓ_GIÁ_TRỊ: BẤT_KỲ = RỖNG
+```
+
+JSON hỗ trợ object/array lồng nhau, chuỗi Unicode, số hữu hạn, boolean và null. Bản đồ/danh sách cũng có thể lồng nhau. Giới hạn: 65.536 ký tự JSON, 64 phần tử hoặc khóa trong mỗi container, 8 cấp lồng nhau, 512 giá trị và 4.096 ký tự mỗi chuỗi. JSON có khóa lặp, sai cú pháp hoặc vượt giới hạn sẽ báo lỗi và có thể được bắt bằng BẮT_LỖI.
 
 ### Bản đồ khóa–giá trị
 
@@ -236,7 +249,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.7 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.8 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. OCR và văn bản trên màn hình
 
