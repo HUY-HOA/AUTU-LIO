@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.1
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.2
 
-**Phiên bản cú pháp:** `1.1`  
+**Phiên bản cú pháp:** `1.2`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -27,6 +27,7 @@ Kiểu được hỗ trợ:
 | `CHUỖI` | Văn bản Unicode |
 | `LUẬN_LÝ` | `ĐÚNG` hoặc `SAI` |
 | `DANH_SÁCH` | Danh sách tối đa 64 phần tử số, chuỗi hoặc luận lý |
+| `BẢN_ĐỒ` | Bản đồ tối đa 64 cặp khóa–giá trị; khóa là chuỗi không rỗng, giá trị là số, chuỗi hoặc luận lý |
 | `BẤT_KỲ` | Giá trị thuộc các kiểu được runtime hỗ trợ |
 
 Khai báo biến có kiểu:
@@ -45,6 +46,21 @@ KẾT_QUẢ = KẾT_QUẢ + 5
 ```
 
 Biến đã khai báo kiểu sẽ kiểm tra mọi lần gán tiếp theo. Gán sai kiểu làm runtime dừng với lỗi `variable_type_mismatch`.
+
+### Bản đồ khóa–giá trị
+
+```text
+ĐẶT CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TOA_DO_X", 120, "TOA_DO_Y", 400)
+ĐẶT X: SỐ = LẤY_GIÁ_TRỊ(CAU_HINH, "TOA_DO_X")
+ĐẶT_GIÁ_TRỊ(CAU_HINH, "TOA_DO_X", 180)
+ĐẶT KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+
+LẶP_MỖI (TEN_KHOA TRONG KHOA) {
+    CHẠM(LẤY_GIÁ_TRỊ(CAU_HINH, TEN_KHOA), 500)
+}
+```
+
+Khóa phải là chuỗi không rỗng và không trùng nhau. Giá trị chỉ được là số hữu hạn, chuỗi hoặc ĐÚNG/SAI. Mỗi bản đồ tối đa 64 cặp. `CÓ_KHÓA` kiểm tra khóa; `XÓA_KHÓA` xóa và trả về giá trị cũ; `ĐỘ_DÀI` trả về số cặp khóa–giá trị.
 
 ## 3. Toán tử và biểu thức
 
@@ -185,8 +201,14 @@ Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ th
 | `ĐẶT_PHẦN_TỬ(DANH_SÁCH, CHỈ_SỐ, GIÁ_TRỊ)` | 3 | Thay phần tử theo chỉ số |
 | `XÓA_PHẦN_TỬ(DANH_SÁCH, CHỈ_SỐ)` | 2 | Xóa và trả về phần tử đã xóa |
 | `CÓ_PHẦN_TỬ(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Kiểm tra phần tử có trong danh sách |
+| `TẠO_BẢN_ĐỒ(KHÓA, GIÁ_TRỊ, ...)` | 0–64 cặp | Tạo bản đồ mới, số tham số phải chẵn |
+| `LẤY_GIÁ_TRỊ(BẢN_ĐỒ, KHÓA)` | 2 | Lấy giá trị theo khóa |
+| `ĐẶT_GIÁ_TRỊ(BẢN_ĐỒ, KHÓA, GIÁ_TRỊ)` | 3 | Thêm hoặc cập nhật giá trị |
+| `XÓA_KHÓA(BẢN_ĐỒ, KHÓA)` | 2 | Xóa và trả về giá trị cũ |
+| `CÓ_KHÓA(BẢN_ĐỒ, KHÓA)` | 2 | Kiểm tra khóa có tồn tại |
+| `DANH_SÁCH_KHÓA(BẢN_ĐỒ)` | 1 | Lấy danh sách khóa theo thứ tự thêm |
 
-Danh sách chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI; chỉ số bắt đầu từ 0. Các thao tác truy cập/sửa/xóa ngoài phạm vi sẽ báo lỗi runtime.
+Danh sách chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI; chỉ số bắt đầu từ 0. Bản đồ chỉ nhận khóa chuỗi không rỗng và giá trị số, chuỗi hoặc ĐÚNG/SAI. Các thao tác truy cập/sửa/xóa ngoài phạm vi hoặc khóa không tồn tại sẽ báo lỗi runtime.
 
 ### Thiết bị và ứng dụng
 
@@ -216,6 +238,7 @@ Các hàm thiết bị chỉ trả về thông tin Android hiện được dispa
 | Độ sâu gọi hàm | 16 |
 | Tham số hàm | 16 |
 | Phần tử trong một danh sách | 64 |
+| Cặp khóa–giá trị trong một bản đồ | 64 |
 | Số lượt thực thi thực tế | 5.000 |
 | Tổng thời lượng chờ/thao tác tĩnh | 600.000 ms |
 | Tọa độ pixel | 0–10.000 |
@@ -253,9 +276,9 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 }
 ```
 
-## 10. Những phần chưa thuộc AUTU Script 1.1
+## 10. Những phần chưa thuộc AUTU Script 1.2
 
-Phiên bản 1.1 **chưa** có bản đồ dữ liệu dạng khóa–giá trị, ném-bắt lỗi TRY/CATCH, lập lịch sự kiện, nhận diện ảnh, OCR, chụp màn hình hoặc thao tác đa điểm. Không dùng lệnh giả cho những tính năng này. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
+Phiên bản 1.2 **chưa** có xử lý lỗi TRY/CATCH do người viết định nghĩa, lập lịch sự kiện, nhận diện ảnh, OCR, chụp màn hình hoặc thao tác đa điểm. Không dùng lệnh giả cho những tính năng này. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
 
 ## 11. Quy trình chạy
 
