@@ -31,7 +31,7 @@ Permission overrides are restricted to each role's allowed set. Owner-only contr
 
 ## Gemini Live
 
-Gemini Live uses the authenticated Worker as a token broker. The permanent Gemini API key is stored only as the Cloudflare Worker secret `GEMINI_API_KEY`; Android requests a single-use ephemeral token from `POST /api/ai/live-token` using its existing AUTU bearer session. The Worker pins the model to `models/gemini-3.8-live`, locks the Live session instructions and the four permitted screen-control functions, and rate-limits token minting. The key is never returned to the app.
+Gemini Live uses the authenticated Worker as a token broker. The permanent Gemini API key is stored only as the Cloudflare Worker secret `GEMINI_API_KEY`; Android requests a single-use ephemeral token from `POST /api/ai/live-token` using its existing AUTU bearer session. The Worker pins the model to `models/gemini-3.8-live`, locks the Live session instructions and the six permitted functions (`tap_screen`, `swipe_screen`, `long_press_screen`, `press_back`, `read_screen_text`, and `tap_text`), and rate-limits token minting. The key is never returned to the app. Ephemeral tokens are single-use for creating a new session, allow a 30-minute session lifetime, and authorize session resumption; the new-session window is limited to 60 seconds.
 
 Configure the secret in the Worker environment before deploying:
 
@@ -39,7 +39,7 @@ Configure the secret in the Worker environment before deploying:
 npx wrangler secret put GEMINI_API_KEY
 ```
 
-The app requires Android 11 or newer and the AUTU-LIO Accessibility Service for screen capture and gestures, plus runtime microphone permission for voice conversations. Screen images are compressed JPEG frames, sent at approximately one frame per 1.2 seconds while the user keeps the Live session active. Audio is sent as 16 kHz mono PCM and Gemini audio is played as 24 kHz mono PCM. A microphone foreground service keeps the session active when the Live activity moves to the background; the user can stop it in the app or from its persistent notification.
+The app requires Android 11 or newer and the AUTU-LIO Accessibility Service for screen capture and gestures, plus runtime microphone permission for voice conversations. Screen images are compressed JPEG frames, sent at approximately one frame per 1.2 seconds while the user keeps the Live session active. Audio is sent as 16 kHz mono PCM and Gemini audio is played as 24 kHz mono PCM. Session context compression and resumption are enabled: the app stores the latest resumable handle in memory and automatically reconnects when Gemini sends `goAway` or the WebSocket drops, with up to three retry attempts. Accessible screen labels and pixel bounds can be read on demand; editable and password nodes are omitted. `tap_text` can activate a matching visible, non-editable label when the Android app exposes it. A microphone foreground service keeps the session active when the Live activity moves to the background; the user can stop it in the app or from its persistent notification.
 
 The user must separately enable the “Cho phép AI điều khiển” switch before function calls can tap, swipe, long-press, or press Back. The assistant is instructed not to handle passwords, OTPs, payments, purchases, destructive actions, or message submission. This is a model instruction plus a narrow local tool allow-list, not a guarantee that the model always interprets every screen correctly; users should supervise all automation. Android secure windows can block screenshot capture.
 
