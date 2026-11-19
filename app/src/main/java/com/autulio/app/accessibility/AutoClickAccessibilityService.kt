@@ -433,7 +433,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             takeScreenshot(
                 Display.DEFAULT_DISPLAY,
                 Executor { command -> mainHandler.post(command) },
-                object : TakeScreenshotCallback() {
+                object : TakeScreenshotCallback {
                     override fun onSuccess(screenshot: ScreenshotResult) {
                         try {
                             val buffer = screenshot.hardwareBuffer
