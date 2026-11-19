@@ -50,8 +50,8 @@ class ScriptExecutionEngineTest {
         try {
             val program = compile(
                 """
-                ĐẶT pin = 12
-                NẾU (pin > 10 VÀ KHÔNG SAI) {
+                ĐẶT PIN_MUC_TIEU: SỐ = 12
+                NẾU (PIN_MUC_TIEU > 10 VÀ KHÔNG SAI) {
                     CHẠM(10, 20)
                 } NGƯỢC_LẠI {
                     CHẠM(30, 40)
@@ -451,4 +451,48 @@ class ScriptExecutionEngineTest {
             return name == "CÓ_MẠNG"
         }
     }
+
+    @Test
+    fun enforcesDeclaredVariableTypesAndEvaluatesExponentExpressions() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT MUC_TIEU: SỐ = 21
+                ĐẶT CO_THE_CHAY: LUẬN_LÝ = ĐÚNG
+                ĐẶT NOI_DUNG: CHUỖI = "OK"
+                NẾU (2 ^ 3 ^ 2 == 512 VÀ CO_THE_CHAY VÀ ĐỘ_DÀI(NOI_DUNG) == 2) {
+                    MUC_TIEU = MUC_TIEU + 1
+                    CHẠM(MUC_TIEU, 40)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:22,40"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
+    fun rejectsRuntimeValueThatViolatesDeclaredType() {
+        val failed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(RecordingDispatcher()) {
+            if (it.state == ScriptExecutionState.FAILED) failed.countDown()
+        }
+        try {
+            val program = compile("ĐẶT SO_LAN: SỐ = \"SAI\"")
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(failed.await(2, TimeUnit.SECONDS))
+            assertEquals("variable_type_mismatch", engine.snapshot().errorCode)
+        } finally {
+            engine.close()
+        }
+    }
+
 }
