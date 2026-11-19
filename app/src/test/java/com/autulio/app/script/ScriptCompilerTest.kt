@@ -322,4 +322,28 @@ class ScriptCompilerTest {
         assertTrue(result.diagnostics.toString(), result.isSuccess)
     }
 
+
+    @Test
+    fun supportsUppercaseUserDefinedFunctionsWithTypedParametersAndReturns() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐỊNH_NGHĨA_HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ {
+                TRẢ_VỀ A + B
+            }
+            ĐẶT KET_QUA: SỐ = TINH_TONG(10, 20)
+            CHẠM(KET_QUA, 30)
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
+    @Test
+    fun rejectsReturnOutsideFunctionAndUndefinedFunctions() {
+        val invalidReturn = ScriptCompiler.compile("TRẢ_VỀ 10")
+        val undefinedCall = ScriptCompiler.compile("ĐẶT KET_QUA = HAM_CHUA_DINH_NGHIA(10)")
+
+        assertEquals("return_outside_function", invalidReturn.diagnostics.first().code)
+        assertEquals("unknown_function", undefinedCall.diagnostics.first().code)
+    }
+
 }
