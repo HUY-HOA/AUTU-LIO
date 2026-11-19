@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.5
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.6
 
-**Phiên bản cú pháp:** `1.5`  
+**Phiên bản cú pháp:** `1.6`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -236,7 +236,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.5 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.6 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. OCR và văn bản trên màn hình
 
@@ -247,6 +247,39 @@ Các hàm thiết bị trả về thông tin Android hiện được dispatcher 
 | TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("Đăng nhập") | Danh sách [X, Y] là tâm vị trí; rỗng nếu không tìm thấy |
 
 Các hàm chỉ phân tích màn hình khi kịch bản gọi chúng. AUTU-LIO kết hợp cây giao diện trợ năng với OCR on-device. Ảnh màn hình không được tải lên máy chủ. Trên Android 11/API 30 trở lên, OCR có thể dùng ảnh màn hình của AccessibilityService; Android cũ hơn chỉ đọc được nội dung mà cây trợ năng cung cấp. Màn hình bảo mật, ứng dụng chặn chụp và vùng đồ họa không phơi bày nội dung có thể không đọc được. OCR có thể nhận sai chữ hoặc dấu; phải kiểm tra kết quả trước thao tác quan trọng.
+
+### Tìm và thao tác phần tử giao diện bằng Trợ năng
+
+```text
+NẾU (TÌM_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập")) {
+    NHẤN_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập")
+}
+NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN("Tên người dùng", "LIO")
+ĐẶT TOA_DO: DANH_SÁCH = TÌM_TỌA_ĐỘ_THÀNH_PHẦN("Đăng nhập")
+NẾU (TÌM_THÀNH_PHẦN_THEO_ID("login_button")) {
+    NHẤN_THÀNH_PHẦN_THEO_ID("login_button")
+}
+NHẬP_VĂN_BẢN_THEO_ID("username", "AUTU")
+CUỘN_XUỐNG()
+CUỘN_LÊN()
+```
+
+Các API tìm kiếm chạy trên cây giao diện do Android và ứng dụng mục tiêu cung cấp. Tìm theo văn bản so khớp một phần không phân biệt hoa/thường với text hoặc contentDescription; tìm ID chấp nhận ID đầy đủ hoặc phần tên sau dấu /. Nhấn sử dụng ACTION_CLICK trên phần tử hoặc tổ tiên có thể nhấn; nhập văn bản yêu cầu node editable. Trả về SAI nếu không tìm thấy hoặc hành động bị từ chối.
+
+### Xử lý lỗi
+
+```text
+THỬ {
+    MỞ_ỨNG_DỤNG("invalid")
+} BẮT_LỖI (LỖI) {
+    ĐẶT MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
+    ĐẶT THÔNG_BÁO: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "THÔNG_BÁO")
+} LUÔN_THỰC_HIỆN {
+    CHỜ(100)
+}
+```
+
+Biến lỗi là BẢN_ĐỒ với hai khóa "MÃ" và "THÔNG_BÁO". LUÔN_THỰC_HIỆN luôn chạy khi rời khối, kể cả khi lỗi không được bắt. Lệnh dừng, thoát vòng lặp, bỏ qua lượt và trả về hàm vẫn giữ nguyên luồng điều khiển, không bị xem là lỗi có thể bắt.
 
 ## 9. Giới hạn an toàn và ngân sách
 
