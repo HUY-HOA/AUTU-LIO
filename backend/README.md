@@ -39,7 +39,7 @@ Configure the secret in the Worker environment before deploying:
 npx wrangler secret put GEMINI_API_KEY
 ```
 
-The app requires Android 11 or newer and the AUTU-LIO Accessibility Service for screen capture and gestures, plus runtime microphone permission for voice conversations. Screen images are compressed JPEG frames, sent at approximately one frame per 1.2 seconds while the user keeps the Live session active. Audio is sent as 16 kHz mono PCM and Gemini audio is played as 24 kHz mono PCM. Leaving the Live activity stops the session.
+The app requires Android 11 or newer and the AUTU-LIO Accessibility Service for screen capture and gestures, plus runtime microphone permission for voice conversations. Screen images are compressed JPEG frames, sent at approximately one frame per 1.2 seconds while the user keeps the Live session active. Audio is sent as 16 kHz mono PCM and Gemini audio is played as 24 kHz mono PCM. A microphone foreground service keeps the session active when the Live activity moves to the background; the user can stop it in the app or from its persistent notification.
 
 The user must separately enable the “Cho phép AI điều khiển” switch before function calls can tap, swipe, long-press, or press Back. The assistant is instructed not to handle passwords, OTPs, payments, purchases, destructive actions, or message submission. This is a model instruction plus a narrow local tool allow-list, not a guarantee that the model always interprets every screen correctly; users should supervise all automation. Android secure windows can block screenshot capture.
 
