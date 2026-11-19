@@ -168,19 +168,28 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
     assert.equal(response.status, 200);
     assert.equal(body.token, "auth_tokens/test-ephemeral-token");
     assert.equal(body.model, "models/gemini-3.8-live");
-    assert.match(upstreamRequest.url, /generativelanguage\.googleapis\.com\/v1beta\/auth_tokens$/);
+    assert.match(upstreamRequest.url, /generativelanguage\.googleapis\.com\/v1alpha\/auth_tokens$/);
     assert.equal(upstreamRequest.options.headers["x-goog-api-key"], "server-only-test-key");
     const payload = JSON.parse(upstreamRequest.options.body);
     assert.equal(payload.uses, 1);
-    assert.equal(payload.liveConnectConstraints.model, "models/gemini-3.8-live");
-    assert.equal(payload.liveConnectConstraints.config.responseModalities[0], "AUDIO");
-    assert.deepEqual(payload.liveConnectConstraints.config.sessionResumption, {});
-    assert.deepEqual(payload.liveConnectConstraints.config.contextWindowCompression, { slidingWindow: {} });
+    const setup = payload.bidiGenerateContentSetup;
+    assert.equal(setup.model, "models/gemini-3.8-live");
+    assert.deepEqual(setup.generationConfig.responseModalities, ["AUDIO"]);
+    assert.deepEqual(setup.generationConfig.speechConfig, {
+      voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
+    });
+    assert.deepEqual(setup.sessionResumption, {});
+    assert.deepEqual(setup.contextWindowCompression, { slidingWindow: {} });
+    assert.deepEqual(setup.inputAudioTranscription, {});
+    assert.deepEqual(setup.outputAudioTranscription, {});
+    assert.equal(typeof payload.fieldMask, "string");
+    assert.match(payload.fieldMask, /tools\.0/);
+    assert.match(payload.fieldMask, /systemInstruction\.parts/);
     const expiryMs = Date.parse(payload.expireTime) - Date.now();
     const newSessionExpiryMs = Date.parse(payload.newSessionExpireTime) - Date.now();
     assert.ok(expiryMs > 28 * 60 * 1000 && expiryMs <= 30 * 60 * 1000);
     assert.ok(newSessionExpiryMs > 0 && newSessionExpiryMs <= 60 * 1000);
-    const declarations = payload.liveConnectConstraints.config.tools[0].functionDeclarations;
+    const declarations = setup.tools[0].functionDeclarations;
     assert.equal(declarations.length, 11);
     assert.deepEqual(
       declarations.map(item => item.name).sort(),
@@ -292,7 +301,7 @@ test("Gemini Live customer token never receives AUTU script authoring tools", as
     }), env);
     assert.equal(response.status, 200);
     const payload = JSON.parse(upstreamRequest.options.body);
-    const declarations = payload.liveConnectConstraints.config.tools[0].functionDeclarations;
+    const declarations = payload.bidiGenerateContentSetup.tools[0].functionDeclarations;
     assert.equal(declarations.length, 6);
     assert.deepEqual(
       declarations.map(item => item.name).sort(),
