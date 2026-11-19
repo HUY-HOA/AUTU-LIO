@@ -586,10 +586,6 @@ class ScriptExecutionEngine(
         else -> false
     }
 
-    private fun requireArgs(name: String, args: List<Any?>, count: Int) {
-        if (args.size != count) throw ScriptRuntimeFailure("argument_count", "Hàm '$name' cần $count tham số.")
-    }
-
     private fun valuesEqual(left: Any?, right: Any?): Boolean =
         if (left is Number && right is Number) left.toDouble() == right.toDouble() else left == right
 
