@@ -37,12 +37,6 @@ data class AuthSession(
     val user: AuthenticatedUser
 )
 
-data class GeminiLiveSessionConfig(
-    val token: String,
-    val apiVersion: String,
-    val setup: JSONObject
-)
-
 data class CollaboratorRecord(
     val id: String,
     val email: String,
@@ -299,81 +293,6 @@ class AuthRepository(context: Context) {
             throw IOException("Máy chủ không trả về phiên đăng nhập hợp lệ.")
         }
         return AuthSession(accessToken, user)
-    }
-
-    suspend fun createGeminiLiveSession(
-        accessToken: String,
-        enableAutuScriptAuthoring: Boolean
-    ): GeminiLiveSessionConfig {
-        val result = apiRequest(
-            path = "/api/ai/live-token",
-            method = "POST",
-            body = JSONObject().put("enableAutuScriptAuthoring", enableAutuScriptAuthoring),
-            bearerToken = accessToken
-        )
-        val token = result.optString("token")
-        if (!token.startsWith("auth_tokens/") || token.length > 4_096) {
-            throw IOException("Máy chủ không trả về token Gemini Live hợp lệ.")
-        }
-
-        val apiVersion = result.optString("apiVersion")
-        if (apiVersion != GEMINI_LIVE_API_VERSION) {
-            throw IOException("Phiên bản API Gemini Live từ máy chủ không được hỗ trợ.")
-        }
-
-        val model = result.optString("model")
-        val setup = result.optJSONObject("setup")
-            ?: throw IOException("Máy chủ không trả về cấu hình Gemini Live thống nhất.")
-        if (model != GEMINI_LIVE_MODEL || setup.optString("model") != GEMINI_LIVE_MODEL) {
-            throw IOException("Model trong token và cấu hình Gemini Live không đồng nhất.")
-        }
-        val modalities = setup.optJSONObject("generationConfig")?.optJSONArray("responseModalities")
-            ?: throw IOException("Thiếu cấu hình âm thanh Gemini Live.")
-        if ((0 until modalities.length()).none { modalities.optString(it) == "AUDIO" }) {
-            throw IOException("Cấu hình Gemini Live chưa bật phản hồi âm thanh.")
-        }
-        val promptParts = setup.optJSONObject("systemInstruction")?.optJSONArray("parts")
-            ?: throw IOException("Thiếu chỉ dẫn hệ thống Gemini Live.")
-        if (promptParts.length() == 0 || promptParts.optJSONObject(0)?.optString("text").isNullOrBlank()) {
-            throw IOException("Chỉ dẫn hệ thống Gemini Live không hợp lệ.")
-        }
-        val declarations = setup.optJSONArray("tools")
-            ?.optJSONObject(0)
-            ?.optJSONArray("functionDeclarations")
-            ?: throw IOException("Thiếu danh sách công cụ Gemini Live.")
-
-        val baseTools = setOf(
-            "tap_screen",
-            "swipe_screen",
-            "long_press_screen",
-            "press_back",
-            "read_screen_text",
-            "tap_text"
-        )
-        val autuTools = setOf(
-            "get_autu_script_reference",
-            "list_autu_script_drafts",
-            "read_autu_script_draft",
-            "validate_autu_script",
-            "save_autu_script_draft"
-        )
-        val names = (0 until declarations.length())
-            .mapNotNull { declarations.optJSONObject(it)?.optString("name")?.takeIf(String::isNotBlank) }
-        val expected = if (enableAutuScriptAuthoring) baseTools + autuTools else baseTools
-        if (names.size != names.toSet().size || names.toSet() != expected) {
-            throw IOException("Danh sách công cụ từ máy chủ không khớp quyền Gemini Live của tài khoản.")
-        }
-
-        return GeminiLiveSessionConfig(
-            token = token,
-            apiVersion = apiVersion,
-            setup = JSONObject(setup.toString())
-        )
-    }
-
-    private companion object {
-        const val GEMINI_LIVE_MODEL = "models/gemini-3.8-live"
-        const val GEMINI_LIVE_API_VERSION = "v1alpha"
     }
 
     suspend fun currentUser(accessToken: String): AuthenticatedUser {
