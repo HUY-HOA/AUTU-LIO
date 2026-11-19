@@ -61,7 +61,7 @@ class ScriptHttpClientTest {
 
         assertEquals(201, result["TRẠNG_THÁI"])
         assertEquals("POST", connection.requestMethod)
-        assertEquals("""{"tên":"Thử nghiệm"}""", connection.requestBytes.toString(StandardCharsets.UTF_8.name()))
+        assertEquals("""{"tên":"Thử nghiệm"}""", connection.requestBytes.toString(StandardCharsets.UTF_8))
         assertEquals("application/json; charset=utf-8", connection.getRequestProperty("Content-Type"))
         assertEquals("Bearer test-token", connection.getRequestProperty("Authorization"))
     }
