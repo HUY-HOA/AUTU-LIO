@@ -1,7 +1,7 @@
 const encoder = new TextEncoder();
 
 const GEMINI_LIVE_MODEL = "models/gemini-3.8-live";
-const GEMINI_LIVE_API_VERSION = "v1alpha";
+const GEMINI_LIVE_API_VERSION = "v1beta";
 const GEMINI_LIVE_SYSTEM_PROMPT = [
   "You are AUTU-LIO Gemini Live, an Android screen assistant.",
   "Observe the latest shared screen frame and listen to the user's spoken instructions.",
@@ -1915,10 +1915,10 @@ async function createGeminiLiveToken(request, env, session) {
     throw new HttpError(400, "invalid_live_capability", "Cấu hình quyền Gemini Live không hợp lệ.");
   }
 
-  // Do not bind an independently-authored setup to the ephemeral token.
-  // Google explicitly supports tokens without Live constraints; the client
-  // then sends the canonical setup returned by this same authenticated endpoint.
+  // Bind the ephemeral token to the exact model and canonical Live config.
+  // The v1beta constrained token flow requires the client setup to match this config.
   const liveSetup = buildGeminiLiveSetup(session, enableAutuScriptAuthoring);
+  const { model: liveModel, ...liveConfig } = liveSetup;
   const now = Date.now();
   const expireTime = new Date(now + 30 * 60 * 1000).toISOString();
   const newSessionExpireTime = new Date(now + 60 * 1000).toISOString();
@@ -1934,7 +1934,11 @@ async function createGeminiLiveToken(request, env, session) {
       body: JSON.stringify({
         uses: 1,
         expireTime,
-        newSessionExpireTime
+        newSessionExpireTime,
+        liveConnectConstraints: {
+          model: liveModel,
+          config: liveConfig
+        }
       })
     });
   } catch {
