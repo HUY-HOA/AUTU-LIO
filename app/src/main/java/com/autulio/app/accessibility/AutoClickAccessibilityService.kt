@@ -1341,6 +1341,39 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         return output
     }
 
+    /**
+     * Captures a privacy-sensitive screen frame for an explicitly active Gemini Live session.
+     * Must be called from a background thread. Android blocks screenshots of secure windows.
+     */
+    fun captureScreenJpegForLive(maxDimension: Int = 960): ByteArray? {
+        if (Looper.myLooper() == Looper.getMainLooper()) return null
+        val original = captureDisplayBitmap() ?: return null
+        var scaled: Bitmap? = null
+        return try {
+            val bound = maxDimension.coerceIn(320, 1_280)
+            val longest = maxOf(original.width, original.height)
+            val scale = minOf(1f, bound.toFloat() / longest.toFloat())
+            val targetWidth = (original.width * scale).toInt().coerceAtLeast(1)
+            val targetHeight = (original.height * scale).toInt().coerceAtLeast(1)
+            scaled = if (targetWidth == original.width && targetHeight == original.height) {
+                original
+            } else {
+                Bitmap.createScaledBitmap(original, targetWidth, targetHeight, true)
+            }
+            val output = java.io.ByteArrayOutputStream()
+            if (!scaled.compress(Bitmap.CompressFormat.JPEG, 65, output)) {
+                null
+            } else {
+                output.toByteArray().takeIf { it.isNotEmpty() && it.size <= 900_000 }
+            }
+        } catch (_: Exception) {
+            null
+        } finally {
+            if (scaled !== original) scaled?.recycle()
+            original.recycle()
+        }
+    }
+
     private fun captureDisplayBitmap(): Bitmap? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
         val finished = CountDownLatch(1)
