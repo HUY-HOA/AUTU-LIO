@@ -63,6 +63,7 @@ class ScriptExecutionEngine(
 
     private var state = ScriptExecutionState.IDLE
     private var activeRunId = 0L
+    private var activeRunDeadlineNanos = 0L
     private var completedInstructions = 0L
     private var totalInstructions = 0L
     private var cancellationRequested = false
@@ -88,6 +89,8 @@ class ScriptExecutionEngine(
             activeRunId++
             runId = activeRunId
             cancellationRequested = false
+            activeRunDeadlineNanos = System.nanoTime() +
+                TimeUnit.MILLISECONDS.toNanos(ScriptCompiler.MAX_TOTAL_DURATION_MS)
             lastErrorCode = null
             lastMessage = null
             completedInstructions = 0L
@@ -731,6 +734,12 @@ class ScriptExecutionEngine(
         lock.withLock {
             while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
             ensureActiveLocked(runId)
+            if (activeRunDeadlineNanos > 0L && System.nanoTime() >= activeRunDeadlineNanos) {
+                throw ScriptRuntimeFailure(
+                    "runtime_duration_limit",
+                    "Kịch bản đã vượt giới hạn thời gian chạy thực tế 10 phút."
+                )
+            }
         }
     }
 
@@ -769,6 +778,7 @@ class ScriptExecutionEngine(
             if (runId != activeRunId) return
             state = finalState
             cancellationRequested = false
+            activeRunDeadlineNanos = 0L
             lastErrorCode = errorCode
             lastMessage = message
             changed.signalAll()
