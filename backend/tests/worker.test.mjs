@@ -173,7 +173,7 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
     const payload = JSON.parse(upstreamRequest.options.body);
     assert.equal(payload.uses, 1);
     const constraints = payload.liveConnectConstraints;
-    assert.equal(constraints.model, "gemini-3.8-live");
+    assert.equal(constraints.model, "models/gemini-3.8-live");
     assert.deepEqual(constraints.config, {
       responseModalities: ["AUDIO"],
       sessionResumption: {}
