@@ -153,6 +153,9 @@ object ScriptCompiler {
         "NHẤN_THÀNH_PHẦN_VĂN_BẢN" to 1,
         "NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN" to 2,
         "TÌM_TỌA_ĐỘ_THÀNH_PHẦN" to 1,
+        "TÌM_THÀNH_PHẦN_THEO_ID" to 1,
+        "NHẤN_THÀNH_PHẦN_THEO_ID" to 1,
+        "NHẬP_VĂN_BẢN_THEO_ID" to 2,
         "CUỘN_XUỐNG" to 0,
         "CUỘN_LÊN" to 0
     )
