@@ -1,9 +1,9 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.5
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.6
 
-**Ngôn ngữ:** AUTU-LIO Script 1.5  
+**Ngôn ngữ:** AUTU-LIO Script 1.6  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
-Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.5; các tên cũ được giữ làm bí danh tương thích.
+Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.6; các tên cũ được giữ làm bí danh tương thích.
 
 ## 1. Kiểu dữ liệu
 
@@ -130,13 +130,28 @@ Chỉ số danh sách và vị trí chuỗi bắt đầu từ 0. KÝ_TỰ_TẠI/
 
 AUTU-LIO đọc cây giao diện trợ năng và dùng OCR trên ảnh màn hình khi Android hỗ trợ. OCR được gọi theo yêu cầu của kịch bản, kết quả chỉ lưu tạm trong bộ nhớ. Từ Android 11/API 30, ảnh màn hình được lấy qua AccessibilityService; Android cũ hơn chỉ có thể đọc nội dung mà cây giao diện trợ năng cung cấp. Nội dung trong màn hình bảo mật, ứng dụng chặn chụp hoặc thành phần đồ họa không được Android công khai có thể không đọc được. Kết quả OCR có thể sai; cần kiểm tra trước khi thực hiện thao tác quan trọng.
 
+### Trợ năng: tìm và thao tác thành phần giao diện
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| TÌM_THÀNH_PHẦN_VĂN_BẢN | TÌM_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập") | Kiểm tra văn bản hoặc mô tả nội dung có trên cây trợ năng |
+| NHẤN_THÀNH_PHẦN_VĂN_BẢN | NHẤN_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập") | Thực hiện ACTION_CLICK trên node hoặc tổ tiên có thể nhấn |
+| NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN | NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN("Tên", "LIO") | Gửi ACTION_SET_TEXT tới node có thể nhập |
+| TÌM_TỌA_ĐỘ_THÀNH_PHẦN | TÌM_TỌA_ĐỘ_THÀNH_PHẦN("Đăng nhập") | Trả về [X, Y] tâm bounds theo pixel màn hình |
+| TÌM_THÀNH_PHẦN_THEO_ID | TÌM_THÀNH_PHẦN_THEO_ID("login_button") | Tìm resource ID đầy đủ hoặc phần tên cuối |
+| NHẤN_THÀNH_PHẦN_THEO_ID | NHẤN_THÀNH_PHẦN_THEO_ID("login_button") | Nhấn phần tử theo resource ID |
+| NHẬP_VĂN_BẢN_THEO_ID | NHẬP_VĂN_BẢN_THEO_ID("username", "AUTU") | Nhập văn bản vào phần tử theo resource ID |
+| CUỘN_XUỐNG / CUỘN_LÊN | CUỘN_XUỐNG() / CUỘN_LÊN() | Cuộn node đầu tiên có thể cuộn |
+
+Các thao tác này chỉ tác động node mà ứng dụng đích công khai qua AccessibilityService. Nếu ứng dụng không cung cấp node, phần tử không bật, không thể nhấn/nhập hoặc nội dung nằm trong canvas/game, hàm sẽ trả về SAI/ danh sách rỗng. Không có cách bảo đảm mọi ứng dụng đều phơi bày cây giao diện.
+
 ## 9. Lệnh Android
 
 `CHẠM(X,Y)`, `NHẤN_GIỮ(X,Y,MS)`, `VUỐT(X1,Y1,X2,Y2,MS)`, `CHỜ(MS)`, `MỞ_ỨNG_DỤNG("TÊN_GÓI")`, `QUAY_LẠI()`, `VỀ_MÀN_HÌNH_CHÍNH()`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY()`, `MỞ_THANH_THÔNG_BÁO()`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH()`, `MỞ_HỘP_THOẠI_NGUỒN()`, `KHÓA_MÀN_HÌNH()`, `BẬT_TẮT_CHIA_MÀN_HÌNH()`.
 
 Các thao tác cần AccessibilityService hoạt động và chịu giới hạn Android. Tọa độ phải nằm trong màn hình thực tế; hành động bị Android từ chối sẽ làm runtime báo lỗi.
 
-## 10. Giới hạn thực thi
+## 11. Giới hạn thực thi
 
 | Hạng mục | Giới hạn |
 |---|---:|
@@ -151,8 +166,25 @@ Các thao tác cần AccessibilityService hoạt động và chịu giới hạn
 | Lượt thực thi | 5.000 |
 | Thời lượng tĩnh | 10 phút |
 
-## 11. Chưa hỗ trợ
+## 10. Xử lý lỗi có cấu trúc
 
-Các hàm đọc văn bản/OCR màn hình cơ bản đã có trong 1.5. Phần còn thiếu gồm OCR theo vùng và từ ảnh/tệp, nhận diện vật thể/ảnh mẫu/màu/QR, tìm và thao tác phần tử giao diện theo resource ID, xử lý lỗi TRY/BẮT_LỖI, đọc/ghi tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những mục này chưa phải lệnh hợp lệ cho đến khi được triển khai và kiểm thử.
+Cú pháp:
+
+```text
+THỬ {
+    MỞ_ỨNG_DỤNG("invalid")
+} BẮT_LỖI (LỖI) {
+    ĐẶT MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
+    ĐẶT THÔNG_BÁO: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "THÔNG_BÁO")
+} LUÔN_THỰC_HIỆN {
+    CHỜ(100)
+}
+```
+
+Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_BÁO". BẮT_LỖI bắt lỗi thực thi của kịch bản; không bắt lệnh dừng, thoát vòng lặp, bỏ qua lượt hoặc trả về hàm. LUÔN_THỰC_HIỆN luôn chạy khi rời khối THỬ, kể cả khi lỗi không được xử lý. Nếu LUÔN_THỰC_HIỆN phát sinh lỗi mới, lỗi mới được truyền ra ngoài. Có thể dùng THỬ với LUÔN_THỰC_HIỆN mà không có BẮT_LỖI.
+
+## 12. Chưa hỗ trợ
+
+Các hàm đọc văn bản/OCR màn hình cơ bản đã có trong 1.6. Phần còn thiếu gồm OCR theo vùng và từ ảnh/tệp, nhận diện vật thể/ảnh mẫu/màu/QR, tìm và thao tác phần tử giao diện theo resource ID, xử lý lỗi TRY/BẮT_LỖI, đọc/ghi tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những mục này chưa phải lệnh hợp lệ cho đến khi được triển khai và kiểm thử.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
