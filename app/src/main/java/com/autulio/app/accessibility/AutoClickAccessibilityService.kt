@@ -258,7 +258,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "THỜI_GIAN_MS" -> System.currentTimeMillis()
             "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
-                readScreenTextItems().joinToString("\\n") { it.text }
+                readScreenTextItems().joinToString("\n") { it.text }
             }
             "MÀN_HÌNH_CHỨA_CHỮ" -> {
                 requireArgumentCount(name, arguments, 1)
