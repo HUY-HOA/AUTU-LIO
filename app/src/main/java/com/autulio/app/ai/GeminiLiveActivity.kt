@@ -87,7 +87,14 @@ class GeminiLiveActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val accessToken = intent.getStringExtra(EXTRA_ACCESS_TOKEN).orEmpty()
-        setContent { GeminiLiveScreen(accessToken = accessToken, onBack = { finish() }) }
+        val canAuthorAutuScripts = intent.getBooleanExtra(EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING, false)
+        setContent {
+            GeminiLiveScreen(
+                accessToken = accessToken,
+                canAuthorAutuScripts = canAuthorAutuScripts,
+                onBack = { finish() }
+            )
+        }
     }
 
     override fun onResume() {
@@ -98,19 +105,25 @@ class GeminiLiveActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_ACCESS_TOKEN = "com.autulio.app.ai.ACCESS_TOKEN"
+        const val EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING = "com.autulio.app.ai.ALLOW_AUTU_SCRIPT_AUTHORING"
     }
 }
 
 private data class TranscriptLine(val speaker: String, val text: String)
 
 @Composable
-private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
+private fun GeminiLiveScreen(
+    accessToken: String,
+    canAuthorAutuScripts: Boolean,
+    onBack: () -> Unit
+) {
     val activity = LocalActivity.current as? GeminiLiveActivity ?: return
     var status by remember { mutableStateOf("Chưa kết nối") }
     var error by remember { mutableStateOf("") }
     var starting by remember { mutableStateOf(false) }
     var connected by remember { mutableStateOf(false) }
     var allowActions by rememberSaveable { mutableStateOf(false) }
+    var allowAutuScriptAuthoring by rememberSaveable { mutableStateOf(false) }
     var prompt by rememberSaveable { mutableStateOf("") }
     val accessibilityReady = activity.accessibilityReady
     val transcripts = remember { mutableStateListOf<TranscriptLine>() }
@@ -165,6 +178,7 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
                 liveService = service
                 service?.setUiCallbacks(callbacks)
                 service?.setActionsEnabled(allowActions)
+                service?.setScriptAuthoringEnabled(allowAutuScriptAuthoring && canAuthorAutuScripts)
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {
@@ -211,6 +225,7 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
         val intent = Intent(activity, GeminiLiveService::class.java)
             .setAction(GeminiLiveService.ACTION_START)
             .putExtra(GeminiLiveService.EXTRA_ACCESS_TOKEN, accessToken)
+            .putExtra(GeminiLiveService.EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING, canAuthorAutuScripts)
         try {
             ContextCompat.startForegroundService(activity, intent)
             liveService?.setActionsEnabled(allowActions)
@@ -336,6 +351,30 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
                 }
             }
 
+            if (canAuthorAutuScripts) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Cho phép AI viết AUTU", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Bật để Gemini đọc, kiểm tra và lưu bản nháp AUTU đã hợp lệ vào bộ nhớ mã hóa trên thiết bị. AI không được sửa mã nguồn ứng dụng và không thể tự chạy hoặc phát hành kịch bản.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            Switch(
+                                checked = allowAutuScriptAuthoring,
+                                onCheckedChange = {
+                                    allowAutuScriptAuthoring = it
+                                    liveService?.setScriptAuthoringEnabled(it && canAuthorAutuScripts)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Gửi chỉ dẫn bằng văn bản", fontWeight = FontWeight.SemiBold)
@@ -385,7 +424,8 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
     }
 }
 internal class GeminiLiveController(
-    private val callbacks: Callbacks
+    private val callbacks: Callbacks,
+    private val scriptWorkspace: GeminiAutuScriptWorkspace? = null
 ) {
     interface Callbacks {
         fun onStatus(value: String)
@@ -413,6 +453,7 @@ internal class GeminiLiveController(
     @Volatile private var audioRecord: AudioRecord? = null
     @Volatile private var audioTrack: AudioTrack? = null
     @Volatile private var actionsEnabled = false
+    @Volatile private var scriptAuthoringEnabled = false
     @Volatile private var sessionToken: String? = null
     @Volatile private var resumeHandle: String? = null
     @Volatile private var connectionGeneration = 0L
@@ -420,6 +461,10 @@ internal class GeminiLiveController(
 
     fun setActionsEnabled(enabled: Boolean) {
         actionsEnabled = enabled
+    }
+
+    fun setScriptAuthoringEnabled(enabled: Boolean) {
+        scriptAuthoringEnabled = enabled && scriptWorkspace != null
     }
 
     fun connect(token: String) {
@@ -646,6 +691,14 @@ internal class GeminiLiveController(
         if (!active.get()) {
             return JSONObject().put("ok", false).put("error", "Live session has stopped.")
         }
+        if (isAutuScriptTool(name)) {
+            if (!scriptAuthoringEnabled) {
+                return JSONObject().put("ok", false).put("error", "The user has not enabled AUTU script authoring.")
+            }
+            val workspace = scriptWorkspace
+                ?: return JSONObject().put("ok", false).put("error", "AUTU script authoring is not available in this account.")
+            return workspace.executeTool(name, args)
+        }
         if (name != "read_screen_text" && !actionsEnabled) {
             return JSONObject().put("ok", false).put("error", "User has not enabled screen control.")
         }
@@ -694,6 +747,14 @@ internal class GeminiLiveController(
             JSONObject().put("ok", false).put("error", exception.message?.take(160) ?: "Invalid tool arguments.")
         }
     }
+
+    private fun isAutuScriptTool(name: String): Boolean = name in setOf(
+        "get_autu_script_reference",
+        "list_autu_script_drafts",
+        "read_autu_script_draft",
+        "validate_autu_script",
+        "save_autu_script_draft"
+    )
 
     private fun requireInt(args: JSONObject, key: String, min: Int, max: Int): Int {
         if (!args.has(key)) throw IOException("Missing $key")
@@ -929,6 +990,41 @@ internal class GeminiLiveController(
                     JSONArray().put("text")
                 )
             )
+        if (scriptWorkspace != null) {
+            declarations
+                .put(functionDeclaration(
+                    "get_autu_script_reference",
+                    "Read the AUTU-LIO Script 1.19 syntax reference and safe authoring rules.",
+                    JSONObject(),
+                    JSONArray()
+                ))
+                .put(functionDeclaration(
+                    "list_autu_script_drafts",
+                    "List names of the current owner's locally stored AUTU script drafts.",
+                    JSONObject(),
+                    JSONArray()
+                ))
+                .put(functionDeclaration(
+                    "read_autu_script_draft",
+                    "Read one AUTU script draft by name.",
+                    JSONObject().put("name", JSONObject().put("type", "STRING").put("description", "Draft name.")),
+                    JSONArray().put("name")
+                ))
+                .put(functionDeclaration(
+                    "validate_autu_script",
+                    "Compile and validate AUTU Script 1.19 source without saving or executing it.",
+                    JSONObject().put("source", JSONObject().put("type", "STRING").put("description", "AUTU Script source, maximum 32768 characters.")),
+                    JSONArray().put("source")
+                ))
+                .put(functionDeclaration(
+                    "save_autu_script_draft",
+                    "Save a valid AUTU Script draft in the encrypted local store. This never runs or publishes it.",
+                    JSONObject()
+                        .put("name", JSONObject().put("type", "STRING").put("description", "Draft name, 1 to 100 characters."))
+                        .put("source", JSONObject().put("type", "STRING").put("description", "AUTU Script source, maximum 32768 characters.")),
+                    JSONArray().put("name").put("source")
+                ))
+        }
         val tools = JSONArray().put(JSONObject().put("functionDeclarations", declarations))
         val systemInstruction = JSONObject().put(
             "parts",
@@ -937,7 +1033,14 @@ internal class GeminiLiveController(
                     "text",
                     "You are AUTU-LIO Gemini Live, an Android screen assistant. " +
                         "Observe the latest shared screen frame and listen to the user's spoken instructions. " +
-                        "Use only the declared screen-control functions. Coordinates are physical screen pixels from the top-left corner. " +
+                        "Use only the declared functions. Coordinates are physical screen pixels from the top-left corner. " +
+                        (if (scriptWorkspace != null) {
+                            "You may create, inspect, validate and save AUTU Script 1.19 drafts only inside AUTU-LIO when the user enables AUTU script authoring. " +
+                                "Never access, request or modify Kotlin, Java, Gradle, XML, Worker source, database schema, app settings, APKs or any application source. " +
+                                "Compile every script before saving; fix compiler diagnostics. Saving never runs or publishes a script. The user must review and run it manually. "
+                        } else {
+                            "This session has no AUTU script authoring capability. "
+                        }) +
                         "Never request or interact with passwords, one-time codes, banking, payment, purchases, account recovery, or security settings. " +
                         "Never confirm or submit destructive actions such as deleting data, sending messages, publishing, or making purchases. Ask the user to perform those actions manually. " +
                         "Before navigating away from a form with unsaved content, explain the risk and ask the user. " +
