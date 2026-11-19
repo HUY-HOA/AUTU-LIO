@@ -143,7 +143,7 @@ test("missing OWNER_GOOGLE_SUB never grants OWNER even when an owner email exist
   );
 });
 
-test("Gemini Live token endpoint authenticates the app session and locks the complete owner setup", async () => {
+test("Gemini Live token returns the single authoritative owner setup without locking it into the ephemeral token", async () => {
   const { env } = createEnv({ session: ownerSession });
   env.GEMINI_API_KEY = "server-only-test-key";
   const originalFetch = globalThis.fetch;
@@ -152,7 +152,8 @@ test("Gemini Live token endpoint authenticates the app session and locks the com
     upstreamRequest = { url: String(url), options };
     return new Response(JSON.stringify({
       name: "auth_tokens/test-ephemeral-token",
-      expireTime: "2026-11-19T22:00:00.000Z"
+      expireTime: "2026-11-19T22:00:00.000Z",
+      newSessionExpireTime: "2026-11-19T21:31:00.000Z"
     }), { status: 200, headers: { "Content-Type": "application/json" } });
   };
   try {
@@ -162,18 +163,21 @@ test("Gemini Live token endpoint authenticates the app session and locks the com
         Authorization: "Bearer " + "A".repeat(48),
         "CF-Connecting-IP": "203.0.113.21"
       },
-      body: "{}"
+      body: JSON.stringify({ enableAutuScriptAuthoring: true })
     }), env);
     const body = await json(response);
     assert.equal(response.status, 200);
     assert.equal(body.token, "auth_tokens/test-ephemeral-token");
     assert.equal(body.model, "models/gemini-3.8-live");
+    assert.equal(body.setup.model, body.model);
     assert.equal(new URL(upstreamRequest.url).pathname, "/v1alpha/auth_tokens");
     assert.equal(upstreamRequest.options.headers["x-goog-api-key"], "server-only-test-key");
     const payload = JSON.parse(upstreamRequest.options.body);
     assert.equal(payload.uses, 1);
-    const setup = payload.bidiGenerateContentSetup;
-    assert.equal(setup.model, "models/gemini-3.8-live");
+    assert.equal(Object.hasOwn(payload, "bidiGenerateContentSetup"), false);
+    assert.equal(Object.hasOwn(payload, "liveConnectConstraints"), false);
+    assert.equal(Object.hasOwn(payload, "fieldMask"), false);
+    const setup = body.setup;
     assert.deepEqual(setup.generationConfig.responseModalities, ["AUDIO"]);
     assert.deepEqual(setup.generationConfig.speechConfig, {
       voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
@@ -182,6 +186,7 @@ test("Gemini Live token endpoint authenticates the app session and locks the com
     assert.deepEqual(setup.outputAudioTranscription, {});
     assert.deepEqual(setup.contextWindowCompression, { slidingWindow: {} });
     assert.deepEqual(setup.sessionResumption, {});
+    assert.match(setup.systemInstruction.parts[0].text, /explicitly enabled that capability before connecting/);
     assert.match(setup.systemInstruction.parts[0].text, /Never access, request, generate, modify or publish AUTU-LIO application source code/);
     const declarations = setup.tools[0].functionDeclarations;
     assert.equal(declarations.length, 11);
@@ -201,8 +206,6 @@ test("Gemini Live token endpoint authenticates the app session and locks the com
         "validate_autu_script"
       ].sort()
     );
-    assert.equal(Object.hasOwn(payload, "liveConnectConstraints"), false);
-    assert.equal(Object.hasOwn(payload, "fieldMask"), false);
     const expiryMs = Date.parse(payload.expireTime) - Date.now();
     const newSessionExpiryMs = Date.parse(payload.newSessionExpireTime) - Date.now();
     assert.ok(expiryMs > 28 * 60 * 1000 && expiryMs <= 30 * 60 * 1000);
@@ -213,7 +216,31 @@ test("Gemini Live token endpoint authenticates the app session and locks the com
   }
 });
 
-test("Gemini Live customer token receives only the six screen-control tools", async () => {
+test("Gemini Live owner setup omits AUTU script tools when the owner has not enabled authoring", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  env.GEMINI_API_KEY = "server-only-test-key";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    name: "auth_tokens/owner-no-authoring-token"
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+  try {
+    const response = await worker.fetch(makeRequest("/api/ai/live-token", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + "A".repeat(48) },
+      body: JSON.stringify({ enableAutuScriptAuthoring: false })
+    }), env);
+    const body = await json(response);
+    assert.equal(response.status, 200);
+    const names = body.setup.tools[0].functionDeclarations.map(item => item.name);
+    assert.equal(names.length, 6);
+    assert.equal(names.some(name => name.includes("autu_script")), false);
+    assert.match(body.setup.systemInstruction.parts[0].text, /does not have AUTU script authoring capability/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Gemini Live customer receives only six screen tools in the canonical setup", async () => {
   const { env } = createEnv({ session: customerSession });
   env.GEMINI_API_KEY = "server-only-test-key";
   const originalFetch = globalThis.fetch;
@@ -232,11 +259,13 @@ test("Gemini Live customer token receives only the six screen-control tools", as
         Authorization: "Bearer " + "C".repeat(48),
         "CF-Connecting-IP": "203.0.113.22"
       },
-      body: "{}"
+      body: JSON.stringify({ enableAutuScriptAuthoring: false })
     }), env);
+    const body = await json(response);
     assert.equal(response.status, 200);
     const payload = JSON.parse(upstreamRequest.options.body);
-    const setup = payload.bidiGenerateContentSetup;
+    assert.equal(Object.hasOwn(payload, "bidiGenerateContentSetup"), false);
+    const setup = body.setup;
     assert.equal(setup.model, "models/gemini-3.8-live");
     const declarations = setup.tools[0].functionDeclarations;
     assert.equal(declarations.length, 6);
@@ -245,7 +274,29 @@ test("Gemini Live customer token receives only the six screen-control tools", as
       ["long_press_screen", "press_back", "read_screen_text", "swipe_screen", "tap_screen", "tap_text"].sort()
     );
     assert.equal(declarations.some(item => item.name.includes("autu_script")), false);
-    assert.equal(JSON.stringify(payload).includes("liveConnectConstraints"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Gemini Live customer cannot request owner-only AUTU script tools", async () => {
+  const { env } = createEnv({ session: customerSession });
+  env.GEMINI_API_KEY = "server-only-test-key";
+  const originalFetch = globalThis.fetch;
+  let upstreamCalled = false;
+  globalThis.fetch = async () => {
+    upstreamCalled = true;
+    return new Response(JSON.stringify({ name: "auth_tokens/should-not-exist" }), { status: 200 });
+  };
+  try {
+    const response = await worker.fetch(makeRequest("/api/ai/live-token", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + "C".repeat(48) },
+      body: JSON.stringify({ enableAutuScriptAuthoring: true })
+    }), env);
+    assert.equal(response.status, 403);
+    assert.equal((await json(response)).error, "owner_required");
+    assert.equal(upstreamCalled, false);
   } finally {
     globalThis.fetch = originalFetch;
   }
