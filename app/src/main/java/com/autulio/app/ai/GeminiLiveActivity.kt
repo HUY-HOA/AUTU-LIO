@@ -1,6 +1,7 @@
 package com.autulio.app.ai
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.ComponentName
 import android.content.Context
@@ -11,6 +12,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -101,8 +103,7 @@ class GeminiLiveActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        accessibilityReady = AutoClickAccessibilityService.current() != null &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+        accessibilityReady = AutoClickAccessibilityService.current() != null
     }
 
     companion object {
@@ -241,13 +242,13 @@ private fun GeminiLiveScreen(
         onDispose { startupTimeoutHandler.removeCallbacks(timeout) }
     }
 
-    fun beginSession() {
+    fun beginSession(projectionResultCode: Int, projectionData: Intent) {
         if (accessToken.isBlank()) {
             error = "Không tìm thấy phiên đăng nhập. Hãy đăng nhập lại."
             return
         }
         if (!accessibilityReady) {
-            error = "Hãy bật Dịch vụ trợ năng AUTU-LIO trước khi bắt đầu."
+            error = "Hãy bật Dịch vụ trợ năng AUTU-LIO để cho phép AI đọc nhãn và thao tác trên màn hình."
             return
         }
         if (!serviceBound || liveService == null) {
@@ -257,7 +258,7 @@ private fun GeminiLiveScreen(
         }
         starting = true
         error = ""
-        status = "Đang khởi động dịch vụ Gemini Live…"
+        status = "Đã cấp quyền chia sẻ màn hình · đang khởi động Gemini Live…"
         val intent = Intent(activity, GeminiLiveService::class.java)
             .setAction(GeminiLiveService.ACTION_START)
             .putExtra(GeminiLiveService.EXTRA_ACCESS_TOKEN, accessToken)
@@ -266,6 +267,8 @@ private fun GeminiLiveScreen(
                 GeminiLiveService.EXTRA_ENABLE_AUTU_SCRIPT_AUTHORING,
                 allowAutuScriptAuthoring && canAuthorAutuScripts
             )
+            .putExtra(GeminiLiveService.EXTRA_MEDIA_PROJECTION_RESULT_CODE, projectionResultCode)
+            .putExtra(GeminiLiveService.EXTRA_MEDIA_PROJECTION_DATA, projectionData)
         try {
             ContextCompat.startForegroundService(activity, intent)
             liveService?.setActionsEnabled(allowActions)
@@ -275,15 +278,33 @@ private fun GeminiLiveScreen(
         }
     }
 
+    val screenCapturePermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val projectionData = result.data
+        if (result.resultCode == Activity.RESULT_OK && projectionData != null) {
+            beginSession(result.resultCode, projectionData)
+        } else {
+            starting = false
+            status = "Chưa bắt đầu phiên Live"
+            error = "Bạn chưa cho phép chia sẻ màn hình. AUTU-LIO không gửi hình ảnh màn hình khi chưa được Android cấp quyền."
+        }
+    }
+
+    fun requestScreenCapturePermission() {
+        val manager = activity.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        screenCapturePermission.launch(manager.createScreenCaptureIntent())
+    }
+
     val microphonePermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) beginSession() else error = "Cần quyền micro để trò chuyện bằng giọng nói với Gemini Live."
+        if (granted) requestScreenCapturePermission()
+        else error = "Cần quyền micro để trò chuyện bằng giọng nói với Gemini Live."
     }
 
     val serviceAvailable = accessibilityReady &&
         serviceBound &&
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
         accessToken.isNotBlank()
 
     Scaffold(
@@ -314,19 +335,18 @@ private fun GeminiLiveScreen(
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(status, fontWeight = FontWeight.SemiBold)
                     Text(
-                        "Khi hoạt động, micro và ảnh màn hình JPEG được gửi tới Google Gemini. Phiên tiếp tục khi AUTU-LIO ở nền và chỉ dừng khi bạn bấm Dừng hoặc dừng từ thông báo.",
+                        "Khi bắt đầu, Android sẽ hỏi quyền chia sẻ màn hình. Nếu bạn đồng ý, hình ảnh màn hình và âm thanh micro được gửi trực tiếp tới Google Gemini trong phiên Live. Quyền chia sẻ sẽ dừng khi bạn bấm Dừng, dừng từ thông báo hoặc thu hồi quyền Android.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (!serviceAvailable) {
                         val setupMessage = when {
-                            Build.VERSION.SDK_INT < Build.VERSION_CODES.R -> "Nhận diện màn hình trực tiếp cần Android 11 trở lên."
-                            !accessibilityReady -> "Hãy bật Dịch vụ trợ năng AUTU-LIO để cho phép chụp màn hình và điều khiển."
+                            !accessibilityReady -> "Hãy bật Dịch vụ trợ năng AUTU-LIO để cho phép AI đọc nhãn và thao tác trên màn hình."
                             !serviceBound -> "Đang kết nối dịch vụ nền Gemini Live. Chỉ có thể bắt đầu khi dịch vụ sẵn sàng."
                             else -> "Phiên đăng nhập chưa sẵn sàng. Hãy đăng nhập lại."
                         }
                         Text(setupMessage, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !accessibilityReady) {
+                        if (!accessibilityReady) {
                             OutlinedButton(
                                 onClick = { activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
                                 modifier = Modifier.fillMaxWidth()
@@ -339,7 +359,7 @@ private fun GeminiLiveScreen(
                                 val granted = ContextCompat.checkSelfPermission(
                                     activity, Manifest.permission.RECORD_AUDIO
                                 ) == PackageManager.PERMISSION_GRANTED
-                                if (granted) beginSession()
+                                if (granted) requestScreenCapturePermission()
                                 else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
                             },
                             enabled = !starting && serviceAvailable,
@@ -526,7 +546,7 @@ internal class GeminiLiveController(
         val token = sessionToken
         if (!active.get() || token.isNullOrBlank()) return
         val encodedToken = URLEncoder.encode(token, Charsets.UTF_8.name())
-        val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=$encodedToken"
+        val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=$encodedToken"
         val request = Request.Builder().url(url).build()
         val generation = synchronized(inputLock) {
             connectionGeneration += 1
