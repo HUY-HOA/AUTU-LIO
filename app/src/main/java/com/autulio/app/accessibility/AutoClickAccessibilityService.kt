@@ -1342,6 +1342,73 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     /**
+     * Returns visible, non-editable accessibility labels for an explicitly active Gemini Live session.
+     * Password and editable nodes are excluded; returned bounds use physical screen pixels.
+     */
+    fun readAccessibilityTextForLive(): String = callOnMainThread {
+        val root = rootInActiveWindow ?: return@callOnMainThread ""
+        val lines = mutableListOf<String>()
+
+        fun visit(node: AccessibilityNodeInfo, depth: Int) {
+            if (depth > 28 || lines.size >= 80) return
+            if (node.isVisibleToUser && !node.isPassword && !node.isEditable) {
+                val bounds = Rect()
+                node.getBoundsInScreen(bounds)
+                if (!bounds.isEmpty) {
+                    val nodeText = node.text?.toString()?.trim().orEmpty()
+                    val description = node.contentDescription?.toString()?.trim().orEmpty()
+                    listOf(nodeText, description)
+                        .filter { it.isNotBlank() }
+                        .distinct()
+                        .forEach { value ->
+                            if (lines.size < 80) {
+                                lines += "x=${bounds.left},y=${bounds.top},w=${bounds.width()},h=${bounds.height()} | ${value.take(180)}"
+                            }
+                        }
+                }
+            }
+            for (index in 0 until node.childCount) {
+                if (lines.size >= 80) break
+                val child = runCatching { node.getChild(index) }.getOrNull() ?: continue
+                try {
+                    visit(child, depth + 1)
+                } finally {
+                    @Suppress("DEPRECATION")
+                    child.recycle()
+                }
+            }
+        }
+
+        try {
+            visit(root, 0)
+        } catch (_: RuntimeException) {
+            // Accessibility trees can become stale while the foreground app is changing screens.
+        } finally {
+            @Suppress("DEPRECATION")
+            root.recycle()
+        }
+        lines.joinToString("\n").take(6_000)
+    } ?: ""
+
+    /**
+     * Taps a visible, non-editable accessibility label. It deliberately refuses password
+     * and editable nodes; the caller still needs explicit Gemini Live action consent.
+     */
+    fun tapAccessibilityTextForLive(query: String): Boolean {
+        val safeQuery = query.trim().takeIf { it.isNotEmpty() && it.length <= 100 } ?: return false
+        return findAccessibilityNode(
+            matches = { node ->
+                !node.isPassword && !node.isEditable && nodeMatchesText(node, safeQuery)
+            },
+            action = { node ->
+                val bounds = Rect()
+                node.getBoundsInScreen(bounds)
+                !bounds.isEmpty && node.isEnabled && clickNodeOrClickableAncestor(node)
+            }
+        ) ?: false
+    }
+
+    /**
      * Captures a privacy-sensitive screen frame for an explicitly active Gemini Live session.
      * Must be called from a background thread. Android blocks screenshots of secure windows.
      */
