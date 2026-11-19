@@ -255,7 +255,7 @@ test("Gemini Live quota failures show a Vietnamese message", async () => {
   }
 });
 
-test("Gemini Live customer token never receives AUTU script authoring tools", async () => {
+test("Gemini Live customer token is restricted to the documented model and audio session fields", async () => {
   const { env } = createEnv({ session: customerSession });
   env.GEMINI_API_KEY = "server-only-test-key";
   const originalFetch = globalThis.fetch;
@@ -278,13 +278,13 @@ test("Gemini Live customer token never receives AUTU script authoring tools", as
     }), env);
     assert.equal(response.status, 200);
     const payload = JSON.parse(upstreamRequest.options.body);
-    const declarations = payload.bidiGenerateContentSetup.tools[0].functionDeclarations;
-    assert.equal(declarations.length, 6);
-    assert.deepEqual(
-      declarations.map(item => item.name).sort(),
-      ["long_press_screen", "press_back", "read_screen_text", "swipe_screen", "tap_screen", "tap_text"].sort()
-    );
-    assert.equal(declarations.some(item => item.name.includes("autu_script")), false);
+    assert.equal(payload.liveConnectConstraints.model, "models/gemini-3.8-live");
+    assert.deepEqual(payload.liveConnectConstraints.config, {
+      responseModalities: ["AUDIO"],
+      sessionResumption: {}
+    });
+    assert.equal(JSON.stringify(payload).includes("save_autu_script_draft"), false);
+    assert.equal(JSON.stringify(payload).includes("validate_autu_script"), false);
   } finally {
     globalThis.fetch = originalFetch;
   }
