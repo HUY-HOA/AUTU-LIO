@@ -531,7 +531,7 @@ internal class GeminiLiveController(
                 setupTimeout?.cancel(false)
                 setupTimeout = reconnectScheduler.schedule({
                     if (isCurrentSocket(webSocket, generation) && !ready.get()) {
-                        fail("Google không xác nhận cấu hình Gemini Live sau 20 giây. Phiên chưa thể bắt đầu; hãy thử lại và gửi thông báo lỗi nếu còn xảy ra.")
+                        fail("Google đã mở WebSocket nhưng không gửi xác nhận setupComplete sau 20 giây. Đã dùng API v1beta; hãy kiểm tra cấu hình token/mô hình trên máy chủ và gửi thông báo này nếu còn lỗi.")
                     }
                 }, 20, TimeUnit.SECONDS)
                 if (!webSocket.send(buildSetupMessage(resumeHandle).toString())) {
@@ -563,10 +563,12 @@ internal class GeminiLiveController(
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                val closeDetail = reason.trim().take(140)
+                val closeSuffix = if (closeDetail.isBlank()) "" else ": $closeDetail"
                 val message = if (!ready.get()) {
-                    "Google đã đóng kết nối trước khi xác nhận phiên Gemini Live (mã $code)."
+                    "Google đã đóng kết nối trước khi xác nhận phiên Gemini Live (mã $code)$closeSuffix."
                 } else {
-                    "Gemini Live đã đóng kết nối (mã $code)."
+                    "Gemini Live đã đóng kết nối (mã $code)$closeSuffix."
                 }
                 recoverConnection(webSocket, generation, message, 500L)
             }
@@ -658,7 +660,16 @@ internal class GeminiLiveController(
     }
 
     private fun handleServerMessage(webSocket: WebSocket, generation: Long, raw: String) {
-        val message = runCatching { JSONObject(raw) }.getOrNull() ?: return
+        val message = runCatching { JSONObject(raw) }.getOrNull() ?: run {
+            if (!ready.get()) callbacks.onStatus("Google gửi phản hồi khởi tạo không đúng định dạng JSON.")
+            return
+        }
+        if (!ready.get() && !message.has("setupComplete")) {
+            val frameTypes = message.keys().asSequence().take(4).joinToString(", ")
+            if (frameTypes.isNotBlank() && !message.has("error") && !message.has("serverError")) {
+                callbacks.onStatus("Google đã phản hồi trong bước khởi tạo: $frameTypes.")
+            }
+        }
         val resumptionUpdate = message.optJSONObject("sessionResumptionUpdate")
         if (resumptionUpdate?.optBoolean("resumable", false) == true) {
             val newHandle = resumptionUpdate.optString("newHandle").takeIf { it.isNotBlank() }
@@ -708,8 +719,11 @@ internal class GeminiLiveController(
             callbacks.onStatus("Gemini sắp đặt lại kết nối; AUTU-LIO đang khôi phục phiên…")
             recoverConnection(webSocket, generation, "Gemini yêu cầu nối lại phiên.", 250L)
         }
-        message.optJSONObject("error")?.let {
-            val code = it.optInt("code", -1)
+        (message.optJSONObject("error") ?: message.optJSONObject("serverError"))?.let { providerError ->
+            val code = providerError.optInt("code", -1)
+            val providerMessage = providerError.optString("message")
+                .replace(Regex("\\s+"), " ")
+                .take(160)
             val messageText = when (code) {
                 400 -> "Google từ chối cấu hình phiên Gemini Live (mã 400)."
                 401, 403 -> "Google từ chối token hoặc quyền truy cập Gemini Live (mã " + code + ")."
@@ -717,7 +731,8 @@ internal class GeminiLiveController(
                 429 -> "Gemini Live đã vượt hạn mức yêu cầu (mã 429)."
                 else -> {
                     val suffix = if (code >= 0) " (mã " + code + ")" else ""
-                    "Google Gemini trả về lỗi khi thiết lập phiên Live" + suffix + "."
+                    val detail = if (providerMessage.isBlank()) "" else ": " + providerMessage
+                    "Google Gemini trả về lỗi khi thiết lập phiên Live" + suffix + detail + "."
                 }
             }
             fail(messageText)
