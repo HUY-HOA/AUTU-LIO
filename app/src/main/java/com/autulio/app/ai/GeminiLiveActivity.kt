@@ -1,8 +1,10 @@
 package com.autulio.app.ai
 
 import android.Manifest
-import android.app.Activity
 import android.content.Intent
+import android.content.ComponentName
+import android.content.Context
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -12,6 +14,7 @@ import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
 import android.util.Base64
@@ -52,7 +55,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,8 +65,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.autulio.app.accessibility.AutoClickAccessibilityService
-import com.autulio.app.auth.AuthRepository
-import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -80,8 +80,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class GeminiLiveActivity : ComponentActivity() {
-    @Volatile
-    private var activeController: GeminiLiveController? = null
     var accessibilityReady by mutableStateOf(false)
         private set
 
@@ -97,21 +95,6 @@ class GeminiLiveActivity : ComponentActivity() {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
     }
 
-    internal fun attachController(controller: GeminiLiveController?) {
-        activeController = controller
-    }
-
-    override fun onStop() {
-        activeController?.stop()
-        super.onStop()
-    }
-
-    override fun onDestroy() {
-        activeController?.stop()
-        activeController = null
-        super.onDestroy()
-    }
-
     companion object {
         const val EXTRA_ACCESS_TOKEN = "com.autulio.app.ai.ACCESS_TOKEN"
     }
@@ -122,7 +105,6 @@ private data class TranscriptLine(val speaker: String, val text: String)
 @Composable
 private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
     val activity = LocalContext.current as GeminiLiveActivity
-    val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf("Chưa kết nối") }
     var error by remember { mutableStateOf("") }
     var starting by remember { mutableStateOf(false) }
@@ -131,54 +113,85 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
     var prompt by rememberSaveable { mutableStateOf("") }
     val accessibilityReady = activity.accessibilityReady
     val transcripts = remember { mutableStateListOf<TranscriptLine>() }
-    val controller = remember {
-        GeminiLiveController(
-            context = activity,
-            callbacks = object : GeminiLiveController.Callbacks {
-                override fun onStatus(value: String) {
-                    activity.runOnUiThread { status = value }
-                }
+    var liveService by remember { mutableStateOf<GeminiLiveService?>(null) }
 
-                override fun onConnected() {
-                    activity.runOnUiThread {
-                        starting = false
-                        connected = true
-                        status = "Đã kết nối · đang nghe và nhận diện màn hình"
-                    }
-                }
+    val callbacks = remember(activity) {
+        object : GeminiLiveController.Callbacks {
+            override fun onStatus(value: String) {
+                activity.runOnUiThread { status = value }
+            }
 
-                override fun onDisconnected() {
-                    activity.runOnUiThread {
-                        starting = false
-                        connected = false
-                        status = "Đã dừng phiên Gemini Live"
-                    }
+            override fun onConnected() {
+                activity.runOnUiThread {
+                    starting = false
+                    connected = true
+                    status = "Đã kết nối · đang nghe và nhận diện màn hình"
+                    error = ""
                 }
+            }
 
-                override fun onTranscript(speaker: String, text: String) {
-                    activity.runOnUiThread {
-                        if (text.isNotBlank()) {
-                            transcripts.add(TranscriptLine(speaker, text.take(1_200)))
-                            while (transcripts.size > 40) transcripts.removeAt(0)
-                        }
-                    }
+            override fun onDisconnected() {
+                activity.runOnUiThread {
+                    starting = false
+                    connected = false
+                    status = "Đã dừng phiên Gemini Live"
                 }
+            }
 
-                override fun onError(message: String) {
-                    activity.runOnUiThread {
-                        error = message
-                        starting = false
-                        connected = false
+            override fun onTranscript(speaker: String, text: String) {
+                activity.runOnUiThread {
+                    if (text.isNotBlank()) {
+                        transcripts.add(TranscriptLine(speaker, text.take(1_200)))
+                        while (transcripts.size > 40) transcripts.removeAt(0)
                     }
                 }
             }
-        )
+
+            override fun onError(message: String) {
+                activity.runOnUiThread {
+                    error = message
+                    starting = false
+                    connected = false
+                }
+            }
+        }
     }
-    activity.attachController(controller)
-    DisposableEffect(controller) {
+
+    val connection = remember(callbacks) {
+        object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+                val service = (binder as? GeminiLiveService.LocalBinder)?.getService()
+                liveService = service
+                service?.setUiCallbacks(callbacks)
+                service?.setActionsEnabled(allowActions)
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                liveService = null
+                connected = false
+                starting = false
+            }
+
+            override fun onBindingDied(name: ComponentName?) {
+                liveService = null
+                connected = false
+                starting = false
+                error = "Kết nối tới dịch vụ Gemini Live bị gián đoạn."
+            }
+        }
+    }
+
+    DisposableEffect(activity, connection) {
+        val bound = runCatching {
+            activity.bindService(
+                Intent(activity, GeminiLiveService::class.java),
+                connection,
+                Context.BIND_AUTO_CREATE
+            )
+        }.getOrDefault(false)
         onDispose {
-            controller.stop()
-            activity.attachController(null)
+            liveService?.setUiCallbacks(null)
+            if (bound) runCatching { activity.unbindService(connection) }
         }
     }
 
@@ -187,19 +200,22 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
             error = "Không tìm thấy phiên đăng nhập. Hãy đăng nhập lại."
             return
         }
+        if (!accessibilityReady) {
+            error = "Hãy bật Dịch vụ trợ năng AUTU-LIO trước khi bắt đầu."
+            return
+        }
         starting = true
         error = ""
-        status = "Đang xin token Gemini Live tạm thời…"
-        scope.launch {
-            try {
-                val token = AuthRepository(activity).createGeminiLiveToken(accessToken)
-                controller.setActionsEnabled(allowActions)
-                controller.connect(token)
-            } catch (exception: Exception) {
-                starting = false
-                error = exception.message ?: "Không khởi tạo được Gemini Live."
-                status = "Chưa kết nối"
-            }
+        status = "Đang khởi động dịch vụ Gemini Live…"
+        val intent = Intent(activity, GeminiLiveService::class.java)
+            .setAction(GeminiLiveService.ACTION_START)
+            .putExtra(GeminiLiveService.EXTRA_ACCESS_TOKEN, accessToken)
+        try {
+            ContextCompat.startForegroundService(activity, intent)
+            liveService?.setActionsEnabled(allowActions)
+        } catch (exception: Exception) {
+            starting = false
+            error = "Không khởi động được Gemini Live: ${exception.message.orEmpty()}"
         }
     }
 
@@ -241,7 +257,7 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(status, fontWeight = FontWeight.SemiBold)
                     Text(
-                        "Khi phiên hoạt động, âm thanh micro và ảnh màn hình JPEG (tối đa khoảng 1 khung hình/giây) được gửi tới Google Gemini. Phiên sẽ dừng khi rời màn hình này.",
+                        "Khi hoạt động, micro và ảnh màn hình JPEG được gửi tới Google Gemini. Phiên tiếp tục khi AUTU-LIO ở nền và chỉ dừng khi bạn bấm Dừng hoặc dừng từ thông báo.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -277,10 +293,10 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
                     } else {
                         Button(
                             onClick = {
-                                controller.stop()
+                                liveService?.stopLive()
                                 connected = false
                                 starting = false
-                                status = "Đã dừng phiên Gemini Live"
+                                status = "Đang dừng Gemini Live…"
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -307,7 +323,7 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
                             checked = allowActions,
                             onCheckedChange = {
                                 allowActions = it
-                                controller.setActionsEnabled(it)
+                                liveService?.setActionsEnabled(it)
                             }
                         )
                     }
@@ -334,7 +350,7 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
                     OutlinedButton(
                         onClick = {
                             val message = prompt.trim()
-                            if (message.isNotEmpty() && controller.sendText(message)) {
+                            if (message.isNotEmpty() && liveService?.sendText(message) == true) {
                                 transcripts.add(TranscriptLine("Bạn", message))
                                 prompt = ""
                             }
@@ -367,9 +383,7 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
         }
     }
 }
-
 internal class GeminiLiveController(
-    private val context: Activity,
     private val callbacks: Callbacks
 ) {
     interface Callbacks {
