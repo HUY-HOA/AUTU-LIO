@@ -15,7 +15,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 
 ## Ma trận tính năng
 
-**Trạng thái mã nguồn hiện tại:** AUTU Script 1.18. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.18; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.19. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.19; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
 
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
@@ -33,7 +33,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 | Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel, DP, tỷ lệ 0–1 và truy vấn hướng/góc xoay đã có; hiệu chỉnh vùng an toàn và chuyển đổi hệ tọa độ theo xoay còn thiếu |
 | Sự kiện | Thay đổi cửa sổ, nội dung, thông báo do người dùng cấp quyền, trạng thái ứng dụng | Còn thiếu |
 | Lịch và nền | Lịch chạy, hàng đợi, retry, điều kiện pin/mạng, tác vụ định kỳ và thông báo trạng thái | Còn thiếu |
-| Thiết bị | Pin, sạc, mạng, màn hình, ứng dụng foreground và thông số màn hình | Đã có pin/sạc/mạng, trạng thái màn hình, kích thước pixel/DP, density, hướng/xoay và package foreground; âm lượng/rung/clipboard còn thiếu |
+| Thiết bị | Pin, sạc, mạng, màn hình, ứng dụng foreground và thông số màn hình | Đã có pin/sạc/mạng, trạng thái màn hình, pixel/DP, density, hướng/xoay, package foreground, model/nhà sản xuất/phiên bản Android và trạng thái Keyguard; âm lượng/rung/clipboard còn thiếu |
 | Giao diện kịch bản | Form, nút, ô nhập, danh sách, bảng điều khiển và biến tương tác | Còn thiếu |
 | Thư viện | Module, import/export, phiên bản thư viện, tái sử dụng hàm | Còn thiếu |
 | Trình soạn thảo | Tô màu, gợi ý, tự hoàn thành, kiểm tra kiểu, mẫu mã, định dạng | Một phần |
@@ -46,6 +46,10 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 - `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()` trả thông số kích thước theo density và pixel.
 - `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()` trả hướng và rotation hiện tại.
 - `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` trả package gần nhất từ sự kiện AccessibilityService; có thể rỗng nếu chưa có sự kiện.
+
+### Thông tin thiết bị đã nối runtime ở 1.19
+
+Các hàm HÀNG_SẢN_XUẤT(), MẪU_THIẾT_BỊ(), PHIÊN_BẢN_ANDROID(), MỨC_API_ANDROID(), MÀN_HÌNH_BỊ_KHÓA() và THIẾT_BỊ_ĐƯỢC_BẢO_MẬT() đọc thuộc tính thiết bị/Keyguard cục bộ. Trạng thái bảo mật chỉ được truy vấn; không có hàm bỏ qua hoặc mở khóa bảo mật.
 
 ## Danh mục API dự kiến
 
