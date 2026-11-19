@@ -40,6 +40,7 @@ import com.autulio.app.runtime.ScriptExecutionState
 import com.autulio.app.runtime.ScriptHttpClient
 import com.autulio.app.runtime.ScreenColorAnalyzer
 import com.autulio.app.runtime.ScreenCoordinateConverter
+import com.autulio.app.runtime.ScreenMetricsInfo
 import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
@@ -309,6 +310,25 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 val packageName = arguments[0] as? String ?: return false
                 foregroundPackage == packageName
             }
+            "CHIỀU_RỘNG_DP" -> {
+                val metrics = readDisplayMetrics()
+                ScreenMetricsInfo.widthDp(metrics.widthPixels, metrics.density.toDouble())
+            }
+            "CHIỀU_CAO_DP" -> {
+                val metrics = readDisplayMetrics()
+                ScreenMetricsInfo.heightDp(metrics.heightPixels, metrics.density.toDouble())
+            }
+            "TỶ_LỆ_KHUNG_HÌNH" -> {
+                val metrics = readDisplayMetrics()
+                ScreenMetricsInfo.aspectRatio(metrics.widthPixels, metrics.heightPixels)
+            }
+            "HƯỚNG_MÀN_HÌNH" -> {
+                val metrics = readDisplayMetrics()
+                ScreenMetricsInfo.orientation(metrics.widthPixels, metrics.heightPixels)
+            }
+            "XOAY_MÀN_HÌNH" -> readDisplayRotation()
+            "GÓC_XOAY_MÀN_HÌNH" -> ScreenMetricsInfo.rotationDegrees(readDisplayRotation())
+            "GÓI_ỨNG_DỤNG_ĐANG_MỞ" -> foregroundPackage.orEmpty()
             "MẬT_ĐỘ_MÀN_HÌNH" -> readDisplayMetrics().density.toDouble()
             "DP_SANG_PIXEL" -> {
                 requireArgumentCount(name, arguments, 1)
@@ -1380,6 +1400,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private fun insideDisplay(x: Int, y: Int, metrics: DisplayMetrics): Boolean =
         x >= 0 && y >= 0 && x < metrics.widthPixels && y < metrics.heightPixels
+
+    @Suppress("DEPRECATION")
+    private fun readDisplayRotation(): Int =
+        (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
 
     @Suppress("DEPRECATION")
     private fun readDisplayMetrics(): DisplayMetrics {
