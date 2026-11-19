@@ -9,7 +9,7 @@
 - Session bearer token được lưu dưới dạng mã hóa AES-GCM bằng khóa Android Keystore. Chỉ lưu token session, không lưu Google ID token.
 - Mỗi lần mở app, ứng dụng hỏi máy chủ `/api/auth/me`; UI role chỉ mở sau khi máy chủ xác minh phiên.
 
-Đây là phần khung tích hợp. Auth API chưa deploy và Google OAuth chưa cấu hình, do đó nút đăng nhập sẽ bị khóa cho tới khi có đủ cấu hình.
+Luồng Android và Worker đã được triển khai. Worker URL: `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Google Web Client ID, Android Client ID allowlist và package master key đã được cấu hình. Còn thiếu `OWNER_GOOGLE_SUB` của tài khoản chủ sở hữu; đến khi secret này được đặt, tài khoản đăng nhập không được cấp vai trò OWNER. Chưa build APK mới hoặc kiểm thử đăng nhập trên thiết bị.
 
 ## 2. Google Cloud Console
 
@@ -52,11 +52,11 @@ Không commit các giá trị cấu hình hoặc bí mật vào Git. Không đư
 
 ## 4. Cấu hình Android build
 
-Worker hiện chưa deploy, nên chưa có URL API thực tế. Sau khi deploy và xác nhận URL, đặt hai Gradle properties ở máy build, ưu tiên file `~/.gradle/gradle.properties` bên ngoài repository:
+Worker đã được deploy. Workflow GitHub Actions đã truyền hai cấu hình sau vào cả Debug và Release; URL API không phải bí mật:
 
 ```properties
-AUTU_LIO_AUTH_API_BASE_URL=https://<worker-url>
-AUTU_LIO_GOOGLE_SERVER_CLIENT_ID=<web-application-client-id>
+AUTU_LIO_AUTH_API_BASE_URL=https://autu-lio-auth-api.coc-lio-data.workers.dev
+AUTU_LIO_GOOGLE_SERVER_CLIENT_ID=45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
 ```
 
 Có thể truyền cùng tên qua environment variables:
@@ -71,7 +71,7 @@ Trước khi deploy:
 1. Xác nhận `GOOGLE_CLIENT_ID` và `OWNER_GOOGLE_SUB` đã được cấu hình an toàn.
 2. Kiểm tra binding D1 `autu_lio_auth` trong `backend/wrangler.jsonc`.
 3. Cài Wrangler theo phiên bản ổn định phù hợp và chạy `npm run check`.
-4. D1 `autu_lio_auth` đã được kiểm tra ngày 19/11/2026 và có 0 bảng; chưa có migration nào được áp dụng lên database từ xa. Chạy `npx wrangler d1 migrations list autu_lio_auth` rồi áp dụng các migration còn thiếu theo thứ tự sau khi rà soát.
+4. D1 `autu_lio_auth` hiện có 20 bảng và đã áp dụng migrations `0001`–`0005` trên database từ xa.
 5. Deploy Worker, gọi `GET /health`, xác nhận database và cấu hình Google đều báo sẵn sàng.
 6. Kiểm thử đăng nhập bằng tài khoản chủ sở hữu trước khi mời tài khoản khác.
 
@@ -91,7 +91,7 @@ Màn hình mời/quản lý cộng tác viên và workspace dự án đã đư�
 
 - Chưa có Google OAuth Client IDs.
 - Chưa có `OWNER_GOOGLE_SUB` được cấu hình trong Cloudflare Worker Secret.
-- Worker chưa được deploy và chưa có URL.
+- Worker đã deploy tại `https://autu-lio-auth-api.coc-lio-data.workers.dev`; `workers.dev` đã được bật. Còn thiếu `OWNER_GOOGLE_SUB` và kiểm thử đăng nhập thực tế.
 - Chưa thử đăng nhập thực trên điện thoại.
 - Màn hình Android đã nối API quản lý cộng tác viên, thu hồi lời mời, chấp nhận mã, quản lý dự án, lưu script/UI draft và duyệt submission; chưa thể dùng trực tuyến cho tới khi Worker deploy và secrets Google được cấu hình.
 - `AUTU_LIO_AUTH_API_BASE_URL` và `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID` hiện chưa được đặt trong môi trường build; để trống sẽ khóa đăng nhập có chủ đích.
