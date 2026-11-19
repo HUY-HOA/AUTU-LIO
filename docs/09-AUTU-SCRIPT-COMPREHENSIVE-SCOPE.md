@@ -13,6 +13,14 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 5. Mỗi tính năng phải có giới hạn tài nguyên, lỗi xác định, test unit hoặc test tích hợp và tài liệu.
 6. Tính năng phải kiểm tra phiên bản Android, quyền, trạng thái dịch vụ và khả năng của thiết bị trước khi chạy.
 
+## Gemini Live — soạn AUTU bên trong ứng dụng
+
+Gemini Live có chế độ viết AUTU riêng, chỉ dành cho phiên OWNER và phải được bật bằng công tắc **Cho phép AI viết AUTU**. Chế độ này chỉ thao tác với bản nháp qua `SecureScriptDraftStore` namespace `admin` trên thiết bị.
+
+Các công cụ chỉ gồm: đọc tài liệu AUTU, liệt kê/đọc bản nháp, biên dịch kiểm tra và lưu mã đã hợp lệ. Không có công cụ sửa mã nguồn Android, Worker, cấu hình, schema, APK, chạy hoặc phát hành AUTU. Worker không khai báo các tool viết AUTU cho CUSTOMER. Việc điều khiển màn hình có công tắc riêng.
+
+Sau khi AI lưu, người dùng phải mở bản nháp trong tab Kịch bản, kiểm tra lại và tự thực hiện thao tác chạy. AUTU Script compiler/runtime vẫn chạy độc lập khi không dùng Gemini. Chi tiết: [Gemini AUTU authoring](GEMINI-AUTU-AUTHORING.md).
+
 ## Ma trận tính năng
 
 **Trạng thái mã nguồn hiện tại:** AUTU Script 1.19. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.19; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
