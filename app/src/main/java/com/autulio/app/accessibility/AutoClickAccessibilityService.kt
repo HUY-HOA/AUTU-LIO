@@ -77,9 +77,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         private const val GESTURE_TIMEOUT_GRACE_MS = 3_000L
         private const val MAX_SCREEN_COLOR_SAMPLES = 262_144
         private const val MAX_REGION_COLOR_SAMPLES = 65_536
-        private const val MAX_OCR_STRUCTURED_BLOCKS = 64
-        private const val MAX_OCR_STRUCTURED_LINES = 256
-        private const val MAX_SCREEN_BARCODE_RESULTS = 64
+        private const val MAX_OCR_STRUCTURED_BLOCKS = 32
+        private const val MAX_OCR_STRUCTURED_LINES = 40
+        private const val MAX_SCREEN_BARCODE_RESULTS = 56
+        private const val MAX_OCR_TEXT_VALUE_CHARS = 4_096
 
         fun current(): AutoClickAccessibilityService? = activeInstance
     }
@@ -963,7 +964,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         .map { line ->
                             val lineBounds = line.boundingBox
                             linkedMapOf<String, Any?>(
-                                "VĂN_BẢN" to line.text,
+                                "VĂN_BẢN" to line.text.take(MAX_OCR_TEXT_VALUE_CHARS),
                                 "X" to (lineBounds?.left?.toDouble()),
                                 "Y" to (lineBounds?.top?.toDouble()),
                                 "RỘNG" to (lineBounds?.width()?.toDouble()),
@@ -974,7 +975,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         .toMutableList<Any?>()
                     remainingLines -= lines.size
                     linkedMapOf<String, Any?>(
-                        "VĂN_BẢN" to block.text,
+                        "VĂN_BẢN" to block.text.take(MAX_OCR_TEXT_VALUE_CHARS),
                         "X" to (bounds?.left?.toDouble()),
                         "Y" to (bounds?.top?.toDouble()),
                         "RỘNG" to (bounds?.width()?.toDouble()),
@@ -998,8 +999,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 .map { barcode ->
                     val bounds = barcode.boundingBox
                     linkedMapOf<String, Any?>(
-                        "GIÁ_TRỊ_GỐC" to barcode.rawValue,
-                        "GIÁ_TRỊ_HIỂN_THỊ" to barcode.displayValue,
+                        "GIÁ_TRỊ_GỐC" to barcode.rawValue?.take(MAX_OCR_TEXT_VALUE_CHARS),
+                        "GIÁ_TRỊ_HIỂN_THỊ" to barcode.displayValue?.take(MAX_OCR_TEXT_VALUE_CHARS),
                         "ĐỊNH_DẠNG" to barcodeFormatName(barcode.format),
                         "LOẠI_NỘI_DUNG" to barcodeValueTypeName(barcode.valueType),
                         "X" to bounds?.left?.toDouble(),
