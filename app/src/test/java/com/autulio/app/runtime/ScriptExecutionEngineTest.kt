@@ -202,12 +202,12 @@ class ScriptExecutionEngineTest {
                 """
                 QUAY_LẠI()
                 VỀ_MÀN_HÌNH_CHÍNH()
-                ỨNG_DỤNG_GẦN_ĐÂY()
-                MỞ_THÔNG_BÁO()
-                MỞ_CÀI_ĐẶT_NHANH()
-                HIỆN_MENU_NGUỒN()
+                MỞ_ỨNG_DỤNG_GẦN_ĐÂY()
+                MỞ_THANH_THÔNG_BÁO()
+                MỞ_BẢNG_CÀI_ĐẶT_NHANH()
+                MỞ_HỘP_THOẠI_NGUỒN()
                 KHÓA_MÀN_HÌNH()
-                CHIA_MÀN_HÌNH()
+                BẬT_TẮT_CHIA_MÀN_HÌNH()
                 """
             )
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
