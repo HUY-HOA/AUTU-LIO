@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.6", result.program?.languageVersion)
+        assertEquals("1.7", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.6", result.program?.languageVersion)
+        assertEquals("1.7", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.6", result.program?.languageVersion)
+        assertEquals("1.7", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.6", result.program?.languageVersion)
+        assertEquals("1.7", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.6", result.program?.languageVersion)
+        assertEquals("1.7", result.program?.languageVersion)
     }
 
     @Test
@@ -487,7 +487,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.6", result.program?.languageVersion)
+        assertEquals("1.7", result.program?.languageVersion)
     }
 
     @Test
@@ -512,7 +512,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.6", result.program?.languageVersion)
+        assertEquals("1.7", result.program?.languageVersion)
     }
 
     @Test
@@ -567,7 +567,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.6", result.program?.languageVersion)
+        assertEquals("1.7", result.program?.languageVersion)
     }
 
     @Test
@@ -578,6 +578,35 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", missingText.diagnostics.first().code)
         assertEquals("function_argument_count", wrongSetText.diagnostics.first().code)
         assertEquals("function_argument_count", tooManyScrollArguments.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsRegionOcrImageLabelsAndBarcodeScanning() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_VÙNG(10, 20, 300, 200)
+            ĐẶT CO_CHU: LUẬN_LÝ = MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("OK", 0, 0, 400, 300)
+            ĐẶT VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("OK", 0, 0, 400, 300)
+            ĐẶT NHAN: DANH_SÁCH = NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()
+            ĐẶT CO_NHAN: LUẬN_LÝ = MÀN_HÌNH_CHỨA_NHÃN_ẢNH("phone")
+            ĐẶT QR: DANH_SÁCH = QUÉT_MÃ_QR_MÀN_HÌNH()
+            ĐẶT MA_VACH: DANH_SÁCH = QUÉT_MÃ_VẠCH_MÀN_HÌNH()
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.7", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesRegionOcrVisionAndBarcodeFunctionArgumentCounts() {
+        val wrongRegionOcr = ScriptCompiler.compile("ĐẶT X = ĐỌC_VĂN_BẢN_VÙNG(1, 2, 3)")
+        val wrongRegionSearch = ScriptCompiler.compile("ĐẶT X = MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(\"OK\", 1, 2, 3)")
+        val wrongLabelSearch = ScriptCompiler.compile("ĐẶT X = MÀN_HÌNH_CHỨA_NHÃN_ẢNH()")
+        val wrongQrScan = ScriptCompiler.compile("ĐẶT X = QUÉT_MÃ_QR_MÀN_HÌNH(1)")
+        assertEquals("function_argument_count", wrongRegionOcr.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongRegionSearch.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongLabelSearch.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongQrScan.diagnostics.first().code)
     }
 
 }
