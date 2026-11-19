@@ -15,7 +15,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 
 ## Ma trận tính năng
 
-**Trạng thái mã nguồn hiện tại:** AUTU Script 1.15. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.15; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.16. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.16; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
 
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
@@ -30,7 +30,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 | Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch và chi tiết mã có định dạng/loại nội dung/bounds; RGB lấy mẫu màn hình bổ sung ở 1.13; khớp ảnh mẫu và so sánh khung hình còn thiếu |
 | Ảnh và khung hình | Chụp màn hình, crop vùng để OCR/nhận diện | Đã có chụp màn hình và crop nội bộ; xử lý ảnh/tệp và so sánh khung hình còn thiếu |
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt; kéo-thả đường cong và đa điểm còn thiếu |
-| Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel đã có; API tỷ lệ/DP và hiệu chỉnh vùng an toàn còn thiếu |
+| Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel, DP và tỷ lệ 0–1 đã có; hiệu chỉnh vùng an toàn và xử lý hệ tọa độ khi xoay còn thiếu |
 | Sự kiện | Thay đổi cửa sổ, nội dung, thông báo do người dùng cấp quyền, trạng thái ứng dụng | Còn thiếu |
 | Lịch và nền | Lịch chạy, hàng đợi, retry, điều kiện pin/mạng, tác vụ định kỳ và thông báo trạng thái | Còn thiếu |
 | Thiết bị | Pin, sạc, mạng, màn hình, ứng dụng foreground và thông số màn hình | Đã có truy vấn cơ bản; âm lượng/rung/clipboard còn thiếu |
@@ -94,7 +94,7 @@ Một mô-đun chỉ được đánh dấu **Đã triển khai** khi có đủ:
 
 1. Hoàn thiện OCR ảnh đầu vào từ URI/SAF, trả cấu trúc dòng/khối và chờ chữ.
 2. Nhận diện ảnh: khớp ảnh mẫu do người dùng chọn, so sánh khung hình và tinh chỉnh vùng màu.
-3. Tọa độ tỷ lệ/DP, vùng an toàn, kéo-thả và đánh giá đa điểm theo khả năng Android.
+3. Hoàn thiện hiệu chỉnh vùng an toàn, tọa độ theo xoay màn hình, kéo-thả và đánh giá đa điểm theo khả năng Android.
 4. HTTP/API có timeout, HTTPS, giới hạn payload và chính sách dữ liệu.
 5. Hoàn thiện di trú schema, kiểm tra dữ liệu và backup/restore cho SQLite nội bộ.
 6. Sự kiện, lịch, hàng đợi và tác vụ nền có thể hủy.
