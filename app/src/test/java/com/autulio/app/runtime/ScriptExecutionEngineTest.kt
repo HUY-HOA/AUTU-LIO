@@ -580,9 +580,18 @@ class ScriptExecutionEngineTest {
     @Test
     fun dispatchesMultiFingerTapsAndSimultaneousSwipePaths() {
         val dispatcher = RecordingDispatcher()
-        val completed = CountDownLatch(1)
+        val terminal = CountDownLatch(1)
+        var terminalSnapshot: ScriptExecutionSnapshot? = null
         val engine = ScriptExecutionEngine(dispatcher) {
-            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+            if (it.state in setOf(
+                    ScriptExecutionState.COMPLETED,
+                    ScriptExecutionState.FAILED,
+                    ScriptExecutionState.CANCELLED
+                )
+            ) {
+                terminalSnapshot = it
+                terminal.countDown()
+            }
         }
         try {
             val program = compile(
@@ -601,7 +610,8 @@ class ScriptExecutionEngineTest {
                 """.trimIndent()
             )
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
-            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertTrue("Execution did not reach a terminal state: " + engine.snapshot(), terminal.await(3, TimeUnit.SECONDS))
+            assertEquals("Unexpected terminal snapshot: " + terminalSnapshot, ScriptExecutionState.COMPLETED, terminalSnapshot?.state)
             assertEquals(
                 listOf(
                     "multiTouch:100:10,20,10,20;30,40,30,40",
