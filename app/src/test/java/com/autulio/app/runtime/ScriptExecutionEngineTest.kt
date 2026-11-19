@@ -698,6 +698,35 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun detectsObjectsAndUsesBoundingBoxCoordinatesFromNestedResults() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT VẬT_THỂ: DANH_SÁCH = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()
+                ĐẶT SO_LUONG: SỐ = ĐẾM_VẬT_THỂ_MÀN_HÌNH()
+                NẾU (MÀN_HÌNH_CÓ_VẬT_THỂ("Food") VÀ SO_LUONG == 1) {
+                    ĐẶT NHÃN: DANH_SÁCH = LẤY_GIÁ_TRỊ(LẤY_PHẦN_TỬ(VẬT_THỂ, 0), "NHÃN")
+                    ĐẶT TÊN_NHÃN: CHUỖI = LẤY_GIÁ_TRỊ(LẤY_PHẦN_TỬ(NHÃN, 0), "TÊN")
+                    ĐẶT TỌA_ĐỘ: DANH_SÁCH = TÌM_TỌA_ĐỘ_VẬT_THỂ(TÊN_NHÃN)
+                    CHẠM(LẤY_PHẦN_TỬ(TỌA_ĐỘ, 0), LẤY_PHẦN_TỬ(TỌA_ĐỘ, 1))
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(ScriptExecutionState.COMPLETED, engine.snapshot().state)
+            assertEquals(listOf("tap:30,50"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
@@ -803,6 +832,24 @@ class ScriptExecutionEngineTest {
                 "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" -> arguments.firstOrNull() == "Phone"
                 "QUÉT_MÃ_QR_MÀN_HÌNH" -> listOf("https://example.test")
                 "QUÉT_MÃ_VẠCH_MÀN_HÌNH" -> listOf("123456789")
+                "PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH" -> listOf(
+                    linkedMapOf<String, Any?>(
+                        "X" to 10.0,
+                        "Y" to 20.0,
+                        "RỘNG" to 40.0,
+                        "CAO" to 60.0,
+                        "NHÃN" to listOf(
+                            linkedMapOf<String, Any?>(
+                                "TÊN" to "Food",
+                                "CHỈ_SỐ" to 1.0,
+                                "ĐỘ_TIN_CẬY" to 0.91
+                            )
+                        )
+                    )
+                )
+                "MÀN_HÌNH_CÓ_VẬT_THỂ" -> arguments.firstOrNull() == "Food"
+                "TÌM_TỌA_ĐỘ_VẬT_THỂ" -> listOf(30, 50)
+                "ĐẾM_VẬT_THỂ_MÀN_HÌNH" -> 1
                 else -> name == "CÓ_MẠNG"
             }
         }
