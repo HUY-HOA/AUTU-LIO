@@ -1,9 +1,9 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.4
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.5
 
-**Ngôn ngữ:** AUTU-LIO Script 1.4  
+**Ngôn ngữ:** AUTU-LIO Script 1.5  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
-Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.4; các tên cũ được giữ làm bí danh tương thích.
+Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.5; các tên cũ được giữ làm bí danh tương thích.
 
 ## 1. Kiểu dữ liệu
 
@@ -120,7 +120,17 @@ Chỉ số danh sách và vị trí chuỗi bắt đầu từ 0. KÝ_TỰ_TẠI/
 
 `PIN()`, `PHẦN_TRĂM_PIN()`, `ĐANG_SẠC()`, `CÓ_MẠNG()`, `MÀN_HÌNH_SÁNG()`, `ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `THỜI_GIAN_MS()`.
 
-## 8. Lệnh Android
+## 8. Đọc văn bản và OCR màn hình
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Trả về văn bản tìm được trên màn hình |
+| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("chuỗi") | ĐÚNG nếu màn hình có chuỗi cần tìm |
+| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("chuỗi") | Danh sách [X, Y] là tâm vị trí tìm thấy; danh sách rỗng nếu không có |
+
+AUTU-LIO đọc cây giao diện trợ năng và dùng OCR trên ảnh màn hình khi Android hỗ trợ. OCR được gọi theo yêu cầu của kịch bản, kết quả chỉ lưu tạm trong bộ nhớ. Từ Android 11/API 30, ảnh màn hình được lấy qua AccessibilityService; Android cũ hơn chỉ có thể đọc nội dung mà cây giao diện trợ năng cung cấp. Nội dung trong màn hình bảo mật, ứng dụng chặn chụp hoặc thành phần đồ họa không được Android công khai có thể không đọc được. Kết quả OCR có thể sai; cần kiểm tra trước khi thực hiện thao tác quan trọng.
+
+## 9. Lệnh Android
 
 `CHẠM(X,Y)`, `NHẤN_GIỮ(X,Y,MS)`, `VUỐT(X1,Y1,X2,Y2,MS)`, `CHỜ(MS)`, `MỞ_ỨNG_DỤNG("TÊN_GÓI")`, `QUAY_LẠI()`, `VỀ_MÀN_HÌNH_CHÍNH()`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY()`, `MỞ_THANH_THÔNG_BÁO()`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH()`, `MỞ_HỘP_THOẠI_NGUỒN()`, `KHÓA_MÀN_HÌNH()`, `BẬT_TẮT_CHIA_MÀN_HÌNH()`.
 
