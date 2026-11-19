@@ -10,13 +10,13 @@ class ScriptCompilerTest {
     fun compilesVietnameseCommandsVariablesConditionsAndExpressions() {
         val result = ScriptCompiler.compile(
             """
-            ĐẶT sốLần = 2 + 1
-            NẾU (sốLần == 3 VÀ ĐÚNG) {
+            ĐẶT SỐ_LẦN = 2 + 1
+            NẾU (SỐ_LẦN == 3 VÀ ĐÚNG) {
                 CHẠM(120, 240)
             } NGƯỢC_LẠI {
                 CHỜ(100)
             }
-            LẶP(sốLần) {
+            LẶP(SỐ_LẦN) {
                 NHẤN_GIỮ(20, 30, 500)
             }
             """.trimIndent()
@@ -28,12 +28,12 @@ class ScriptCompilerTest {
     }
 
     @Test
-    fun supportsNestedRepeatAndLegacyEnglishAliases() {
+    fun supportsNestedRepeatInVietnameseSyntax() {
         val result = ScriptCompiler.compile(
             """
-            repeat(2) {
-                tap(10, 20)
-                wait(100)
+            LẶP(2) {
+                CHẠM(10, 20)
+                CHỜ(100)
             }
             """.trimIndent()
         )
@@ -65,16 +65,16 @@ class ScriptCompilerTest {
     fun supportsWaitUntilAndLoopUntilCommands() {
         val result = ScriptCompiler.compile(
             """
-            ĐẶT daXong = SAI
-            CHỜ_ĐẾN_KHI(daXong == ĐÚNG, 5000, 100)
-            LẶP_ĐẾN_KHI(daXong == ĐÚNG) {
-                daXong = ĐÚNG
+            ĐẶT DA_XONG = SAI
+            CHỜ_ĐẾN_KHI(DA_XONG == ĐÚNG, 5000, 100)
+            LẶP_ĐẾN_KHI(DA_XONG == ĐÚNG) {
+                DA_XONG = ĐÚNG
             }
             """.trimIndent()
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("0.3", result.program?.languageVersion)
+        assertEquals("1.0", result.program?.languageVersion)
     }
 
     @Test
@@ -90,9 +90,9 @@ class ScriptCompilerTest {
     fun supportsStringsAndFunctionCallsInExpressions() {
         val result = ScriptCompiler.compile(
             """
-            ĐẶT tenGoi = "com.example.game"
-            NẾU (ỨNG_DỤNG_ĐÃ_CÀI(tenGoi) == ĐÚNG HOẶC PIN() < 10) {
-                MỞ_ỨNG_DỤNG(tenGoi)
+            ĐẶT TEN_GOI = "com.example.game"
+            NẾU (ỨNG_DỤNG_ĐÃ_CÀI(TEN_GOI) == ĐÚNG HOẶC PIN() < 10) {
+                MỞ_ỨNG_DỤNG(TEN_GOI)
             }
             """.trimIndent()
         )
@@ -106,15 +106,15 @@ class ScriptCompilerTest {
         val english = ScriptCompiler.compile("BACK()\nHOME()")
 
         assertTrue(vietnamese.diagnostics.toString(), vietnamese.isSuccess)
-        assertTrue(english.diagnostics.toString(), english.isSuccess)
+        assertFalse("English command aliases must not be accepted", english.isSuccess)
         assertEquals(2L, vietnamese.program?.expandedInstructionCount)
         assertEquals(2L, english.program?.expandedInstructionCount)
 
         val supportedActions = listOf(
             "ỨNG_DỤNG_GẦN_ĐÂY()", "MỞ_THÔNG_BÁO()", "MỞ_CÀI_ĐẶT_NHANH()",
             "HIỆN_MENU_NGUỒN()", "KHÓA_MÀN_HÌNH()", "CHIA_MÀN_HÌNH()",
-            "RECENTS()", "NOTIFICATIONS()", "QUICKSETTINGS()",
-            "POWERDIALOG()", "LOCKSCREEN()", "SPLITSCREEN()"
+            "ỨNG_DỤNG_GẦN_ĐÂY()", "MỞ_THÔNG_BÁO()", "MỞ_CÀI_ĐẶT_NHANH()",
+            "HIỆN_MENU_NGUỒN()", "KHÓA_MÀN_HÌNH()", "CHIA_MÀN_HÌNH()"
         )
         supportedActions.forEach { source ->
             val result = ScriptCompiler.compile(source)
@@ -175,9 +175,9 @@ class ScriptCompilerTest {
     fun canonicalVietnameseKeywordsPreserveDiacriticsAndCompileInUppercase() {
         val result = ScriptCompiler.compile(
             """
-            ĐẶT sốLần = 2
-            NẾU (sốLần > 1 VÀ ĐÚNG) {
-                LẶP(sốLần) {
+            ĐẶT SỐ_LẦN = 2
+            NẾU (SỐ_LẦN > 1 VÀ ĐÚNG) {
+                LẶP(SỐ_LẦN) {
                     CHẠM(10, 20)
                 }
             } NGƯỢC_LẠI {
@@ -269,4 +269,57 @@ class ScriptCompilerTest {
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
     }
+
+    @Test
+    fun requiresUppercaseVietnameseCommandsAndIdentifiers() {
+        val lowercaseKeyword = ScriptCompiler.compile("đặt SO_LAN = 2")
+        val lowercaseCommand = ScriptCompiler.compile("chạm(10, 20)")
+        val missingDiacritics = ScriptCompiler.compile("CHAM(10, 20)")
+        val englishAlias = ScriptCompiler.compile("TAP(10, 20)")
+        val lowercaseVariable = ScriptCompiler.compile("ĐẶT so_lan = 2")
+
+        assertFalse(lowercaseKeyword.isSuccess)
+        assertFalse(lowercaseCommand.isSuccess)
+        assertFalse(missingDiacritics.isSuccess)
+        assertFalse(englishAlias.isSuccess)
+        assertFalse(lowercaseVariable.isSuccess)
+        assertEquals("identifier_must_be_uppercase", lowercaseKeyword.diagnostics.first().code)
+        assertEquals("identifier_must_be_uppercase", lowercaseVariable.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsTypedVariablesAndUppercaseVietnameseBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT SO_LAN: SỐ = 3
+            ĐẶT NOI_DUNG: CHUỖI = "AUTU-LIO"
+            ĐẶT DA_SANG: LUẬN_LÝ = ĐÚNG
+            NẾU (DA_SANG VÀ ĐỘ_DÀI(NOI_DUNG) > 0) {
+                LẶP(SO_LAN) {
+                    CHẠM(100, 200)
+                }
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.0", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesBuiltinFunctionNamesAndArgumentCounts() {
+        val unknown = ScriptCompiler.compile("ĐẶT GIA_TRI = OCR(\"nội dung\")")
+        val wrongCount = ScriptCompiler.compile("ĐẶT GIA_TRI = PIN(1)")
+
+        assertEquals("unknown_function", unknown.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongCount.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsExponentOperatorWithRightAssociativeGrammar() {
+        val result = ScriptCompiler.compile("ĐẶT KET_QUA: SỐ = 2 ^ 3 ^ 2")
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
 }
