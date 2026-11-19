@@ -39,6 +39,13 @@ import com.autulio.app.runtime.ScriptExecutionState
 import com.autulio.app.script.ScriptProgram
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.barcode.Barcode
+import com.google.mlkit.vision.barcode.BarcodeScanner
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.label.ImageLabeler
+import com.google.mlkit.vision.label.ImageLabelerOptions
+import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -66,6 +73,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     @Volatile
     private var textRecognizer: TextRecognizer? = null
+    @Volatile
+    private var imageLabeler: ImageLabeler? = null
+    @Volatile
+    private var qrCodeScanner: BarcodeScanner? = null
+    @Volatile
+    private var barcodeScanner: BarcodeScanner? = null
     private val screenTextCacheLock = Any()
     private var screenTextCacheTimeMs = 0L
     private var screenTextCache: List<ScreenTextItem> = emptyList()
@@ -110,6 +123,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         executionEngine = null
         textRecognizer?.close()
         textRecognizer = null
+        imageLabeler?.close()
+        imageLabeler = null
+        qrCodeScanner?.close()
+        qrCodeScanner = null
+        barcodeScanner?.close()
+        barcodeScanner = null
         removeFloatingWindow()
         pendingProgram = null
         if (activeInstance === this) activeInstance = null
@@ -279,6 +298,38 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     (match.bounds.top + match.bounds.bottom) / 2
                 )
             }
+            "ĐỌC_VĂN_BẢN_VÙNG" -> {
+                requireArgumentCount(name, arguments, 4)
+                readTextInScreenRegion(name, arguments.toTypedArray())
+            }
+            "MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG" -> {
+                requireArgumentCount(name, arguments, 5)
+                val query = requireTextArgument(name, arguments[0])
+                readTextInScreenRegion(name, arguments.drop(1).toTypedArray())
+                    .contains(query, ignoreCase = true)
+            }
+            "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG" -> {
+                requireArgumentCount(name, arguments, 5)
+                val query = requireTextArgument(name, arguments[0])
+                findTextInScreenRegion(name, query, arguments.drop(1).toTypedArray())
+            }
+            "NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                recognizeScreenImageLabels()
+            }
+            "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = requireTextArgument(name, arguments[0])
+                recognizeScreenImageLabels().any { it.contains(query, ignoreCase = true) }
+            }
+            "QUÉT_MÃ_QR_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                scanScreenBarcodes(qrOnly = true)
+            }
+            "QUÉT_MÃ_VẠCH_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                scanScreenBarcodes(qrOnly = false)
+            }
             "TÌM_THÀNH_PHẦN_VĂN_BẢN" -> {
                 requireArgumentCount(name, arguments, 1)
                 val query = requireTextArgument(name, arguments[0])
@@ -383,6 +434,150 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
+
+
+    private fun getImageLabeler(): ImageLabeler {
+        imageLabeler?.let { return it }
+        return synchronized(this) {
+            imageLabeler ?: ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
+                .also { imageLabeler = it }
+        }
+    }
+
+    private fun getBarcodeScanner(qrOnly: Boolean): BarcodeScanner {
+        if (qrOnly) {
+            qrCodeScanner?.let { return it }
+            return synchronized(this) {
+                qrCodeScanner ?: BarcodeScanning.getClient(
+                    BarcodeScannerOptions.Builder()
+                        .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+                        .build()
+                ).also { qrCodeScanner = it }
+            }
+        }
+        barcodeScanner?.let { return it }
+        return synchronized(this) {
+            barcodeScanner ?: BarcodeScanning.getClient(
+                BarcodeScannerOptions.Builder()
+                    .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
+                    .build()
+            ).also { barcodeScanner = it }
+        }
+    }
+
+    private inline fun <T> withCapturedScreen(block: (Bitmap) -> T): T? {
+        val bitmap = captureDisplayBitmap() ?: return null
+        return try {
+            block(bitmap)
+        } finally {
+            if (!bitmap.isRecycled) bitmap.recycle()
+        }
+    }
+
+    private fun readTextFromBitmap(bitmap: Bitmap): String =
+        Tasks.await(
+            getTextRecognizer().process(InputImage.fromBitmap(bitmap, 0)),
+            15,
+            TimeUnit.SECONDS
+        ).text
+
+    private fun requireScreenRegion(name: String, arguments: Array<out Any?>, bitmap: Bitmap): Rect {
+        if (arguments.size != 4) throw IllegalArgumentException("Hàm '$name' cần 4 tham số X, Y, RỘNG, CAO.")
+        val left = requirePositiveOrZeroInt(name, arguments[0], "X")
+        val top = requirePositiveOrZeroInt(name, arguments[1], "Y")
+        val width = requirePositiveInt(name, arguments[2], "RỘNG")
+        val height = requirePositiveInt(name, arguments[3], "CAO")
+        val right = left.toLong() + width.toLong()
+        val bottom = top.toLong() + height.toLong()
+        require(right <= bitmap.width && bottom <= bitmap.height) {
+            "Vùng OCR nằm ngoài màn hình hiện tại " + bitmap.width + "x" + bitmap.height + "."
+        }
+        return Rect(left, top, right.toInt(), bottom.toInt())
+    }
+
+    private fun requirePositiveOrZeroInt(name: String, value: Any?, label: String): Int {
+        val number = value as? Number
+            ?: throw IllegalArgumentException("Tham số " + label + " của '" + name + "' phải là số nguyên.")
+        val double = number.toDouble()
+        require(double.isFinite() && double >= 0.0 && double <= Int.MAX_VALUE && double % 1.0 == 0.0) {
+            "Tham số " + label + " của '" + name + "' phải là số nguyên không âm."
+        }
+        return double.toInt()
+    }
+
+    private fun requirePositiveInt(name: String, value: Any?, label: String): Int {
+        val result = requirePositiveOrZeroInt(name, value, label)
+        require(result > 0) { "Tham số " + label + " của '" + name + "' phải lớn hơn 0." }
+        return result
+    }
+
+    private fun readTextInScreenRegion(name: String, arguments: Array<out Any?>): String =
+        withCapturedScreen { bitmap ->
+            val region = requireScreenRegion(name, arguments, bitmap)
+            val cropped = Bitmap.createBitmap(
+                bitmap, region.left, region.top, region.width(), region.height()
+            )
+            try {
+                readTextFromBitmap(cropped)
+            } finally {
+                cropped.recycle()
+            }
+        }.orEmpty()
+
+    private fun findTextInScreenRegion(
+        name: String,
+        query: String,
+        arguments: Array<out Any?>
+    ): List<Int> = withCapturedScreen { bitmap ->
+        val region = requireScreenRegion(name, arguments, bitmap)
+        val cropped = Bitmap.createBitmap(
+            bitmap, region.left, region.top, region.width(), region.height()
+        )
+        try {
+            val recognized = Tasks.await(
+                getTextRecognizer().process(InputImage.fromBitmap(cropped, 0)),
+                15,
+                TimeUnit.SECONDS
+            )
+            val match = recognized.textBlocks.firstOrNull {
+                it.text.contains(query, ignoreCase = true) && it.boundingBox != null
+            }
+            val bounds = match?.boundingBox
+            if (bounds == null) emptyList() else listOf(
+                region.left + (bounds.left + bounds.right) / 2,
+                region.top + (bounds.top + bounds.bottom) / 2
+            )
+        } finally {
+            cropped.recycle()
+        }
+    } ?: emptyList()
+
+    private fun recognizeScreenImageLabels(): List<String> =
+        withCapturedScreen { bitmap ->
+            Tasks.await(
+                getImageLabeler().process(InputImage.fromBitmap(bitmap, 0)),
+                15,
+                TimeUnit.SECONDS
+            )
+                .asSequence()
+                .sortedByDescending { it.confidence }
+                .map { it.text }
+                .distinct()
+                .take(64)
+                .toList()
+        } ?: emptyList()
+
+    private fun scanScreenBarcodes(qrOnly: Boolean): List<String> =
+        withCapturedScreen { bitmap ->
+            Tasks.await(
+                getBarcodeScanner(qrOnly).process(InputImage.fromBitmap(bitmap, 0)),
+                15,
+                TimeUnit.SECONDS
+            )
+                .mapNotNull { it.rawValue?.takeIf(String::isNotBlank) }
+                .distinct()
+                .take(64)
+        } ?: emptyList()
 
     private fun getTextRecognizer(): TextRecognizer {
         textRecognizer?.let { return it }
