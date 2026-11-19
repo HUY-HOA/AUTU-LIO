@@ -172,23 +172,25 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
     assert.equal(upstreamRequest.options.headers["x-goog-api-key"], "server-only-test-key");
     const payload = JSON.parse(upstreamRequest.options.body);
     assert.equal(payload.uses, 1);
-    const setup = payload.bidiGenerateContentSetup;
-    assert.equal(setup.model, "models/gemini-3.8-live");
-    assert.deepEqual(setup.generationConfig.responseModalities, ["AUDIO"]);
-    assert.deepEqual(setup.generationConfig.speechConfig, {
+    const constraints = payload.liveConnectConstraints;
+    assert.equal(constraints.model, "gemini-3.8-live");
+    assert.deepEqual(constraints.config.responseModalities, ["AUDIO"]);
+    assert.deepEqual(constraints.config.speechConfig, {
       voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
     });
-    assert.deepEqual(setup.sessionResumption, {});
-    assert.deepEqual(setup.contextWindowCompression, { slidingWindow: {} });
-    assert.deepEqual(setup.inputAudioTranscription, {});
-    assert.deepEqual(setup.outputAudioTranscription, {});
-    // With no fieldMask, Google treats the complete bidi setup as authoritative.
+    assert.deepEqual(constraints.config.sessionResumption, {});
+    assert.deepEqual(constraints.config.contextWindowCompression, { slidingWindow: {} });
+    assert.deepEqual(constraints.config.inputAudioTranscription, {});
+    assert.deepEqual(constraints.config.outputAudioTranscription, {});
+    assert.ok(Array.isArray(constraints.config.tools[0].functionDeclarations));
+    assert.match(constraints.config.systemInstruction.parts[0].text, /Never access, request, generate, modify or publish AUTU-LIO application source code/);
+    assert.equal(Object.hasOwn(payload, "bidiGenerateContentSetup"), false);
     assert.equal(Object.hasOwn(payload, "fieldMask"), false);
     const expiryMs = Date.parse(payload.expireTime) - Date.now();
     const newSessionExpiryMs = Date.parse(payload.newSessionExpireTime) - Date.now();
     assert.ok(expiryMs > 28 * 60 * 1000 && expiryMs <= 30 * 60 * 1000);
     assert.ok(newSessionExpiryMs > 0 && newSessionExpiryMs <= 60 * 1000);
-    const declarations = setup.tools[0].functionDeclarations;
+    const declarations = constraints.config.tools[0].functionDeclarations;
     assert.equal(declarations.length, 11);
     assert.deepEqual(
       declarations.map(item => item.name).sort(),
@@ -206,7 +208,6 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
         "validate_autu_script"
       ].sort()
     );
-    assert.match(setup.systemInstruction.parts[0].text, /Never access, request, generate, modify or publish AUTU-LIO application source code/);
     assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
   } finally {
     globalThis.fetch = originalFetch;
