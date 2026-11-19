@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.2
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.3
 
-**Phiên bản cú pháp:** `1.2`  
+**Phiên bản cú pháp:** `1.3`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -194,6 +194,17 @@ Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ th
 | `ĐỘ_DÀI(CHUỖI)` | 1 | Độ dài chuỗi |
 | `NHỎ_NHẤT(A, B)` | 2 | Số nhỏ hơn |
 | `LỚN_NHẤT(A, B)` | 2 | Số lớn hơn |
+| `CHỮ_HOA(CHUỖI)` | 1 | Chuyển thành chữ HOA theo Unicode |
+| `CHỮ_THƯỜNG(CHUỖI)` | 1 | Chuyển thành chữ thường theo Unicode |
+| `CẮT_KHOẢNG_TRẮNG(CHUỖI)` | 1 | Xóa khoảng trắng ở hai đầu |
+| `CHỨA_CHUỖI(A, B)` | 2 | Kiểm tra A có chứa B |
+| `BẮT_ĐẦU_BẰNG(A, B)` | 2 | Kiểm tra tiền tố |
+| `KẾT_THÚC_BẰNG(A, B)` | 2 | Kiểm tra hậu tố |
+| `THAY_THẾ(A, CŨ, MỚI)` | 3 | Thay tất cả chuỗi con khớp chính xác |
+| `TÁCH_CHUỖI(CHUỖI, PHÂN_CÁCH)` | 2 | Tách thành danh sách, tối đa 64 phần tử |
+| `NỐI_CHUỖI(DANH_SÁCH, PHÂN_CÁCH)` | 2 | Nối danh sách chuỗi |
+| `KÝ_TỰ_TẠI(CHUỖI, VỊ_TRÍ)` | 2 | Lấy ký tự theo vị trí bắt đầu từ 0 |
+| `CẮT_CHUỖI(CHUỖI, VỊ_TRÍ, ĐỘ_DÀI)` | 3 | Cắt theo vị trí và số ký tự |
 | `TẠO_DANH_SÁCH(...)` | 0–64 | Tạo danh sách mới |
 | `ĐỘ_DÀI(DANH_SÁCH)` | 1 | Số phần tử trong danh sách |
 | `LẤY_PHẦN_TỬ(DANH_SÁCH, CHỈ_SỐ)` | 2 | Lấy phần tử theo chỉ số bắt đầu từ 0 |
@@ -208,7 +219,7 @@ Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ th
 | `CÓ_KHÓA(BẢN_ĐỒ, KHÓA)` | 2 | Kiểm tra khóa có tồn tại |
 | `DANH_SÁCH_KHÓA(BẢN_ĐỒ)` | 1 | Lấy danh sách khóa theo thứ tự thêm |
 
-Danh sách chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI; chỉ số bắt đầu từ 0. Bản đồ chỉ nhận khóa chuỗi không rỗng và giá trị số, chuỗi hoặc ĐÚNG/SAI. Các thao tác truy cập/sửa/xóa ngoài phạm vi hoặc khóa không tồn tại sẽ báo lỗi runtime.
+Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `CẮT_CHUỖI` tính theo mã Unicode (code point), bắt đầu từ 0. `TÁCH_CHUỖI` từ chối dấu phân cách rỗng và không trả quá 64 phần tử. Danh sách chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI; chỉ số bắt đầu từ 0. Bản đồ chỉ nhận khóa chuỗi không rỗng và giá trị số, chuỗi hoặc ĐÚNG/SAI. Các thao tác truy cập/sửa/xóa ngoài phạm vi hoặc khóa không tồn tại sẽ báo lỗi runtime.
 
 ### Thiết bị và ứng dụng
 
@@ -276,9 +287,9 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 }
 ```
 
-## 10. Những phần chưa thuộc AUTU Script 1.2
+## 10. Những phần chưa thuộc AUTU Script 1.3
 
-Phiên bản 1.2 **chưa** có xử lý lỗi TRY/CATCH do người viết định nghĩa, lập lịch sự kiện, nhận diện ảnh, OCR, chụp màn hình hoặc thao tác đa điểm. Không dùng lệnh giả cho những tính năng này. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
+Phiên bản 1.3 **chưa** có xử lý lỗi TRY/CATCH do người viết định nghĩa, lập lịch sự kiện, nhận diện ảnh, OCR, chụp màn hình hoặc thao tác đa điểm. Không dùng lệnh giả cho những tính năng này. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
 
 ## 11. Quy trình chạy
 
