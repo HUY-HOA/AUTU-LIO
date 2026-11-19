@@ -1880,27 +1880,25 @@ async function createGeminiLiveToken(request, env, session) {
   // Keep the one-use token available for session resumption, not for creating later sessions.
   const expireTime = new Date(now + 30 * 60 * 1000).toISOString();
   const newSessionExpireTime = new Date(now + 60 * 1000).toISOString();
-  // The Gemini Developer API wire format uses bidiGenerateContentSetup;
-  // the SDK's liveConnectConstraints object is only a client-side abstraction.
-  // Gemini 3.8 Live and the current Developer API auth-token/WebSocket
-  // endpoints use the same v1beta API version on both sides of the connection.
-  const liveSetup = {
-    model: GEMINI_LIVE_MODEL,
-    generationConfig: {
+  // Google's ephemeral-token REST resource uses LiveConnectConfig under
+  // liveConnectConstraints. Do not send the raw WebSocket setup-frame format here.
+  const liveConnectConstraints = {
+    model: "gemini-3.8-live",
+    config: {
       responseModalities: ["AUDIO"],
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
-    },
-    inputAudioTranscription: {},
-    outputAudioTranscription: {},
-    contextWindowCompression: { slidingWindow: {} },
-    sessionResumption: {},
-    systemInstruction: { parts: [{ text: GEMINI_LIVE_SYSTEM_PROMPT }] },
-    tools: [{
-      functionDeclarations: [
-        ...GEMINI_LIVE_TOOLS.flatMap(group => group.functionDeclarations),
-        ...(session.role === "OWNER" ? GEMINI_LIVE_AUTU_SCRIPT_TOOLS : [])
-      ]
-    }]
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } },
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
+      contextWindowCompression: { slidingWindow: {} },
+      sessionResumption: {},
+      systemInstruction: { parts: [{ text: GEMINI_LIVE_SYSTEM_PROMPT }] },
+      tools: [{
+        functionDeclarations: [
+          ...GEMINI_LIVE_TOOLS.flatMap(group => group.functionDeclarations),
+          ...(session.role === "OWNER" ? GEMINI_LIVE_AUTU_SCRIPT_TOOLS : [])
+        ]
+      }]
+    }
   };
 
   let upstream;
@@ -1915,9 +1913,7 @@ async function createGeminiLiveToken(request, env, session) {
         uses: 1,
         expireTime,
         newSessionExpireTime,
-        // An empty fieldMask means the complete server-supplied setup is authoritative.
-        // Omit it entirely; this avoids generating an invalid mask for repeated tools.
-        bidiGenerateContentSetup: liveSetup
+        liveConnectConstraints
       })
     });
   } catch {
