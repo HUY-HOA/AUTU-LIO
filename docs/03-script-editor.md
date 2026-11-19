@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.18
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.19
 
-**Phiên bản cú pháp:** `1.18`  
+**Phiên bản cú pháp:** `1.19`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -295,11 +295,15 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `XOAY_MÀN_HÌNH()` | 0 | Chỉ số rotation Android 0–3 |
 | `GÓC_XOAY_MÀN_HÌNH()` | 0 | Góc xoay 0°, 90°, 180° hoặc 270° |
 | `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` | 0 | Package foreground gần nhất được gửi từ sự kiện Trợ năng |
+| `HÀNG_SẢN_XUẤT()` / `MẪU_THIẾT_BỊ()` | 0 | Nhà sản xuất và model thiết bị |
+| `PHIÊN_BẢN_ANDROID()` / `MỨC_API_ANDROID()` | 0 | Chuỗi phiên bản và mức API Android |
+| `MÀN_HÌNH_BỊ_KHÓA()` | 0 | ĐÚNG khi Keyguard đang khóa màn hình |
+| `THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()` | 0 | ĐÚNG nếu thiết bị có khóa bảo mật được cấu hình |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm DP dùng density hiện tại; tỷ lệ khung hình và hướng được suy ra từ kích thước pixel thực. Chỉ số xoay 0–3 là rotation Android, góc xoay là 0°/90°/180°/270°. Package foreground chỉ có khi AccessibilityService nhận được sự kiện cửa sổ, nên có thể rỗng khi dịch vụ chưa bật hoặc chưa nhận sự kiện.
+Thông tin hãng/model, phiên bản Android và trạng thái Keyguard được đọc cục bộ tại thiết bị, không gửi lên máy chủ. Các hàm Keyguard chỉ đọc trạng thái, không mở khóa hoặc thay đổi thiết lập bảo mật. Các hàm DP dùng density hiện tại; tỷ lệ khung hình và hướng được suy ra từ kích thước pixel thực. Chỉ số xoay 0–3 là rotation Android, góc xoay là 0°/90°/180°/270°. Package foreground chỉ có khi AccessibilityService nhận được sự kiện cửa sổ, nên có thể rỗng khi dịch vụ chưa bật hoặc chưa nhận sự kiện.
  
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.18 bổ sung dữ liệu hiển thị theo DP, hướng/xoay màn hình và package foreground.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.19 bổ sung dữ liệu hiển thị theo DP, hướng/xoay màn hình và package foreground.
 
 ## 8. Kết nối API qua HTTPS
 
