@@ -1,5 +1,6 @@
 package com.autulio.app.accessibility
 
+import android.app.KeyguardManager
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.ScreenshotResult
 import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
@@ -293,6 +294,18 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
         return when (name) {
+            "HÃNG_SẢN_XUẤT" -> Build.MANUFACTURER.orEmpty()
+            "MẪU_THIẾT_BỊ" -> Build.MODEL.orEmpty()
+            "PHIÊN_BẢN_ANDROID" -> Build.VERSION.RELEASE.orEmpty()
+            "MỨC_API_ANDROID" -> Build.VERSION.SDK_INT
+            "MÀN_HÌNH_BỊ_KHÓA" -> {
+                val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                keyguard.isKeyguardLocked
+            }
+            "THIẾT_BỊ_ĐƯỢC_BẢO_MẬT" -> {
+                val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                keyguard.isDeviceSecure
+            }
             "PIN", "PHẦN_TRĂM_PIN" -> batteryPercent()
             "ĐANG_SẠC" -> isCharging()
             "CÓ_MẠNG" -> hasNetworkConnection()
