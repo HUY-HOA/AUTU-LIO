@@ -182,9 +182,8 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
     assert.deepEqual(setup.contextWindowCompression, { slidingWindow: {} });
     assert.deepEqual(setup.inputAudioTranscription, {});
     assert.deepEqual(setup.outputAudioTranscription, {});
-    assert.equal(typeof payload.fieldMask, "string");
-    assert.match(payload.fieldMask, /tools\.0/);
-    assert.match(payload.fieldMask, /systemInstruction\.parts/);
+    // With no fieldMask, Google treats the complete bidi setup as authoritative.
+    assert.equal(Object.hasOwn(payload, "fieldMask"), false);
     const expiryMs = Date.parse(payload.expireTime) - Date.now();
     const newSessionExpiryMs = Date.parse(payload.newSessionExpireTime) - Date.now();
     assert.ok(expiryMs > 28 * 60 * 1000 && expiryMs <= 30 * 60 * 1000);
