@@ -11,7 +11,6 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Short-lived sign-in challenge and hashed bearer sessions.
 - Server-side role lookup on every protected request.
 - One-owner bootstrap by the exact Google OpenID Connect `sub` claim configured as the `OWNER_GOOGLE_SUB` Worker secret; email is not used to grant OWNER.
-- UI design drafts store title, subtitle, button label, accent color and selected components as JSON; Android provides a form editor and live preview.
 - D1 schema migrations and local migration validation.
 - Owner-only publication of immutable AUTU package versions.
 - AES-256-GCM encryption with a fresh random 256-bit data key and 96-bit nonce for every published version; only ciphertext is stored in D1.

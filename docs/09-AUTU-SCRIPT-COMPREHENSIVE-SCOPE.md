@@ -30,9 +30,9 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 | Mạng | HTTPS GET/POST/PUT/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn; PATCH/multipart/upload/download còn thiếu |
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Đã có SQLite nội bộ, SQL allow-list, bind tham số và transaction mỗi câu ghi; hệ thống di trú schema còn thiếu |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
-| Văn bản giao diện | Đọc cây Trợ năng, tìm nhãn và trả tọa độ | Chỉ đọc nội dung mà ứng dụng đang mở công khai qua cây Trợ năng; không có OCR hoặc nhận diện bằng mô hình |
+| Văn bản giao diện | Đọc cây Trợ năng, tìm nhãn và trả tọa độ | Kết hợp cây Accessibility và OCR ML Kit; nhận diện nhãn ảnh/vật thể, QR/mã vạch trên thiết bị |
 
-| Ảnh và màu màn hình | Lấy mẫu điểm ảnh để đọc màu khi người dùng gọi lệnh | Chỉ phân tích màu cục bộ; không dùng mô hình nhận diện ảnh |
+| Ảnh và màu màn hình | Lấy mẫu điểm ảnh để đọc màu khi người dùng gọi lệnh | Lấy mẫu RGB và xử lý ảnh ML Kit cục bộ; không dùng AI tạo sinh |
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt và chạm/vuốt đồng thời 2–5 ngón, tối đa 16 điểm mỗi đường; kéo-thả đường cong chuyên biệt còn thiếu |
 | Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel, DP, tỷ lệ 0–1 và truy vấn hướng/góc xoay đã có; hiệu chỉnh vùng an toàn và chuyển đổi hệ tọa độ theo xoay còn thiếu |
 | Sự kiện | Thay đổi cửa sổ, nội dung, thông báo do người dùng cấp quyền, trạng thái ứng dụng | Còn thiếu |
@@ -59,7 +59,18 @@ Các hàm HÀNG_SẢN_XUẤT(), MẪU_THIẾT_BỊ(), PHIÊN_BẢN_ANDROID(), M�
 
 ### Văn bản giao diện qua Trợ năng
 
-Các lệnh đọc văn bản chỉ dùng nhãn, nội dung và tọa độ mà ứng dụng đích cung cấp qua cây Android Accessibility. AUTU-LIO không chạy OCR, không phân tích ảnh bằng mô hình và không gửi ảnh hoặc âm thanh đến dịch vụ AI.
+Các lệnh đọc văn bản kết hợp cây Android Accessibility với OCR ML Kit chạy cục bộ trên ảnh màn hình. Nhận diện nhãn ảnh, vật thể, QR và mã vạch cũng chạy tại thiết bị; ứng dụng không gửi ảnh/âm thanh lên Gemini hoặc dịch vụ AI tạo sinh.
+
+Các lệnh đã được nối vào AUTU Script:
+- `ĐỌC_VĂN_BẢN_VÙNG(X, Y, RỘNG, CAO)`
+- `MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(CHUỖI, X, Y, RỘNG, CAO)`
+- `TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG(CHUỖI, X, Y, RỘNG, CAO)`
+- `NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()`, `MÀN_HÌNH_CHỨA_NHÃN_ẢNH(CHUỖI)`
+- `QUÉT_MÃ_QR_MÀN_HÌNH()`, `QUÉT_MÃ_VẠCH_MÀN_HÌNH()`
+- `CHI_TIẾT_MÃ_QR_MÀN_HÌNH()`, `CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()`
+- `PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()`, `MÀN_HÌNH_CÓ_VẬT_THỂ(CHUỖI)`, `TÌM_TỌA_ĐỘ_VẬT_THỂ(CHUỖI)`, `ĐẾM_VẬT_THỂ_MÀN_HÌNH()`
+
+Ảnh chụp màn hình qua Accessibility yêu cầu Android 11/API 30 trở lên; ứng dụng đích hoặc cửa sổ bảo mật có thể chặn chụp.
 
 ### Trợ năng và điều khiển giao diện
 - Tìm theo văn bản, mô tả nội dung, resource ID, loại thành phần và trạng thái.

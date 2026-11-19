@@ -744,7 +744,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         return doubleValue.toInt()
     }
 
-    private fun requireScreenRegion(name: String, arguments: Array<Any?>, bitmap: Bitmap): Rect {
+    private fun requireScreenRegion(name: String, arguments: Array<out Any?>, bitmap: Bitmap): Rect {
         require(arguments.size == 4) {
             "Hàm '$name' cần X, Y, RỘNG và CAO cho vùng màn hình."
         }
