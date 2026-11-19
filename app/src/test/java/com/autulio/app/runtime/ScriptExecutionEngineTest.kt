@@ -763,6 +763,39 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun sendsHttpRequestAndReadsStructuredResponseMap() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
+                    "GET",
+                    "https://api.example.com/status",
+                    RỖNG,
+                    TẠO_BẢN_ĐỒ("Authorization", "Bearer example-token"),
+                    10000
+                )
+                ĐẶT MÃ_TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
+                ĐẶT NOI_DUNG: CHUỖI = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "NỘI_DUNG")
+                NẾU (MÃ_TRẠNG_THÁI == 200 VÀ CHỨA_CHUỖI(NOI_DUNG, "sẵn sàng")) {
+                    CHẠM(40, 50)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:40,50"), dispatcher.actions)
+            assertTrue(dispatcher.functions.any { it == "function:GỬI_YÊU_CẦU_HTTP" })
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
@@ -837,6 +870,13 @@ class ScriptExecutionEngineTest {
         override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
             functions += "function:$name"
             return when (name) {
+                "GỬI_YÊU_CẦU_HTTP" -> linkedMapOf(
+                    "TRẠNG_THÁI" to 200,
+                    "THÀNH_CÔNG" to true,
+                    "NỘI_DUNG" to """{"trạng_thái":"sẵn sàng"}""",
+                    "TIÊU_ĐỀ" to emptyMap<String, Any?>(),
+                    "URL" to "https://api.example.com/status"
+                )
                 "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> "AUTU-LIO Đăng nhập"
                 "MÀN_HÌNH_CHỨA_CHỮ" -> arguments.firstOrNull() == "Đăng nhập"
                 "TÌM_VỊ_TRÍ_CHỮ" -> listOf(100, 200)
