@@ -495,4 +495,53 @@ class ScriptExecutionEngineTest {
         }
     }
 
+
+    @Test
+    fun executesUserDefinedFunctionWithTypedParametersAndReturnValue() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐỊNH_NGHĨA_HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ {
+                    TRẢ_VỀ A + B
+                }
+                ĐẶT KET_QUA: SỐ = TINH_TONG(10, 12)
+                CHẠM(KET_QUA, 30)
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:22,30"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
+    fun stopsRecursiveFunctionCallsAtTheConfiguredDepthLimit() {
+        val failed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(RecordingDispatcher()) {
+            if (it.state == ScriptExecutionState.FAILED) failed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐỊNH_NGHĨA_HÀM DE_QUY(N: SỐ): SỐ {
+                    TRẢ_VỀ DE_QUY(N + 1)
+                }
+                ĐẶT KET_QUA = DE_QUY(0)
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(failed.await(3, TimeUnit.SECONDS))
+            assertEquals("function_depth_exceeded", engine.snapshot().errorCode)
+        } finally {
+            engine.close()
+        }
+    }
+
 }
