@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.8
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.9
 
-**Phiên bản cú pháp:** `1.8`  
+**Phiên bản cú pháp:** `1.9`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -249,7 +249,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.8 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.9 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. OCR và văn bản trên màn hình
 
@@ -278,6 +278,19 @@ NẾU (MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone")) {
 ```
 
 Tọa độ vùng là pixel toàn màn hình, gốc ở góc trái trên. Vùng phải nằm trọn trong ảnh chụp. Gắn nhãn ảnh trả về nhãn tổng quát của toàn khung hình, không trả hộp giới hạn từng vật thể. Quét QR và mã vạch trả về nội dung giải mã; không tự mở URL. Ảnh phải đủ nét và mã đủ lớn để giải mã.
+
+### Nhận diện vật thể
+
+```text
+ĐẶT VẬT_THỂ: DANH_SÁCH = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()
+ĐẶT SO_LUONG: SỐ = ĐẾM_VẬT_THỂ_MÀN_HÌNH()
+NẾU (MÀN_HÌNH_CÓ_VẬT_THỂ("Food")) {
+    ĐẶT TỌA_ĐỘ: DANH_SÁCH = TÌM_TỌA_ĐỘ_VẬT_THỂ("Food")
+    CHẠM(LẤY_PHẦN_TỬ(TỌA_ĐỘ, 0), LẤY_PHẦN_TỬ(TỌA_ĐỘ, 1))
+}
+```
+
+Mỗi phần tử trong danh sách VẬT_THỂ là bản đồ có X, Y, RỘNG, CAO và NHÃN. Hộp giới hạn dùng pixel ảnh màn hình. NHÃN chứa các bản đồ có TÊN, CHỈ_SỐ và ĐỘ_TIN_CẬY. Bộ nhận diện mặc định trả tối đa 5 vật thể và chỉ dùng nhãn tổng quát; không phải nhận dạng mọi đồ vật với tên chính xác.
 
 ### Tìm và thao tác phần tử giao diện bằng Trợ năng
 
@@ -364,7 +377,7 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 
 ## 11. Những phần chưa được triển khai
 
-Các mô-đun còn cần phát triển gồm nhận diện vật thể có hộp giới hạn, khớp ảnh mẫu, tìm vùng màu, OCR từ tệp, đọc/ghi tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, tô màu cú pháp, tự hoàn thành và debugger. Chỉ công bố từng lệnh sau khi runtime và kiểm thử đã có. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
+Các mô-đun còn cần phát triển gồm khớp ảnh mẫu, tìm vùng màu, OCR từ tệp, đọc/ghi tệp, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, tô màu cú pháp, tự hoàn thành và debugger. Chỉ công bố từng lệnh sau khi runtime và kiểm thử đã có. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
 
 ## 12. Quy trình chạy
 
