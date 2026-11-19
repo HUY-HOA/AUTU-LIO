@@ -75,7 +75,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.13"
+    const val LANGUAGE_VERSION = "1.14"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -153,6 +153,7 @@ object ScriptCompiler {
         "PHÂN_TÍCH_JSON" to 1,
         "CHUYỂN_JSON" to 1,
         "ĐỌC_VĂN_BẢN_MÀN_HÌNH" to 0,
+        "ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH" to 0,
         "MÀN_HÌNH_CHỨA_CHỮ" to 1,
         "TÌM_VỊ_TRÍ_CHỮ" to 1,
         "TÌM_THÀNH_PHẦN_VĂN_BẢN" to 1,
