@@ -711,4 +711,24 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", invalid.diagnostics.first().code)
     }
 
+    @Test
+    fun supportsMultilineNestedFunctionArguments() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT KẾT_QUẢ: SỐ = LỚN_NHẤT(
+                10,
+                NHỎ_NHẤT(
+                    20,
+                    15
+                )
+            )
+            ĐẶT CẤU_HÌNH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ(
+                "MÃ", 200,
+                "THÀNH_CÔNG", ĐÚNG
+            )
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
 }
