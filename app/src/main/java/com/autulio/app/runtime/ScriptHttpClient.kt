@@ -157,7 +157,7 @@ class ScriptHttpClient(
                 is Boolean -> rawValue.toString()
                 else -> throw IllegalArgumentException("Giá trị tiêu đề '$name' phải là chuỗi, số hoặc luận lý.")
             }
-            require(value.none { it == '\\r' || it == '\\n' || it == '\u0000' }) {
+            require(value.none { it == '\r' || it == '\n' || it == '\u0000' }) {
                 "Giá trị tiêu đề '$name' chứa ký tự xuống dòng không hợp lệ."
             }
             totalChars += name.length + value.length
