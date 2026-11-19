@@ -19,6 +19,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.util.Base64
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -104,7 +105,7 @@ private data class TranscriptLine(val speaker: String, val text: String)
 
 @Composable
 private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
-    val activity = LocalContext.current as GeminiLiveActivity
+    val activity = LocalActivity.current as? GeminiLiveActivity ?: return
     var status by remember { mutableStateOf("Chưa kết nối") }
     var error by remember { mutableStateOf("") }
     var starting by remember { mutableStateOf(false) }
