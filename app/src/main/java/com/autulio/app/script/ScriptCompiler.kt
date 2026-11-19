@@ -20,7 +20,16 @@ sealed interface ScriptExpression {
     data class FunctionCall(val name: String, val arguments: List<ScriptExpression>) : ScriptExpression
 }
 
+data class ScriptFunctionParameter(val name: String, val declaredType: String?)
+
 sealed interface ScriptInstruction {
+    data class FunctionDefinition(
+        val name: String,
+        val parameters: List<ScriptFunctionParameter>,
+        val returnType: String?,
+        val body: List<ScriptInstruction>
+    ) : ScriptInstruction
+    data class Return(val value: ScriptExpression) : ScriptInstruction
     data class Command(val name: String, val arguments: List<ScriptExpression>) : ScriptInstruction
     data class SetVariable(
         val name: String,
@@ -108,8 +117,8 @@ object ScriptCompiler {
     private val reservedWords = setOf(
         "ĐẶT", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
         "LẶP", "LẶP_KHI", "LẶP_ĐẾN_KHI", "CHỜ_ĐẾN_KHI",
-        "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "ĐÚNG", "SAI",
-        "VÀ", "HOẶC", "KHÔNG"
+        "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "ĐỊNH_NGHĨA_HÀM", "TRẢ_VỀ",
+        "ĐÚNG", "SAI", "VÀ", "HOẶC", "KHÔNG"
     )
 
     fun compile(source: String): ScriptCompileResult {
@@ -336,8 +345,18 @@ object ScriptCompiler {
         private val tokens = Lexer(source).tokenize()
         private var index = 0
         private var statementCount = 0
+        private var insideFunction = false
+        private val functionNames = linkedSetOf<String>()
+        private val functionCallTokens = mutableListOf<Token>()
 
-        fun parse(): List<ScriptInstruction> = parseBlock(false, 0, 0)
+        fun parse(): List<ScriptInstruction> {
+            val instructions = parseBlock(false, 0, 0)
+            val unknown = functionCallTokens.firstOrNull { it.text !in functionNames }
+            if (unknown != null) {
+                fail(unknown.line, unknown.column, "unknown_function", "Không tìm thấy hàm '" + unknown.text + "'. Hãy định nghĩa hàm bằng ĐỊNH_NGHĨA_HÀM trước khi dùng.", "Function '" + unknown.text + "' is not defined. Define it with ĐỊNH_NGHĨA_HÀM before use.")
+            }
+            return instructions
+        }
 
         private fun parseBlock(expectClosingBrace: Boolean, depth: Int, loopDepth: Int): List<ScriptInstruction> {
             val instructions = mutableListOf<ScriptInstruction>()
@@ -367,6 +386,11 @@ object ScriptCompiler {
                 "LẶP_KHI" -> parseWhile(name, depth, loopDepth)
                 "LẶP_ĐẾN_KHI" -> parseUntil(name, depth, loopDepth)
                 "CHỜ_ĐẾN_KHI" -> parseWaitUntil(name)
+                "ĐỊNH_NGHĨA_HÀM" -> parseFunctionDefinition(name, depth, loopDepth)
+                "TRẢ_VỀ" -> {
+                    if (!insideFunction) fail(name.line, name.column, "return_outside_function", "TRẢ_VỀ chỉ được dùng bên trong hàm.", "TRẢ_VỀ can only be used inside a function.")
+                    ScriptInstruction.Return(parseExpression())
+                }
                 "THOÁT_LẶP" -> {
                     requireInsideLoop(name, loopDepth)
                     optionalEmptyCall()
@@ -387,6 +411,70 @@ object ScriptCompiler {
                     } else parseCommand(name)
                 }
             }
+        }
+
+        private fun parseFunctionDefinition(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.FunctionDefinition {
+            if (depth != 0 || loopDepth != 0 || insideFunction) {
+                fail(name.line, name.column, "nested_function", "ĐỊNH_NGHĨA_HÀM chỉ được đặt ở cấp cao nhất, không đặt bên trong NẾU hoặc vòng lặp.", "ĐỊNH_NGHĨA_HÀM must be declared at the top level, not inside NẾU or a loop.")
+            }
+            val functionName = expect(TokenType.IDENTIFIER, "expected_function_name", "Sau ĐỊNH_NGHĨA_HÀM cần có tên hàm viết HOA.", "Expected an uppercase function name after ĐỊNH_NGHĨA_HÀM.")
+            requireUppercaseIdentifier(functionName, "tên hàm")
+            if (functionName.text in reservedWords || functionName.text in commandAliases || functionName.text in builtinFunctionArities) {
+                fail(functionName.line, functionName.column, "reserved_function_name", "Tên hàm bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Function name conflicts with a keyword, command or built-in function.")
+            }
+            if (!functionNames.add(functionName.text)) {
+                fail(functionName.line, functionName.column, "duplicate_function", "Hàm '" + functionName.text + "' đã được định nghĩa.", "Function '" + functionName.text + "' is already defined.")
+            }
+
+            expectSymbol("(", "expected_left_parenthesis", "Thiếu '(' sau tên hàm.", "Expected '(' after function name.")
+            val parameters = mutableListOf<ScriptFunctionParameter>()
+            val parameterNames = mutableSetOf<String>()
+            if (!isSymbol(")")) {
+                while (true) {
+                    val parameter = expect(TokenType.IDENTIFIER, "expected_parameter_name", "Tham số hàm phải có tên viết HOA.", "Function parameters must have uppercase names.")
+                    requireUppercaseIdentifier(parameter, "tên tham số")
+                    if (parameter.text in reservedWords || parameter.text in commandAliases || builtinFunctionArities.containsKey(parameter.text)) {
+                        fail(parameter.line, parameter.column, "reserved_parameter_name", "Tên tham số bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Parameter name conflicts with a keyword, command or built-in function.")
+                    }
+                    if (!parameterNames.add(parameter.text)) {
+                        fail(parameter.line, parameter.column, "duplicate_parameter", "Tham số '" + parameter.text + "' bị lặp.", "Parameter '" + parameter.text + "' is duplicated.")
+                    }
+                    val parameterType = if (isSymbol(":")) {
+                        advance()
+                        val type = expect(TokenType.IDENTIFIER, "expected_parameter_type", "Thiếu kiểu tham số.", "Missing parameter type.")
+                        if (type.text !in supportedTypes) {
+                            fail(type.line, type.column, "unknown_type", "Kiểu tham số '" + type.text + "' chưa được hỗ trợ.", "Parameter type '" + type.text + "' is not supported.")
+                        }
+                        type.text
+                    } else null
+                    parameters += ScriptFunctionParameter(parameter.text, parameterType)
+                    if (parameters.size > 16) {
+                        fail(parameter.line, parameter.column, "too_many_parameters", "Mỗi hàm chỉ được có tối đa 16 tham số.", "A function may have at most 16 parameters.")
+                    }
+                    if (!isSymbol(",")) break
+                    advance()
+                }
+            }
+            expectSymbol(")", "expected_right_parenthesis", "Thiếu ')' sau danh sách tham số.", "Expected ')' after parameter list.")
+            val returnType = if (isSymbol(":")) {
+                advance()
+                val type = expect(TokenType.IDENTIFIER, "expected_return_type", "Thiếu kiểu trả về của hàm.", "Missing function return type.")
+                if (type.text !in supportedTypes) {
+                    fail(type.line, type.column, "unknown_return_type", "Kiểu trả về '" + type.text + "' chưa được hỗ trợ.", "Return type '" + type.text + "' is not supported.")
+                }
+                type.text
+            } else null
+
+            insideFunction = true
+            val body = try {
+                parseBraceBlock(depth + 1, 0)
+            } finally {
+                insideFunction = false
+            }
+            if (body.isEmpty()) {
+                fail(name.line, name.column, "empty_function", "Thân hàm không được để trống.", "A function body cannot be empty.")
+            }
+            return ScriptInstruction.FunctionDefinition(functionName.text, parameters, returnType, body)
         }
 
         private fun parseVariableDeclaration(name: Token): ScriptInstruction.SetVariable {
@@ -622,10 +710,10 @@ object ScriptCompiler {
                 }
                 expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng hàm.", "Expected ')' after function arguments.")
                 val expected = builtinFunctionArities[token.text]
-                    ?: fail(token.line, token.column, "unknown_function", "Không có hàm '" + token.text + "' trong thư viện AUTU Script 1.0.", "Function '" + token.text + "' is not in the AUTU Script 1.0 standard library.")
-                if (args.size != expected) {
+                if (expected != null && args.size != expected) {
                     fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' cần đúng " + expected + " tham số.", "Function '" + token.text + "' requires exactly " + expected + " arguments.")
                 }
+                if (expected == null) functionCallTokens += token
                 ScriptExpression.FunctionCall(token.text, args)
             } else ScriptExpression.Variable(token.text)
         }
