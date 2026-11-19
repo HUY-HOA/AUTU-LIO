@@ -338,6 +338,44 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun supportsTypedListsAndVietnameseForEachSyntax() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20, 30)
+            ĐẶT SO_LUONG: SỐ = ĐỘ_DÀI(DANH_SÁCH)
+            LẶP_MỖI (PHAN_TU TRONG DANH_SÁCH) {
+                CHẠM(PHAN_TU, 40)
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.1", result.program?.languageVersion)
+    }
+
+    @Test
+    fun rejectsInvalidForEachSeparatorAndLowercaseLoopVariable() {
+        val missingSeparator = ScriptCompiler.compile(
+            "ĐẶT DANH_SÁCH = TẠO_DANH_SÁCH(1)\nLẶP_MỖI (ITEM IN DANH_SÁCH) { CHỜ(1) }"
+        )
+        val lowercaseVariable = ScriptCompiler.compile(
+            "ĐẶT DANH_SÁCH = TẠO_DANH_SÁCH(1)\nLẶP_MỖI (item TRONG DANH_SÁCH) { CHỜ(1) }"
+        )
+        assertEquals("expected_in_keyword", missingSeparator.diagnostics.first().code)
+        assertEquals("identifier_must_be_uppercase", lowercaseVariable.diagnostics.first().code)
+    }
+
+    @Test
+    fun validatesListBuiltinFunctionArgumentCountsAndSize() {
+        val wrongGetCount = ScriptCompiler.compile("ĐẶT X = LẤY_PHẦN_TỬ(TẠO_DANH_SÁCH(), 1, 2)")
+        val tooManyItems = ScriptCompiler.compile(
+            "ĐẶT X = TẠO_DANH_SÁCH(" + (0 until ScriptCompiler.MAX_LIST_ITEMS + 1).joinToString(",") + ")"
+        )
+        assertEquals("function_argument_count", wrongGetCount.diagnostics.first().code)
+        assertEquals("list_too_large", tooManyItems.diagnostics.first().code)
+    }
+
+    @Test
     fun rejectsReturnOutsideFunctionAndUndefinedFunctions() {
         val invalidReturn = ScriptCompiler.compile("TRẢ_VỀ 10")
         val undefinedCall = ScriptCompiler.compile("ĐẶT KET_QUA = HAM_CHUA_DINH_NGHIA(10)")
