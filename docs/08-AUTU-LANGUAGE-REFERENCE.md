@@ -1,9 +1,9 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.10
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.11
 
-**Ngôn ngữ:** AUTU-LIO Script 1.10  
+**Ngôn ngữ:** AUTU-LIO Script 1.11  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
-Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.10; các tên cũ được giữ làm bí danh tương thích.
+Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.11; các tên cũ được giữ làm bí danh tương thích.
 
 ## 1. Kiểu dữ liệu
 
@@ -300,6 +300,6 @@ Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_B
 
 ## 13. Chưa hỗ trợ
 
-AUTU Script 1.10 bổ sung kho tệp riêng cho kịch bản và đọc/ghi JSON. Phần còn thiếu gồm tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
+AUTU Script 1.11 bổ sung kho tệp riêng cho kịch bản và đọc/ghi JSON. Phần còn thiếu gồm tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
