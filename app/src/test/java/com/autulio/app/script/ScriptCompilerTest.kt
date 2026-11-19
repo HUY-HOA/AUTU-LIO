@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.1", result.program?.languageVersion)
+        assertEquals("1.2", result.program?.languageVersion)
     }
 
     @Test
@@ -373,6 +373,35 @@ class ScriptCompilerTest {
         )
         assertEquals("function_argument_count", wrongGetCount.diagnostics.first().code)
         assertEquals("list_too_large", tooManyItems.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsTypedVietnameseMapsAndMapKeyIteration() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TEN", "AUTU-LIO", "SO", 3)
+            ĐẶT SO_LUONG: SỐ = ĐỘ_DÀI(CAU_HINH)
+            ĐẶT DANH_SACH_KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+            LẶP_MỖI (KHOA TRONG DANH_SACH_KHOA) {
+                ĐẶT GIA_TRI = LẤY_GIÁ_TRỊ(CAU_HINH, KHOA)
+                CHỜ(1)
+            }
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.2", result.program?.languageVersion)
+    }
+
+    @Test
+    fun rejectsInvalidMapPairsAndTooManyEntries() {
+        val oddPairs = ScriptCompiler.compile("ĐẶT MAP: BẢN_ĐỒ = TẠO_BẢN_ĐỒ(\"A\", 1, \"B\")")
+        val tooMany = ScriptCompiler.compile(
+            "ĐẶT MAP = TẠO_BẢN_ĐỒ(" +
+                (0 until ScriptCompiler.MAX_MAP_ENTRIES + 1).joinToString(",") { "\"K$it\", $it" } +
+                ")"
+        )
+        assertEquals("map_argument_count", oddPairs.diagnostics.first().code)
+        assertEquals("map_too_large", tooMany.diagnostics.first().code)
     }
 
     @Test
