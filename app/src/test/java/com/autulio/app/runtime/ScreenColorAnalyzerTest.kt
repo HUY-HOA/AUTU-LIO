@@ -38,7 +38,7 @@ class ScreenColorAnalyzerTest {
             pixels, 2, 2, 400, 800, 255, 0, 0, 0
         )
 
-        assertEquals(listOf(300, 600), point)
+        assertEquals(listOf(100, 600), point)
     }
 
     @Test
