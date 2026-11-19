@@ -155,10 +155,11 @@ const ROLE_CONFIGURABLE_PERMISSIONS = {
 };
 
 class HttpError extends Error {
-  constructor(status, code, message) {
+  constructor(status, code, message, details = null) {
     super(message);
     this.status = status;
     this.code = code;
+    if (details && typeof details === "object") this.details = details;
   }
 }
 
@@ -1845,11 +1846,33 @@ async function downloadCustomerPackage(request, env, session, packageId) {
   }, 200, env);
 }
 
+function geminiTokenFailureMessage(httpStatus, providerError) {
+  const providerStatus = String(providerError?.status || "").toUpperCase();
+  const providerMessage = String(providerError?.message || "");
+
+  if (/API[ _-]?KEY.*(NOT VALID|INVALID)|INVALID_API_KEY/i.test(providerMessage)) {
+    return "Google từ chối API Key. Hãy kiểm tra khóa còn hiệu lực, đúng dự án và không bị giới hạn sai trong Google AI Studio.";
+  }
+  if (httpStatus === 429 || providerStatus === "RESOURCE_EXHAUSTED") {
+    return "Gemini đã vượt hạn mức hoặc giới hạn yêu cầu. Hãy kiểm tra hạn mức sử dụng của dự án Google AI Studio rồi thử lại.";
+  }
+  if (httpStatus === 401 || httpStatus === 403 || providerStatus === "PERMISSION_DENIED") {
+    return "Google từ chối quyền truy cập Gemini Live. Hãy kiểm tra API Key, quyền truy cập API và các giới hạn của khóa.";
+  }
+  if (httpStatus === 404 || providerStatus === "NOT_FOUND") {
+    return "Google không tìm thấy mô hình hoặc dịch vụ Gemini Live được yêu cầu. Cần kiểm tra quyền dùng mô hình trong dự án.";
+  }
+  if (httpStatus === 400 || providerStatus === "INVALID_ARGUMENT") {
+    return "Google từ chối cấu hình yêu cầu tạo phiên Gemini Live. Cần kiểm tra cấu hình mô hình và quyền sử dụng API.";
+  }
+  return `Google Gemini chưa cấp được token phiên Live (HTTP ${httpStatus}${providerStatus ? ", " + providerStatus : ""}). Hãy thử lại sau.`;
+}
+
 async function createGeminiLiveToken(request, env, session) {
   await requireRole(session, ["OWNER", "CUSTOMER"]);
   await enforceRateLimit(request, env, "AI_LIVE_TOKEN_LIMITER");
   if (!env.GEMINI_API_KEY) {
-    throw new HttpError(503, "gemini_not_configured", "Gemini Live is not configured on the server.");
+    throw new HttpError(503, "gemini_not_configured", "Dịch vụ Gemini Live chưa được cấu hình trên máy chủ.");
   }
 
   const now = Date.now();
@@ -1888,15 +1911,38 @@ async function createGeminiLiveToken(request, env, session) {
       })
     });
   } catch {
-    throw new HttpError(503, "gemini_unavailable", "Gemini token service is temporarily unavailable.");
+    throw new HttpError(503, "gemini_unavailable", "Không kết nối được tới dịch vụ cấp token Gemini Live. Hãy kiểm tra mạng rồi thử lại.");
   }
 
   if (!upstream.ok) {
-    throw new HttpError(502, "gemini_token_failed", "Gemini did not issue a temporary Live token.");
+    const upstreamBody = await upstream.json().catch(() => ({}));
+    const providerError = upstreamBody?.error && typeof upstreamBody.error === "object"
+      ? upstreamBody.error
+      : {};
+    const providerStatus = String(providerError.status || "").toUpperCase();
+    const providerCode = Number.isInteger(providerError.code) ? providerError.code : null;
+    const providerMessage = String(providerError.message || "").replace(env.GEMINI_API_KEY, "[đã ẩn]").slice(0, 240);
+    console.warn(JSON.stringify({
+      event: "gemini_live_token_rejected",
+      providerHttpStatus: upstream.status,
+      providerStatus,
+      providerCode,
+      providerMessage
+    }));
+    throw new HttpError(
+      502,
+      "gemini_token_failed",
+      geminiTokenFailureMessage(upstream.status, providerError),
+      {
+        providerHttpStatus: upstream.status,
+        ...(providerStatus ? { providerStatus } : {}),
+        ...(providerCode !== null ? { providerCode } : {})
+      }
+    );
   }
   const tokenData = await upstream.json().catch(() => ({}));
   if (typeof tokenData.name !== "string" || !tokenData.name.startsWith("auth_tokens/")) {
-    throw new HttpError(502, "gemini_token_invalid", "Gemini returned an invalid temporary token.");
+    throw new HttpError(502, "gemini_token_invalid", "Google trả về token Gemini Live không hợp lệ.");
   }
   return response(request, {
     token: tokenData.name,
@@ -2085,7 +2131,11 @@ export default {
       return await route(request, env);
     } catch (error) {
       if (error instanceof HttpError) {
-        return response(request, { error: error.code, message: error.message }, error.status, env);
+        return response(request, {
+          error: error.code,
+          message: error.message,
+          ...(error.details || {})
+        }, error.status, env);
       }
       console.error(JSON.stringify({
         message: "AUTU-LIO API request failed",
