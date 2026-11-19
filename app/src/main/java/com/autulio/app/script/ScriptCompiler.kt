@@ -75,7 +75,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.17"
+    const val LANGUAGE_VERSION = "1.18"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -161,6 +161,13 @@ object ScriptCompiler {
         "ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH" to 0,
         "CHI_TIẾT_MÃ_QR_MÀN_HÌNH" to 0,
         "CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH" to 0,
+        "CHIỀU_RỘNG_DP" to 0,
+        "CHIỀU_CAO_DP" to 0,
+        "TỶ_LỆ_KHUNG_HÌNH" to 0,
+        "HƯỚNG_MÀN_HÌNH" to 0,
+        "XOAY_MÀN_HÌNH" to 0,
+        "GÓC_XOAY_MÀN_HÌNH" to 0,
+        "GÓI_ỨNG_DỤNG_ĐANG_MỞ" to 0,
         "MẬT_ĐỘ_MÀN_HÌNH" to 0,
         "DP_SANG_PIXEL" to 1,
         "PIXEL_SANG_DP" to 1,
