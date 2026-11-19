@@ -500,6 +500,71 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun transformsSearchesSplitsAndJoinsUnicodeStrings() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT NGUON: CHUỖI = " AUTU-LIO "
+                ĐẶT CHUAN: CHUỖI = CẮT_KHOẢNG_TRẮNG(NGUON)
+                ĐẶT HOA: CHUỖI = CHỮ_HOA(CHUAN)
+                ĐẶT THUONG: CHUỖI = CHỮ_THƯỜNG(HOA)
+                ĐẶT CAT: CHUỖI = CẮT_CHUỖI(HOA, 0, 4)
+                ĐẶT KY_TU: CHUỖI = KÝ_TỰ_TẠI(HOA, 0)
+                ĐẶT THAY: CHUỖI = THAY_THẾ(HOA, "AUTU", "LIO")
+                ĐẶT CAC_TU: DANH_SÁCH = TÁCH_CHUỖI("A,B,C", ",")
+                ĐẶT GHEP: CHUỖI = NỐI_CHUỖI(CAC_TU, "-")
+                NẾU (CHỨA_CHUỖI(HOA, "AUTU") VÀ BẮT_ĐẦU_BẰNG(HOA, "AUTU") VÀ KẾT_THÚC_BẰNG(HOA, "LIO") VÀ CAT == "AUTU" VÀ KY_TU == "A" VÀ THAY == "LIO-LIO" VÀ GHEP == "A-B-C" VÀ THUONG == "autu-lio") {
+                    CHẠM(1, 1)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:1,1"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
+    fun rejectsEmptySplitDelimiterAndInvalidUnicodeSlice() {
+        val splitFailed = CountDownLatch(1)
+        val splitEngine = ScriptExecutionEngine(RecordingDispatcher()) {
+            if (it.state == ScriptExecutionState.FAILED) splitFailed.countDown()
+        }
+        try {
+            assertEquals(
+                ScriptExecutionStartResult.Started,
+                splitEngine.start(compile("ĐẶT KET_QUA = TÁCH_CHUỖI(\"ABC\", \"\")"))
+            )
+            assertTrue(splitFailed.await(3, TimeUnit.SECONDS))
+            assertEquals("empty_delimiter", splitEngine.snapshot().errorCode)
+        } finally {
+            splitEngine.close()
+        }
+
+        val sliceFailed = CountDownLatch(1)
+        val sliceEngine = ScriptExecutionEngine(RecordingDispatcher()) {
+            if (it.state == ScriptExecutionState.FAILED) sliceFailed.countDown()
+        }
+        try {
+            assertEquals(
+                ScriptExecutionStartResult.Started,
+                sliceEngine.start(compile("ĐẶT KET_QUA = CẮT_CHUỖI(\"ABC\", 2, 5)"))
+            )
+            assertTrue(sliceFailed.await(3, TimeUnit.SECONDS))
+            assertEquals("string_range", sliceEngine.snapshot().errorCode)
+        } finally {
+            sliceEngine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
