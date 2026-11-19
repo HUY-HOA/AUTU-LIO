@@ -31,3 +31,5 @@ Xem [hướng dẫn bảo mật và ký APK](docs/SECURITY-AND-SIGNING.md) và [
 AUTU-LIO đã đăng nhập Google thành công trên thiết bị và tài khoản chủ sở hữu đã được máy chủ xác nhận là OWNER. Cloudflare Worker và D1 đã triển khai; bản Release v0.1.12 trước đó đã qua bước kiểm tra chữ ký và tải artifact lên GitHub Actions. Các hạng mục còn phải nghiệm thu là luồng khách hàng/giấy phép/thiết bị, đóng gói và phân phối AUTU, cùng kiểm thử thao tác Trợ năng và cửa sổ nổi trên thiết bị Android thật.
 
 Xem [trạng thái và các điều kiện còn thiếu để phát hành](docs/PROJECT-STATUS.md).
+
+Xem [phạm vi toàn diện và lộ trình AUTU Script](docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md) để phân biệt tính năng đã có, còn thiếu và giới hạn của Android.
