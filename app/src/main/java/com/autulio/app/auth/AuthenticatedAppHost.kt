@@ -95,14 +95,7 @@ internal fun AuthenticatedAppHost() {
             AccessRole.CUSTOMER -> CustomerApp(
                 accessToken = currentToken,
                 email = currentUser.email,
-                onLogout = ::signOut,
-                onRoleUpdated = {
-                    scope.launch {
-                        runCatching { repository.currentUser(currentToken) }
-                            .onSuccess { user = it }
-                            .onFailure { errorMessage = it.message.orEmpty() }
-                    }
-                }
+                onLogout = ::signOut
             )
             AccessRole.DEVELOPER,
             AccessRole.DESIGNER,
