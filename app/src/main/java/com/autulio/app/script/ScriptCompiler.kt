@@ -127,8 +127,8 @@ object ScriptCompiler {
         }
         return try {
             val instructions = Parser(source).parse()
-            if (instructions.isEmpty()) {
-                return failure(1, 1, "empty_program", "Chưa có lệnh nào.", "The script has no instructions.")
+            if (instructions.none { it !is ScriptInstruction.FunctionDefinition }) {
+                return failure(1, 1, "empty_program", "Chương trình cần có ít nhất một lệnh chạy ngoài phần định nghĩa hàm.", "The program needs at least one executable instruction outside function definitions.")
             }
             val metrics = measureProgram(instructions)
             if (metrics.expandedInstructionCount > MAX_EXPANDED_INSTRUCTIONS) {
@@ -168,6 +168,11 @@ object ScriptCompiler {
                     1L to actionDuration
                 }
                 is ScriptInstruction.SetVariable -> 1L to 0L
+                is ScriptInstruction.FunctionDefinition -> {
+                    val body = measureBlock(instruction.body, depth + 1)
+                    cappedAdd(1L, body.first, INSTRUCTION_CAP) to body.second
+                }
+                is ScriptInstruction.Return -> 1L to 0L
                 is ScriptInstruction.If -> {
                     val yes = measureBlock(instruction.thenBody, depth + 1)
                     val no = measureBlock(instruction.elseBody, depth + 1)
