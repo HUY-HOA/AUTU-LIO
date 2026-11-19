@@ -40,7 +40,6 @@ import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.access.defaultPermissions
 import com.autulio.app.auth.AuthRepository
-import com.autulio.app.ai.GeminiLiveActivity
 import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptTemplate
@@ -185,16 +184,6 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
             draftContents.putAll(updated.contents)
         }
     }
-    val geminiLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        val updated = draftStore.load()
-        scripts.clear()
-        scripts.addAll(updated.names)
-        draftContents.clear()
-        draftContents.putAll(updated.contents)
-    }
-
     AppTheme(dark) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -252,15 +241,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                             )
                         )
                     },
-                    onOpenGeminiLive = {
-                        if (!accessToken.isNullOrBlank()) {
-                            geminiLauncher.launch(
-                                Intent(context, GeminiLiveActivity::class.java)
-                                    .putExtra(GeminiLiveActivity.EXTRA_ACCESS_TOKEN, accessToken)
-                                    .putExtra(GeminiLiveActivity.EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING, true)
-                            )
-                        }
-                    }
+
                 )
             }
         }
@@ -287,7 +268,6 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 
 @Composable
 internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit) {
-    val context = LocalContext.current
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
 
@@ -314,14 +294,7 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                     accessToken = accessToken,
                     onScripts = { page = "scripts" },
                     onDevices = { page = "device" },
-                    onOpenGeminiLive = {
-                        if (!accessToken.isNullOrBlank()) {
-                            context.startActivity(
-                                Intent(context, GeminiLiveActivity::class.java)
-                                    .putExtra(GeminiLiveActivity.EXTRA_ACCESS_TOKEN, accessToken)
-                            )
-                        }
-                    }
+
                 )
                 "scripts" -> CustomerPackagesScreen(
                     accessToken = accessToken,
@@ -843,8 +816,7 @@ private fun MoreScreen(
     onTheme: () -> Unit,
     onLogout: () -> Unit,
     accessToken: String?,
-    onOpenTemplate: (ScriptTemplate) -> Unit,
-    onOpenGeminiLive: () -> Unit
+    onOpenTemplate: (ScriptTemplate) -> Unit
 ) {
     if (page == "collaborators" || page == "projects") {
         Column(
@@ -885,7 +857,6 @@ private fun MoreScreen(
         Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện mẫu AUTU", "AUTU template library"), Icons.Outlined.ListAlt),
         Triple("packages", tr("Gói AUTU", "AUTU packages"), Icons.Outlined.Code),
-        Triple("gemini_live", "Gemini Live", Icons.Outlined.AutoAwesome),
         Triple("logs", tr("Nhật ký", "Logs"), Icons.Outlined.Info),
         Triple("settings", tr("Cài đặt", "Settings"), Icons.Outlined.Settings)
     )
@@ -927,7 +898,6 @@ private fun MoreScreen(
                     "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
                     "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
                     "packages" -> tr("Mã hóa, phát hành phiên bản và phân phối AUTU cho khách hàng", "Encrypt, publish and distribute AUTU versions to customers")
-                    "gemini_live" -> tr("Trợ lý AI nghe, quan sát màn hình và điều khiển theo quyền bạn cấp", "AI assistant listens, observes the screen and acts within permissions you grant")
                     "release" -> tr("Quản lý phiên bản và phân phối", "Manage versions and distribution")
                     "logs" -> tr("Theo dõi sự kiện và lỗi hệ thống", "Review system events and errors")
                     else -> tr("Tùy chỉnh ứng dụng quản trị", "Customize the admin application")
@@ -948,21 +918,7 @@ private fun MoreScreen(
                     onBack = { onSelect("more") }
                 )
                 "logs" -> AdminAuditLogsScreen(accessToken = accessToken)
-                "gemini_live" -> {
-                    CardBox {
-                        Text("Gemini Live", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            tr("Chia sẻ âm thanh micro và ảnh màn hình theo thời gian thực. API key được giữ ở máy chủ; Android chỉ nhận token tạm thời.", "Stream microphone audio and screen frames in real time. The API key stays on the server; Android receives only a temporary token."),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp
-                        )
-                        Button(
-                            onClick = onOpenGeminiLive,
-                            enabled = !accessToken.isNullOrBlank(),
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text(tr("Mở trợ lý Gemini Live", "Open Gemini Live assistant")) }
-                    }
-                }
+
                 "settings" -> {
                     SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
@@ -1022,8 +978,7 @@ private fun CustomerHome(
     email: String,
     accessToken: String?,
     onScripts: () -> Unit,
-    onDevices: () -> Unit,
-    onOpenGeminiLive: () -> Unit
+    onDevices: () -> Unit
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -1088,11 +1043,6 @@ private fun CustomerHome(
             lineHeight = 18.sp
         )
         Button(onClick = onScripts, modifier = Modifier.fillMaxWidth()) { Text(tr("Mở kho AUTU", "Open AUTU library")) }
-        OutlinedButton(onClick = onOpenGeminiLive, enabled = !accessToken.isNullOrBlank(), modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Outlined.AutoAwesome, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Gemini Live")
-        }
         OutlinedButton(onClick = onDevices, modifier = Modifier.fillMaxWidth()) { Text(tr("Thiết bị và giấy phép", "Devices and license")) }
         Text(email, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
