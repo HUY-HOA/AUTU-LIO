@@ -159,11 +159,51 @@ Ví dụ:
 
 Chỉ số danh sách và vị trí chuỗi bắt đầu từ 0. KÝ_TỰ_TẠI/CẮT_CHUỖI dùng code point Unicode. TÁCH_CHUỖI từ chối dấu phân cách rỗng và không trả quá 64 phần tử. Phần tử chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI. Truy cập ngoài phạm vi hoặc truyền sai kiểu sẽ báo lỗi runtime.
 
-## 7. Hàm truy vấn Android
+## 7. HTTP/HTTPS và API
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| GỬI_YÊU_CẦU_HTTP | GỬI_YÊU_CẦU_HTTP(PHƯƠNG_THỨC, URL, THÂN, TIÊU_ĐỀ, TIMEOUT_MS) | BẢN_ĐỒ phản hồi HTTP |
+
+Ví dụ GET:
+
+```text
+ĐẶT PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
+    "GET",
+    "https://api.example.com/status",
+    RỖNG,
+    TẠO_BẢN_ĐỒ("Accept", "application/json"),
+    10000
+)
+ĐẶT MÃ_TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
+ĐẶT NỘI_DUNG: CHUỖI = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "NỘI_DUNG")
+NẾU (LẤY_GIÁ_TRỊ(PHẢN_HỒI, "THÀNH_CÔNG")) {
+    ĐẶT DỮ_LIỆU: BẢN_ĐỒ = PHÂN_TÍCH_JSON(NỘI_DUNG)
+}
+```
+
+Ví dụ POST JSON:
+
+```text
+ĐẶT THÂN: CHUỖI = CHUYỂN_JSON(TẠO_BẢN_ĐỒ("TÊN", "AUTU-LIO"))
+ĐẶT PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
+    "POST",
+    "https://api.example.com/items",
+    THÂN,
+    TẠO_BẢN_ĐỒ("Authorization", "Bearer TOKEN", "Content-Type", "application/json"),
+    15000
+)
+```
+
+Kết quả trả về gồm `TRẠNG_THÁI`, `THÀNH_CÔNG`, `NỘI_DUNG`, `TIÊU_ĐỀ` và `URL`. Tiêu đề yêu cầu là BẢN_ĐỒ; giá trị tiêu đề chỉ được là chuỗi, số hoặc luận lý. Thân yêu cầu là chuỗi hoặc RỖNG. Chỉ hỗ trợ GET, POST, PUT, DELETE và HEAD; thân yêu cầu chỉ dùng với POST/PUT/DELETE.
+
+Chỉ chấp nhận URL HTTPS, không nhúng user/password và không theo chuyển hướng tự động. Tối đa 32 tiêu đề và 16.384 ký tự tiêu đề; dữ liệu gửi và phản hồi tối đa 1 MiB mỗi chiều; timeout từ 100 đến 30.000 ms. Không đặt các tiêu đề hệ thống như Host, Content-Length hoặc Connection. Không ghi token/khóa truy cập vào nhật ký hoặc mã chia sẻ. Lỗi mạng, timeout, URL, header và giới hạn dữ liệu làm phát sinh lỗi runtime; có thể xử lý bằng THỬ / BẮT_LỖI.
+
+## 8. Hàm truy vấn Android
 
 `PIN()`, `PHẦN_TRĂM_PIN()`, `ĐANG_SẠC()`, `CÓ_MẠNG()`, `MÀN_HÌNH_SÁNG()`, `ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `THỜI_GIAN_MS()`.
 
-## 8. Đọc văn bản và OCR màn hình
+## 9. Đọc văn bản và OCR màn hình
 
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
@@ -220,13 +260,13 @@ Các thao tác này chỉ tác động node mà ứng dụng đích công khai q
 
 Mỗi bản đồ vật thể gồm X, Y, RỘNG, CAO theo pixel ảnh chụp màn hình và NHÃN là danh sách bản đồ có TÊN, CHỈ_SỐ, ĐỘ_TIN_CẬY. Bộ nhận diện ảnh tĩnh bật phân loại và phát hiện nhiều vật thể, tối đa 5 vật thể. Phân loại mặc định chỉ đưa ra nhóm tổng quát như thời trang, thực phẩm, đồ gia dụng, địa điểm hoặc cây cối; không phải mô hình nhận diện tên cụ thể mọi vật thể. Không có tracking ID trong chế độ ảnh tĩnh. Kết quả phụ thuộc kích thước/vị trí vật thể, độ nét và cảnh ảnh.
 
-## 9. Lệnh Android
+## 10. Lệnh Android
 
 `CHẠM(X,Y)`, `NHẤN_GIỮ(X,Y,MS)`, `VUỐT(X1,Y1,X2,Y2,MS)`, `CHỜ(MS)`, `MỞ_ỨNG_DỤNG("TÊN_GÓI")`, `QUAY_LẠI()`, `VỀ_MÀN_HÌNH_CHÍNH()`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY()`, `MỞ_THANH_THÔNG_BÁO()`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH()`, `MỞ_HỘP_THOẠI_NGUỒN()`, `KHÓA_MÀN_HÌNH()`, `BẬT_TẮT_CHIA_MÀN_HÌNH()`.
 
 Các thao tác cần AccessibilityService hoạt động và chịu giới hạn Android. Tọa độ phải nằm trong màn hình thực tế; hành động bị Android từ chối sẽ làm runtime báo lỗi.
 
-## 10. Xử lý lỗi có cấu trúc
+## 11. Xử lý lỗi có cấu trúc
 
 Cú pháp:
 
@@ -243,7 +283,7 @@ THỬ {
 
 Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_BÁO". BẮT_LỖI bắt lỗi thực thi của kịch bản; không bắt lệnh dừng, thoát vòng lặp, bỏ qua lượt hoặc trả về hàm. LUÔN_THỰC_HIỆN luôn chạy khi rời khối THỬ, kể cả khi lỗi không được xử lý. Nếu LUÔN_THỰC_HIỆN phát sinh lỗi mới, lỗi mới được truyền ra ngoài. Có thể dùng THỬ với LUÔN_THỰC_HIỆN mà không có BẮT_LỖI.
 
-## 11. Giới hạn thực thi
+## 12. Giới hạn thực thi
 
 | Hạng mục | Giới hạn |
 |---|---:|
@@ -258,7 +298,7 @@ Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_B
 | Lượt thực thi | 5.000 |
 | Thời lượng tĩnh | 10 phút |
 
-## 12. Chưa hỗ trợ
+## 13. Chưa hỗ trợ
 
 AUTU Script 1.10 bổ sung kho tệp riêng cho kịch bản và đọc/ghi JSON. Phần còn thiếu gồm tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
