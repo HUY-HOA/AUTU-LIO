@@ -46,6 +46,9 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.label.ImageLabeler
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.label.ImageLabeling
+import com.google.mlkit.vision.objects.ObjectDetection
+import com.google.mlkit.vision.objects.ObjectDetector
+import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -73,6 +76,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     @Volatile
     private var textRecognizer: TextRecognizer? = null
+    @Volatile
+    private var objectDetector: ObjectDetector? = null
     @Volatile
     private var imageLabeler: ImageLabeler? = null
     @Volatile
@@ -129,6 +134,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         qrCodeScanner = null
         barcodeScanner?.close()
         barcodeScanner = null
+        objectDetector?.close()
+        objectDetector = null
         removeFloatingWindow()
         pendingProgram = null
         if (activeInstance === this) activeInstance = null
@@ -330,6 +337,42 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 scanScreenBarcodes(qrOnly = false)
             }
+            "PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                recognizeScreenObjects()
+            }
+            "MÀN_HÌNH_CÓ_VẬT_THỂ" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = requireTextArgument(name, arguments[0])
+                recognizeScreenObjects().any { item ->
+                    val objectMap = item as? Map<*, *> ?: return@any false
+                    val labels = objectMap["NHÃN"] as? List<*> ?: return@any false
+                    labels.any { label ->
+                        val labelMap = label as? Map<*, *> ?: return@any false
+                        (labelMap["TÊN"] as? String)?.contains(query, ignoreCase = true) == true
+                    }
+                }
+            }
+            "TÌM_TỌA_ĐỘ_VẬT_THỂ" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = requireTextArgument(name, arguments[0])
+                val detected = recognizeScreenObjects().firstOrNull { item ->
+                    val objectMap = item as? Map<*, *> ?: return@firstOrNull false
+                    val labels = objectMap["NHÃN"] as? List<*> ?: return@firstOrNull false
+                    labels.any { label ->
+                        val labelMap = label as? Map<*, *> ?: return@firstOrNull false
+                        (labelMap["TÊN"] as? String)?.contains(query, ignoreCase = true) == true
+                    }
+                } as? Map<*, *>
+                if (detected == null) emptyList<Int>() else listOf(
+                    ((detected["X"] as Number).toInt() + (detected["RỘNG"] as Number).toInt() / 2),
+                    ((detected["Y"] as Number).toInt() + (detected["CAO"] as Number).toInt() / 2)
+                )
+            }
+            "ĐẾM_VẬT_THỂ_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                recognizeScreenObjects().size
+            }
             "TÌM_THÀNH_PHẦN_VĂN_BẢN" -> {
                 requireArgumentCount(name, arguments, 1)
                 val query = requireTextArgument(name, arguments[0])
@@ -435,6 +478,46 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
 
+
+    private fun getObjectDetector(): ObjectDetector {
+        objectDetector?.let { return it }
+        return synchronized(this) {
+            objectDetector ?: ObjectDetection.getClient(
+                ObjectDetectorOptions.Builder()
+                    .setDetectorMode(ObjectDetectorOptions.SINGLE_IMAGE_MODE)
+                    .enableMultipleObjects()
+                    .enableClassification()
+                    .build()
+            ).also { objectDetector = it }
+        }
+    }
+
+    private fun recognizeScreenObjects(): List<Any?> =
+        withCapturedScreen { bitmap ->
+            Tasks.await(
+                getObjectDetector().process(InputImage.fromBitmap(bitmap, 0)),
+                15,
+                TimeUnit.SECONDS
+            ).take(5).map { detected ->
+                val bounds = detected.boundingBox
+                val labels = detected.labels
+                    .sortedByDescending { it.confidence }
+                    .map { label ->
+                        linkedMapOf<String, Any?>(
+                            "TÊN" to label.text,
+                            "CHỈ_SỐ" to label.index.toDouble(),
+                            "ĐỘ_TIN_CẬY" to label.confidence.toDouble()
+                        )
+                    }.toMutableList<Any?>()
+                linkedMapOf<String, Any?>(
+                    "X" to bounds.left.toDouble(),
+                    "Y" to bounds.top.toDouble(),
+                    "RỘNG" to bounds.width().toDouble(),
+                    "CAO" to bounds.height().toDouble(),
+                    "NHÃN" to labels
+                )
+            }.toMutableList<Any?>()
+        } ?: emptyList()
 
     private fun getImageLabeler(): ImageLabeler {
         imageLabeler?.let { return it }
