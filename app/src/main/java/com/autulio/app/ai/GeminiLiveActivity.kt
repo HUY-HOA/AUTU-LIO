@@ -489,6 +489,7 @@ private fun GeminiLiveScreen(
 internal class GeminiLiveController(
     private val callbacks: Callbacks,
     private val serverSetupTemplate: JSONObject,
+    private val apiVersion: String,
     private val screenFrameProvider: () -> ByteArray?,
     private val scriptWorkspace: GeminiAutuScriptWorkspace? = null
 ) {
@@ -547,7 +548,11 @@ internal class GeminiLiveController(
         val token = sessionToken
         if (!active.get() || token.isNullOrBlank()) return
         val encodedToken = URLEncoder.encode(token, Charsets.UTF_8.name())
-        val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=$encodedToken"
+        if (apiVersion != "v1alpha") {
+            fail("Phiên bản API Gemini Live không khớp với token tạm do máy chủ cấp.")
+            return
+        }
+        val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.$apiVersion.GenerativeService.BidiGenerateContentConstrained?access_token=$encodedToken"
         val request = Request.Builder().url(url).build()
         val generation = synchronized(inputLock) {
             connectionGeneration += 1
