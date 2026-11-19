@@ -736,6 +736,8 @@ private fun EditorScreen(
                     Text("ỨNG_DỤNG_ĐÃ_CÀI(\"tên.gói\"), ỨNG_DỤNG_ĐANG_MỞ(\"tên.gói\")")
                     Text("CHIỀU_RỘNG_MÀN_HÌNH(), CHIỀU_CAO_MÀN_HÌNH(), THỜI_GIAN_MS()")
                     Text("ĐỌC_VĂN_BẢN_MÀN_HÌNH(), MÀN_HÌNH_CHỨA_CHỮ(\"nội dung\"), TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")")
+                    Text("ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()")
+                    Text(tr("Trả về danh sách khối và dòng OCR kèm tọa độ pixel; mỗi khối có VĂN_BẢN, X, Y, RỘNG, CAO và CÁC_DÒNG.", "Returns OCR blocks and lines with pixel bounds; each block has text, X, Y, width, height and lines."))
                     Text("ĐỌC_VĂN_BẢN_VÙNG(X, Y, RỘNG, CAO), MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(\"OK\", X, Y, RỘNG, CAO)")
                     Text("TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG(\"OK\", X, Y, RỘNG, CAO)")
                     Text("PHÂN_TÍCH_JSON(\"{\\\"A\\\":1}\"), CHUYỂN_JSON(GIÁ_TRỊ), RỖNG")
