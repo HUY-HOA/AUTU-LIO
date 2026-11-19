@@ -478,7 +478,10 @@ object ScriptCompiler {
                     if (isSymbol("=")) {
                         advance()
                         ScriptInstruction.SetVariable(name.text, parseExpression())
-                    } else if (isSymbol("(") && name.text !in commandAliases) {
+                    } else if (
+                        isSymbol("(") &&
+                        (name.text in builtinFunctionArities || name.text in functionNames)
+                    ) {
                         val expression = parseStatementFunctionCall(name)
                         ScriptInstruction.ExpressionStatement(expression)
                     } else parseCommand(name)
