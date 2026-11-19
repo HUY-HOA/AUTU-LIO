@@ -551,7 +551,8 @@ class ScriptExecutionEngine(
             when (val value = args[0]) {
                 is String -> value.length.toDouble()
                 is List<*> -> value.size.toDouble()
-                else -> throw ScriptRuntimeFailure("invalid_argument", "ĐỘ_DÀI cần một chuỗi hoặc danh sách.")
+                is Map<*, *> -> value.size.toDouble()
+                else -> throw ScriptRuntimeFailure("invalid_argument", "ĐỘ_DÀI cần chuỗi, danh sách hoặc bản đồ.")
             }
         }
         "TẠO_DANH_SÁCH" -> {
@@ -602,6 +603,62 @@ class ScriptExecutionEngine(
             val list = args[0] as? List<*>
                 ?: throw ScriptRuntimeFailure("invalid_argument", "CÓ_PHẦN_TỬ cần danh sách ở tham số đầu.")
             list.contains(args[1])
+        }
+        "TẠO_BẢN_ĐỒ" -> {
+            if (args.size > ScriptCompiler.MAX_MAP_ENTRIES * 2 || args.size % 2 != 0) {
+                throw ScriptRuntimeFailure("map_argument_count", "TẠO_BẢN_ĐỒ cần tối đa ${ScriptCompiler.MAX_MAP_ENTRIES} cặp KHÓA, GIÁ_TRỊ.")
+            }
+            val map = linkedMapOf<String, Any?>()
+            for (index in args.indices step 2) {
+                val key = args[index] as? String
+                    ?: throw ScriptRuntimeFailure("invalid_map_key", "Khóa bản đồ phải là chuỗi.")
+                if (key.isBlank()) throw ScriptRuntimeFailure("invalid_map_key", "Khóa bản đồ không được để trống.")
+                if (!isSupportedMapValue(args[index + 1])) {
+                    throw ScriptRuntimeFailure("invalid_map_value", "Giá trị bản đồ chỉ được là số, chuỗi hoặc ĐÚNG/SAI.")
+                }
+                if (map.containsKey(key)) throw ScriptRuntimeFailure("duplicate_map_key", "Khóa bản đồ bị trùng: " + key + ".")
+                map[key] = args[index + 1]
+            }
+            map
+        }
+        "LẤY_GIÁ_TRỊ" -> {
+            requireArgs(name, args, 2)
+            val map = requireMutableMap(args[0], name)
+            val key = requireMapKey(args[1])
+            if (!map.containsKey(key)) throw ScriptRuntimeFailure("map_key_not_found", "Không tìm thấy khóa '" + key + "'.")
+            map[key]
+        }
+        "ĐẶT_GIÁ_TRỊ" -> {
+            requireArgs(name, args, 3)
+            val map = requireMutableMap(args[0], name)
+            val key = requireMapKey(args[1])
+            if (!isSupportedMapValue(args[2])) {
+                throw ScriptRuntimeFailure("invalid_map_value", "Giá trị bản đồ chỉ được là số, chuỗi hoặc ĐÚNG/SAI.")
+            }
+            if (!map.containsKey(key) && map.size >= ScriptCompiler.MAX_MAP_ENTRIES) {
+                throw ScriptRuntimeFailure("map_too_large", "Bản đồ đã đạt giới hạn ${ScriptCompiler.MAX_MAP_ENTRIES} cặp khóa–giá trị.")
+            }
+            map[key] = args[2]
+            args[2]
+        }
+        "XÓA_KHÓA" -> {
+            requireArgs(name, args, 2)
+            val map = requireMutableMap(args[0], name)
+            val key = requireMapKey(args[1])
+            if (!map.containsKey(key)) throw ScriptRuntimeFailure("map_key_not_found", "Không tìm thấy khóa '" + key + "'.")
+            map.remove(key)
+        }
+        "CÓ_KHÓA" -> {
+            requireArgs(name, args, 2)
+            val map = args[0] as? Map<*, *>
+                ?: throw ScriptRuntimeFailure("invalid_argument", "CÓ_KHÓA cần bản đồ ở tham số đầu.")
+            map.containsKey(requireMapKey(args[1]))
+        }
+        "DANH_SÁCH_KHÓA" -> {
+            requireArgs(name, args, 1)
+            val map = args[0] as? Map<*, *>
+                ?: throw ScriptRuntimeFailure("invalid_argument", "DANH_SÁCH_KHÓA cần một bản đồ.")
+            map.keys.map { it as String }.toMutableList()
         }
         "NHỎ_NHẤT" -> {
             requireArgs(name, args, 2)
@@ -671,12 +728,24 @@ class ScriptExecutionEngine(
         "CHUỖI" -> value is String
         "LUẬN_LÝ" -> value is Boolean
         "DANH_SÁCH" -> value is List<*>
+        "BẢN_ĐỒ" -> value is Map<*, *>
         "BẤT_KỲ" -> true
         else -> false
     }
 
     private fun isSupportedListItem(value: Any?): Boolean =
-        value is Number || value is String || value is Boolean
+        (value is Number && value.toDouble().isFinite()) || value is String || value is Boolean
+
+    private fun isSupportedMapValue(value: Any?): Boolean = isSupportedListItem(value)
+
+    @Suppress("UNCHECKED_CAST")
+    private fun requireMutableMap(value: Any?, functionName: String): MutableMap<String, Any?> =
+        value as? MutableMap<String, Any?>
+            ?: throw ScriptRuntimeFailure("invalid_argument", "Hàm '$functionName' cần bản đồ được tạo bằng TẠO_BẢN_ĐỒ.")
+
+    private fun requireMapKey(value: Any?): String =
+        (value as? String)?.takeIf { it.isNotBlank() }
+            ?: throw ScriptRuntimeFailure("invalid_map_key", "Khóa bản đồ phải là chuỗi không rỗng.")
 
     @Suppress("UNCHECKED_CAST")
     private fun requireMutableList(value: Any?, functionName: String): MutableList<Any?> =
@@ -838,9 +907,9 @@ class ScriptExecutionEngine(
                         instruction.parameters.all { parameter ->
                             parameter.name.isNotBlank() &&
                                 parameter.name == parameter.name.uppercase(Locale.ROOT) &&
-                                (parameter.declaredType == null || parameter.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẤT_KỲ"))
+                                (parameter.declaredType == null || parameter.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ"))
                         } &&
-                        (instruction.returnType == null || instruction.returnType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẤT_KỲ")) &&
+                        (instruction.returnType == null || instruction.returnType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ")) &&
                         validateBlock(instruction.body, depth + 1, 0, true)
                 is ScriptInstruction.Return ->
                     inFunction && validateExpression(instruction.value, 0)
@@ -862,7 +931,7 @@ class ScriptExecutionEngine(
                         instruction.name == instruction.name.uppercase(Locale.ROOT) &&
                         instruction.name.first().let { it.isLetter() || it == '_' } &&
                         instruction.name.all { it.isLetterOrDigit() || it == '_' } &&
-                        (instruction.declaredType == null || instruction.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẤT_KỲ")) &&
+                        (instruction.declaredType == null || instruction.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ")) &&
                         validateExpression(instruction.value, 0)
                 is ScriptInstruction.If ->
                     validateExpression(instruction.condition, 0) &&
@@ -900,7 +969,7 @@ class ScriptExecutionEngine(
             is ScriptExpression.Unary -> expression.operator in setOf("KHÔNG", "+", "-") && validateExpression(expression.operand, depth + 1)
             is ScriptExpression.Binary -> expression.operator in setOf("VÀ", "HOẶC", "==", "!=", ">", ">=", "<", "<=", "+", "-", "*", "/", "%", "^") &&
                 validateExpression(expression.left, depth + 1) && validateExpression(expression.right, depth + 1)
-            is ScriptExpression.FunctionCall -> expression.name.isNotBlank() && expression.arguments.size <= ScriptCompiler.MAX_LIST_ITEMS &&
+            is ScriptExpression.FunctionCall -> expression.name.isNotBlank() && expression.arguments.size <= ScriptCompiler.MAX_MAP_ENTRIES * 2 &&
                 expression.arguments.all { validateExpression(it, depth + 1) }
         }
     }
