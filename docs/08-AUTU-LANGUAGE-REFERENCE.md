@@ -1,6 +1,6 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.11
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.13
 
-**Ngôn ngữ:** AUTU-LIO Script 1.11  
+**Ngôn ngữ:** AUTU-LIO Script 1.13  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
 Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.11; các tên cũ được giữ làm bí danh tương thích.
@@ -260,13 +260,55 @@ Các thao tác này chỉ tác động node mà ứng dụng đích công khai q
 
 Mỗi bản đồ vật thể gồm X, Y, RỘNG, CAO theo pixel ảnh chụp màn hình và NHÃN là danh sách bản đồ có TÊN, CHỈ_SỐ, ĐỘ_TIN_CẬY. Bộ nhận diện ảnh tĩnh bật phân loại và phát hiện nhiều vật thể, tối đa 5 vật thể. Phân loại mặc định chỉ đưa ra nhóm tổng quát như thời trang, thực phẩm, đồ gia dụng, địa điểm hoặc cây cối; không phải mô hình nhận diện tên cụ thể mọi vật thể. Không có tracking ID trong chế độ ảnh tĩnh. Kết quả phụ thuộc kích thước/vị trí vật thể, độ nét và cảnh ảnh.
 
-## 10. Lệnh Android
+
+### Phân tích màu RGB trên màn hình
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| MÀU_TẠI | MÀU_TẠI(X, Y) | Bản đồ ĐỎ, XANH_LÁ, XANH_DƯƠNG, ĐỘ_TRONG_SUỐT và HEX |
+| MÀN_HÌNH_CÓ_MÀU | MÀN_HÌNH_CÓ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ) | ĐÚNG nếu ảnh mẫu có pixel gần màu chỉ định |
+| TÌM_VỊ_TRÍ_MÀU | TÌM_VỊ_TRÍ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ) | Tọa độ gần đúng [X, Y] của điểm khớp đầu tiên |
+| TỶ_LỆ_MÀU_TRONG_VÙNG | TỶ_LỆ_MÀU_TRONG_VÙNG(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO) | Phần trăm pixel mẫu gần màu chỉ định trong vùng |
+
+Mỗi kênh RGB và SAI_SỐ là số nguyên từ 0 đến 255. SAI_SỐ áp dụng riêng cho từng kênh màu. Tọa độ là pixel tính từ góc trên bên trái. Phân tích màn hình dùng ảnh chụp tại thiết bị và lấy mẫu tối đa 262.144 điểm toàn màn hình hoặc 65.536 điểm trong vùng; tỷ lệ trả về là ước lượng, không phải phép đếm chính xác từng pixel. Không thể đọc màn hình bị Android hoặc ứng dụng đích chặn chụp.
+
+Ví dụ:
+
+```text
+ĐẶT MAU_NUT: BẢN_ĐỒ = MÀU_TẠI(300, 500)
+NẾU (MÀN_HÌNH_CÓ_MÀU(0, 180, 80, 12)) {
+    ĐẶT TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_MÀU(0, 180, 80, 12)
+    CHẠM(LẤY_PHẦN_TỬ(TOA_DO, 0), LẤY_PHẦN_TỬ(TOA_DO, 1))
+}
+ĐẶT TY_LE_XANH: SỐ = TỶ_LỆ_MÀU_TRONG_VÙNG(0, 180, 80, 12, 100, 200, 400, 300)
+```
+
+## 10. SQLite riêng của AUTU-LIO
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| SQL_THỰC_THI | SQL_THỰC_THI(CÂU_SQL, DANH_SÁCH_THAM_SỐ) | Bản đồ SỐ_DÒNG và ID_MỚI |
+| SQL_TRUY_VẤN | SQL_TRUY_VẤN(CÂU_SELECT, DANH_SÁCH_THAM_SỐ) | Danh sách bản đồ, mỗi bản đồ là một dòng |
+
+Ví dụ:
+
+```text
+SQL_THỰC_THI("CREATE TABLE IF NOT EXISTS GHI_CHU (ID INTEGER PRIMARY KEY, TEN TEXT)", TẠO_DANH_SÁCH())
+SQL_THỰC_THI("INSERT INTO GHI_CHU (TEN) VALUES (?)", TẠO_DANH_SÁCH("Việc cần làm"))
+ĐẶT CAC_DONG: DANH_SÁCH = SQL_TRUY_VẤN("SELECT ID, TEN FROM GHI_CHU WHERE ID > ?", TẠO_DANH_SÁCH(0))
+```
+
+Cơ sở dữ liệu được lưu trong vùng riêng của AUTU-LIO; script không chọn đường dẫn, mở cơ sở dữ liệu bên ngoài hoặc gắn thêm database. SQL_TRUY_VẤN chỉ nhận một câu SELECT. SQL_THỰC_THI chỉ nhận CREATE TABLE/INDEX, ALTER TABLE, DROP TABLE/INDEX, INSERT, UPDATE, DELETE hoặc REPLACE. Tham số phải dùng dấu hỏi không đánh số `?`; số dấu hỏi phải khớp danh sách tham số. Mỗi câu chỉ được có một lệnh; cấm dấu chấm phẩy, chú thích SQL, tham số có tên, ATTACH/DETACH, PRAGMA và các lệnh quản trị bị giới hạn. Mỗi lệnh thay đổi dữ liệu được chạy trong transaction nội bộ.
+
+Giới hạn: câu SQL tối đa 8.192 ký tự; 64 tham số; kết quả tối đa 256 dòng, 64 cột và 1 MiB văn bản. Một ô văn bản hoặc tham số chuỗi tối đa 4.096 ký tự. SQLite không nhận tham số nhị phân, danh sách hoặc bản đồ. Đây là SQLite nội bộ của AUTU-LIO, không thay thế công cụ quản trị database tổng quát.
+
+## 11. Lệnh Android
 
 `CHẠM(X,Y)`, `NHẤN_GIỮ(X,Y,MS)`, `VUỐT(X1,Y1,X2,Y2,MS)`, `CHỜ(MS)`, `MỞ_ỨNG_DỤNG("TÊN_GÓI")`, `QUAY_LẠI()`, `VỀ_MÀN_HÌNH_CHÍNH()`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY()`, `MỞ_THANH_THÔNG_BÁO()`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH()`, `MỞ_HỘP_THOẠI_NGUỒN()`, `KHÓA_MÀN_HÌNH()`, `BẬT_TẮT_CHIA_MÀN_HÌNH()`.
 
 Các thao tác cần AccessibilityService hoạt động và chịu giới hạn Android. Tọa độ phải nằm trong màn hình thực tế; hành động bị Android từ chối sẽ làm runtime báo lỗi.
 
-## 11. Xử lý lỗi có cấu trúc
+## 12. Xử lý lỗi có cấu trúc
 
 Cú pháp:
 
@@ -283,7 +325,7 @@ THỬ {
 
 Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_BÁO". BẮT_LỖI bắt lỗi thực thi của kịch bản; không bắt lệnh dừng, thoát vòng lặp, bỏ qua lượt hoặc trả về hàm. LUÔN_THỰC_HIỆN luôn chạy khi rời khối THỬ, kể cả khi lỗi không được xử lý. Nếu LUÔN_THỰC_HIỆN phát sinh lỗi mới, lỗi mới được truyền ra ngoài. Có thể dùng THỬ với LUÔN_THỰC_HIỆN mà không có BẮT_LỖI.
 
-## 12. Giới hạn thực thi
+## 13. Giới hạn thực thi
 
 | Hạng mục | Giới hạn |
 |---|---:|
@@ -298,8 +340,8 @@ Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_B
 | Lượt thực thi | 5.000 |
 | Thời lượng tĩnh | 10 phút |
 
-## 13. Chưa hỗ trợ
+## 14. Chưa hỗ trợ
 
-AUTU Script 1.11 bổ sung kho tệp riêng cho kịch bản và đọc/ghi JSON. Phần còn thiếu gồm tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
+AUTU Script 1.13 hiện có kho tệp riêng, HTTP(S) giới hạn, SQLite nội bộ, OCR màn hình/vùng, nhận diện nhãn ảnh, vật thể, QR/mã vạch và phân tích màu RGB lấy mẫu. Phần còn thiếu gồm nhập ảnh qua bộ chọn tệp/URI để OCR và nhận diện, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, tọa độ DP/tương đối, kéo-thả/đa điểm, sự kiện và lịch nền, module dùng chung, regex/ngày giờ và debugger từng bước. Các phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
