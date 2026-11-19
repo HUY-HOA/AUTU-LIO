@@ -174,7 +174,18 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
     assert.equal(payload.uses, 1);
     assert.equal(payload.liveConnectConstraints.model, "models/gemini-3.8-live");
     assert.equal(payload.liveConnectConstraints.config.responseModalities[0], "AUDIO");
-    assert.equal(payload.liveConnectConstraints.config.tools[0].functionDeclarations.length, 4);
+    assert.deepEqual(payload.liveConnectConstraints.config.sessionResumption, {});
+    assert.deepEqual(payload.liveConnectConstraints.config.contextWindowCompression, { slidingWindow: {} });
+    const expiryMs = Date.parse(payload.expireTime) - Date.now();
+    const newSessionExpiryMs = Date.parse(payload.newSessionExpireTime) - Date.now();
+    assert.ok(expiryMs > 28 * 60 * 1000 && expiryMs <= 30 * 60 * 1000);
+    assert.ok(newSessionExpiryMs > 0 && newSessionExpiryMs <= 60 * 1000);
+    const declarations = payload.liveConnectConstraints.config.tools[0].functionDeclarations;
+    assert.equal(declarations.length, 6);
+    assert.deepEqual(
+      declarations.map(item => item.name).sort(),
+      ["long_press_screen", "press_back", "read_screen_text", "swipe_screen", "tap_screen", "tap_text"].sort()
+    );
     assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
   } finally {
     globalThis.fetch = originalFetch;
