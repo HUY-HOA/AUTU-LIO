@@ -1879,9 +1879,15 @@ async function createGeminiLiveToken(request, env, session) {
   // Keep the one-use token available for session resumption, not for creating later sessions.
   const expireTime = new Date(now + 30 * 60 * 1000).toISOString();
   const newSessionExpireTime = new Date(now + 60 * 1000).toISOString();
-  const config = {
-    responseModalities: ["AUDIO"],
-    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } },
+  // The Gemini Developer API wire format uses bidiGenerateContentSetup;
+  // the SDK's liveConnectConstraints object is only a client-side abstraction.
+  // Auth-token provisioning and constrained Live WebSockets are v1alpha.
+  const liveSetup = {
+    model: GEMINI_LIVE_MODEL,
+    generationConfig: {
+      responseModalities: ["AUDIO"],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
+    },
     inputAudioTranscription: {},
     outputAudioTranscription: {},
     contextWindowCompression: { slidingWindow: {} },
@@ -1897,7 +1903,7 @@ async function createGeminiLiveToken(request, env, session) {
 
   let upstream;
   try {
-    upstream = await fetch("https://generativelanguage.googleapis.com/v1beta/auth_tokens", {
+    upstream = await fetch("https://generativelanguage.googleapis.com/v1alpha/auth_tokens", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1907,7 +1913,18 @@ async function createGeminiLiveToken(request, env, session) {
         uses: 1,
         expireTime,
         newSessionExpireTime,
-        liveConnectConstraints: { model: GEMINI_LIVE_MODEL, config }
+        bidiGenerateContentSetup: liveSetup,
+        fieldMask: [
+          "model",
+          "generationConfig.responseModalities",
+          "generationConfig.speechConfig",
+          "inputAudioTranscription",
+          "outputAudioTranscription",
+          "contextWindowCompression.slidingWindow",
+          "sessionResumption",
+          "systemInstruction.parts",
+          "tools.0"
+        ].join(",")
       })
     });
   } catch {
