@@ -77,6 +77,7 @@ import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -493,6 +494,7 @@ internal class GeminiLiveController(
     @Volatile private var resumeHandle: String? = null
     @Volatile private var connectionGeneration = 0L
     @Volatile private var reconnectAttempts = 0
+    @Volatile private var setupTimeout: ScheduledFuture<*>? = null
 
     fun setActionsEnabled(enabled: Boolean) {
         actionsEnabled = enabled
@@ -525,8 +527,19 @@ internal class GeminiLiveController(
                     webSocket.close(1000, "Superseded connection")
                     return
                 }
+                callbacks.onStatus("Đã mở kênh bảo mật tới Google; đang gửi cấu hình phiên…")
+                setupTimeout?.cancel(false)
+                setupTimeout = reconnectScheduler.schedule({
+                    if (isCurrentSocket(webSocket, generation) && !ready.get()) {
+                        fail("Google không xác nhận cấu hình Gemini Live sau 20 giây. Phiên chưa thể bắt đầu; hãy thử lại và gửi thông báo lỗi nếu còn xảy ra.")
+                    }
+                }, 20, TimeUnit.SECONDS)
                 if (!webSocket.send(buildSetupMessage(resumeHandle).toString())) {
+                    setupTimeout?.cancel(false)
+                    setupTimeout = null
                     recoverConnection(webSocket, generation, "Không gửi được cấu hình Gemini Live.", 750L)
+                } else {
+                    callbacks.onStatus("Đã gửi cấu hình Gemini Live; đang chờ Google xác nhận…")
                 }
             }
 
@@ -537,21 +550,25 @@ internal class GeminiLiveController(
             }
 
             override fun onFailure(webSocket: WebSocket, error: Throwable, response: Response?) {
-                recoverConnection(
-                    webSocket,
-                    generation,
-                    "Kết nối Gemini Live bị gián đoạn: ${error.message ?: "lỗi mạng"}",
-                    750L
-                )
+                val httpCode = response?.code
+                val message = when (httpCode) {
+                    400 -> "Google từ chối cấu hình phiên Gemini Live (HTTP 400)."
+                    401, 403 -> "Google từ chối token hoặc quyền truy cập Gemini Live (HTTP $httpCode)."
+                    404 -> "Google không tìm thấy mô hình hoặc điểm kết nối Gemini Live (HTTP 404)."
+                    429 -> "Gemini Live đang vượt hạn mức yêu cầu (HTTP 429)."
+                    null -> "Không thể thiết lập kết nối tới Google Gemini Live. Hãy kiểm tra mạng trên điện thoại."
+                    else -> "Google từ chối kết nối Gemini Live (HTTP $httpCode)."
+                }
+                recoverConnection(webSocket, generation, message, 750L)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                recoverConnection(
-                    webSocket,
-                    generation,
-                    "Gemini Live đã đóng kết nối ($code).",
-                    500L
-                )
+                val message = if (!ready.get()) {
+                    "Google đã đóng kết nối trước khi xác nhận phiên Gemini Live (mã $code)."
+                } else {
+                    "Gemini Live đã đóng kết nối (mã $code)."
+                }
+                recoverConnection(webSocket, generation, message, 500L)
             }
         })
         socket = nextSocket
@@ -567,6 +584,8 @@ internal class GeminiLiveController(
         minimumDelayMs: Long
     ) {
         if (!isCurrentSocket(webSocket, generation)) return
+        setupTimeout?.cancel(false)
+        setupTimeout = null
         if (resumeHandle.isNullOrBlank()) {
             fail("$reason Chưa có mốc tiếp tục phiên; hãy bắt đầu phiên Live mới.")
             return
@@ -625,6 +644,8 @@ internal class GeminiLiveController(
         runCatching { audioTrack?.release() }
         audioTrack = null
         synchronized(inputLock) { connectionGeneration += 1 }
+        setupTimeout?.cancel(false)
+        setupTimeout = null
         socket?.close(1000, "User stopped Gemini Live")
         socket = null
         reconnectScheduler.shutdownNow()
@@ -648,6 +669,8 @@ internal class GeminiLiveController(
         }
 
         if (message.has("setupComplete")) {
+            setupTimeout?.cancel(false)
+            setupTimeout = null
             synchronized(inputLock) { reconnectAttempts = 0 }
             reconnectScheduled.set(false)
             if (ready.compareAndSet(false, true)) {
@@ -686,7 +709,15 @@ internal class GeminiLiveController(
             recoverConnection(webSocket, generation, "Gemini yêu cầu nối lại phiên.", 250L)
         }
         message.optJSONObject("error")?.let {
-            fail(it.optString("message").ifBlank { "Gemini trả về lỗi." })
+            val code = it.optInt("code", -1)
+            val messageText = when (code) {
+                400 -> "Google từ chối cấu hình phiên Gemini Live (mã 400)."
+                401, 403 -> "Google từ chối token hoặc quyền truy cập Gemini Live (mã " + code + ")."
+                404 -> "Google không tìm thấy mô hình Gemini Live (mã 404)."
+                429 -> "Gemini Live đã vượt hạn mức yêu cầu (mã 429)."
+                else -> "Google Gemini trả về lỗi khi thiết lập phiên Live" + if (code >= 0) " (mã " + code + ")" else "" + "."
+            }
+            fail(messageText)
         }
     }
 
