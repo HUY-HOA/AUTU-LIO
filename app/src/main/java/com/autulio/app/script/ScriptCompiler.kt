@@ -63,20 +63,37 @@ object ScriptCompiler {
     private const val INSTRUCTION_CAP = MAX_EXPANDED_INSTRUCTIONS + 1
     private const val DURATION_CAP = MAX_TOTAL_DURATION_MS + 1
 
+    // Từ khóa chuẩn luôn viết HOA và có dấu. Bí danh tiếng Anh chỉ để tương thích mã cũ.
     private val commandAliases = mapOf(
         "CHẠM" to "CHẠM", "TAP" to "CHẠM",
-        "NHẤN_GIỮ" to "NHẤN_GIỮ", "LONGPRESS" to "NHẤN_GIỮ",
+        "NHẤN_GIỮ" to "NHẤN_GIỮ", "LONGPRESS" to "NHẤN_GIỮ", "LONG_PRESS" to "NHẤN_GIỮ",
         "VUỐT" to "VUỐT", "SWIPE" to "VUỐT",
         "CHỜ" to "CHỜ", "WAIT" to "CHỜ",
-        "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG", "OPENAPP" to "MỞ_ỨNG_DỤNG",
+        "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG", "OPENAPP" to "MỞ_ỨNG_DỤNG", "OPEN_APP" to "MỞ_ỨNG_DỤNG",
         "QUAY_LẠI" to "QUAY_LẠI", "BACK" to "QUAY_LẠI",
         "VỀ_MÀN_HÌNH_CHÍNH" to "VỀ_MÀN_HÌNH_CHÍNH", "HOME" to "VỀ_MÀN_HÌNH_CHÍNH",
         "ỨNG_DỤNG_GẦN_ĐÂY" to "ỨNG_DỤNG_GẦN_ĐÂY", "RECENTS" to "ỨNG_DỤNG_GẦN_ĐÂY",
         "MỞ_THÔNG_BÁO" to "MỞ_THÔNG_BÁO", "NOTIFICATIONS" to "MỞ_THÔNG_BÁO",
-        "MỞ_CÀI_ĐẶT_NHANH" to "MỞ_CÀI_ĐẶT_NHANH", "QUICKSETTINGS" to "MỞ_CÀI_ĐẶT_NHANH",
-        "HIỆN_MENU_NGUỒN" to "HIỆN_MENU_NGUỒN", "POWERDIALOG" to "HIỆN_MENU_NGUỒN",
-        "KHÓA_MÀN_HÌNH" to "KHÓA_MÀN_HÌNH", "LOCKSCREEN" to "KHÓA_MÀN_HÌNH",
-        "CHIA_MÀN_HÌNH" to "CHIA_MÀN_HÌNH", "SPLITSCREEN" to "CHIA_MÀN_HÌNH"
+        "MỞ_CÀI_ĐẶT_NHANH" to "MỞ_CÀI_ĐẶT_NHANH", "QUICKSETTINGS" to "MỞ_CÀI_ĐẶT_NHANH", "QUICK_SETTINGS" to "MỞ_CÀI_ĐẶT_NHANH",
+        "HIỆN_MENU_NGUỒN" to "HIỆN_MENU_NGUỒN", "POWERDIALOG" to "HIỆN_MENU_NGUỒN", "POWER_DIALOG" to "HIỆN_MENU_NGUỒN",
+        "KHÓA_MÀN_HÌNH" to "KHÓA_MÀN_HÌNH", "LOCKSCREEN" to "KHÓA_MÀN_HÌNH", "LOCK_SCREEN" to "KHÓA_MÀN_HÌNH",
+        "CHIA_MÀN_HÌNH" to "CHIA_MÀN_HÌNH", "SPLITSCREEN" to "CHIA_MÀN_HÌNH", "SPLIT_SCREEN" to "CHIA_MÀN_HÌNH"
+    )
+
+    private val commandArgumentCounts = mapOf(
+        "CHẠM" to 2,
+        "NHẤN_GIỮ" to 3,
+        "VUỐT" to 5,
+        "CHỜ" to 1,
+        "MỞ_ỨNG_DỤNG" to 1,
+        "QUAY_LẠI" to 0,
+        "VỀ_MÀN_HÌNH_CHÍNH" to 0,
+        "ỨNG_DỤNG_GẦN_ĐÂY" to 0,
+        "MỞ_THÔNG_BÁO" to 0,
+        "MỞ_CÀI_ĐẶT_NHANH" to 0,
+        "HIỆN_MENU_NGUỒN" to 0,
+        "KHÓA_MÀN_HÌNH" to 0,
+        "CHIA_MÀN_HÌNH" to 0
     )
 
     fun compile(source: String): ScriptCompileResult {
@@ -462,14 +479,8 @@ object ScriptCompiler {
             val command = commandAliases[normalized]
                 ?: fail(name.line, name.column, "unknown_command", "Không nhận ra lệnh '" + name.text + "'.", "Unknown command '" + name.text + "'.")
             val args = parseArguments()
-            val expected = when (command) {
-                "CHẠM" -> 2
-                "NHẤN_GIỮ" -> 3
-                "VUỐT" -> 5
-                "CHỜ", "MỞ_ỨNG_DỤNG" -> 1
-                "QUAY_LẠI", "VỀ_MÀN_HÌNH_CHÍNH" -> 0
-                else -> 0
-            }
+            val expected = commandArgumentCounts[command]
+                ?: fail(name.line, name.column, "unsupported_command", "Lệnh '$command' chưa được đăng ký tham số.", "Command '$command' has no registered argument signature.")
             if (args.size != expected) fail(name.line, name.column, "argument_count", "Lệnh '$command' cần đúng $expected tham số.", "'$command' requires exactly $expected arguments.")
             validateLiteralArguments(name, command, args)
             return ScriptInstruction.Command(command, args)
