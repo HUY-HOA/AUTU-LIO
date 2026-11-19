@@ -830,12 +830,15 @@ object ScriptCompiler {
 
         private fun parseArguments(): List<ScriptExpression> {
             expectSymbol("(", "expected_left_parenthesis", "Thiếu dấu '(' mở tham số.", "Expected '('.")
+            skipArgumentNewlines()
             val values = mutableListOf<ScriptExpression>()
             if (!isSymbol(")")) {
                 while (true) {
                     values += parseExpression()
+                    skipArgumentNewlines()
                     if (!isSymbol(",")) break
                     advance()
+                    skipArgumentNewlines()
                 }
             }
             expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng tham số.", "Expected ')'.")
