@@ -39,6 +39,7 @@ import com.autulio.app.runtime.ScriptExecutionSnapshot
 import com.autulio.app.runtime.ScriptExecutionState
 import com.autulio.app.runtime.ScriptHttpClient
 import com.autulio.app.runtime.ScreenColorAnalyzer
+import com.autulio.app.runtime.ScreenCoordinateConverter
 import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
@@ -302,6 +303,49 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 1)
                 val packageName = arguments[0] as? String ?: return false
                 foregroundPackage == packageName
+            }
+            "MẬT_ĐỘ_MÀN_HÌNH" -> readDisplayMetrics().density.toDouble()
+            "DP_SANG_PIXEL" -> {
+                requireArgumentCount(name, arguments, 1)
+                ScreenCoordinateConverter.dpToPx(
+                    requireNonNegativeFiniteNumber(name, arguments[0], "DP"),
+                    readDisplayMetrics().density.toDouble()
+                )
+            }
+            "PIXEL_SANG_DP" -> {
+                requireArgumentCount(name, arguments, 1)
+                ScreenCoordinateConverter.pxToDp(
+                    requireNonNegativeFiniteNumber(name, arguments[0], "PIXEL"),
+                    readDisplayMetrics().density.toDouble()
+                )
+            }
+            "TỌA_ĐỘ_X_THEO_TỶ_LỆ" -> {
+                requireArgumentCount(name, arguments, 1)
+                ScreenCoordinateConverter.ratioToPixel(
+                    requireNonNegativeFiniteNumber(name, arguments[0], "TỶ_LỆ"),
+                    readDisplayMetrics().widthPixels
+                )
+            }
+            "TỌA_ĐỘ_Y_THEO_TỶ_LỆ" -> {
+                requireArgumentCount(name, arguments, 1)
+                ScreenCoordinateConverter.ratioToPixel(
+                    requireNonNegativeFiniteNumber(name, arguments[0], "TỶ_LỆ"),
+                    readDisplayMetrics().heightPixels
+                )
+            }
+            "TỶ_LỆ_X_THEO_TỌA_ĐỘ" -> {
+                requireArgumentCount(name, arguments, 1)
+                ScreenCoordinateConverter.pixelToRatio(
+                    requireNonNegativeFiniteNumber(name, arguments[0], "X"),
+                    readDisplayMetrics().widthPixels
+                )
+            }
+            "TỶ_LỆ_Y_THEO_TỌA_ĐỘ" -> {
+                requireArgumentCount(name, arguments, 1)
+                ScreenCoordinateConverter.pixelToRatio(
+                    requireNonNegativeFiniteNumber(name, arguments[0], "Y"),
+                    readDisplayMetrics().heightPixels
+                )
             }
             "CHIỀU_RỘNG_MÀN_HÌNH" -> readDisplayMetrics().widthPixels
             "CHIỀU_CAO_MÀN_HÌNH" -> readDisplayMetrics().heightPixels
@@ -741,6 +785,16 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "Vùng OCR nằm ngoài màn hình hiện tại " + bitmap.width + "x" + bitmap.height + "."
         }
         return Rect(left, top, right.toInt(), bottom.toInt())
+    }
+
+    private fun requireNonNegativeFiniteNumber(name: String, value: Any?, label: String): Double {
+        val number = value as? Number
+            ?: throw IllegalArgumentException("Tham số " + label + " của '" + name + "' phải là số.")
+        val result = number.toDouble()
+        require(result.isFinite() && result >= 0.0) {
+            "Tham số " + label + " của '" + name + "' phải là số hữu hạn không âm."
+        }
+        return result
     }
 
     private fun requirePositiveOrZeroInt(name: String, value: Any?, label: String): Int {
