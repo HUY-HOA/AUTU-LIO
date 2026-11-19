@@ -3,6 +3,9 @@ name: AUTU-LIO Android APK
 run-name: AUTU-LIO single APK build - ${{ github.ref_name }}
 
 on:
+  push:
+    paths:
+      - ".github/workflows/build-apks.yml"
   workflow_dispatch:
     inputs:
       build_variant:
