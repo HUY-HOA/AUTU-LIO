@@ -42,7 +42,7 @@
 5. **Kiểm thử thiết bị:** xác nhận thao tác chạm/vuốt, quyền Trợ năng, overlay, vòng đời service, dừng khẩn cấp và hành vi khi chuyển ứng dụng; ưu tiên kiểm tra Xiaomi/HyperOS cùng các Android phiên bản khác.
 6. **Chất lượng:** tất cả Android unit tests, lint, Worker tests và kiểm tra bảo mật phải đạt trước phát hành.
 
-**Tình trạng hạ tầng đã kiểm tra ngày 19/11/2026:** tài khoản Cloudflare được kết nối chưa có Worker script triển khai; D1 `autu_lio_auth` hiện báo 0 bảng. Các migration trong Git chỉ được kiểm tra bằng SQLite tạm ở CI, chưa được áp dụng vào D1 này. Do đó backend đăng nhập/giấy phép chưa hoạt động thực tế.
+**Tình trạng hạ tầng ngày 19/11/2026:** Worker `autu-lio-auth-api` đã được triển khai trên Cloudflare và bật `workers.dev` tại `https://autu-lio-auth-api.coc-lio-data.workers.dev`. D1 `autu_lio_auth` có 20 bảng và đã áp dụng migrations `0001`–`0005`. Worker đã có binding D1, hai rate-limit bindings, Google Web Client ID và khóa mã hóa package. `GOOGLE_ALLOWED_AZP` đã được cấu hình bằng Android OAuth Client ID. **Còn thiếu `OWNER_GOOGLE_SUB`** của tài khoản chủ sở hữu; chưa được tự gán OWNER theo email. Workflow GitHub Actions đã truyền API URL và Web Client ID vào cả Debug/Release. Chưa build APK mới và chưa hoàn tất kiểm thử đăng nhập trên thiết bị.
 
 ## 4. Bản build Release lịch sử
 
