@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.5", result.program?.languageVersion)
+        assertEquals("1.6", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.5", result.program?.languageVersion)
+        assertEquals("1.6", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.5", result.program?.languageVersion)
+        assertEquals("1.6", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.5", result.program?.languageVersion)
+        assertEquals("1.6", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.5", result.program?.languageVersion)
+        assertEquals("1.6", result.program?.languageVersion)
     }
 
     @Test
@@ -487,7 +487,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.5", result.program?.languageVersion)
+        assertEquals("1.6", result.program?.languageVersion)
     }
 
     @Test
@@ -496,6 +496,59 @@ class ScriptCompilerTest {
         val tooMany = ScriptCompiler.compile("ĐẶT X = TÌM_VỊ_TRÍ_CHỮ(\"A\", \"B\")")
         assertEquals("function_argument_count", missingQuery.diagnostics.first().code)
         assertEquals("function_argument_count", tooMany.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsStructuredTryCatchFinallySyntax() {
+        val result = ScriptCompiler.compile(
+            """
+            THỬ {
+                MỞ_ỨNG_DỤNG("invalid")
+            } BẮT_LỖI (LỖI) {
+                ĐẶT MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
+            } LUÔN_THỰC_HIỆN {
+                CHẠM(10, 20)
+            }
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.6", result.program?.languageVersion)
+    }
+
+    @Test
+    fun requiresCatchOrFinallyAndUppercaseCatchVariable() {
+        val missingHandler = ScriptCompiler.compile(
+            """
+            THỬ {
+                CHỜ(1)
+            }
+            """.trimIndent()
+        )
+        val lowercaseVariable = ScriptCompiler.compile(
+            """
+            THỬ {
+                CHỜ(1)
+            } BẮT_LỖI (loi) {
+                CHỜ(1)
+            }
+            """.trimIndent()
+        )
+        assertEquals("missing_catch_or_finally", missingHandler.diagnostics.first().code)
+        assertEquals("identifier_must_be_uppercase", lowercaseVariable.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsTryFinallyWithoutCatch() {
+        val result = ScriptCompiler.compile(
+            """
+            THỬ {
+                CHỜ(1)
+            } LUÔN_THỰC_HIỆN {
+                CHỜ(1)
+            }
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
     }
 
 }
