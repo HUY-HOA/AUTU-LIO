@@ -1,4 +1,65 @@
 const encoder = new TextEncoder();
+
+const GEMINI_LIVE_MODEL = "models/gemini-3.8-live";
+const GEMINI_LIVE_SYSTEM_PROMPT = [
+  "You are AUTU-LIO Gemini Live, an Android screen assistant.",
+  "Observe the latest shared screen frame and listen to the user's spoken instructions.",
+  "Use only the declared screen-control functions. Coordinates are physical screen pixels from the top-left corner.",
+  "Never request or interact with passwords, one-time codes, banking, payment, purchases, account recovery, or security settings.",
+  "Never confirm or submit destructive actions such as deleting data, sending messages, publishing, or making purchases. Ask the user to perform those actions manually.",
+  "Before navigating away from a form with unsaved content, explain the risk and ask the user.",
+  "If the screen is unclear, ask a question instead of guessing. Do not claim an action succeeded unless the tool result says it succeeded."
+].join(" ");
+
+const GEMINI_LIVE_TOOLS = [{
+  functionDeclarations: [
+    {
+      name: "tap_screen",
+      description: "Tap one visible, non-sensitive screen control at a precise pixel coordinate.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          x: { type: "INTEGER", description: "Horizontal screen pixel coordinate." },
+          y: { type: "INTEGER", description: "Vertical screen pixel coordinate." }
+        },
+        required: ["x", "y"]
+      }
+    },
+    {
+      name: "swipe_screen",
+      description: "Swipe between two screen pixel coordinates; use only for ordinary navigation or scrolling.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          startX: { type: "INTEGER" },
+          startY: { type: "INTEGER" },
+          endX: { type: "INTEGER" },
+          endY: { type: "INTEGER" },
+          durationMs: { type: "INTEGER", description: "Duration from 150 to 2000 milliseconds." }
+        },
+        required: ["startX", "startY", "endX", "endY", "durationMs"]
+      }
+    },
+    {
+      name: "long_press_screen",
+      description: "Long-press a visible, non-sensitive screen control.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          x: { type: "INTEGER" },
+          y: { type: "INTEGER" },
+          durationMs: { type: "INTEGER", description: "Duration from 300 to 2000 milliseconds." }
+        },
+        required: ["x", "y", "durationMs"]
+      }
+    },
+    {
+      name: "press_back",
+      description: "Press the Android Back action.",
+      parameters: { type: "OBJECT", properties: {} }
+    }
+  ]
+}];
 const OWNER_ROLES = new Set(["DEVELOPER", "DESIGNER", "REVIEWER"]);
 const ASSIGNABLE_ROLES = new Set(["CUSTOMER", ...OWNER_ROLES]);
 const ROLE_PERMISSIONS = {
@@ -1722,6 +1783,59 @@ async function downloadCustomerPackage(request, env, session, packageId) {
   }, 200, env);
 }
 
+async function createGeminiLiveToken(request, env, session) {
+  await requireRole(session, ["OWNER", "CUSTOMER"]);
+  await enforceRateLimit(request, env, "AI_LIVE_TOKEN_LIMITER");
+  if (!env.GEMINI_API_KEY) {
+    throw new HttpError(503, "gemini_not_configured", "Gemini Live is not configured on the server.");
+  }
+
+  const now = Date.now();
+  const expireTime = new Date(now + 10 * 60 * 1000).toISOString();
+  const newSessionExpireTime = new Date(now + 5 * 60 * 1000).toISOString();
+  const config = {
+    responseModalities: ["AUDIO"],
+    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } },
+    inputAudioTranscription: {},
+    outputAudioTranscription: {},
+    systemInstruction: { parts: [{ text: GEMINI_LIVE_SYSTEM_PROMPT }] },
+    tools: GEMINI_LIVE_TOOLS
+  };
+
+  let upstream;
+  try {
+    upstream = await fetch("https://generativelanguage.googleapis.com/v1beta/auth_tokens", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": env.GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        uses: 1,
+        expireTime,
+        newSessionExpireTime,
+        liveConnectConstraints: { model: GEMINI_LIVE_MODEL, config }
+      })
+    });
+  } catch {
+    throw new HttpError(503, "gemini_unavailable", "Gemini token service is temporarily unavailable.");
+  }
+
+  if (!upstream.ok) {
+    throw new HttpError(502, "gemini_token_failed", "Gemini did not issue a temporary Live token.");
+  }
+  const tokenData = await upstream.json().catch(() => ({}));
+  if (typeof tokenData.name !== "string" || !tokenData.name.startsWith("auth_tokens/")) {
+    throw new HttpError(502, "gemini_token_invalid", "Gemini returned an invalid temporary token.");
+  }
+  return response(request, {
+    token: tokenData.name,
+    model: GEMINI_LIVE_MODEL,
+    expiresAt: tokenData.expireTime || expireTime,
+    sessionExpiresAt: tokenData.newSessionExpireTime || newSessionExpireTime
+  }, 200, env);
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -1751,6 +1865,10 @@ async function route(request, env) {
   }
 
   const session = await getSession(request, env);
+
+  if (method === "POST" && path === "/api/ai/live-token") {
+    return await createGeminiLiveToken(request, env, session);
+  }
 
   if (method === "GET" && path === "/api/auth/me") {
     return response(request, {
