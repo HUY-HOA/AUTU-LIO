@@ -143,7 +143,7 @@ test("missing OWNER_GOOGLE_SUB never grants OWNER even when an owner email exist
   );
 });
 
-test("Gemini Live token returns the single authoritative owner setup without locking it into the ephemeral token", async () => {
+test("Gemini Live token returns and locks the authoritative owner setup into the v1beta ephemeral token", async () => {
   const { env } = createEnv({ session: ownerSession });
   env.GEMINI_API_KEY = "server-only-test-key";
   const originalFetch = globalThis.fetch;
@@ -170,14 +170,18 @@ test("Gemini Live token returns the single authoritative owner setup without loc
     assert.equal(body.token, "auth_tokens/test-ephemeral-token");
     assert.equal(body.model, "models/gemini-3.8-live");
     assert.equal(body.setup.model, body.model);
-    assert.equal(new URL(upstreamRequest.url).pathname, "/v1alpha/auth_tokens");
+    assert.equal(new URL(upstreamRequest.url).pathname, "/v1beta/auth_tokens");
     assert.equal(upstreamRequest.options.headers["x-goog-api-key"], "server-only-test-key");
     const payload = JSON.parse(upstreamRequest.options.body);
     assert.equal(payload.uses, 1);
     assert.equal(Object.hasOwn(payload, "bidiGenerateContentSetup"), false);
-    assert.equal(Object.hasOwn(payload, "liveConnectConstraints"), false);
     assert.equal(Object.hasOwn(payload, "fieldMask"), false);
     const setup = body.setup;
+    const { model: constrainedModel, ...constrainedConfig } = setup;
+    assert.deepEqual(payload.liveConnectConstraints, {
+      model: "models/gemini-3.8-live",
+      config: constrainedConfig
+    });
     assert.deepEqual(setup.generationConfig.responseModalities, ["AUDIO"]);
     assert.deepEqual(setup.generationConfig.speechConfig, {
       voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
@@ -267,8 +271,12 @@ test("Gemini Live customer receives only six screen tools in the canonical setup
     const body = await json(response);
     assert.equal(response.status, 200);
     const payload = JSON.parse(upstreamRequest.options.body);
-    assert.equal(Object.hasOwn(payload, "bidiGenerateContentSetup"), false);
     const setup = body.setup;
+    const { model: constrainedModel, ...constrainedConfig } = setup;
+    assert.deepEqual(payload.liveConnectConstraints, {
+      model: "models/gemini-3.8-live",
+      config: constrainedConfig
+    });
     assert.equal(setup.model, "models/gemini-3.8-live");
     const declarations = setup.tools[0].functionDeclarations;
     assert.equal(declarations.length, 6);
