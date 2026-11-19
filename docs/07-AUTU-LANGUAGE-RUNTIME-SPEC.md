@@ -1,166 +1,96 @@
 # AUTU-LIO — Đặc tả ngôn ngữ và bộ máy tự động hóa
 
-**Trạng thái:** Đặc tả mục tiêu; không đồng nghĩa các chức năng đã được triển khai.  
-**Nguyên tắc:** Mỗi lệnh xuất hiện trong trình soạn thảo phải có parser, kiểm tra kiểu/tham số, runtime handler, kiểm thử và thông báo quyền cần thiết. Không đưa lệnh giả chỉ để làm giao diện trông đầy đủ.
+**Trạng thái triển khai:** AUTU Script 1.0 đã có parser/compiler Kotlin, runtime và kiểm thử nguồn.  
+**Nguyên tắc:** chỉ công bố lệnh/hàm có parser, kiểm tra tham số/kiểu, runtime handler và unit tests. Không đưa lệnh giả để làm giao diện trông đầy đủ.
 
-## 1. Mục tiêu
+## 1. Quy tắc ngôn ngữ
 
-AUTU-LIO cần một ngôn ngữ kịch bản riêng, dùng từ khóa tiếng Việt có dấu và viết hoa. Ngôn ngữ phải đủ tổng quát để viết quy trình tự động hóa, không giới hạn ở chạm và chờ. Cùng một bộ máy thực thi phải dùng được cho AUTU do chủ sở hữu tạo và AUTU đã phát hành cho người dùng.
+- Tất cả từ khóa, lệnh, hàm, kiểu, biến và tham số đều phải viết HOA.
+- Từ khóa/lệnh tiếng Việt phải có đúng dấu. Không chấp nhận bí danh tiếng Anh.
+- Chuỗi Unicode trong dấu nháy kép; chú thích một dòng dùng `//`.
+- Mỗi câu lệnh trên một dòng hoặc ngăn cách bằng `;`.
+- Không dùng `eval`, shell, reflection, script runtime bên ngoài hoặc thực thi mã Kotlin/Java tùy ý.
 
-Không dùng `eval`, thực thi mã Kotlin/Java tùy ý, shell tùy ý, reflection hoặc tải mã thực thi không tin cậy. Parser tạo AST/IR có kiểu; runtime chỉ gọi các khả năng đã đăng ký trong thư viện AUTU.
+## 2. Ngữ pháp 1.0 đã triển khai
 
-## 2. Cấu trúc ngôn ngữ
-
-### 2.1 Dữ liệu và biến
-
-Các kiểu dữ liệu mục tiêu:
-- Số nguyên, số thập phân và số đo thời gian.
-- Chuỗi Unicode, giá trị ĐÚNG/SAI và giá trị rỗng.
-- Danh sách, bản đồ khóa–giá trị và đối tượng kết quả có cấu trúc.
-- Biến cục bộ, tham số hàm, biến toàn cục của một lần chạy và kho dữ liệu tồn tại lâu dài có phạm vi/quyền rõ ràng.
-
-Cần hỗ trợ khai báo, gán, tăng/giảm, phép tính, nối chuỗi, ép kiểu có kiểm tra, kiểm tra kiểu và giá trị mặc định. Không tự chuyển kiểu mơ hồ.
-
-### 2.2 Toán tử và biểu thức
-
-Toán tử số học: cộng, trừ, nhân, chia, chia lấy dư, lũy thừa và dấu ngoặc.  
-So sánh: bằng, khác, lớn hơn, lớn hơn hoặc bằng, nhỏ hơn, nhỏ hơn hoặc bằng.  
-Logic: VÀ, HOẶC, KHÔNG; có thứ tự ưu tiên xác định và đánh giá ngắn mạch.  
-Biểu thức có thể gọi hàm thư viện đã đăng ký và trả về số, chuỗi, đúng/sai hoặc kết quả có kiểu.
-
-### 2.3 Điều khiển luồng
-
-Bắt buộc có:
-- NẾU / NGƯỢC_LẠI_NẾU / NGƯỢC_LẠI.
-- LẶP theo số lần; LẶP_KHI; LẶP_ĐẾN_KHI; duyệt danh sách.
-- LẶP_VÔ_HẠN có điểm dừng, nút dừng của người dùng và watchdog runtime.
-- THOÁT_LẶP, TIẾP_TỤC, TRẢ_VỀ và DỪNG_KỊCH_BẢN.
-- Khối lệnh lồng nhau, phạm vi biến và giới hạn độ sâu.
-
-### 2.4 Hàm và xử lý lỗi
-
-- ĐỊNH_NGHĨA_HÀM, tham số có kiểu, giá trị mặc định, kết quả trả về và gọi hàm.
-- Hàm thư viện dùng chung, phiên bản thư viện và kiểm tra tương thích trước khi phát hành.
-- THỬ / BẮT_LỖI / LUÔN_THỰC_HIỆN, phát sinh lỗi có mã và thông điệp.
-- THỬ_LẠI với số lần tối đa, khoảng nghỉ và điều kiện dừng.
-- Ghi nhật ký theo mức độ, dòng lệnh, thời điểm, mã lỗi; không ghi nội dung nhạy cảm.
-
-## 3. Thư viện thao tác
-
-### 3.1 Tương tác màn hình
-
-- CHẠM, NHẤN_GIỮ, NHẤN_ĐÚP, VUỐT, KÉO_THẢ và thao tác đa điểm khi Android API cho phép.
-- CHỜ, CHỜ_ĐẾN_KHI, CHỜ_TỐI_ĐA và giới hạn thời gian.
-- Tọa độ pixel, tọa độ theo phần trăm màn hình, kích thước màn hình, vùng thao tác, hướng màn hình và chuyển đổi tọa độ.
-- Kiểm tra tọa độ, giới hạn thời lượng gesture, hủy thao tác và báo lỗi khi AccessibilityService từ chối.
-
-### 3.2 Ứng dụng
-
-- KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI(packageName).
-- KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ(packageName).
-- MỞ_ỨNG_DỤNG(packageName) bằng Activity khởi chạy hợp lệ của ứng dụng.
-- CHỜ_ỨNG_DỤNG_MỞ, CHỜ_ỨNG_DỤNG_ĐÓNG và kiểm tra ứng dụng mục tiêu đang ở foreground.
-- Lấy thông tin gói tối thiểu cần thiết; tuân thủ giới hạn package visibility của Android.
-
-Không tự ý force-stop ứng dụng khác, đọc dữ liệu nội bộ ứng dụng, lấy mật khẩu hoặc điều khiển màn hình đăng nhập/bảo mật.
-
-### 3.3 Hệ thống và thiết bị
-
-Bổ sung bộ điều kiện/hàm truy vấn có kiểu cho:
-- Màn hình đang sáng/tắt và trạng thái thiết bị tương tác được.
-- Phần trăm pin, pin yếu, trạng thái đang sạc/rút sạc.
-- Có kết nối mạng; loại kết nối chỉ khi Android cung cấp và quyền cho phép.
-- Hướng màn hình, kích thước màn hình và mật độ hiển thị.
-- Ngày, giờ, phút, thứ, múi giờ của thiết bị.
-- Trợ năng đã bật, quyền hiển thị trên ứng dụng khác, quyền thông báo, quyền chụp màn hình phiên hiện tại và các quyền cần thiết khác.
-- Ứng dụng có thể khởi chạy và khả năng của thiết bị/API đang dùng.
-
-Mọi phép kiểm tra quyền phải trả về trạng thái rõ ràng: ĐÃ_CẤP, CHƯA_CẤP, KHÔNG_HỖ_TRỢ hoặc CẦN_XÁC_NHẬN. Không giả định quyền tồn tại chỉ vì đã khai báo trong Manifest.
-
-### 3.4 Hành động hệ thống
-
-- BACK, HOME và các hành động toàn cục Android được AccessibilityService chính thức hỗ trợ.
-- Mở trang Cài đặt phù hợp để người dùng tự xem/cấp quyền.
-- Mở ứng dụng bằng Intent hợp lệ.
-- Hành động cần quyền hoặc có ảnh hưởng đáng kể phải khai báo quyền trước khi chạy và hiển thị lý do.
-
-Không tự bật/tắt quyền hệ thống, tự cấp quyền, tự cài/gỡ APK, vượt khóa màn hình, tắt cơ chế bảo vệ hoặc thực hiện thao tác Android bị hệ điều hành chặn.
-
-## 4. Nhận diện và điều kiện dựa trên nội dung
-
-Mục tiêu dài hạn:
-- QUÉT_ẢNH, tìm ảnh trong vùng xác định, ngưỡng tương đồng, số lần quét, khoảng nghỉ và thời hạn quét.
-- ĐỌC_CHỮ/OCR, lọc văn bản, so khớp nội dung và xử lý kết quả.
-- Phân tích kết quả tìm thấy/không tìm thấy, điểm tin cậy, tọa độ và vùng kết quả.
-
-Các khả năng đọc hình ảnh hoặc nội dung màn hình chỉ được bật trong phiên mà người dùng chủ động cấp quyền chụp màn hình Android (MediaProjection) và nhìn thấy thông báo phiên đang hoạt động. Không âm thầm chụp màn hình, ghi nội dung ứng dụng hoặc lưu ảnh/văn bản ngoài phạm vi đã đồng ý. Nếu chưa có quyền hoặc bộ nhận diện chưa được tích hợp, lệnh phải báo CHƯA_HỖ_TRỢ/CẦN_CẤP_QUYỀN, không giả vờ đã quét.
-
-AccessibilityService mặc định không đọc cây giao diện, nội dung cửa sổ, trường nhập liệu hoặc văn bản ứng dụng. Chỉ dùng metadata tối thiểu cần thiết như package foreground cho điều kiện ứng dụng, theo cấu hình sự kiện được duyệt.
-
-## 5. Sự kiện và điều kiện theo thời gian
-
-- Sự kiện ứng dụng mục tiêu vào/ra foreground.
-- Màn hình tương tác, sạc/rút sạc, mạng kết nối/ngắt kết nối.
-- Bộ hẹn giờ, khoảng thời gian, lịch chạy và điều kiện thời gian.
-- Chạy khi sự kiện xảy ra, lọc sự kiện, chống kích hoạt trùng và thời gian chờ.
-- Chạy nền phải tuân thủ Android foreground-service, notification, Doze và giới hạn nền. Khi cần, yêu cầu người dùng bật/tắt theo hướng dẫn của Android; không lén chạy nền.
-
-## 6. Cú pháp minh họa
-
-Đây là ví dụ định hướng cho ngôn ngữ mục tiêu, chưa phải cam kết rằng các lệnh mẫu đã có trong runtime hiện tại:
-
-```text
-ĐẶT soLanMo = 0
-
-LẶP_KHI (soLanMo < 5) {
-    NẾU (KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI("com.example.game")) {
-        MỞ_ỨNG_DỤNG("com.example.game")
-        CHỜ_ỨNG_DỤNG_MỞ("com.example.game", 10000)
-        THOÁT_LẶP
-    } NGƯỢC_LẠI {
-        CHỜ(1000)
-    }
-
-    ĐẶT soLanMo = soLanMo + 1
-}
-
-NẾU (PHẦN_TRĂM_PIN() < 15 HOẶC KHÔNG CÓ_MẠNG()) {
-    GHI_NHẬT_KÝ("Thiết bị cần kiểm tra")
-}
+```ebnf
+CHUONG_TRINH  = { KHAI_BAO_HAM | CAU_LENH } ;
+KHAI_BAO_HAM  = "ĐỊNH_NGHĨA_HÀM", TEN_HAM, "(", [DANH_SACH_THAM_SO], ")", [":", KIEU], KHOI ;
+DANH_SACH_THAM_SO = THAM_SO, {",", THAM_SO} ;
+THAM_SO       = TEN, [":", KIEU] ;
+CAU_LENH      = KHAI_BAO_BIEN | GAN_BIEN | LENH_ANDROID | DIEU_KIEN | VONG_LAP | CHO_DIEU_KIEN | DIEU_KHIEN_VONG | TRA_VE ;
+KHAI_BAO_BIEN = "ĐẶT", TEN, [":", KIEU], "=", BIEU_THUC ;
+GAN_BIEN      = TEN, "=", BIEU_THUC ;
+DIEU_KIEN     = "NẾU", "(", BIEU_THUC, ")", KHOI, ["NGƯỢC_LẠI_NẾU", ...], ["NGƯỢC_LẠI", KHOI] ;
+VONG_LAP      = "LẶP", "(", BIEU_THUC, ")", KHOI
+              | "LẶP_KHI", "(", BIEU_THUC, ")", KHOI
+              | "LẶP_ĐẾN_KHI", "(", BIEU_THUC, ")", KHOI ;
+CHO_DIEU_KIEN = "CHỜ_ĐẾN_KHI", "(", BIEU_THUC, ",", BIEU_THUC, ",", BIEU_THUC, ")" ;
+DIEU_KHIEN_VONG = "THOÁT_LẶP" | "BỎ_QUA_LƯỢT" ;
+TRA_VE        = "TRẢ_VỀ", BIEU_THUC ;
+KHOI          = "{", {CAU_LENH}, "}" ;
+KIEU          = "SỐ" | "CHUỖI" | "LUẬN_LÝ" | "BẤT_KỲ" ;
 ```
 
-Cú pháp cuối cùng phải thống nhất giữa parser, tài liệu trợ giúp, mẫu, bộ tô màu cú pháp và trình dựng khối lệnh. Tránh dùng hai cách viết khác nhau cho cùng một lệnh.
+Ngữ pháp mô tả cấu trúc; parser vẫn là nguồn quyết định cuối cùng về cú pháp hợp lệ.
 
-## 7. An toàn, giới hạn và độ tin cậy
+## 3. AST và runtime
 
-Mỗi chương trình phải có:
-- Kiểm tra cú pháp, tham số, kiểu dữ liệu, quyền và khả năng thiết bị trước khi chạy.
-- Giới hạn mã nguồn, kích thước dữ liệu, độ sâu lồng nhau/đệ quy, số lần lặp, số lệnh, thời gian chạy và tốc độ gọi API.
-- Điểm kiểm tra hủy ở mỗi vòng lặp/chờ/thao tác dài; nút Tạm dừng, Tiếp tục và Dừng luôn có hiệu lực.
-- Timeout mặc định cho chờ, quét, mở ứng dụng và gọi dịch vụ.
-- Kết quả từng hành động, mã lỗi ổn định, nhật ký có thể xem và chẩn đoán dòng lệnh.
-- Cơ chế quyền theo nguyên tắc tối thiểu; AUTU phát hành chỉ được dùng các khả năng đã được chủ sở hữu cấp và người chạy chấp thuận.
-- Không cho kịch bản tự thay đổi quyền, tự vượt giới hạn runtime hoặc tự tải mã thực thi không kiểm duyệt.
+AST hiện có:
+- Literal số, chuỗi và luận lý.
+- Biến, toán tử một ngôi/hai ngôi, lời gọi hàm.
+- Lệnh Android và gán biến có/không có kiểu.
+- NẾU, LẶP, LẶP_KHI, LẶP_ĐẾN_KHI, CHỜ_ĐẾN_KHI.
+- ĐỊNH_NGHĨA_HÀM, tham số có kiểu, kiểu trả về và TRẢ_VỀ.
+- THOÁT_LẶP và BỎ_QUA_LƯỢT.
 
-Không coi vòng lặp vô hạn là an toàn chỉ vì có nút Dừng; watchdog phải tự ngắt khi vượt ngân sách.
+Runtime:
+- Thực thi tuần tự trên worker riêng.
+- Pause, resume, stop, cancel và error state.
+- Kiểm tra kiểu ở thời điểm gán, tham số và giá trị trả về.
+- Hàm có phạm vi cục bộ; đọc được giá trị môi trường gọi tại thời điểm gọi; gán trong hàm không ghi ngược ra biến bên ngoài.
+- Độ sâu gọi hàm tối đa 16; ngân sách lệnh thực tế tối đa 5.000.
+- Hàm và biểu thức chỉ được gọi từ danh sách chuẩn hoặc hàm đã định nghĩa trong chương trình.
 
-## 8. Yêu cầu phát triển và nghiệm thu
+## 4. Lệnh Android thực sự nối runtime
 
-Một tính năng chỉ được đánh dấu hoàn thành khi có đủ:
-1. Từ khóa/cú pháp tiếng Việt chuẩn và tài liệu trợ giúp.
-2. Lexer/parser tạo AST/IR có kiểu.
-3. Kiểm tra tham số, quyền, khả năng API và ngân sách.
-4. Runtime handler thật, nối với Android API phù hợp.
-5. Unit test parser, biểu thức, luồng điều khiển và runtime; test lỗi/giới hạn/hủy.
-6. Kiểm tra CI; kiểm thử thiết bị thật cho hành động Android.
-7. Phân biệt rõ ĐÃ_HỖ_TRỢ, CẦN_QUYỀN, CHƯA_HỖ_TRỢ và THẤT_BẠI.
+`CHẠM`, `NHẤN_GIỮ`, `VUỐT`, `CHỜ`, `MỞ_ỨNG_DỤNG`, `QUAY_LẠI`, `VỀ_MÀN_HÌNH_CHÍNH`, `ỨNG_DỤNG_GẦN_ĐÂY`, `MỞ_THÔNG_BÁO`, `MỞ_CÀI_ĐẶT_NHANH`, `HIỆN_MENU_NGUỒN`, `KHÓA_MÀN_HÌNH`, `CHIA_MÀN_HÌNH`.
 
-### Các giai đoạn triển khai
+Lệnh cử chỉ chạy qua Android AccessibilityService. Lệnh hệ thống có thể thất bại do Android/API hoặc trạng thái quyền; runtime báo lỗi thay vì giả lập thành công.
 
-- **Giai đoạn 1 — Ngôn ngữ lõi:** cú pháp tiếng Việt, biến, kiểu dữ liệu, biểu thức, điều kiện, vòng lặp, hàm, xử lý lỗi và ngân sách.
-- **Giai đoạn 2 — Android cơ bản:** chạm/giữ/vuốt, tọa độ tương đối, kiểm tra quyền, mở ứng dụng, trạng thái foreground và điều kiện hệ thống.
-- **Giai đoạn 3 — Sự kiện và nhận diện:** chờ theo sự kiện, bộ hẹn giờ, quét ảnh/OCR qua phiên MediaProjection có đồng ý.
-- **Giai đoạn 4 — Thư viện và IDE:** hàm dùng chung, thư viện phiên bản, gợi ý cú pháp, debugger từng bước, biến quan sát, nhật ký và trình dựng khối.
-- **Giai đoạn 5 — Phát hành an toàn:** đóng gói/phiên bản hóa, quyền theo từng AUTU, xác minh gói và kiểm thử tương thích.
+## 5. Hàm dựng sẵn thực sự có trong runtime
 
-Không được bỏ qua giai đoạn kiểm thử hoặc công bố một lệnh là chạy được khi chỉ mới có tài liệu hay nút giao diện.
+Toán học/chuỗi: `SỐ`, `CHUỖI`, `LÀM_TRÒN`, `TUYỆT_ĐỐI`, `ĐỘ_DÀI`, `NHỎ_NHẤT`, `LỚN_NHẤT`.
+
+Thiết bị: `PIN`, `PHẦN_TRĂM_PIN`, `ĐANG_SẠC`, `CÓ_MẠNG`, `MÀN_HÌNH_SÁNG`, `ỨNG_DỤNG_ĐÃ_CÀI`, `ỨNG_DỤNG_ĐANG_MỞ`, `CHIỀU_RỘNG_MÀN_HÌNH`, `CHIỀU_CAO_MÀN_HÌNH`, `THỜI_GIAN_MS`.
+
+## 6. Những phần chưa triển khai
+
+- Danh sách/mảng, bản đồ dữ liệu, vòng lặp CHO_MỖI và truy cập chỉ mục.
+- TRY/CATCH/FINALLY và cơ chế phục hồi lỗi ở cấp ngôn ngữ.
+- Ghi nhật ký có cấu trúc từ mã AUTU.
+- Tọa độ theo phần trăm, vùng thao tác, đa điểm.
+- Chờ sự kiện/lịch chạy và quản lý tác vụ nền.
+- MediaProjection, quét ảnh, OCR hoặc đọc nội dung màn hình.
+- Debugger từng bước, breakpoint, biến theo dõi và tô màu cú pháp.
+
+Các mục này không được xem là hỗ trợ cho đến khi có AST, giới hạn an toàn, quyền người dùng, runtime thật, test và kiểm thử Android thật.
+
+## 7. Ngân sách thực thi
+
+- Mã nguồn 32.768 ký tự; 1.000 câu lệnh; 8 cấp lồng khối.
+- LẶP 1–100; LẶP_KHI tối đa 900 vòng.
+- Hàm tối đa 16 tham số, độ sâu gọi tối đa 16.
+- Tối đa 5.000 lượt thực thi thực tế; 10 phút thời lượng tĩnh.
+- Tọa độ 0–10.000 pixel; CHỜ 1–60.000 ms; NHẤN_GIỮ 100–10.000 ms; VUỐT 1–10.000 ms.
+- CHỜ_ĐẾN_KHI timeout 1–60.000 ms; chu kỳ 50–5.000 ms.
+
+## 8. Điều kiện nghiệm thu
+
+Mỗi tính năng mới cần:
+1. Cú pháp HOA, đúng dấu và tài liệu tiếng Việt.
+2. AST/IR và kiểm tra cú pháp/tham số/kiểu.
+3. Giới hạn ngân sách và chống lạm dụng.
+4. Runtime Android thật hoặc xử lý trạng thái CHƯA_HỖ_TRỢ rõ ràng.
+5. Unit tests parser, runtime, lỗi, giới hạn và hủy.
+6. Android source checks xanh; sau đó kiểm thử hành vi trên thiết bị thật.
