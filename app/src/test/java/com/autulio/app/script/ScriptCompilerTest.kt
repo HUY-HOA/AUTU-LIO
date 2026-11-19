@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -350,7 +350,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -397,7 +397,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -436,7 +436,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -470,7 +470,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -500,7 +500,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -512,6 +512,34 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", point.diagnostics.first().code)
         assertEquals("function_argument_count", screen.diagnostics.first().code)
         assertEquals("function_argument_count", region.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsDeviceModelAndroidVersionAndKeyguardBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT HÃNG: CHUỖI = HÃNG_SẢN_XUẤT()
+            ĐẶT MẪU: CHUỖI = MẪU_THIẾT_BỊ()
+            ĐẶT PHIÊN_BẢN: CHUỖI = PHIÊN_BẢN_ANDROID()
+            ĐẶT API: SỐ = MỨC_API_ANDROID()
+            ĐẶT ĐANG_KHÓA: LUẬN_LÝ = MÀN_HÌNH_BỊ_KHÓA()
+            ĐẶT ĐƯỢC_BẢO_MẬT: LUẬN_LÝ = THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()
+            """.trimIndent()
+        )
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.19", result.program?.languageVersion)
+    }
+
+    @Test
+    fun rejectsArgumentsForDeviceAndKeyguardBuiltins() {
+        val model = ScriptCompiler.compile("ĐẶT MẪU = MẪU_THIẾT_BỊ(1)")
+        val api = ScriptCompiler.compile("ĐẶT API = MỨC_API_ANDROID(1)")
+        val keyguard = ScriptCompiler.compile("ĐẶT KHÓA = MÀN_HÌNH_BỊ_KHÓA(1)")
+
+        assertEquals("function_argument_count", model.diagnostics.first().code)
+        assertEquals("function_argument_count", api.diagnostics.first().code)
+        assertEquals("function_argument_count", keyguard.diagnostics.first().code)
     }
 
     @Test
@@ -529,7 +557,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -559,7 +587,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -583,7 +611,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -604,7 +632,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -617,7 +645,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -642,7 +670,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -697,7 +725,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -724,7 +752,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -753,7 +781,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -775,7 +803,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -801,7 +829,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -830,7 +858,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
@@ -880,7 +908,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.18", result.program?.languageVersion)
+        assertEquals("1.19", result.program?.languageVersion)
     }
 
     @Test
