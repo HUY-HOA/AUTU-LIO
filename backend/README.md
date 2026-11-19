@@ -62,6 +62,7 @@ Set these only after the values have been confirmed:
 - `GOOGLE_CLIENT_ID`: Google OAuth Web/server client ID used as the expected ID-token audience.
 - `OWNER_GOOGLE_SUB`: exact `sub` claim from the owner's Google ID token after the Worker verifies its signature, issuer, audience, expiry and nonce. This value, not the email address, selects the one account eligible for OWNER.
 - `PACKAGE_MASTER_KEY_V1`: base64-encoded cryptographically random 32-byte key. Generate it securely and set it as a Worker secret; never commit it, send it through chat or put it in the APK.
+- `GEMINI_API_KEY`: Google Gemini Developer API key used only by the Worker to mint single-use Live ephemeral tokens. Do not store it in Android or Git.
 
 Worker variables:
 - `PACKAGE_MASTER_KEY_VERSION`: active package master-key version, set to `V1` in `wrangler.jsonc`. The matching secret is `PACKAGE_MASTER_KEY_V1`.
@@ -88,6 +89,10 @@ From this directory:
 The Worker source is deployed and the five D1 migrations are applied. Production secrets and OAuth allowlist are configured; the owner has signed in successfully and D1 confirms exactly one active OWNER. Other Google accounts are assigned CUSTOMER by default. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`.
 
 ## API
+
+### Gemini Live
+
+- `POST /api/ai/live-token` — OWNER or CUSTOMER with a valid session; mints one short-lived Gemini Live ephemeral token. Token requests are rate-limited.
 
 ### Authentication
 
