@@ -1,6 +1,7 @@
 package com.autulio.app.accessibility
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityService.ScreenshotResult
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
