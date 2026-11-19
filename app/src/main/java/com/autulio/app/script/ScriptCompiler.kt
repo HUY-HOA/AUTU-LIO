@@ -67,7 +67,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.2"
+    const val LANGUAGE_VERSION = "1.3"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -112,6 +112,10 @@ object ScriptCompiler {
     private val builtinFunctionArities = mapOf(
         "SỐ" to 1, "CHUỖI" to 1, "LÀM_TRÒN" to 1,
         "TUYỆT_ĐỐI" to 1, "ĐỘ_DÀI" to 1,
+        "CHỮ_HOA" to 1, "CHỮ_THƯỜNG" to 1, "CẮT_KHOẢNG_TRẮNG" to 1,
+        "CHỨA_CHUỖI" to 2, "BẮT_ĐẦU_BẰNG" to 2, "KẾT_THÚC_BẰNG" to 2,
+        "THAY_THẾ" to 3, "TÁCH_CHUỖI" to 2, "NỐI_CHUỖI" to 2,
+        "KÝ_TỰ_TẠI" to 2, "CẮT_CHUỖI" to 3,
         "NHỎ_NHẤT" to 2, "LỚN_NHẤT" to 2,
         "PIN" to 0, "PHẦN_TRĂM_PIN" to 0,
         "ĐANG_SẠC" to 0, "CÓ_MẠNG" to 0, "MÀN_HÌNH_SÁNG" to 0,
