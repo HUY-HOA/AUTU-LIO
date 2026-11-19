@@ -91,7 +91,7 @@ class ScriptHttpClientTest {
         assertFalse(runCatching { client.request("GET", "https://api.example.com/path#private", null, headers, 1_000) }.isSuccess)
         assertFalse(runCatching { client.request("PATCH", "https://api.example.com", null, headers, 1_000) }.isSuccess)
         assertFalse(runCatching { client.request("GET", "https://api.example.com", "body", headers, 1_000) }.isSuccess)
-        assertFalse(runCatching { client.request("GET", "https://api.example.com", null, mapOf("X-Test" to "safe\\r\\nInjected: yes"), 1_000) }.isSuccess)
+        assertFalse(runCatching { client.request("GET", "https://api.example.com", null, mapOf("X-Test" to "safe\r\nInjected: yes"), 1_000) }.isSuccess)
         assertFalse(runCatching { client.request("GET", "https://api.example.com", null, headers, 50) }.isSuccess)
         assertFalse(runCatching { client.request("GET", "https://api.example.com", null, headers, 31_000) }.isSuccess)
     }
