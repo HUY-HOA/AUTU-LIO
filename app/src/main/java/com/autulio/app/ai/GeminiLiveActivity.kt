@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -221,12 +220,15 @@ private fun GeminiLiveScreen(accessToken: String, onBack: () -> Unit) {
             modifier = Modifier.fillMaxSize().padding(insets).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 TextButton(onClick = onBack) {
                     Icon(Icons.Outlined.ArrowBack, contentDescription = null)
                     Text("  Quay lại")
                 }
-                Spacer(Modifier.weight(1f))
                 Text("AUTU-LIO", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
             Text("Gemini Live", fontSize = 25.sp, fontWeight = FontWeight.Bold)
