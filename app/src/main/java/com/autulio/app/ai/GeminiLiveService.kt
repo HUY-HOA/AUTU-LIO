@@ -56,6 +56,9 @@ class GeminiLiveService : Service() {
         latestError = null
         val accessToken = intent.getStringExtra(EXTRA_ACCESS_TOKEN).orEmpty()
         val canAuthorAutuScripts = intent.getBooleanExtra(EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING, false)
+        val enableAutuScriptAuthoring = canAuthorAutuScripts &&
+            intent.getBooleanExtra(EXTRA_ENABLE_AUTU_SCRIPT_AUTHORING, false)
+        scriptAuthoringEnabled = enableAutuScriptAuthoring
         if (accessToken.isBlank()) {
             stopWithError("Không tìm thấy phiên đăng nhập AUTU-LIO.")
             return START_NOT_STICKY
@@ -88,7 +91,8 @@ class GeminiLiveService : Service() {
         updateNotification(latestStatus)
         serviceScope.launch {
             try {
-                val token = AuthRepository(applicationContext).createGeminiLiveToken(accessToken)
+                val liveSession = AuthRepository(applicationContext)
+                    .createGeminiLiveSession(accessToken, enableAutuScriptAuthoring)
                 val liveController = GeminiLiveController(
                     callbacks = object : GeminiLiveController.Callbacks {
                         override fun onStatus(value: String) {
@@ -129,6 +133,7 @@ class GeminiLiveService : Service() {
                             updateNotification("Lỗi kết nối")
                         }
                     },
+                    serverSetupTemplate = liveSession.setup,
                     scriptWorkspace = if (canAuthorAutuScripts) {
                         GeminiAutuScriptWorkspace(applicationContext)
                     } else {
@@ -136,9 +141,9 @@ class GeminiLiveService : Service() {
                     }
                 )
                 liveController.setActionsEnabled(actionsEnabled)
-                liveController.setScriptAuthoringEnabled(scriptAuthoringEnabled && canAuthorAutuScripts)
+                liveController.setScriptAuthoringEnabled(enableAutuScriptAuthoring)
                 controller = liveController
-                liveController.connect(token)
+                liveController.connect(liveSession.token)
                 starting.set(false)
             } catch (exception: Exception) {
                 starting.set(false)
@@ -264,6 +269,7 @@ class GeminiLiveService : Service() {
         const val ACTION_STOP = "com.autulio.app.ai.action.STOP"
         const val EXTRA_ACCESS_TOKEN = "com.autulio.app.ai.ACCESS_TOKEN"
         const val EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING = "com.autulio.app.ai.ALLOW_AUTU_SCRIPT_AUTHORING"
+        const val EXTRA_ENABLE_AUTU_SCRIPT_AUTHORING = "com.autulio.app.ai.ENABLE_AUTU_SCRIPT_AUTHORING"
         private const val CHANNEL_ID = "autu_gemini_live"
         private const val NOTIFICATION_ID = 21019
         private const val STOP_REQUEST_CODE = 21020
