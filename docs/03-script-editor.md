@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.14
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.15
 
-**Phiên bản cú pháp:** `1.14`  
+**Phiên bản cú pháp:** `1.15`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -262,7 +262,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.14 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.15 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. Kết nối API qua HTTPS
 
@@ -345,6 +345,19 @@ NẾU (MÀN_HÌNH_CÓ_VẬT_THỂ("Food")) {
 ```
 
 Mỗi phần tử trong danh sách VẬT_THỂ là bản đồ có X, Y, RỘNG, CAO và NHÃN. Hộp giới hạn dùng pixel ảnh màn hình. NHÃN chứa các bản đồ có TÊN, CHỈ_SỐ và ĐỘ_TIN_CẬY. Bộ nhận diện mặc định trả tối đa 5 vật thể và chỉ dùng nhãn tổng quát; không phải nhận dạng mọi đồ vật với tên chính xác.
+
+### Mã QR và mã vạch có cấu trúc
+
+```text
+ĐẶT CÁC_MÃ: DANH_SÁCH = CHI_TIẾT_MÃ_QR_MÀN_HÌNH()
+LẶP_MỖI (MỘT_MÃ TRONG CÁC_MÃ) {
+    ĐẶT GIÁ_TRỊ: CHUỖI = LẤY_GIÁ_TRỊ(MỘT_MÃ, "GIÁ_TRỊ_GỐC")
+    ĐẶT ĐỊNH_DẠNG: CHUỖI = LẤY_GIÁ_TRỊ(MỘT_MÃ, "ĐỊNH_DẠNG")
+}
+ĐẶT MÃ_VẠCH: DANH_SÁCH = CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()
+```
+
+Mỗi kết quả chứa GIÁ_TRỊ_GỐC, GIÁ_TRỊ_HIỂN_THỊ, ĐỊNH_DẠNG, LOẠI_NỘI_DUNG và bounds X/Y/RỘNG/CAO nếu có. Không phải mọi mã đều có giá trị văn bản UTF-8 hoặc bounds. Kịch bản tự quyết định xử lý tiếp; ứng dụng không tự mở URL hoặc kết nối tới dữ liệu được quét.
 
 ### Phân tích màu RGB trên màn hình
 
