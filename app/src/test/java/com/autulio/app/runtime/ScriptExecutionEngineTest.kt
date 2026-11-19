@@ -553,6 +553,31 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
+    fun readsStructuredBarcodeValueFormatAndBounds() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT CÁC_MÃ: DANH_SÁCH = CHI_TIẾT_MÃ_QR_MÀN_HÌNH()
+                ĐẶT MÃ_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_MÃ, 0)
+                NẾU (LẤY_GIÁ_TRỊ(MÃ_ĐẦU, "ĐỊNH_DẠNG") == "MÃ_QR") {
+                    CHẠM(LẤY_GIÁ_TRỊ(MÃ_ĐẦU, "X"), LẤY_GIÁ_TRỊ(MÃ_ĐẦU, "Y"))
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:30,40"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
     fun catchesRuntimeFailureAndAlwaysRunsFinallyBlock() {
         val dispatcher = RecordingDispatcher()
         val completed = CountDownLatch(1)
@@ -905,6 +930,30 @@ class ScriptExecutionEngineTest {
                     "URL" to "https://api.example.com/status"
                 )
                 "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> "AUTU-LIO Đăng nhập"
+                "CHI_TIẾT_MÃ_QR_MÀN_HÌNH" -> listOf(
+                    linkedMapOf<String, Any?>(
+                        "GIÁ_TRỊ_GỐC" to "https://example.test",
+                        "GIÁ_TRỊ_HIỂN_THỊ" to "example.test",
+                        "ĐỊNH_DẠNG" to "MÃ_QR",
+                        "LOẠI_NỘI_DUNG" to "ĐƯỜNG_DẪN",
+                        "X" to 30.0,
+                        "Y" to 40.0,
+                        "RỘNG" to 80.0,
+                        "CAO" to 80.0
+                    )
+                )
+                "CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH" -> listOf(
+                    linkedMapOf<String, Any?>(
+                        "GIÁ_TRỊ_GỐC" to "123456789",
+                        "GIÁ_TRỊ_HIỂN_THỊ" to "123456789",
+                        "ĐỊNH_DẠNG" to "EAN_13",
+                        "LOẠI_NỘI_DUNG" to "SẢN_PHẨM",
+                        "X" to 20.0,
+                        "Y" to 40.0,
+                        "RỘNG" to 100.0,
+                        "CAO" to 40.0
+                    )
+                )
                 "ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH" -> listOf(
                     linkedMapOf<String, Any?>(
                         "VĂN_BẢN" to "Đăng nhập",
