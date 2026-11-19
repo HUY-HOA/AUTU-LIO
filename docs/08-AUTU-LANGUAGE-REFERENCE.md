@@ -1,6 +1,6 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.13
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.14
 
-**Ngôn ngữ:** AUTU-LIO Script 1.13  
+**Ngôn ngữ:** AUTU-LIO Script 1.14  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
 Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.11; các tên cũ được giữ làm bí danh tương thích.
@@ -208,6 +208,7 @@ Chỉ chấp nhận URL HTTPS, không nhúng user/password và không theo chuy�
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
 | ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Trả về văn bản tìm được trên màn hình |
+| ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() | Danh sách khối OCR và từng dòng, gồm văn bản cùng tọa độ X/Y, rộng, cao |
 | MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("chuỗi") | ĐÚNG nếu màn hình có chuỗi cần tìm |
 | TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("chuỗi") | Danh sách [X, Y] là tâm vị trí tìm thấy; danh sách rỗng nếu không có |
 
