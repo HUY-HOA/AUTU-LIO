@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -478,6 +478,32 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun supportsScreenColorAnalysisBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT MÀU: BẢN_ĐỒ = MÀU_TẠI(20, 30)
+            ĐẶT CÓ_MÀU: LUẬN_LÝ = MÀN_HÌNH_CÓ_MÀU(255, 0, 0, 12)
+            ĐẶT TỌA_ĐỘ: DANH_SÁCH = TÌM_VỊ_TRÍ_MÀU(0, 255, 0, 8)
+            ĐẶT TỶ_LỆ: SỐ = TỶ_LỆ_MÀU_TRONG_VÙNG(0, 0, 255, 10, 10, 20, 300, 400)
+            """.trimIndent()
+        )
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.13", result.program?.languageVersion)
+    }
+
+    @Test
+    fun rejectsIncorrectScreenColorBuiltinArgumentCounts() {
+        val point = ScriptCompiler.compile("ĐẶT MÀU = MÀU_TẠI(10)")
+        val screen = ScriptCompiler.compile("ĐẶT CÓ_MÀU = MÀN_HÌNH_CÓ_MÀU(255, 0, 0)")
+        val region = ScriptCompiler.compile("ĐẶT TỶ_LỆ = TỶ_LỆ_MÀU_TRONG_VÙNG(0, 0, 0, 0, 1, 2, 3)")
+
+        assertEquals("function_argument_count", point.diagnostics.first().code)
+        assertEquals("function_argument_count", screen.diagnostics.first().code)
+        assertEquals("function_argument_count", region.diagnostics.first().code)
+    }
+
+    @Test
     fun supportsOnDemandScreenOcrBuiltins() {
         val result = ScriptCompiler.compile(
             """
@@ -487,7 +513,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -512,7 +538,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -567,7 +593,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -594,7 +620,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -623,7 +649,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -645,7 +671,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -671,7 +697,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -700,7 +726,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
@@ -750,7 +776,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.12", result.program?.languageVersion)
+        assertEquals("1.13", result.program?.languageVersion)
     }
 
     @Test
