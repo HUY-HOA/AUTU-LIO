@@ -67,7 +67,6 @@ jobs:
           set -e
           urls=(
             "https://plugins.gradle.org/m2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.4.21/org.jetbrains.kotlin.android.gradle.plugin-2.4.21.pom"
-            "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.21/kotlin-stdlib-2.4.21.pom"
             "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.9/asm-9.9.pom"
             "https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/9.3.1/gradle-9.3.1.pom"
           )
