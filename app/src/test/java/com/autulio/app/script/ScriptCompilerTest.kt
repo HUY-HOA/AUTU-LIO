@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -487,7 +487,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -512,7 +512,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -567,7 +567,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -594,7 +594,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -623,7 +623,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -645,7 +645,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.9", result.program?.languageVersion)
+        assertEquals("1.10", result.program?.languageVersion)
     }
 
     @Test
@@ -654,6 +654,36 @@ class ScriptCompilerTest {
         val tooMany = ScriptCompiler.compile("ĐẶT X = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH(1)")
         assertEquals("function_argument_count", wrongCount.diagnostics.first().code)
         assertEquals("function_argument_count", tooMany.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsSandboxedFileAndJsonFileFunctions() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT CÓ_TỆP: LUẬN_LÝ = TỆP_TỒN_TẠI("settings/config.json")
+            ĐẶT NỘI_DUNG: CHUỖI = ĐỌC_TỆP("settings/config.json")
+            GHI_TỆP("settings/config.json", NỘI_DUNG)
+            ĐẶT CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
+            GHI_JSON_TỆP("settings/config.json", CẤU_HÌNH)
+            TẠO_THƯ_MỤC("settings/backup")
+            ĐẶT TỆP: DANH_SÁCH = LIỆT_KÊ_TỆP("settings")
+            XÓA_TỆP("settings/old.txt")
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.10", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesFileFunctionArgumentCounts() {
+        val wrongRead = ScriptCompiler.compile("ĐẶT X = ĐỌC_TỆP()")
+        val wrongWrite = ScriptCompiler.compile("ĐẶT X = GHI_TỆP(\"a.txt\")")
+        val wrongList = ScriptCompiler.compile("ĐẶT X = LIỆT_KÊ_TỆP()")
+        val wrongDelete = ScriptCompiler.compile("ĐẶT X = XÓA_TỆP(\"a.txt\", \"b.txt\")")
+        assertEquals("function_argument_count", wrongRead.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongWrite.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongList.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongDelete.diagnostics.first().code)
     }
 
 }
