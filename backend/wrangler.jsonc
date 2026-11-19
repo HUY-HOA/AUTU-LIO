@@ -39,6 +39,14 @@
         "limit": 30,
         "period": 60
       }
+    },
+    {
+      "name": "AI_LIVE_TOKEN_LIMITER",
+      "namespace_id": "61003",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
     }
   ],
   "vars": {
