@@ -67,12 +67,13 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.1"
+    const val LANGUAGE_VERSION = "1.2"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
     const val MAX_WHILE_ITERATIONS = 900
     const val MAX_LIST_ITEMS = 64
+    const val MAX_MAP_ENTRIES = 64
     const val MAX_NESTING_DEPTH = 8
     const val MAX_EXPANDED_INSTRUCTIONS = 5_000L
     const val MAX_TOTAL_DURATION_MS = 600_000L
@@ -122,10 +123,16 @@ object ScriptCompiler {
         "THÊM_PHẦN_TỬ" to 2,
         "ĐẶT_PHẦN_TỬ" to 3,
         "XÓA_PHẦN_TỬ" to 2,
-        "CÓ_PHẦN_TỬ" to 2
+        "CÓ_PHẦN_TỬ" to 2,
+        "TẠO_BẢN_ĐỒ" to -2,
+        "LẤY_GIÁ_TRỊ" to 2,
+        "ĐẶT_GIÁ_TRỊ" to 3,
+        "XÓA_KHÓA" to 2,
+        "CÓ_KHÓA" to 2,
+        "DANH_SÁCH_KHÓA" to 1
     )
 
-    private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẤT_KỲ")
+    private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ")
     private val reservedWords = setOf(
         "ĐẶT", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
         "LẶP", "LẶP_KHI", "LẶP_ĐẾN_KHI", "LẶP_MỖI", "TRONG", "CHỜ_ĐẾN_KHI",
@@ -754,6 +761,10 @@ object ScriptCompiler {
                 val expected = builtinFunctionArities[token.text]
                 if (expected == -1 && args.size > MAX_LIST_ITEMS) {
                     fail(token.line, token.column, "list_too_large", "Danh sách không được vượt quá $MAX_LIST_ITEMS phần tử.", "A list cannot exceed $MAX_LIST_ITEMS items.")
+                } else if (expected == -2 && args.size > MAX_MAP_ENTRIES * 2) {
+                    fail(token.line, token.column, "map_too_large", "Bản đồ không được vượt quá $MAX_MAP_ENTRIES cặp khóa–giá trị.", "A map cannot exceed $MAX_MAP_ENTRIES key-value pairs.")
+                } else if (expected == -2 && args.size % 2 != 0) {
+                    fail(token.line, token.column, "map_argument_count", "TẠO_BẢN_ĐỒ cần số tham số chẵn theo cặp KHÓA, GIÁ_TRỊ.", "TẠO_BẢN_ĐỒ requires an even number of KEY, VALUE arguments.")
                 } else if (expected != null && expected >= 0 && args.size != expected) {
                     fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' cần đúng " + expected + " tham số.", "Function '" + token.text + "' requires exactly " + expected + " arguments.")
                 }
