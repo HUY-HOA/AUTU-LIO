@@ -622,6 +622,37 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun performsRegionOcrImageLabelingAndBarcodeRecognitionBuiltins() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_VÙNG(0, 0, 100, 100)
+                NẾU (MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("OK", 0, 0, 200, 200) VÀ CHỨA_CHUỖI(VAN_BAN, "vùng")) {
+                    ĐẶT VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("OK", 0, 0, 200, 200)
+                    CHẠM(LẤY_PHẦN_TỬ(VI_TRI, 0), LẤY_PHẦN_TỬ(VI_TRI, 1))
+                }
+                ĐẶT NHAN: DANH_SÁCH = NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()
+                NẾU (MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone")) {
+                    ĐẶT QR: DANH_SÁCH = QUÉT_MÃ_QR_MÀN_HÌNH()
+                    ĐẶT MA_VACH: DANH_SÁCH = QUÉT_MÃ_VẠCH_MÀN_HÌNH()
+                    CHỜ(1)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:110,220"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
@@ -720,6 +751,13 @@ class ScriptExecutionEngineTest {
                 }
                 "CUỘN_XUỐNG" -> true
                 "CUỘN_LÊN" -> true
+                "ĐỌC_VĂN_BẢN_VÙNG" -> "OK vùng"
+                "MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG" -> arguments.firstOrNull() == "OK"
+                "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG" -> listOf(110, 220)
+                "NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH" -> listOf("Phone", "Screen")
+                "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" -> arguments.firstOrNull() == "Phone"
+                "QUÉT_MÃ_QR_MÀN_HÌNH" -> listOf("https://example.test")
+                "QUÉT_MÃ_VẠCH_MÀN_HÌNH" -> listOf("123456789")
                 else -> name == "CÓ_MẠNG"
             }
         }
