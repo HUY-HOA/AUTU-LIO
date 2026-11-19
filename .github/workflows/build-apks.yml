@@ -139,7 +139,7 @@ jobs:
       - name: Validate and build signed Release APK
         if: steps.signing.outputs.configured == 'true'
         env:
-          AUTU_LIO_AUTH_API_BASE_URL: ${{ vars.AUTU_LIO_AUTH_API_BASE_URL }}
+          AUTU_LIO_AUTH_API_BASE_URL: https://autu-lio-auth-api.coc-lio-data.workers.dev
           AUTU_LIO_GOOGLE_SERVER_CLIENT_ID: 45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
           AUTU_LIO_RELEASE_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
@@ -150,7 +150,7 @@ jobs:
       - name: Validate and build Debug test APK
         if: steps.signing.outputs.configured != 'true'
         env:
-          AUTU_LIO_AUTH_API_BASE_URL: ${{ vars.AUTU_LIO_AUTH_API_BASE_URL }}
+          AUTU_LIO_AUTH_API_BASE_URL: https://autu-lio-auth-api.coc-lio-data.workers.dev
           AUTU_LIO_GOOGLE_SERVER_CLIENT_ID: 45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
         run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintDebug :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
