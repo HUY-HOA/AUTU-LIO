@@ -38,6 +38,7 @@ import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
 import com.autulio.app.runtime.ScriptExecutionState
 import com.autulio.app.runtime.ScriptHttpClient
+import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
 import com.autulio.app.script.ScriptProgram
@@ -98,6 +99,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private val scriptHttpClient = ScriptHttpClient()
 
+    private val scriptDatabaseStoreLazy = lazy { ScriptDatabaseStore(this) }
+    private val scriptDatabaseStore by scriptDatabaseStoreLazy
+
     private val mainHandler = Handler(Looper.getMainLooper())
     private var executionEngine: ScriptExecutionEngine? = null
     private var windowManager: WindowManager? = null
@@ -146,6 +150,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         barcodeScanner = null
         objectDetector?.close()
         objectDetector = null
+        if (scriptDatabaseStoreLazy.isInitialized()) {
+            scriptDatabaseStore.close()
+        }
         removeFloatingWindow()
         pendingProgram = null
         if (activeInstance === this) activeInstance = null
@@ -382,6 +389,20 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "ĐẾM_VẬT_THỂ_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
                 recognizeScreenObjects().size
+            }
+            "SQL_THỰC_THI" -> {
+                requireArgumentCount(name, arguments, 2)
+                val sql = requireTextArgument(name, arguments[0])
+                val parameters = arguments[1] as? List<*>
+                    ?: throw IllegalArgumentException("Tham số SQL phải là DANH_SÁCH.")
+                scriptDatabaseStore.execute(sql, parameters)
+            }
+            "SQL_TRUY_VẤN" -> {
+                requireArgumentCount(name, arguments, 2)
+                val sql = requireTextArgument(name, arguments[0])
+                val parameters = arguments[1] as? List<*>
+                    ?: throw IllegalArgumentException("Tham số SQL phải là DANH_SÁCH.")
+                scriptDatabaseStore.query(sql, parameters)
             }
             "GỬI_YÊU_CẦU_HTTP" -> {
                 requireArgumentCount(name, arguments, 5)
