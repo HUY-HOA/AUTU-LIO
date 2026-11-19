@@ -15,7 +15,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 
 ## Ma trận tính năng
 
-**Trạng thái mã nguồn hiện tại:** AUTU Script 1.16. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.16; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.17. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.17; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
 
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
