@@ -620,11 +620,57 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     }
 
-    private data class ScreenPixelSample    private data class ScreenPixelSample(
+    private data class ScreenPixelSample(
         val pixels: IntArray,
         val width: Int,
         val height: Int
     )
+
+    private fun requireNonNegativeFiniteNumber(name: String, value: Any?, label: String): Double {
+        val number = value as? Number
+            ?: throw IllegalArgumentException("Tham số $label của '$name' phải là số.")
+        val result = number.toDouble()
+        require(result.isFinite() && result >= 0.0) {
+            "Tham số $label của '$name' phải là số hữu hạn không âm."
+        }
+        return result
+    }
+
+    private fun requirePositiveOrZeroInt(name: String, value: Any?, label: String): Int {
+        val number = value as? Number
+            ?: throw IllegalArgumentException("Tham số $label của '$name' phải là số nguyên.")
+        val doubleValue = number.toDouble()
+        require(doubleValue.isFinite() &&
+            doubleValue >= 0.0 &&
+            doubleValue <= Int.MAX_VALUE.toDouble() &&
+            doubleValue % 1.0 == 0.0
+        ) {
+            "Tham số $label của '$name' phải là số nguyên không âm trong giới hạn Int."
+        }
+        return doubleValue.toInt()
+    }
+
+    private fun requireScreenRegion(name: String, arguments: Array<Any?>, bitmap: Bitmap): Rect {
+        require(arguments.size == 4) {
+            "Hàm '$name' cần X, Y, RỘNG và CAO cho vùng màn hình."
+        }
+        val left = requirePositiveOrZeroInt(name, arguments[0], "X")
+        val top = requirePositiveOrZeroInt(name, arguments[1], "Y")
+        val width = requirePositiveOrZeroInt(name, arguments[2], "RỘNG")
+        val height = requirePositiveOrZeroInt(name, arguments[3], "CAO")
+        require(width > 0 && height > 0) {
+            "RỘNG và CAO của vùng màn hình phải lớn hơn 0."
+        }
+
+        val right = left.toLong() + width.toLong()
+        val bottom = top.toLong() + height.toLong()
+        require(left < bitmap.width && top < bitmap.height &&
+            right <= bitmap.width.toLong() && bottom <= bitmap.height.toLong()
+        ) {
+            "Vùng màn hình nằm ngoài ảnh ${bitmap.width}x${bitmap.height}."
+        }
+        return Rect(left, top, right.toInt(), bottom.toInt())
+    }
 
     private fun requireColorArguments(
         name: String,
