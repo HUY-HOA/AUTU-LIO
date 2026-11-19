@@ -506,7 +506,7 @@ class ScriptExecutionEngine(
                 )
             }
             "VUỐT_ĐA_ĐIỂM" -> {
-                val paths = requireMultiTouchPaths(args[0], minPoints = 2, maxPoints = 16)
+                val paths = requireMultiTouchPaths(args[0], minPoints = 2, maxPoints = ScriptCompiler.MAX_MULTI_TOUCH_PATH_POINTS)
                 dispatcher.multiTouch(
                     paths,
                     requireDuration(args[1], 1, ScriptCompiler.MAX_GESTURE_MS)
@@ -1077,7 +1077,7 @@ class ScriptExecutionEngine(
     ): List<List<Int>> {
         val rawPaths = value as? List<*>
             ?: throw ScriptRuntimeFailure("invalid_multitouch_paths", "DANH_SÁCH đường chạm phải là một DANH_SÁCH.")
-        if (rawPaths.size !in 2..5) {
+        if (rawPaths.size !in 2..ScriptCompiler.MAX_MULTI_TOUCH_FINGERS) {
             throw ScriptRuntimeFailure("multitouch_finger_count", "Thao tác đa điểm cần từ 2 đến 5 ngón tay.")
         }
         return rawPaths.mapIndexed { index, rawPath ->
