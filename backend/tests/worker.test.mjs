@@ -205,6 +205,70 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
   }
 });
 
+test("Gemini Live provider errors are translated and expose only safe diagnostics", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  env.GEMINI_API_KEY = "server-only-test-key";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: {
+      code: 400,
+      status: "INVALID_ARGUMENT",
+      message: "API key not valid. Please pass a valid API key."
+    }
+  }), { status: 400, headers: { "Content-Type": "application/json" } });
+  try {
+    const response = await worker.fetch(makeRequest("/api/ai/live-token", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "A".repeat(48),
+        "CF-Connecting-IP": "203.0.113.23"
+      },
+      body: "{}"
+    }), env);
+    const body = await json(response);
+    assert.equal(response.status, 502);
+    assert.equal(body.error, "gemini_token_failed");
+    assert.match(body.message, /Google từ chối API Key/);
+    assert.equal(body.providerHttpStatus, 400);
+    assert.equal(body.providerStatus, "INVALID_ARGUMENT");
+    assert.equal(body.providerCode, 400);
+    assert.doesNotMatch(body.message, /API key not valid|Gemini did not issue/);
+    assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Gemini Live quota failures show a Vietnamese message", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  env.GEMINI_API_KEY = "server-only-test-key";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: {
+      code: 429,
+      status: "RESOURCE_EXHAUSTED",
+      message: "Quota exceeded."
+    }
+  }), { status: 429, headers: { "Content-Type": "application/json" } });
+  try {
+    const response = await worker.fetch(makeRequest("/api/ai/live-token", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "A".repeat(48),
+        "CF-Connecting-IP": "203.0.113.24"
+      },
+      body: "{}"
+    }), env);
+    const body = await json(response);
+    assert.equal(response.status, 502);
+    assert.match(body.message, /đã vượt hạn mức/);
+    assert.equal(body.providerHttpStatus, 429);
+    assert.equal(body.providerStatus, "RESOURCE_EXHAUSTED");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("Gemini Live customer token never receives AUTU script authoring tools", async () => {
   const { env } = createEnv({ session: customerSession });
   env.GEMINI_API_KEY = "server-only-test-key";
