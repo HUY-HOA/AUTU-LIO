@@ -43,6 +43,7 @@ import com.autulio.app.runtime.ScreenCoordinateConverter
 import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
+import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptProgram
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
