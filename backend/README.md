@@ -29,6 +29,22 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 
 Permission overrides are restricted to each role's allowed set. Owner-only controls, such as managing collaborators and licenses or final publishing, cannot be granted to collaborators.
 
+## Gemini Live
+
+Gemini Live uses the authenticated Worker as a token broker. The permanent Gemini API key is stored only as the Cloudflare Worker secret `GEMINI_API_KEY`; Android requests a single-use ephemeral token from `POST /api/ai/live-token` using its existing AUTU bearer session. The Worker pins the model to `models/gemini-3.8-live`, locks the Live session instructions and the four permitted screen-control functions, and rate-limits token minting. The key is never returned to the app.
+
+Configure the secret in the Worker environment before deploying:
+
+```sh
+npx wrangler secret put GEMINI_API_KEY
+```
+
+The app requires Android 11 or newer and the AUTU-LIO Accessibility Service for screen capture and gestures, plus runtime microphone permission for voice conversations. Screen images are compressed JPEG frames, sent at approximately one frame per 1.2 seconds while the user keeps the Live session active. Audio is sent as 16 kHz mono PCM and Gemini audio is played as 24 kHz mono PCM. Leaving the Live activity stops the session.
+
+The user must separately enable the “Cho phép AI điều khiển” switch before function calls can tap, swipe, long-press, or press Back. The assistant is instructed not to handle passwords, OTPs, payments, purchases, destructive actions, or message submission. This is a model instruction plus a narrow local tool allow-list, not a guarantee that the model always interprets every screen correctly; users should supervise all automation. Android secure windows can block screenshot capture.
+
+The API key secret and the Worker route must be configured/deployed for the feature to connect. The Android source change alone does not deploy the Worker. Gemini Live usage is billed or rate-limited according to the selected Google AI API plan and model policy.
+
 ## D1
 
 Database name: `autu_lio_auth`
