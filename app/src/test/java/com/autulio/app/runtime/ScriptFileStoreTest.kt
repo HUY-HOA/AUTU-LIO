@@ -14,7 +14,7 @@ class ScriptFileStoreTest {
         assertTrue(store.writeText("settings/config.txt", "AUTU-LIO"))
         assertTrue(store.exists("settings/config.txt"))
         assertEquals("AUTU-LIO", store.readText("settings/config.txt"))
-        assertEquals(listOf("settings/config.txt"), store.listFiles("settings").map { "settings/$it" })
+        assertEquals(listOf("config.txt"), store.listFiles("settings"))
         assertTrue(store.delete("settings/config.txt"))
         assertFalse(store.exists("settings/config.txt"))
         assertTrue(File(root, "settings").isDirectory)
