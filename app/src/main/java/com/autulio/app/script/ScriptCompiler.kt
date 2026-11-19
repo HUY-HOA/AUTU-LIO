@@ -75,7 +75,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.16"
+    const val LANGUAGE_VERSION = "1.17"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -90,6 +90,8 @@ object ScriptCompiler {
     const val MAX_COORDINATE = 10_000
     const val MAX_WAIT_MS = 60_000
     const val MAX_GESTURE_MS = 10_000
+    const val MAX_MULTI_TOUCH_FINGERS = 5
+    const val MAX_MULTI_TOUCH_PATH_POINTS = 16
     private const val INSTRUCTION_CAP = MAX_EXPANDED_INSTRUCTIONS + 1
     private const val DURATION_CAP = MAX_TOTAL_DURATION_MS + 1
 
@@ -98,6 +100,8 @@ object ScriptCompiler {
         "CHẠM" to "CHẠM",
         "NHẤN_GIỮ" to "NHẤN_GIỮ",
         "VUỐT" to "VUỐT",
+        "CHẠM_ĐA_ĐIỂM" to "CHẠM_ĐA_ĐIỂM",
+        "VUỐT_ĐA_ĐIỂM" to "VUỐT_ĐA_ĐIỂM",
         "CHỜ" to "CHỜ",
         "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG",
         "QUAY_LẠI" to "QUAY_LẠI",
@@ -118,6 +122,7 @@ object ScriptCompiler {
 
     private val commandArgumentCounts = mapOf(
         "CHẠM" to 2, "NHẤN_GIỮ" to 3, "VUỐT" to 5,
+        "CHẠM_ĐA_ĐIỂM" to 2, "VUỐT_ĐA_ĐIỂM" to 2,
         "CHỜ" to 1, "MỞ_ỨNG_DỤNG" to 1,
         "QUAY_LẠI" to 0, "VỀ_MÀN_HÌNH_CHÍNH" to 0,
         "MỞ_ỨNG_DỤNG_GẦN_ĐÂY" to 0, "MỞ_THANH_THÔNG_BÁO" to 0,
