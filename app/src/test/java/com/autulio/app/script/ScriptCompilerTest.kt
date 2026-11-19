@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -487,7 +487,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -512,7 +512,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -567,7 +567,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -594,7 +594,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -623,7 +623,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.8", result.program?.languageVersion)
+        assertEquals("1.9", result.program?.languageVersion)
     }
 
     @Test
@@ -632,6 +632,28 @@ class ScriptCompilerTest {
         val wrongSerialize = ScriptCompiler.compile("ĐẶT X = CHUYỂN_JSON(1, 2)")
         assertEquals("function_argument_count", wrongParse.diagnostics.first().code)
         assertEquals("function_argument_count", wrongSerialize.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsObjectDetectionAndBoundingBoxQueries() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT CÁC_VẬT_THỂ: DANH_SÁCH = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()
+            ĐẶT SO_LUONG: SỐ = ĐẾM_VẬT_THỂ_MÀN_HÌNH()
+            ĐẶT CO_THUC_AN: LUẬN_LÝ = MÀN_HÌNH_CÓ_VẬT_THỂ("Food")
+            ĐẶT VI_TRI: DANH_SÁCH = TÌM_TỌA_ĐỘ_VẬT_THỂ("Food")
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.9", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesObjectDetectionFunctionArgumentCounts() {
+        val wrongCount = ScriptCompiler.compile("ĐẶT X = MÀN_HÌNH_CÓ_VẬT_THỂ()")
+        val tooMany = ScriptCompiler.compile("ĐẶT X = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH(1)")
+        assertEquals("function_argument_count", wrongCount.diagnostics.first().code)
+        assertEquals("function_argument_count", tooMany.diagnostics.first().code)
     }
 
 }
