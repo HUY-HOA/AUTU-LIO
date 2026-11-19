@@ -15,7 +15,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 
 ## Ma trận tính năng
 
-**Trạng thái mã nguồn hiện tại:** AUTU Script 1.11. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.11; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.13. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.13; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
 
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
@@ -24,10 +24,10 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 | Chuỗi và dữ liệu | Unicode, JSON lồng nhau, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Đã có Unicode và JSON lồng nhau; regex/ngày giờ/mã hóa còn thiếu |
 | Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI người dùng | Đã có kho tệp riêng và JSON; CSV/chọn URI còn thiếu |
 | Mạng | HTTPS GET/POST/PUT/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn; PATCH/multipart/upload/download còn thiếu |
-| Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Còn thiếu |
+| Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Đã có SQLite nội bộ, SQL allow-list, bind tham số và transaction mỗi câu ghi; hệ thống di trú schema còn thiếu |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
 | OCR | Đọc màn hình/vùng, tìm chữ, trả tọa độ | Đã có OCR màn hình và vùng; OCR từ tệp ảnh và chờ chữ chuyên dụng còn thiếu |
-| Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch; màu và so khớp ảnh mẫu còn thiếu |
+| Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch; RGB lấy mẫu màn hình bổ sung ở 1.13; khớp ảnh mẫu và so sánh khung hình còn thiếu |
 | Ảnh và khung hình | Chụp màn hình, crop vùng để OCR/nhận diện | Đã có chụp màn hình và crop nội bộ; xử lý ảnh/tệp và so sánh khung hình còn thiếu |
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt; kéo-thả đường cong và đa điểm còn thiếu |
 | Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel đã có; API tỷ lệ/DP và hiệu chỉnh vùng an toàn còn thiếu |
@@ -92,11 +92,11 @@ Một mô-đun chỉ được đánh dấu **Đã triển khai** khi có đủ:
 
 ## Lộ trình triển khai
 
-1. Hoàn thiện OCR ảnh đầu vào, dòng/khối và chờ chữ.
-2. Nhận diện ảnh: màu/vùng màu, ảnh mẫu và so sánh khung hình.
+1. Hoàn thiện OCR ảnh đầu vào từ URI/SAF, trả cấu trúc dòng/khối và chờ chữ.
+2. Nhận diện ảnh: khớp ảnh mẫu do người dùng chọn, so sánh khung hình và tinh chỉnh vùng màu.
 3. Tọa độ tỷ lệ/DP, vùng an toàn, kéo-thả và đánh giá đa điểm theo khả năng Android.
 4. HTTP/API có timeout, HTTPS, giới hạn payload và chính sách dữ liệu.
-5. SQLite với truy vấn tham số, giao dịch và di trú.
+5. Hoàn thiện di trú schema, kiểm tra dữ liệu và backup/restore cho SQLite nội bộ.
 6. Sự kiện, lịch, hàng đợi và tác vụ nền có thể hủy.
 7. Module/thư viện dùng chung và regex/ngày giờ.
 8. Trình soạn thảo: tô màu, autocomplete, định dạng và debugger từng bước.
