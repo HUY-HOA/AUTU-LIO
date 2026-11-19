@@ -152,6 +152,7 @@ jobs:
 
       - name: Validate and build signed Release APK
         if: steps.signing.outputs.configured == 'true'
+        timeout-minutes: 30
         env:
           AUTU_LIO_AUTH_API_BASE_URL: https://autu-lio-auth-api.coc-lio-data.workers.dev
           AUTU_LIO_GOOGLE_SERVER_CLIENT_ID: 45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
@@ -163,6 +164,7 @@ jobs:
 
       - name: Validate and build Debug test APK
         if: steps.signing.outputs.configured != 'true'
+        timeout-minutes: 30
         env:
           AUTU_LIO_AUTH_API_BASE_URL: https://autu-lio-auth-api.coc-lio-data.workers.dev
           AUTU_LIO_GOOGLE_SERVER_CLIENT_ID: 45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
