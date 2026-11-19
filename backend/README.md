@@ -33,6 +33,8 @@ Permission overrides are restricted to each role's allowed set. Owner-only contr
 
 Gemini Live uses the authenticated Worker as a token broker. The permanent Gemini API key is stored only as the Cloudflare Worker secret `GEMINI_API_KEY`; Android requests a single-use ephemeral token from `POST /api/ai/live-token` using its existing AUTU bearer session. The Worker pins the model to `models/gemini-3.8-live`, locks the Live session instructions and the six permitted functions (`tap_screen`, `swipe_screen`, `long_press_screen`, `press_back`, `read_screen_text`, and `tap_text`), and rate-limits token minting. The key is never returned to the app. Ephemeral tokens are single-use for creating a new session, allow a 30-minute session lifetime, and authorize session resumption; the new-session window is limited to 60 seconds.
 
+The Gemini Developer API token broker and Android constrained WebSocket both use API version `v1beta`, matching Google's current Live API reference for `gemini-3.8-live`. Do not change only one side of this pair.
+
 Configure the secret in the Worker environment before deploying:
 
 ```sh
