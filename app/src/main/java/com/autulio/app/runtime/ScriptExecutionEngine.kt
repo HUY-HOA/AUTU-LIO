@@ -294,6 +294,8 @@ class ScriptExecutionEngine(
                         else declaredTypes.remove(instruction.variableName)
                     }
                 }
+                is ScriptInstruction.TryCatch ->
+                    executeTryCatch(runId, instruction, variables, declaredTypes, callDepth)
                 is ScriptInstruction.WaitUntil ->
                     executeWaitUntil(runId, instruction, variables, declaredTypes, callDepth)
                 is ScriptInstruction.While -> {
@@ -336,6 +338,91 @@ class ScriptExecutionEngine(
                     throw ContinueLoop()
                 }
             }
+        }
+    }
+
+    private fun executeTryCatch(
+        runId: Long,
+        instruction: ScriptInstruction.TryCatch,
+        variables: MutableMap<String, Any?>,
+        declaredTypes: MutableMap<String, String>,
+        callDepth: Int
+    ) {
+        var pendingControl: RuntimeException? = null
+
+        try {
+            try {
+                executeBlock(runId, instruction.tryBody, variables, declaredTypes, callDepth)
+            } catch (failure: ScriptRuntimeFailure) {
+                if (instruction.errorVariable == null) {
+                    pendingControl = failure
+                } else {
+                    executeCatchBlock(
+                        runId, instruction, variables, declaredTypes, callDepth,
+                        failure.code, failure.message ?: failure.code
+                    )
+                }
+            } catch (signal: StopRequested) {
+                pendingControl = signal
+            } catch (signal: BreakLoop) {
+                pendingControl = signal
+            } catch (signal: ContinueLoop) {
+                pendingControl = signal
+            } catch (signal: ReturnValue) {
+                pendingControl = signal
+            } catch (error: Exception) {
+                if (instruction.errorVariable == null) {
+                    pendingControl = ScriptRuntimeFailure(
+                        "runtime_error", error.message ?: "Lỗi thực thi không xác định."
+                    )
+                } else {
+                    executeCatchBlock(
+                        runId, instruction, variables, declaredTypes, callDepth,
+                        "runtime_error", error.message ?: "Lỗi thực thi không xác định."
+                    )
+                }
+            }
+        } catch (control: RuntimeException) {
+            pendingControl = control
+        } finally {
+            if (instruction.finallyBody.isNotEmpty()) {
+                try {
+                    executeBlock(runId, instruction.finallyBody, variables, declaredTypes, callDepth)
+                } catch (cleanupFailure: RuntimeException) {
+                    pendingControl = cleanupFailure
+                }
+            }
+        }
+
+        pendingControl?.let { throw it }
+        completeInstruction(runId)
+    }
+
+    private fun executeCatchBlock(
+        runId: Long,
+        instruction: ScriptInstruction.TryCatch,
+        variables: MutableMap<String, Any?>,
+        declaredTypes: MutableMap<String, String>,
+        callDepth: Int,
+        errorCode: String,
+        errorMessage: String
+    ) {
+        val variableName = instruction.errorVariable
+            ?: throw ScriptRuntimeFailure("missing_error_variable", "Khối BẮT_LỖI thiếu tên biến lỗi.")
+        val hadPreviousValue = variables.containsKey(variableName)
+        val previousValue = variables[variableName]
+        val previousType = declaredTypes.remove(variableName)
+        variables[variableName] = linkedMapOf(
+            "MÃ" to errorCode,
+            "THÔNG_BÁO" to errorMessage
+        )
+        try {
+            executeBlock(runId, instruction.catchBody, variables, declaredTypes, callDepth)
+        } finally {
+            if (hadPreviousValue) variables[variableName] = previousValue
+            else variables.remove(variableName)
+            if (previousType != null) declaredTypes[variableName] = previousType
+            else declaredTypes.remove(variableName)
         }
     }
 
@@ -1048,6 +1135,18 @@ class ScriptExecutionEngine(
                         instruction.variableName.all { it.isLetterOrDigit() || it == '_' } &&
                         validateExpression(instruction.iterable, 0) &&
                         validateBlock(instruction.body, depth + 1, loopDepth + 1, inFunction)
+                is ScriptInstruction.TryCatch ->
+                    instruction.tryBody.isNotEmpty() &&
+                        ((instruction.errorVariable == null && instruction.catchBody.isEmpty()) ||
+                            (instruction.errorVariable != null &&
+                                instruction.errorVariable.isNotBlank() &&
+                                instruction.errorVariable == instruction.errorVariable.uppercase(Locale.ROOT) &&
+                                instruction.errorVariable.all { it.isLetterOrDigit() || it == '_' } &&
+                                instruction.catchBody.isNotEmpty())) &&
+                        validateBlock(instruction.tryBody, depth + 1, loopDepth, inFunction) &&
+                        (instruction.catchBody.isEmpty() || validateBlock(instruction.catchBody, depth + 1, loopDepth, inFunction)) &&
+                        (instruction.finallyBody.isEmpty() || validateBlock(instruction.finallyBody, depth + 1, loopDepth, inFunction)) &&
+                        (instruction.catchBody.isNotEmpty() || instruction.finallyBody.isNotEmpty())
                 ScriptInstruction.BreakLoop, ScriptInstruction.ContinueLoop -> loopDepth > 0
             }
         }
