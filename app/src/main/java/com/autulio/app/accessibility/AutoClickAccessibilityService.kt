@@ -77,6 +77,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         private const val MAX_REGION_COLOR_SAMPLES = 65_536
         private const val MAX_OCR_STRUCTURED_BLOCKS = 64
         private const val MAX_OCR_STRUCTURED_LINES = 256
+        private const val MAX_SCREEN_BARCODE_RESULTS = 64
 
         fun current(): AutoClickAccessibilityService? = activeInstance
     }
@@ -408,6 +409,14 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 1)
                 val query = requireTextArgument(name, arguments[0])
                 recognizeScreenImageLabels().any { it.contains(query, ignoreCase = true) }
+            }
+            "CHI_TIẾT_MÃ_QR_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                scanScreenBarcodeDetails(qrOnly = true)
+            }
+            "CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                scanScreenBarcodeDetails(qrOnly = false)
             }
             "QUÉT_MÃ_QR_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
@@ -918,6 +927,65 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 .toList()
                 .toMutableList<Any?>()
         } ?: emptyList()
+
+    private fun scanScreenBarcodeDetails(qrOnly: Boolean): List<Any?> =
+        withCapturedScreen { bitmap ->
+            Tasks.await(
+                getBarcodeScanner(qrOnly).process(InputImage.fromBitmap(bitmap, 0)),
+                15,
+                TimeUnit.SECONDS
+            )
+                .asSequence()
+                .take(MAX_SCREEN_BARCODE_RESULTS)
+                .map { barcode ->
+                    val bounds = barcode.boundingBox
+                    linkedMapOf<String, Any?>(
+                        "GIÁ_TRỊ_GỐC" to barcode.rawValue,
+                        "GIÁ_TRỊ_HIỂN_THỊ" to barcode.displayValue,
+                        "ĐỊNH_DẠNG" to barcodeFormatName(barcode.format),
+                        "LOẠI_NỘI_DUNG" to barcodeValueTypeName(barcode.valueType),
+                        "X" to bounds?.left?.toDouble(),
+                        "Y" to bounds?.top?.toDouble(),
+                        "RỘNG" to bounds?.width()?.toDouble(),
+                        "CAO" to bounds?.height()?.toDouble()
+                    )
+                }
+                .toList()
+                .toMutableList<Any?>()
+        } ?: emptyList()
+
+    private fun barcodeFormatName(format: Int): String = when (format) {
+        Barcode.FORMAT_QR_CODE -> "MÃ_QR"
+        Barcode.FORMAT_CODE_128 -> "CODE_128"
+        Barcode.FORMAT_CODE_39 -> "CODE_39"
+        Barcode.FORMAT_CODE_93 -> "CODE_93"
+        Barcode.FORMAT_CODABAR -> "CODABAR"
+        Barcode.FORMAT_DATA_MATRIX -> "DATA_MATRIX"
+        Barcode.FORMAT_EAN_13 -> "EAN_13"
+        Barcode.FORMAT_EAN_8 -> "EAN_8"
+        Barcode.FORMAT_ITF -> "ITF"
+        Barcode.FORMAT_UPC_A -> "UPC_A"
+        Barcode.FORMAT_UPC_E -> "UPC_E"
+        Barcode.FORMAT_PDF417 -> "PDF417"
+        Barcode.FORMAT_AZTEC -> "AZTEC"
+        else -> "KHÔNG_RÕ"
+    }
+
+    private fun barcodeValueTypeName(type: Int): String = when (type) {
+        Barcode.TYPE_CONTACT_INFO -> "LIÊN_HỆ"
+        Barcode.TYPE_EMAIL -> "EMAIL"
+        Barcode.TYPE_ISBN -> "ISBN"
+        Barcode.TYPE_PHONE -> "ĐIỆN_THOẠI"
+        Barcode.TYPE_PRODUCT -> "SẢN_PHẨM"
+        Barcode.TYPE_SMS -> "SMS"
+        Barcode.TYPE_TEXT -> "VĂN_BẢN"
+        Barcode.TYPE_URL -> "ĐƯỜNG_DẪN"
+        Barcode.TYPE_WIFI -> "WI_FI"
+        Barcode.TYPE_GEO -> "TỌA_ĐỘ_ĐỊA_LÝ"
+        Barcode.TYPE_CALENDAR_EVENT -> "LỊCH"
+        Barcode.TYPE_DRIVER_LICENSE -> "GIẤY_PHÉP_LÁI_XE"
+        else -> "KHÔNG_RÕ"
+    }
 
     private fun getTextRecognizer(): TextRecognizer {
         textRecognizer?.let { return it }
