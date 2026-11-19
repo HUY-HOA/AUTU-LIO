@@ -1913,18 +1913,9 @@ async function createGeminiLiveToken(request, env, session) {
         uses: 1,
         expireTime,
         newSessionExpireTime,
-        bidiGenerateContentSetup: liveSetup,
-        fieldMask: [
-          "model",
-          "generationConfig.responseModalities",
-          "generationConfig.speechConfig",
-          "inputAudioTranscription",
-          "outputAudioTranscription",
-          "contextWindowCompression.slidingWindow",
-          "sessionResumption",
-          "systemInstruction.parts",
-          "tools.0"
-        ].join(",")
+        // An empty fieldMask means the complete server-supplied setup is authoritative.
+        // Omit it entirely; this avoids generating an invalid mask for repeated tools.
+        bidiGenerateContentSetup: liveSetup
       })
     });
   } catch {
