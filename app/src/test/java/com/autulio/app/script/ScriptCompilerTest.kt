@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.3", result.program?.languageVersion)
+        assertEquals("1.4", result.program?.languageVersion)
     }
 
     @Test
@@ -120,6 +120,42 @@ class ScriptCompilerTest {
             val result = ScriptCompiler.compile(source)
             assertTrue("$source: ${result.diagnostics}", result.isSuccess)
         }
+    }
+
+    @Test
+    fun normalizesRenamedAndroidCommandsAndKeepsLegacyAliases() {
+        val source = """
+            MỞ_ỨNG_DỤNG_GẦN_ĐÂY()
+            MỞ_THANH_THÔNG_BÁO()
+            MỞ_BẢNG_CÀI_ĐẶT_NHANH()
+            MỞ_HỘP_THOẠI_NGUỒN()
+            BẬT_TẮT_CHIA_MÀN_HÌNH()
+            ỨNG_DỤNG_GẦN_ĐÂY()
+            MỞ_THÔNG_BÁO()
+            MỞ_CÀI_ĐẶT_NHANH()
+            HIỆN_MENU_NGUỒN()
+            CHIA_MÀN_HÌNH()
+        """.trimIndent()
+        val result = ScriptCompiler.compile(source)
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        val names = result.program!!.instructions
+            .filterIsInstance<ScriptInstruction.Command>()
+            .map { it.name }
+        assertEquals(
+            listOf(
+                "MỞ_ỨNG_DỤNG_GẦN_ĐÂY",
+                "MỞ_THANH_THÔNG_BÁO",
+                "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
+                "MỞ_HỘP_THOẠI_NGUỒN",
+                "BẬT_TẮT_CHIA_MÀN_HÌNH",
+                "MỞ_ỨNG_DỤNG_GẦN_ĐÂY",
+                "MỞ_THANH_THÔNG_BÁO",
+                "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
+                "MỞ_HỘP_THOẠI_NGUỒN",
+                "BẬT_TẮT_CHIA_MÀN_HÌNH"
+            ),
+            names
+        )
     }
 
     @Test
@@ -303,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.3", result.program?.languageVersion)
+        assertEquals("1.4", result.program?.languageVersion)
     }
 
     @Test
@@ -350,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.3", result.program?.languageVersion)
+        assertEquals("1.4", result.program?.languageVersion)
     }
 
     @Test
@@ -389,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.3", result.program?.languageVersion)
+        assertEquals("1.4", result.program?.languageVersion)
     }
 
     @Test
@@ -423,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.3", result.program?.languageVersion)
+        assertEquals("1.4", result.program?.languageVersion)
     }
 
     @Test
