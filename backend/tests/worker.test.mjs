@@ -181,12 +181,60 @@ test("Gemini Live token endpoint authenticates the app session and returns only 
     assert.ok(expiryMs > 28 * 60 * 1000 && expiryMs <= 30 * 60 * 1000);
     assert.ok(newSessionExpiryMs > 0 && newSessionExpiryMs <= 60 * 1000);
     const declarations = payload.liveConnectConstraints.config.tools[0].functionDeclarations;
+    assert.equal(declarations.length, 11);
+    assert.deepEqual(
+      declarations.map(item => item.name).sort(),
+      [
+        "get_autu_script_reference",
+        "list_autu_script_drafts",
+        "long_press_screen",
+        "press_back",
+        "read_screen_text",
+        "read_autu_script_draft",
+        "save_autu_script_draft",
+        "swipe_screen",
+        "tap_screen",
+        "tap_text",
+        "validate_autu_script"
+      ].sort()
+    );
+    assert.match(payload.liveConnectConstraints.config.systemInstruction.parts[0].text, /Never access, request, generate, modify or publish AUTU-LIO application source code/);
+    assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Gemini Live customer token never receives AUTU script authoring tools", async () => {
+  const { env } = createEnv({ session: customerSession });
+  env.GEMINI_API_KEY = "server-only-test-key";
+  const originalFetch = globalThis.fetch;
+  let upstreamRequest;
+  globalThis.fetch = async (url, options) => {
+    upstreamRequest = { url: String(url), options };
+    return new Response(JSON.stringify({
+      name: "auth_tokens/customer-ephemeral-token",
+      expireTime: "2026-11-19T22:00:00.000Z"
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const response = await worker.fetch(makeRequest("/api/ai/live-token", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "C".repeat(48),
+        "CF-Connecting-IP": "203.0.113.22"
+      },
+      body: "{}"
+    }), env);
+    assert.equal(response.status, 200);
+    const payload = JSON.parse(upstreamRequest.options.body);
+    const declarations = payload.liveConnectConstraints.config.tools[0].functionDeclarations;
     assert.equal(declarations.length, 6);
     assert.deepEqual(
       declarations.map(item => item.name).sort(),
       ["long_press_screen", "press_back", "read_screen_text", "swipe_screen", "tap_screen", "tap_text"].sort()
     );
-    assert.equal(JSON.stringify(body).includes("server-only-test-key"), false);
+    assert.equal(declarations.some(item => item.name.includes("autu_script")), false);
   } finally {
     globalThis.fetch = originalFetch;
   }
