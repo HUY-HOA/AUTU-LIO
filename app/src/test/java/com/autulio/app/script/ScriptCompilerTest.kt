@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -489,7 +489,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -504,6 +504,36 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun supportsDensityAndRelativeCoordinateBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT MAT_DO: SỐ = MẬT_ĐỘ_MÀN_HÌNH()
+            ĐẶT X_PIXEL: SỐ = DP_SANG_PIXEL(24)
+            ĐẶT Y_DP: SỐ = PIXEL_SANG_DP(48)
+            ĐẶT X_TƯƠNG_ĐỐI: SỐ = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.5)
+            ĐẶT Y_TƯƠNG_ĐỐI: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.75)
+            ĐẶT TỶ_LỆ_X: SỐ = TỶ_LỆ_X_THEO_TỌA_ĐỘ(100)
+            ĐẶT TỶ_LỆ_Y: SỐ = TỶ_LỆ_Y_THEO_TỌA_ĐỘ(200)
+            CHẠM(X_TƯƠNG_ĐỐI, Y_TƯƠNG_ĐỐI)
+            """.trimIndent()
+        )
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.16", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesDensityAndRelativeCoordinateArgumentCounts() {
+        val density = ScriptCompiler.compile("ĐẶT X = MẬT_ĐỘ_MÀN_HÌNH(1)")
+        val dp = ScriptCompiler.compile("ĐẶT X = DP_SANG_PIXEL()")
+        val ratio = ScriptCompiler.compile("ĐẶT X = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.5, 0.7)")
+
+        assertEquals("function_argument_count", density.diagnostics.first().code)
+        assertEquals("function_argument_count", dp.diagnostics.first().code)
+        assertEquals("function_argument_count", ratio.diagnostics.first().code)
+    }
+
+    @Test
     fun supportsDetailedBarcodeScanBuiltins() {
         val result = ScriptCompiler.compile(
             """
@@ -513,7 +543,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -534,7 +564,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -547,7 +577,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -572,7 +602,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -627,7 +657,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -654,7 +684,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -683,7 +713,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -705,7 +735,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -731,7 +761,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -760,7 +790,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
@@ -810,7 +840,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.15", result.program?.languageVersion)
+        assertEquals("1.16", result.program?.languageVersion)
     }
 
     @Test
