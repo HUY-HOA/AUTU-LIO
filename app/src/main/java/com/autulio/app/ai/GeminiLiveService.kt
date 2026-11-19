@@ -136,7 +136,7 @@ class GeminiLiveService : Service() {
         return START_NOT_STICKY
     }
 
-    fun setUiCallbacks(callbacks: GeminiLiveController.Callbacks?) {
+    internal fun setUiCallbacks(callbacks: GeminiLiveController.Callbacks?) {
         uiCallbacks = callbacks
         if (callbacks == null) return
         mainHandlerPost {
