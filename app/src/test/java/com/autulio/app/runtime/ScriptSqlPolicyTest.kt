@@ -96,7 +96,7 @@ class ScriptSqlPolicyTest {
             "SELECT * FROM users /* comment */",
             "SELECT * FROM users WHERE id = :id",
             "SELECT * FROM users WHERE id = @id",
-            "SELECT * FROM users WHERE id = $id",
+            "SELECT * FROM users WHERE id = \$id",
             "SELECT * FROM users WHERE id = ?1"
         )
         invalid.forEach { sql ->
