@@ -390,8 +390,8 @@ class ScriptExecutionEngineTest {
                 ĐẶT CO_20: LUẬN_LÝ = CÓ_PHẦN_TỬ(DANH_SÁCH, 20)
                 ĐẶT PHAN_TU: SỐ = LẤY_PHẦN_TỬ(DANH_SÁCH, 1)
                 ĐẶT DA_XOA: SỐ = XÓA_PHẦN_TỬ(DANH_SÁCH, 1)
-                ĐẶT_PHẦN_TỬ(DANH_SÁCH, 0, 15)
-                NẾU (SO_LUONG == 3 VÀ CO_20 VÀ PHAN_TU == 20 VÀ DA_XOA == 20 VÀ ĐỘ_DÀI(DANH_SÁCH) == 2) {
+                ĐẶT DA_DAT: SỐ = ĐẶT_PHẦN_TỬ(DANH_SÁCH, 0, 15)
+                NẾU (SO_LUONG == 3 VÀ CO_20 VÀ PHAN_TU == 20 VÀ DA_XOA == 20 VÀ DA_DAT == 15 VÀ ĐỘ_DÀI(DANH_SÁCH) == 2) {
                     LẶP_MỖI (GIA_TRI TRONG DANH_SÁCH) {
                         CHẠM(GIA_TRI, 40)
                     }
