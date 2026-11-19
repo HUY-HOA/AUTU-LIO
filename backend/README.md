@@ -35,7 +35,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001`–`0005` are present in this repository. A direct check of the connected Cloudflare account on 19 November 2026 showed that the `autu_lio_auth` D1 database had zero tables and the Worker had not been deployed, so these migrations had not been applied to that database. The CI migration check runs SQLite locally and does not prove that remote D1 is migrated. Keep every SQL migration in source control as the schema history.
+Migrations `0001`–`0005` are applied to the remote `autu_lio_auth` D1 database (20 application tables). The Worker `autu-lio-auth-api` was deployed on 19 November 2026 and its workers.dev endpoint is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. The D1 binding and authentication rate-limit bindings are configured on the Worker. The Google Web Client ID and package master key are configured as Worker secrets; the Android OAuth Client ID is configured in `GOOGLE_ALLOWED_AZP`. `OWNER_GOOGLE_SUB` is still missing, so no account can yet be provisioned as OWNER. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
@@ -67,7 +67,7 @@ From this directory:
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
 
-The repository contains Worker source and D1 binding configuration. Check the live database with `wrangler d1 migrations list` and apply any pending migrations, including the customer/device and encrypted-package migrations, before deploying. The Worker has not been deployed and Google OAuth has not been configured, so live sign-in and package delivery are not yet active. Encrypted package publishing/download also fails closed until the versioned `PACKAGE_MASTER_KEY_V1` secret is configured.
+The Worker source is deployed and the five D1 migrations are applied. Before owner sign-in can be completed, set the verified owner's exact Google OpenID Connect `sub` as the `OWNER_GOOGLE_SUB` Worker secret. Do not use an email address as the OWNER identifier. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. A new APK has not yet been built; the GitHub Actions workflow now passes this URL and the Web Client ID into both build variants.
 
 ## API
 
