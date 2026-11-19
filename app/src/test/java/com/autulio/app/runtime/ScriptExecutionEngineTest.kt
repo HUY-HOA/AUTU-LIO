@@ -578,6 +578,43 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
+    fun dispatchesMultiFingerTapsAndSimultaneousSwipePaths() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                CHẠM_ĐA_ĐIỂM(
+                    TẠO_DANH_SÁCH(TẠO_DANH_SÁCH(10, 20), TẠO_DANH_SÁCH(30, 40)),
+                    100
+                )
+                VUỐT_ĐA_ĐIỂM(
+                    TẠO_DANH_SÁCH(
+                        TẠO_DANH_SÁCH(10, 20, 15, 25),
+                        TẠO_DANH_SÁCH(30, 40, 25, 35)
+                    ),
+                    200
+                )
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(
+                listOf(
+                    "multiTouch:100:10,20,10,20;30,40,30,40",
+                    "multiTouch:200:10,20,15,25;30,40,25,35"
+                ),
+                dispatcher.actions
+            )
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
     fun catchesRuntimeFailureAndAlwaysRunsFinallyBlock() {
         val dispatcher = RecordingDispatcher()
         val completed = CountDownLatch(1)
@@ -871,6 +908,11 @@ class ScriptExecutionEngineTest {
 
         override fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int): Boolean {
             actions += "swipe:$startX,$startY,$endX,$endY,$durationMs"
+            return true
+        }
+
+        override fun multiTouch(paths: List<List<Int>>, durationMs: Int): Boolean {
+            actions += "multiTouch:$durationMs:" + paths.joinToString(";") { it.joinToString(",") }
             return true
         }
 
