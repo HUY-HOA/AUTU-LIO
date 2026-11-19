@@ -1,9 +1,9 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.6
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.7
 
-**Ngôn ngữ:** AUTU-LIO Script 1.6  
+**Ngôn ngữ:** AUTU-LIO Script 1.7  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
-Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.6; các tên cũ được giữ làm bí danh tương thích.
+Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.7; các tên cũ được giữ làm bí danh tương thích.
 
 ## 1. Kiểu dữ liệu
 
@@ -130,6 +130,27 @@ Chỉ số danh sách và vị trí chuỗi bắt đầu từ 0. KÝ_TỰ_TẠI/
 
 AUTU-LIO đọc cây giao diện trợ năng và dùng OCR trên ảnh màn hình khi Android hỗ trợ. OCR được gọi theo yêu cầu của kịch bản, kết quả chỉ lưu tạm trong bộ nhớ. Từ Android 11/API 30, ảnh màn hình được lấy qua AccessibilityService; Android cũ hơn chỉ có thể đọc nội dung mà cây giao diện trợ năng cung cấp. Nội dung trong màn hình bảo mật, ứng dụng chặn chụp hoặc thành phần đồ họa không được Android công khai có thể không đọc được. Kết quả OCR có thể sai; cần kiểm tra trước khi thực hiện thao tác quan trọng.
 
+### OCR theo vùng màn hình
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| ĐỌC_VĂN_BẢN_VÙNG | ĐỌC_VĂN_BẢN_VÙNG(X, Y, RỘNG, CAO) | Đọc chữ bên trong vùng pixel |
+| MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG | MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("OK", X, Y, RỘNG, CAO) | Kiểm tra chuỗi trong vùng |
+| TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG | TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("OK", X, Y, RỘNG, CAO) | Trả về tâm chữ theo tọa độ pixel toàn màn hình |
+
+Tọa độ X/Y bắt đầu từ góc trái trên. RỘNG/CAO phải là số nguyên dương; toàn bộ vùng phải nằm trong ảnh chụp màn hình thực tế. OCR vùng sử dụng crop của ảnh màn hình và model Text Recognition on-device.
+
+### Nhận diện hình ảnh và mã
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH | NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH() | Danh sách nhãn ảnh theo độ tin cậy |
+| MÀN_HÌNH_CHỨA_NHÃN_ẢNH | MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone") | Kiểm tra nhãn có chứa từ khóa |
+| QUÉT_MÃ_QR_MÀN_HÌNH | QUÉT_MÃ_QR_MÀN_HÌNH() | Danh sách dữ liệu QR đã giải mã |
+| QUÉT_MÃ_VẠCH_MÀN_HÌNH | QUÉT_MÃ_VẠCH_MÀN_HÌNH() | Danh sách dữ liệu mã vạch đã giải mã |
+
+Mô hình gắn nhãn ảnh cơ bản nhận diện nhãn tổng quát, không phải mô hình phát hiện mọi vật thể hay xác định tọa độ từng vật. Quét mã cần đủ độ phân giải và độ nét; giá trị trả về là nội dung giải mã, không tự mở liên kết hoặc thực hiện hành động.
+
 ### Trợ năng: tìm và thao tác thành phần giao diện
 
 | Hàm | Cú pháp | Kết quả |
@@ -151,21 +172,6 @@ Các thao tác này chỉ tác động node mà ứng dụng đích công khai q
 
 Các thao tác cần AccessibilityService hoạt động và chịu giới hạn Android. Tọa độ phải nằm trong màn hình thực tế; hành động bị Android từ chối sẽ làm runtime báo lỗi.
 
-## 11. Giới hạn thực thi
-
-| Hạng mục | Giới hạn |
-|---|---:|
-| Mã nguồn | 32.768 ký tự |
-| Câu lệnh khai báo | 1.000 |
-| Lặp LẶP | 100 lượt |
-| Lặp LẶP_KHI | 900 lượt |
-| Lồng khối | 8 cấp |
-| Tham số hàm | 16 |
-| Gọi hàm lồng nhau | 16 cấp |
-| Danh sách | 64 phần tử |
-| Lượt thực thi | 5.000 |
-| Thời lượng tĩnh | 10 phút |
-
 ## 10. Xử lý lỗi có cấu trúc
 
 Cú pháp:
@@ -183,8 +189,23 @@ THỬ {
 
 Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_BÁO". BẮT_LỖI bắt lỗi thực thi của kịch bản; không bắt lệnh dừng, thoát vòng lặp, bỏ qua lượt hoặc trả về hàm. LUÔN_THỰC_HIỆN luôn chạy khi rời khối THỬ, kể cả khi lỗi không được xử lý. Nếu LUÔN_THỰC_HIỆN phát sinh lỗi mới, lỗi mới được truyền ra ngoài. Có thể dùng THỬ với LUÔN_THỰC_HIỆN mà không có BẮT_LỖI.
 
+## 11. Giới hạn thực thi
+
+| Hạng mục | Giới hạn |
+|---|---:|
+| Mã nguồn | 32.768 ký tự |
+| Câu lệnh khai báo | 1.000 |
+| Lặp LẶP | 100 lượt |
+| Lặp LẶP_KHI | 900 lượt |
+| Lồng khối | 8 cấp |
+| Tham số hàm | 16 |
+| Gọi hàm lồng nhau | 16 cấp |
+| Danh sách | 64 phần tử |
+| Lượt thực thi | 5.000 |
+| Thời lượng tĩnh | 10 phút |
+
 ## 12. Chưa hỗ trợ
 
-Các hàm đọc văn bản/OCR màn hình cơ bản đã có trong 1.6. Phần còn thiếu gồm OCR theo vùng và từ ảnh/tệp, nhận diện vật thể/ảnh mẫu/màu/QR, tìm và thao tác phần tử giao diện theo resource ID, xử lý lỗi TRY/BẮT_LỖI, đọc/ghi tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những mục này chưa phải lệnh hợp lệ cho đến khi được triển khai và kiểm thử.
+AUTU Script 1.7 bổ sung OCR theo vùng, gắn nhãn ảnh tổng quát và giải mã QR/mã vạch cơ bản. Các phần còn thiếu gồm nhận diện vật thể có hộp giới hạn, tìm ảnh mẫu, nhận diện màu/vùng màu, OCR từ tệp ảnh, đọc/ghi tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch/sự kiện nền, module dùng chung và debugger. Những phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
 
 Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
