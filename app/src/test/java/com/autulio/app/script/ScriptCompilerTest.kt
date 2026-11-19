@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.7", result.program?.languageVersion)
+        assertEquals("1.8", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.7", result.program?.languageVersion)
+        assertEquals("1.8", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.7", result.program?.languageVersion)
+        assertEquals("1.8", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.7", result.program?.languageVersion)
+        assertEquals("1.8", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.7", result.program?.languageVersion)
+        assertEquals("1.8", result.program?.languageVersion)
     }
 
     @Test
@@ -487,7 +487,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.7", result.program?.languageVersion)
+        assertEquals("1.8", result.program?.languageVersion)
     }
 
     @Test
@@ -512,7 +512,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.7", result.program?.languageVersion)
+        assertEquals("1.8", result.program?.languageVersion)
     }
 
     @Test
@@ -567,7 +567,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.7", result.program?.languageVersion)
+        assertEquals("1.8", result.program?.languageVersion)
     }
 
     @Test
@@ -594,7 +594,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.7", result.program?.languageVersion)
+        assertEquals("1.8", result.program?.languageVersion)
     }
 
     @Test
@@ -607,6 +607,31 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", wrongRegionSearch.diagnostics.first().code)
         assertEquals("function_argument_count", wrongLabelSearch.diagnostics.first().code)
         assertEquals("function_argument_count", wrongQrScan.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsNullLiteralNestedCollectionsAndJsonBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TEN\":\"AUTU\",\"ITEMS\":[1,{\"X\":2},null]}")
+            ĐẶT CÁC_MỤC: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "ITEMS")
+            ĐẶT PHẦN_TỬ: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_MỤC, 1)
+            ĐẶT TỌA_ĐỘ_X: SỐ = LẤY_GIÁ_TRỊ(PHẦN_TỬ, "X")
+            ĐẶT GIÁ_TRỊ_RỖNG: BẤT_KỲ = RỖNG
+            ĐẶT BẢN_SAO: DANH_SÁCH = TẠO_DANH_SÁCH(CẤU_HÌNH, RỖNG)
+            ĐẶT JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.8", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesJsonBuiltinFunctionArgumentCounts() {
+        val wrongParse = ScriptCompiler.compile("ĐẶT X = PHÂN_TÍCH_JSON()")
+        val wrongSerialize = ScriptCompiler.compile("ĐẶT X = CHUYỂN_JSON(1, 2)")
+        assertEquals("function_argument_count", wrongParse.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongSerialize.diagnostics.first().code)
     }
 
 }
