@@ -134,6 +134,20 @@ object ScriptTemplateCatalog {
             """.trimIndent()
         ),
         ScriptTemplate(
+            id = "iterate_list",
+            nameVi = "Tạo và duyệt danh sách",
+            nameEn = "Create and iterate a list",
+            descriptionVi = "Tạo danh sách tọa độ và thực hiện thao tác cho từng phần tử.",
+            descriptionEn = "Create a coordinate list and perform an action for each item.",
+            source = """
+                ĐẶT CAC_TOA_DO: DANH_SÁCH = TẠO_DANH_SÁCH(120, 240, 360)
+                LẶP_MỖI (TOA_DO_X TRONG CAC_TOA_DO) {
+                    CHẠM(TOA_DO_X, 400)
+                    CHỜ(300)
+                }
+            """.trimIndent()
+        ),
+        ScriptTemplate(
             id = "go_back",
             nameVi = "Quay lại",
             nameEn = "Go back",
