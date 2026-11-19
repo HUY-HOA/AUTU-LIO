@@ -3,6 +3,10 @@ name: AUTU-LIO Android APK
 run-name: AUTU-LIO single APK build - ${{ github.ref_name }}
 
 on:
+  # Scoped one-time/build-config trigger; ordinary app source pushes do not build APKs.
+  push:
+    paths:
+      - ".github/workflows/build-apks.yml"
   workflow_dispatch:
     inputs:
       build_variant:
