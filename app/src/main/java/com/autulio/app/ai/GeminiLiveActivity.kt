@@ -465,6 +465,11 @@ internal class GeminiLiveController(
         audioTrack = null
         socket?.close(1000, "User stopped Gemini Live")
         socket = null
+        toolExecutor.shutdownNow()
+        playbackExecutor.shutdownNow()
+        microphoneExecutor.shutdownNow()
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
         callbacks.onDisconnected()
     }
 
@@ -525,7 +530,7 @@ internal class GeminiLiveController(
                     JSONObject()
                         .put("id", id)
                         .put("name", name)
-                        .put("response", response)
+                        .put("response", JSONObject().put("result", response))
                 )
             }
             synchronized(inputLock) {
@@ -543,6 +548,9 @@ internal class GeminiLiveController(
     }
 
     private fun executeAllowedTool(name: String, args: JSONObject): JSONObject {
+        if (!active.get()) {
+            return JSONObject().put("ok", false).put("error", "Live session has stopped.")
+        }
         if (!actionsEnabled) {
             return JSONObject().put("ok", false).put("error", "User has not enabled screen control.")
         }
@@ -737,6 +745,11 @@ internal class GeminiLiveController(
         runCatching { audioTrack?.stop() }
         runCatching { audioTrack?.release() }
         audioTrack = null
+        toolExecutor.shutdownNow()
+        playbackExecutor.shutdownNow()
+        microphoneExecutor.shutdownNow()
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
         callbacks.onDisconnected()
     }
 
