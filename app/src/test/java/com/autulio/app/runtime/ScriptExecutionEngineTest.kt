@@ -313,13 +313,13 @@ class ScriptExecutionEngineTest {
             override fun longPress(x: Int, y: Int, durationMs: Int) = true
             override fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int) = true
             override fun evaluateFunction(name: String, arguments: List<Any?>): Any? =
-                name == "SẴN_SÀNG" && calls.incrementAndGet() >= 3
+                name == "ĐANG_SẠC" && calls.incrementAndGet() >= 3
         }
         val engine = ScriptExecutionEngine(dispatcher) {
             if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
         }
         try {
-            val program = compile("CHỜ_ĐẾN_KHI(SẴN_SÀNG(), 2000, 50)\nCHẠM(5, 6)")
+            val program = compile("CHỜ_ĐẾN_KHI(ĐANG_SẠC(), 2000, 50)\nCHẠM(5, 6)")
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
             assertTrue(completed.await(3, TimeUnit.SECONDS))
             assertEquals(3, calls.get())
@@ -342,7 +342,7 @@ class ScriptExecutionEngineTest {
             if (it.state == ScriptExecutionState.FAILED) failed.countDown()
         }
         try {
-            assertEquals(ScriptExecutionStartResult.Started, engine.start(compile("CHỜ_ĐẾN_KHI(SẴN_SÀNG(), 150, 50)")))
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(compile("CHỜ_ĐẾN_KHI(ĐANG_SẠC(), 150, 50)")))
             assertTrue(failed.await(2, TimeUnit.SECONDS))
             assertEquals("wait_until_timeout", engine.snapshot().errorCode)
         } finally {
