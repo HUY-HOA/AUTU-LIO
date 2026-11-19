@@ -168,7 +168,7 @@ test("Gemini Live token endpoint authenticates the app session and locks the com
     assert.equal(response.status, 200);
     assert.equal(body.token, "auth_tokens/test-ephemeral-token");
     assert.equal(body.model, "models/gemini-3.8-live");
-    assert.equal(new URL(upstreamRequest.url).pathname, "/v1beta/auth_tokens");
+    assert.equal(new URL(upstreamRequest.url).pathname, "/v1alpha/auth_tokens");
     assert.equal(upstreamRequest.options.headers["x-goog-api-key"], "server-only-test-key");
     const payload = JSON.parse(upstreamRequest.options.body);
     assert.equal(payload.uses, 1);
