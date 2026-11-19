@@ -71,9 +71,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private data class ScreenTextItem(val text: String, val bounds: Rect)
 
-    private val screenVisionEngine: ScreenVisionEngine by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    private val screenVisionEngineLazy = lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         MlKitScreenVisionEngine()
     }
+    private val screenVisionEngine: ScreenVisionEngine by screenVisionEngineLazy
 
     private val screenTextCacheLock = Any()
     private var screenTextCacheTimeMs = 0L
@@ -126,7 +127,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     override fun onDestroy() {
         executionEngine?.close()
         executionEngine = null
-        runCatching { screenVisionEngine.close() }
+        if (screenVisionEngineLazy.isInitialized()) runCatching { screenVisionEngine.close() }
         if (scriptDatabaseStoreLazy.isInitialized()) {
             scriptDatabaseStore.close()
         }
@@ -700,6 +701,18 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             if (!bitmap.isRecycled) bitmap.recycle()
         }
     }
+
+    private fun recognizeScreenObjects(): List<Any?> =
+        withCapturedScreen { bitmap -> screenVisionEngine.recognizeScreenObjects(bitmap) } ?: emptyList()
+
+    private fun recognizeScreenImageLabels(): List<String> =
+        withCapturedScreen { bitmap -> screenVisionEngine.recognizeScreenImageLabels(bitmap) } ?: emptyList()
+
+    private fun scanScreenBarcodes(qrOnly: Boolean): List<String> =
+        withCapturedScreen { bitmap -> screenVisionEngine.scanScreenBarcodes(bitmap, qrOnly) } ?: emptyList()
+
+    private fun scanScreenBarcodeDetails(qrOnly: Boolean): List<Any?> =
+        withCapturedScreen { bitmap -> screenVisionEngine.scanScreenBarcodeDetails(bitmap, qrOnly) } ?: emptyList()
 
     private data class ScreenPixelSample(
         val pixels: IntArray,

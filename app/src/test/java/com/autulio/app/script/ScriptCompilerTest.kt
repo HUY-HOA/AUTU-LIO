@@ -846,4 +846,40 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", tooMany.diagnostics.first().code)
     }
 
+
+    @Test
+    fun supportsOnDeviceMlVisionBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_VÙNG(0, 0, 300, 200)
+            ĐẶT CO_CHU: LUẬN_LÝ = MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("OK", 0, 0, 300, 200)
+            ĐẶT VI_TRI_CHU: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("OK", 0, 0, 300, 200)
+            ĐẶT NHAN: DANH_SÁCH = NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()
+            ĐẶT CO_NHAN: LUẬN_LÝ = MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone")
+            ĐẶT QR: DANH_SÁCH = QUÉT_MÃ_QR_MÀN_HÌNH()
+            ĐẶT MA_VACH: DANH_SÁCH = QUÉT_MÃ_VẠCH_MÀN_HÌNH()
+            ĐẶT QR_CHI_TIET: DANH_SÁCH = CHI_TIẾT_MÃ_QR_MÀN_HÌNH()
+            ĐẶT VACH_CHI_TIET: DANH_SÁCH = CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()
+            ĐẶT VAT_THE: DANH_SÁCH = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()
+            ĐẶT CO_VAT_THE: LUẬN_LÝ = MÀN_HÌNH_CÓ_VẬT_THỂ("Food")
+            ĐẶT TOA_DO: DANH_SÁCH = TÌM_TỌA_ĐỘ_VẬT_THỂ("Food")
+            ĐẶT SO_LUONG: SỐ = ĐẾM_VẬT_THỂ_MÀN_HÌNH()
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.19", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesOnDeviceMlVisionFunctionArgumentCounts() {
+        val wrongRegion = ScriptCompiler.compile("ĐẶT X = ĐỌC_VĂN_BẢN_VÙNG(1, 2, 3)")
+        val wrongLabel = ScriptCompiler.compile("ĐẶT X = MÀN_HÌNH_CHỨA_NHÃN_ẢNH()")
+        val wrongQr = ScriptCompiler.compile("ĐẶT X = QUÉT_MÃ_QR_MÀN_HÌNH(1)")
+        val wrongObjects = ScriptCompiler.compile("ĐẶT X = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH(1)")
+        assertEquals("function_argument_count", wrongRegion.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongLabel.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongQr.diagnostics.first().code)
+        assertEquals("function_argument_count", wrongObjects.diagnostics.first().code)
+    }
+
 }

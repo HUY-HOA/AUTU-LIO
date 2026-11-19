@@ -38,8 +38,8 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
     }
 
     init {
-        require(namespace == "admin" || namespace == "developer") {
-            "Unsupported script draft namespace."
+        require(namespace == "admin") {
+            "Only the owner draft namespace is supported."
         }
     }
 

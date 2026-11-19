@@ -8,13 +8,7 @@ internal data class ScreenVisionTextItem(
     val bounds: Rect
 )
 
-/**
- * Optional on-device ML vision adapter.
- *
- * The development build deliberately excludes its implementation and all ML Kit
- * dependencies. The public build adds the implementation through
- * -PAUTU_LIO_ENABLE_ML_VISION=true.
- */
+/** On-device ML Kit adapter for Android screen vision features. */
 internal interface ScreenVisionEngine {
     fun recognizeScreenObjects(bitmap: Bitmap): List<Any?>
     fun recognizeScreenImageLabels(bitmap: Bitmap): List<String>
