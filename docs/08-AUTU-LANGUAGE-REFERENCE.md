@@ -1,6 +1,6 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.1
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.2
 
-**Ngôn ngữ:** AUTU-LIO Script 1.1  
+**Ngôn ngữ:** AUTU-LIO Script 1.2  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
 Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ.
@@ -13,6 +13,7 @@ Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem
 | `CHUỖI` | Văn bản Unicode |
 | `LUẬN_LÝ` | `ĐÚNG` hoặc `SAI` |
 | `DANH_SÁCH` | Tối đa 64 phần tử số, chuỗi hoặc luận lý |
+| `BẢN_ĐỒ` | Tối đa 64 cặp khóa–giá trị |
 | `BẤT_KỲ` | Kiểu động được runtime hỗ trợ |
 
 Ví dụ:
@@ -78,7 +79,7 @@ LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
 
 Hàm phải khai báo ở cấp cao nhất, tối đa 16 tham số và 16 cấp gọi lồng nhau. Kiểu tham số và kiểu trả về có thể bỏ trống; khi khai báo thì runtime kiểm tra kiểu.
 
-## 6. Hàm xử lý dữ liệu và danh sách
+## 6. Hàm xử lý dữ liệu, danh sách và bản đồ
 
 | Hàm | Cú pháp | Ý nghĩa |
 |---|---|---|
@@ -95,6 +96,12 @@ Hàm phải khai báo ở cấp cao nhất, tối đa 16 tham số và 16 cấp 
 | `ĐẶT_PHẦN_TỬ` | `ĐẶT_PHẦN_TỬ(DS, CHI_SO, GIA_TRI)` | Thay phần tử |
 | `XÓA_PHẦN_TỬ` | `XÓA_PHẦN_TỬ(DS, CHI_SO)` | Xóa và trả về phần tử |
 | `CÓ_PHẦN_TỬ` | `CÓ_PHẦN_TỬ(DS, GIA_TRI)` | Kiểm tra phần tử |
+| `TẠO_BẢN_ĐỒ` | `TẠO_BẢN_ĐỒ(KHOA, GIA_TRI, ...)` | Tạo bản đồ, tối đa 64 cặp, số tham số chẵn |
+| `LẤY_GIÁ_TRỊ` | `LẤY_GIÁ_TRỊ(BD, KHOA)` | Lấy giá trị theo khóa |
+| `ĐẶT_GIÁ_TRỊ` | `ĐẶT_GIÁ_TRỊ(BD, KHOA, GIA_TRI)` | Thêm hoặc cập nhật giá trị |
+| `XÓA_KHÓA` | `XÓA_KHÓA(BD, KHOA)` | Xóa và trả về giá trị cũ |
+| `CÓ_KHÓA` | `CÓ_KHÓA(BD, KHOA)` | Kiểm tra khóa |
+| `DANH_SÁCH_KHÓA` | `DANH_SÁCH_KHÓA(BD)` | Lấy danh sách khóa |
 
 Chỉ số danh sách bắt đầu từ 0. Phần tử chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI. Truy cập ngoài phạm vi, thêm vượt quá 64 phần tử hoặc truyền sai kiểu sẽ báo lỗi runtime.
 
