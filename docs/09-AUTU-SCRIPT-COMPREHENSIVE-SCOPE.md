@@ -26,7 +26,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 | Mạng | HTTPS GET/POST/PUT/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn; PATCH/multipart/upload/download còn thiếu |
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Đã có SQLite nội bộ, SQL allow-list, bind tham số và transaction mỗi câu ghi; hệ thống di trú schema còn thiếu |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
-| OCR | Đọc màn hình/vùng, tìm chữ, trả tọa độ | Đã có OCR màn hình/vùng và cấu trúc khối-dòng kèm tọa độ; OCR từ URI/tệp và chờ chữ chuyên dụng còn thiếu |
+| OCR | Đọc màn hình/vùng, tìm chữ, trả tọa độ | Đã có OCR màn hình/vùng và cấu trúc khối-dòng kèm tọa độ (giới hạn 32 khối/40 dòng mỗi lần gọi); OCR từ URI/tệp và chờ chữ chuyên dụng còn thiếu |
 | Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch và chi tiết mã có định dạng/loại nội dung/bounds; RGB lấy mẫu màn hình bổ sung ở 1.13; khớp ảnh mẫu và so sánh khung hình còn thiếu |
 | Ảnh và khung hình | Chụp màn hình, crop vùng để OCR/nhận diện | Đã có chụp màn hình và crop nội bộ; xử lý ảnh/tệp và so sánh khung hình còn thiếu |
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt; kéo-thả đường cong và đa điểm còn thiếu |
