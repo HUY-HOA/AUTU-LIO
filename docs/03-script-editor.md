@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.0
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.1
 
-**Phiên bản cú pháp:** `1.0`  
+**Phiên bản cú pháp:** `1.1`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -26,7 +26,8 @@ Kiểu được hỗ trợ:
 | `SỐ` | Số nguyên hoặc thập phân |
 | `CHUỖI` | Văn bản Unicode |
 | `LUẬN_LÝ` | `ĐÚNG` hoặc `SAI` |
-| `BẤT_KỲ` | Giá trị bất kỳ thuộc các kiểu trên |
+| `DANH_SÁCH` | Danh sách tối đa 64 phần tử số, chuỗi hoặc luận lý |
+| `BẤT_KỲ` | Giá trị thuộc các kiểu được runtime hỗ trợ |
 
 Khai báo biến có kiểu:
 
@@ -102,6 +103,18 @@ LẶP_ĐẾN_KHI(BỘ_ĐẾM >= 5) {
 }
 ```
 
+### Danh sách và duyệt từng phần tử
+
+```text
+ĐẶT DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(120, 240, 360)
+LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
+    CHẠM(TOA_DO_X, 400)
+    CHỜ(300)
+}
+```
+
+`LẶP_MỖI` duyệt trên bản sao an toàn của danh sách tại thời điểm bắt đầu vòng lặp. Biến vòng lặp chỉ tồn tại trong phạm vi vòng lặp; nếu trùng tên biến đã có, giá trị bên ngoài được khôi phục khi thoát.
+
 - `THOÁT_LẶP`: thoát vòng lặp gần nhất.
 - `BỎ_QUA_LƯỢT`: bỏ phần còn lại của lượt hiện tại và chuyển sang lượt tiếp theo.
 - `CHỜ_ĐẾN_KHI(ĐIỀU_KIỆN, THỜI_HẠN_MS, CHU_KỲ_MS)`: kiểm tra điều kiện theo chu kỳ; dừng bằng lỗi timeout nếu hết thời hạn.
@@ -165,6 +178,15 @@ Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ th
 | `ĐỘ_DÀI(CHUỖI)` | 1 | Độ dài chuỗi |
 | `NHỎ_NHẤT(A, B)` | 2 | Số nhỏ hơn |
 | `LỚN_NHẤT(A, B)` | 2 | Số lớn hơn |
+| `TẠO_DANH_SÁCH(...)` | 0–64 | Tạo danh sách mới |
+| `ĐỘ_DÀI(DANH_SÁCH)` | 1 | Số phần tử trong danh sách |
+| `LẤY_PHẦN_TỬ(DANH_SÁCH, CHỈ_SỐ)` | 2 | Lấy phần tử theo chỉ số bắt đầu từ 0 |
+| `THÊM_PHẦN_TỬ(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Thêm phần tử, trả về số lượng mới |
+| `ĐẶT_PHẦN_TỬ(DANH_SÁCH, CHỈ_SỐ, GIÁ_TRỊ)` | 3 | Thay phần tử theo chỉ số |
+| `XÓA_PHẦN_TỬ(DANH_SÁCH, CHỈ_SỐ)` | 2 | Xóa và trả về phần tử đã xóa |
+| `CÓ_PHẦN_TỬ(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Kiểm tra phần tử có trong danh sách |
+
+Danh sách chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI; chỉ số bắt đầu từ 0. Các thao tác truy cập/sửa/xóa ngoài phạm vi sẽ báo lỗi runtime.
 
 ### Thiết bị và ứng dụng
 
@@ -193,6 +215,7 @@ Các hàm thiết bị chỉ trả về thông tin Android hiện được dispa
 | Độ sâu khối lệnh | 8 |
 | Độ sâu gọi hàm | 16 |
 | Tham số hàm | 16 |
+| Phần tử trong một danh sách | 64 |
 | Số lượt thực thi thực tế | 5.000 |
 | Tổng thời lượng chờ/thao tác tĩnh | 600.000 ms |
 | Tọa độ pixel | 0–10.000 |
@@ -230,9 +253,9 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 }
 ```
 
-## 10. Những phần chưa thuộc AUTU Script 1.0
+## 10. Những phần chưa thuộc AUTU Script 1.1
 
-Phiên bản 1.0 **chưa** có danh sách/mảng, bản đồ dữ liệu, ném-bắt lỗi TRY/CATCH, lập lịch sự kiện, nhận diện ảnh, OCR, chụp màn hình hoặc thao tác đa điểm. Không dùng lệnh giả cho những tính năng này. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
+Phiên bản 1.1 **chưa** có bản đồ dữ liệu dạng khóa–giá trị, ném-bắt lỗi TRY/CATCH, lập lịch sự kiện, nhận diện ảnh, OCR, chụp màn hình hoặc thao tác đa điểm. Không dùng lệnh giả cho những tính năng này. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
 
 ## 11. Quy trình chạy
 
