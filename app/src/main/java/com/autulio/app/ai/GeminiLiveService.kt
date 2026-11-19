@@ -36,6 +36,7 @@ class GeminiLiveService : Service() {
     @Volatile private var latestStatus = "Đang khởi tạo Gemini Live…"
     @Volatile private var connected = false
     @Volatile private var actionsEnabled = false
+    @Volatile private var scriptAuthoringEnabled = false
     private val transcriptHistory = ArrayDeque<Pair<String, String>>()
 
     override fun onCreate() {
@@ -52,6 +53,7 @@ class GeminiLiveService : Service() {
         }
         if (intent?.action != ACTION_START) return START_NOT_STICKY
         val accessToken = intent.getStringExtra(EXTRA_ACCESS_TOKEN).orEmpty()
+        val canAuthorAutuScripts = intent.getBooleanExtra(EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING, false)
         if (accessToken.isBlank()) {
             stopWithError("Không tìm thấy phiên đăng nhập AUTU-LIO.")
             return START_NOT_STICKY
@@ -122,9 +124,15 @@ class GeminiLiveService : Service() {
                             mainHandlerPost { uiCallbacks?.onError(message) }
                             updateNotification("Lỗi kết nối")
                         }
+                    },
+                    scriptWorkspace = if (canAuthorAutuScripts) {
+                        GeminiAutuScriptWorkspace(applicationContext)
+                    } else {
+                        null
                     }
                 )
                 liveController.setActionsEnabled(actionsEnabled)
+                liveController.setScriptAuthoringEnabled(scriptAuthoringEnabled && canAuthorAutuScripts)
                 controller = liveController
                 liveController.connect(token)
                 starting.set(false)
@@ -151,6 +159,11 @@ class GeminiLiveService : Service() {
     fun setActionsEnabled(enabled: Boolean) {
         actionsEnabled = enabled
         controller?.setActionsEnabled(enabled)
+    }
+
+    fun setScriptAuthoringEnabled(enabled: Boolean) {
+        scriptAuthoringEnabled = enabled
+        controller?.setScriptAuthoringEnabled(enabled)
     }
 
     fun sendText(text: String): Boolean = controller?.sendText(text) == true
@@ -243,6 +256,7 @@ class GeminiLiveService : Service() {
         const val ACTION_START = "com.autulio.app.ai.action.START"
         const val ACTION_STOP = "com.autulio.app.ai.action.STOP"
         const val EXTRA_ACCESS_TOKEN = "com.autulio.app.ai.ACCESS_TOKEN"
+        const val EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING = "com.autulio.app.ai.ALLOW_AUTU_SCRIPT_AUTHORING"
         private const val CHANNEL_ID = "autu_gemini_live"
         private const val NOTIFICATION_ID = 21019
         private const val STOP_REQUEST_CODE = 21020
