@@ -167,6 +167,7 @@ class GeminiLiveService : Service() {
                         }
                     },
                     serverSetupTemplate = liveSession.setup,
+                    apiVersion = liveSession.apiVersion,
                     screenFrameProvider = { capture.captureScreenJpegForLive() },
                     scriptWorkspace = if (canAuthorAutuScripts) {
                         GeminiAutuScriptWorkspace(applicationContext)
