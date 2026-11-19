@@ -34,7 +34,6 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.autulio.app.BuildConfig
 import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
@@ -72,28 +71,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private data class ScreenTextItem(val text: String, val bounds: Rect)
 
-    private val screenVisionEngine: ScreenVisionEngine? by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        if (!BuildConfig.ML_VISION_ENABLED) {
-            null
-        } else {
-            try {
-                Class.forName("com.autulio.app.accessibility.MlKitScreenVisionEngine")
-                    .getDeclaredConstructor()
-                    .newInstance() as? ScreenVisionEngine
-                    ?: throw IllegalStateException("Không khởi tạo được mô-đun nhận diện màn hình.")
-            } catch (exception: Exception) {
-                throw IllegalStateException(
-                    "Không nạp được mô-đun nhận diện hình ảnh. Hãy kiểm tra cấu hình bản phát hành.",
-                    exception
-                )
-            }
-        }
-    }
-
-    private fun requireScreenVisionEngine(feature: String): ScreenVisionEngine =
-        screenVisionEngine ?: throw IllegalStateException(
-            "Tính năng $feature đang tạm tắt trong bản phát triển. Mô-đun sẽ được bật lại khi chuẩn bị phát hành công khai."
-        )
     private val screenTextCacheLock = Any()
     private var screenTextCacheTimeMs = 0L
     private var screenTextCache: List<ScreenTextItem> = emptyList()
@@ -145,7 +122,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     override fun onDestroy() {
         executionEngine?.close()
         executionEngine = null
-        runCatching { screenVisionEngine?.close() }
         if (scriptDatabaseStoreLazy.isInitialized()) {
             scriptDatabaseStore.close()
         }
@@ -399,21 +375,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     (match.bounds.top + match.bounds.bottom) / 2
                 )
             }
-            "ĐỌC_VĂN_BẢN_VÙNG" -> {
-                requireArgumentCount(name, arguments, 4)
-                readTextInScreenRegion(name, arguments.toTypedArray())
-            }
-            "MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG" -> {
-                requireArgumentCount(name, arguments, 5)
-                val query = requireTextArgument(name, arguments[0])
-                readTextInScreenRegion(name, arguments.drop(1).toTypedArray())
-                    .contains(query, ignoreCase = true)
-            }
-            "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG" -> {
-                requireArgumentCount(name, arguments, 5)
-                val query = requireTextArgument(name, arguments[0])
-                findTextInScreenRegion(name, query, arguments.drop(1).toTypedArray())
-            }
             "MÀU_TẠI" -> {
                 requireArgumentCount(name, arguments, 2)
                 withRequiredCapturedScreen { bitmap ->
@@ -467,67 +428,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         cropped.recycle()
                     }
                 }
-            }
-            "NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH" -> {
-                requireArgumentCount(name, arguments, 0)
-                recognizeScreenImageLabels()
-            }
-            "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" -> {
-                requireArgumentCount(name, arguments, 1)
-                val query = requireTextArgument(name, arguments[0])
-                recognizeScreenImageLabels().any { it.contains(query, ignoreCase = true) }
-            }
-            "CHI_TIẾT_MÃ_QR_MÀN_HÌNH" -> {
-                requireArgumentCount(name, arguments, 0)
-                scanScreenBarcodeDetails(qrOnly = true)
-            }
-            "CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH" -> {
-                requireArgumentCount(name, arguments, 0)
-                scanScreenBarcodeDetails(qrOnly = false)
-            }
-            "QUÉT_MÃ_QR_MÀN_HÌNH" -> {
-                requireArgumentCount(name, arguments, 0)
-                scanScreenBarcodes(qrOnly = true)
-            }
-            "QUÉT_MÃ_VẠCH_MÀN_HÌNH" -> {
-                requireArgumentCount(name, arguments, 0)
-                scanScreenBarcodes(qrOnly = false)
-            }
-            "PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH" -> {
-                requireArgumentCount(name, arguments, 0)
-                recognizeScreenObjects()
-            }
-            "MÀN_HÌNH_CÓ_VẬT_THỂ" -> {
-                requireArgumentCount(name, arguments, 1)
-                val query = requireTextArgument(name, arguments[0])
-                recognizeScreenObjects().any { item ->
-                    val objectMap = item as? Map<*, *> ?: return@any false
-                    val labels = objectMap["NHÃN"] as? List<*> ?: return@any false
-                    labels.any { label ->
-                        val labelMap = label as? Map<*, *> ?: return@any false
-                        (labelMap["TÊN"] as? String)?.contains(query, ignoreCase = true) == true
-                    }
-                }
-            }
-            "TÌM_TỌA_ĐỘ_VẬT_THỂ" -> {
-                requireArgumentCount(name, arguments, 1)
-                val query = requireTextArgument(name, arguments[0])
-                val detected = recognizeScreenObjects().firstOrNull { item ->
-                    val objectMap = item as? Map<*, *> ?: return@firstOrNull false
-                    val labels = objectMap["NHÃN"] as? List<*> ?: return@firstOrNull false
-                    labels.any { label ->
-                        val labelMap = label as? Map<*, *> ?: return@firstOrNull false
-                        (labelMap["TÊN"] as? String)?.contains(query, ignoreCase = true) == true
-                    }
-                } as? Map<*, *>
-                if (detected == null) emptyList<Int>() else listOf(
-                    ((detected["X"] as Number).toInt() + (detected["RỘNG"] as Number).toInt() / 2),
-                    ((detected["Y"] as Number).toInt() + (detected["CAO"] as Number).toInt() / 2)
-                )
-            }
-            "ĐẾM_VẬT_THỂ_MÀN_HÌNH" -> {
-                requireArgumentCount(name, arguments, 0)
-                recognizeScreenObjects().size
             }
             "SQL_THỰC_THI" -> {
                 requireArgumentCount(name, arguments, 2)
@@ -711,26 +611,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
 
 
-    private fun recognizeScreenObjects(): List<Any?> {
-        val engine = requireScreenVisionEngine("phát hiện vật thể")
-        return withCapturedScreen { bitmap -> engine.recognizeScreenObjects(bitmap) } ?: emptyList()
-    }
-
-    private fun recognizeScreenImageLabels(): List<String> {
-        val engine = requireScreenVisionEngine("nhận diện nhãn ảnh")
-        return withCapturedScreen { bitmap -> engine.recognizeScreenImageLabels(bitmap) } ?: emptyList()
-    }
-
-    private fun scanScreenBarcodes(qrOnly: Boolean): List<String> {
-        val engine = requireScreenVisionEngine(if (qrOnly) "quét mã QR" else "quét mã vạch")
-        return withCapturedScreen { bitmap -> engine.scanScreenBarcodes(bitmap, qrOnly) } ?: emptyList()
-    }
-
-    private fun scanScreenBarcodeDetails(qrOnly: Boolean): List<Any?> {
-        val engine = requireScreenVisionEngine(if (qrOnly) "đọc chi tiết mã QR" else "đọc chi tiết mã vạch")
-        return withCapturedScreen { bitmap -> engine.scanScreenBarcodeDetails(bitmap, qrOnly) } ?: emptyList()
-    }
-
     private inline fun <T> withCapturedScreen(block: (Bitmap) -> T): T? {
         val bitmap = captureDisplayBitmap() ?: return null
         return try {
@@ -740,98 +620,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     }
 
-    private fun requireScreenRegion(name: String, arguments: Array<out Any?>, bitmap: Bitmap): Rect {
-        if (arguments.size != 4) throw IllegalArgumentException("Hàm '$name' cần 4 tham số X, Y, RỘNG, CAO.")
-        val left = requirePositiveOrZeroInt(name, arguments[0], "X")
-        val top = requirePositiveOrZeroInt(name, arguments[1], "Y")
-        val width = requirePositiveInt(name, arguments[2], "RỘNG")
-        val height = requirePositiveInt(name, arguments[3], "CAO")
-        val right = left.toLong() + width.toLong()
-        val bottom = top.toLong() + height.toLong()
-        require(right <= bitmap.width && bottom <= bitmap.height) {
-            "Vùng OCR nằm ngoài màn hình hiện tại " + bitmap.width + "x" + bitmap.height + "."
-        }
-        return Rect(left, top, right.toInt(), bottom.toInt())
-    }
-
-    private fun requireNonNegativeFiniteNumber(name: String, value: Any?, label: String): Double {
-        val number = value as? Number
-            ?: throw IllegalArgumentException("Tham số " + label + " của '" + name + "' phải là số.")
-        val result = number.toDouble()
-        require(result.isFinite() && result >= 0.0) {
-            "Tham số " + label + " của '" + name + "' phải là số hữu hạn không âm."
-        }
-        return result
-    }
-
-    private fun requirePositiveOrZeroInt(name: String, value: Any?, label: String): Int {
-        val number = value as? Number
-            ?: throw IllegalArgumentException("Tham số " + label + " của '" + name + "' phải là số nguyên.")
-        val double = number.toDouble()
-        require(double.isFinite() && double >= 0.0 && double <= Int.MAX_VALUE && double % 1.0 == 0.0) {
-            "Tham số " + label + " của '" + name + "' phải là số nguyên không âm."
-        }
-        return double.toInt()
-    }
-
-    private fun requirePositiveInt(name: String, value: Any?, label: String): Int {
-        val result = requirePositiveOrZeroInt(name, value, label)
-        require(result > 0) { "Tham số " + label + " của '" + name + "' phải lớn hơn 0." }
-        return result
-    }
-
-    private fun readTextInScreenRegion(name: String, arguments: Array<out Any?>): String =
-        withCapturedScreen { bitmap ->
-            val region = requireScreenRegion(name, arguments, bitmap)
-            val engine = screenVisionEngine
-            if (engine == null) {
-                readAccessibilityTextItems()
-                    .filter { Rect.intersects(region, it.bounds) }
-                    .joinToString("\n") { it.text }
-            } else {
-                val cropped = Bitmap.createBitmap(
-                    bitmap, region.left, region.top, region.width(), region.height()
-                )
-                try {
-                    engine.readText(cropped)
-                } finally {
-                    cropped.recycle()
-                }
-            }
-        }.orEmpty()
-
-    private fun findTextInScreenRegion(
-        name: String,
-        query: String,
-        arguments: Array<out Any?>
-    ): List<Int> = withCapturedScreen { bitmap ->
-        val region = requireScreenRegion(name, arguments, bitmap)
-        val engine = screenVisionEngine
-        if (engine == null) {
-            val match = readAccessibilityTextItems().firstOrNull {
-                it.text.contains(query, ignoreCase = true) && Rect.intersects(region, it.bounds)
-            }
-            if (match == null) emptyList() else listOf(
-                (match.bounds.left + match.bounds.right) / 2,
-                (match.bounds.top + match.bounds.bottom) / 2
-            )
-        } else {
-            val cropped = Bitmap.createBitmap(
-                bitmap, region.left, region.top, region.width(), region.height()
-            )
-            try {
-                val bounds = engine.findText(cropped, query)
-                if (bounds == null) emptyList() else listOf(
-                    region.left + (bounds.left + bounds.right) / 2,
-                    region.top + (bounds.top + bounds.bottom) / 2
-                )
-            } finally {
-                cropped.recycle()
-            }
-        }
-    } ?: emptyList()
-
-    private data class ScreenPixelSample(
+    private data class ScreenPixelSample    private data class ScreenPixelSample(
         val pixels: IntArray,
         val width: Int,
         val height: Int
@@ -890,13 +679,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         withCapturedScreen(block)
             ?: throw IllegalStateException("Không thể chụp màn hình. Kiểm tra AccessibilityService và quyền chụp màn hình.")
 
-    private fun recognizeStructuredScreenText(): List<Any?> {
-        val engine = screenVisionEngine
-        if (engine != null) {
-            return withCapturedScreen { bitmap -> engine.recognizeStructuredScreenText(bitmap) }
-                ?: emptyList()
-        }
-        return readAccessibilityTextItems().take(32).map { item ->
+    private fun recognizeStructuredScreenText(): List<Any?> =
+        readAccessibilityTextItems().take(32).map { item ->
             val line = linkedMapOf<String, Any?>(
                 "VĂN_BẢN" to item.text.take(4_096),
                 "X" to item.bounds.left.toDouble(),
@@ -913,7 +697,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 "CÁC_DÒNG" to listOf(line)
             )
         }
-    }
 
     /**
      * Reads text only when a script explicitly requests it. Results are kept in memory
@@ -926,40 +709,15 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 return screenTextCache
             }
         }
-
-        val accessibilityItems = readAccessibilityTextItems()
-        val engine = screenVisionEngine
-        val recognizedItems = if (engine == null) {
-            emptyList()
-        } else {
-            val bitmap = captureDisplayBitmap()
-            if (bitmap == null) {
-                emptyList()
-            } else {
-                try {
-                    engine.recognizeScreenTextItems(bitmap).map { item ->
-                        ScreenTextItem(item.text, Rect(item.bounds))
-                    }
-                } catch (_: Exception) {
-                    emptyList()
-                } finally {
-                    if (!bitmap.isRecycled) bitmap.recycle()
-                }
-            }
-        }
-
-        // Accessibility remains available in development builds; ML OCR is added
-        // only when the optional public-build vision module is enabled.
-        val merged = (accessibilityItems + recognizedItems)
+        val accessibleItems = readAccessibilityTextItems()
             .filter { it.text.isNotBlank() }
             .distinctBy { it.text.trim().lowercase(Locale.ROOT) }
             .take(512)
-
         synchronized(screenTextCacheLock) {
-            screenTextCache = merged
+            screenTextCache = accessibleItems
             screenTextCacheTimeMs = now
         }
-        return merged
+        return accessibleItems
     }
 
     private fun requireTextArgument(name: String, value: Any?): String =
@@ -1168,106 +926,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             root.recycle()
         }
         return output
-    }
-
-    /**
-     * Returns visible, non-editable accessibility labels for an explicitly active Gemini Live session.
-     * Password and editable nodes are excluded; returned bounds use physical screen pixels.
-     */
-    fun readAccessibilityTextForLive(): String = callOnMainThread {
-        val root = rootInActiveWindow ?: return@callOnMainThread ""
-        val lines = mutableListOf<String>()
-
-        fun visit(node: AccessibilityNodeInfo, depth: Int) {
-            if (depth > 28 || lines.size >= 80) return
-            if (node.isVisibleToUser && !node.isPassword && !node.isEditable) {
-                val bounds = Rect()
-                node.getBoundsInScreen(bounds)
-                if (!bounds.isEmpty) {
-                    val nodeText = node.text?.toString()?.trim().orEmpty()
-                    val description = node.contentDescription?.toString()?.trim().orEmpty()
-                    listOf(nodeText, description)
-                        .filter { it.isNotBlank() }
-                        .distinct()
-                        .forEach { value ->
-                            if (lines.size < 80) {
-                                lines += "x=${bounds.left},y=${bounds.top},w=${bounds.width()},h=${bounds.height()} | ${value.take(180)}"
-                            }
-                        }
-                }
-            }
-            for (index in 0 until node.childCount) {
-                if (lines.size >= 80) break
-                val child = runCatching { node.getChild(index) }.getOrNull() ?: continue
-                try {
-                    visit(child, depth + 1)
-                } finally {
-                    @Suppress("DEPRECATION")
-                    child.recycle()
-                }
-            }
-        }
-
-        try {
-            visit(root, 0)
-        } catch (_: RuntimeException) {
-            // Accessibility trees can become stale while the foreground app is changing screens.
-        } finally {
-            @Suppress("DEPRECATION")
-            root.recycle()
-        }
-        lines.joinToString("\n").take(6_000)
-    } ?: ""
-
-    /**
-     * Taps a visible, non-editable accessibility label. It deliberately refuses password
-     * and editable nodes; the caller still needs explicit Gemini Live action consent.
-     */
-    fun tapAccessibilityTextForLive(query: String): Boolean {
-        val safeQuery = query.trim().takeIf { it.isNotEmpty() && it.length <= 100 } ?: return false
-        return findAccessibilityNode(
-            matches = { node ->
-                !node.isPassword && !node.isEditable && nodeMatchesText(node, safeQuery)
-            },
-            action = { node ->
-                val bounds = Rect()
-                node.getBoundsInScreen(bounds)
-                !bounds.isEmpty && node.isEnabled && clickNodeOrClickableAncestor(node, allowEditableOrPasswordAncestor = false)
-            }
-        ) ?: false
-    }
-
-    /**
-     * Captures a privacy-sensitive screen frame for an explicitly active Gemini Live session.
-     * Must be called from a background thread. Android blocks screenshots of secure windows.
-     */
-    fun captureScreenJpegForLive(maxDimension: Int = 960): ByteArray? {
-        if (Looper.myLooper() == Looper.getMainLooper()) return null
-        val original = captureDisplayBitmap() ?: return null
-        var scaled: Bitmap? = null
-        return try {
-            val bound = maxDimension.coerceIn(320, 1_280)
-            val longest = maxOf(original.width, original.height)
-            val scale = minOf(1f, bound.toFloat() / longest.toFloat())
-            val targetWidth = (original.width * scale).toInt().coerceAtLeast(1)
-            val targetHeight = (original.height * scale).toInt().coerceAtLeast(1)
-            scaled = if (targetWidth == original.width && targetHeight == original.height) {
-                original
-            } else {
-                Bitmap.createScaledBitmap(original, targetWidth, targetHeight, true)
-            }
-            val output = java.io.ByteArrayOutputStream()
-            if (!scaled.compress(Bitmap.CompressFormat.JPEG, 65, output)) {
-                null
-            } else {
-                output.toByteArray().takeIf { it.isNotEmpty() && it.size <= 900_000 }
-            }
-        } catch (_: Exception) {
-            null
-        } finally {
-            if (scaled !== original) scaled?.recycle()
-            original.recycle()
-        }
     }
 
     private fun captureDisplayBitmap(): Bitmap? {
