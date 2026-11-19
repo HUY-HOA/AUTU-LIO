@@ -34,6 +34,7 @@ class GeminiLiveService : Service() {
     @Volatile private var controller: GeminiLiveController? = null
     @Volatile private var uiCallbacks: GeminiLiveController.Callbacks? = null
     @Volatile private var latestStatus = "Đang khởi tạo Gemini Live…"
+    @Volatile private var latestError: String? = null
     @Volatile private var connected = false
     @Volatile private var actionsEnabled = false
     @Volatile private var scriptAuthoringEnabled = false
@@ -52,6 +53,7 @@ class GeminiLiveService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action != ACTION_START) return START_NOT_STICKY
+        latestError = null
         val accessToken = intent.getStringExtra(EXTRA_ACCESS_TOKEN).orEmpty()
         val canAuthorAutuScripts = intent.getBooleanExtra(EXTRA_ALLOW_AUTU_SCRIPT_AUTHORING, false)
         if (accessToken.isBlank()) {
@@ -97,6 +99,7 @@ class GeminiLiveService : Service() {
 
                         override fun onConnected() {
                             connected = true
+                            latestError = null
                             latestStatus = "Gemini Live đang hoạt động"
                             mainHandlerPost { uiCallbacks?.onConnected() }
                             updateNotification(latestStatus)
@@ -120,8 +123,9 @@ class GeminiLiveService : Service() {
                         }
 
                         override fun onError(message: String) {
-                            latestStatus = message
-                            mainHandlerPost { uiCallbacks?.onError(message) }
+                            latestError = message.take(300)
+                            latestStatus = "Gemini Live gặp lỗi kết nối"
+                            mainHandlerPost { uiCallbacks?.onError(latestError.orEmpty()) }
                             updateNotification("Lỗi kết nối")
                         }
                     },
@@ -149,6 +153,7 @@ class GeminiLiveService : Service() {
         if (callbacks == null) return
         mainHandlerPost {
             callbacks.onStatus(latestStatus)
+            latestError?.let { callbacks.onError(it) }
             if (connected) callbacks.onConnected()
             synchronized(transcriptHistory) {
                 transcriptHistory.forEach { (speaker, text) -> callbacks.onTranscript(speaker, text) }
@@ -174,13 +179,15 @@ class GeminiLiveService : Service() {
         controller = null
         connected = false
         latestStatus = "Phiên Gemini Live đã dừng"
+        latestError = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
     private fun stopWithError(message: String) {
-        latestStatus = message.take(300)
-        mainHandlerPost { uiCallbacks?.onError(latestStatus) }
+        latestError = message.take(300)
+        latestStatus = "Không thể khởi động Gemini Live"
+        mainHandlerPost { uiCallbacks?.onError(latestError.orEmpty()) }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
