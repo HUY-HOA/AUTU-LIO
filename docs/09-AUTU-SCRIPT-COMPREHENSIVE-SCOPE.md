@@ -15,7 +15,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 
 ## Ma trận tính năng
 
-**Trạng thái mã nguồn hiện tại:** AUTU Script 1.14. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.14; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.15. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.15; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
 
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
@@ -27,7 +27,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Đã có SQLite nội bộ, SQL allow-list, bind tham số và transaction mỗi câu ghi; hệ thống di trú schema còn thiếu |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
 | OCR | Đọc màn hình/vùng, tìm chữ, trả tọa độ | Đã có OCR màn hình/vùng và cấu trúc khối-dòng kèm tọa độ; OCR từ URI/tệp và chờ chữ chuyên dụng còn thiếu |
-| Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch; RGB lấy mẫu màn hình bổ sung ở 1.13; khớp ảnh mẫu và so sánh khung hình còn thiếu |
+| Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch và chi tiết mã có định dạng/loại nội dung/bounds; RGB lấy mẫu màn hình bổ sung ở 1.13; khớp ảnh mẫu và so sánh khung hình còn thiếu |
 | Ảnh và khung hình | Chụp màn hình, crop vùng để OCR/nhận diện | Đã có chụp màn hình và crop nội bộ; xử lý ảnh/tệp và so sánh khung hình còn thiếu |
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt; kéo-thả đường cong và đa điểm còn thiếu |
 | Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel đã có; API tỷ lệ/DP và hiệu chỉnh vùng an toàn còn thiếu |
@@ -49,7 +49,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 Còn thiếu: đọc ảnh từ URI/tệp, trả về cấu trúc dòng/khối có confidence công khai, chờ chữ xuất hiện/biến mất có timeout riêng.
 
 ### Nhận diện hình ảnh
-Đã có: nhãn ảnh tổng quát, phát hiện vật thể cơ bản, hộp giới hạn và quét QR/mã vạch trên màn hình.
+Đã có: nhãn ảnh tổng quát, phát hiện vật thể cơ bản, hộp giới hạn, quét QR/mã vạch và chi tiết định dạng/loại nội dung/vị trí của mã trên màn hình.
 
 Còn thiếu: tìm màu/vùng màu, so khớp ảnh mẫu do người dùng cung cấp, so sánh khung hình và API ảnh đầu vào từ tệp/URI. Không tuyên bố nhãn tổng quát là nhận diện chính xác mọi vật thể.
 
