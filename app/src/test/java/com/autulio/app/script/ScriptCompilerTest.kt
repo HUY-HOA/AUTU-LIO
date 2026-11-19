@@ -74,7 +74,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.4", result.program?.languageVersion)
+        assertEquals("1.5", result.program?.languageVersion)
     }
 
     @Test
@@ -339,7 +339,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.4", result.program?.languageVersion)
+        assertEquals("1.5", result.program?.languageVersion)
     }
 
     @Test
@@ -386,7 +386,7 @@ class ScriptCompilerTest {
         )
 
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.4", result.program?.languageVersion)
+        assertEquals("1.5", result.program?.languageVersion)
     }
 
     @Test
@@ -425,7 +425,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.4", result.program?.languageVersion)
+        assertEquals("1.5", result.program?.languageVersion)
     }
 
     @Test
@@ -459,7 +459,7 @@ class ScriptCompilerTest {
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals("1.4", result.program?.languageVersion)
+        assertEquals("1.5", result.program?.languageVersion)
     }
 
     @Test
@@ -475,6 +475,27 @@ class ScriptCompilerTest {
 
         assertEquals("return_outside_function", invalidReturn.diagnostics.first().code)
         assertEquals("unknown_function", undefinedCall.diagnostics.first().code)
+    }
+
+    @Test
+    fun supportsOnDemandScreenOcrBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()
+            ĐẶT CO_CHU: LUẬN_LÝ = MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập")
+            ĐẶT VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ("Đăng nhập")
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.5", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesScreenOcrFunctionArgumentCounts() {
+        val missingQuery = ScriptCompiler.compile("ĐẶT X = MÀN_HÌNH_CHỨA_CHỮ()")
+        val tooMany = ScriptCompiler.compile("ĐẶT X = TÌM_VỊ_TRÍ_CHỮ(\"A\", \"B\")")
+        assertEquals("function_argument_count", missingQuery.diagnostics.first().code)
+        assertEquals("function_argument_count", tooMany.diagnostics.first().code)
     }
 
 }
