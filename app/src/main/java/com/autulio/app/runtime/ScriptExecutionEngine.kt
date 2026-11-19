@@ -16,6 +16,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
+import kotlin.math.pow
 
 interface ScriptActionDispatcher {
     fun tap(x: Int, y: Int): Boolean
@@ -160,7 +161,7 @@ class ScriptExecutionEngine(
 
     private fun execute(runId: Long, program: ScriptProgram) {
         try {
-            executeBlock(runId, program.instructions, mutableMapOf())
+            executeBlock(runId, program.instructions, mutableMapOf(), mutableMapOf())
             finish(runId, ScriptExecutionState.COMPLETED, null, null)
         } catch (_: StopRequested) {
             finish(runId, ScriptExecutionState.CANCELLED, null, null)
@@ -181,20 +182,32 @@ class ScriptExecutionEngine(
     private fun executeBlock(
         runId: Long,
         instructions: List<ScriptInstruction>,
-        variables: MutableMap<String, Any?>
+        variables: MutableMap<String, Any?>,
+        declaredTypes: MutableMap<String, String>
     ) {
         for (instruction in instructions) {
             checkpoint(runId)
             when (instruction) {
                 is ScriptInstruction.Command -> executeCommand(runId, instruction, variables)
                 is ScriptInstruction.SetVariable -> {
-                    variables[instruction.name] = evaluate(instruction.value, variables)
+                    val value = evaluate(instruction.value, variables)
+                    val previousType = declaredTypes[instruction.name]
+                    val declaredType = instruction.declaredType
+                    if (declaredType != null && previousType != null) {
+                        throw ScriptRuntimeFailure("variable_already_typed", "Biến '" + instruction.name + "' đã được khai báo kiểu.")
+                    }
+                    val effectiveType = declaredType ?: previousType
+                    if (effectiveType != null && !matchesDeclaredType(value, effectiveType)) {
+                        throw ScriptRuntimeFailure("variable_type_mismatch", "Giá trị gán cho '" + instruction.name + "' không đúng kiểu " + effectiveType + ".")
+                    }
+                    if (declaredType != null) declaredTypes[instruction.name] = declaredType
+                    variables[instruction.name] = value
                     completeInstruction(runId)
                 }
                 is ScriptInstruction.If -> {
                     val condition = requireBoolean(evaluate(instruction.condition, variables), "Điều kiện NẾU phải trả về ĐÚNG hoặc SAI.")
                     completeInstruction(runId)
-                    executeBlock(runId, if (condition) instruction.thenBody else instruction.elseBody, variables)
+                    executeBlock(runId, if (condition) instruction.thenBody else instruction.elseBody, variables, declaredTypes)
                 }
                 is ScriptInstruction.Repeat -> {
                     val count = requireInteger(evaluate(instruction.count, variables), "Số lần lặp phải là số nguyên.")
@@ -205,7 +218,7 @@ class ScriptExecutionEngine(
                     for (iteration in 0 until count) {
                         checkpoint(runId)
                         try {
-                            executeBlock(runId, instruction.body, variables)
+                            executeBlock(runId, instruction.body, variables, declaredTypes)
                         } catch (_: ContinueLoop) {
                             Unit
                         } catch (_: BreakLoop) {
@@ -227,7 +240,7 @@ class ScriptExecutionEngine(
                             break
                         }
                         try {
-                            executeBlock(runId, instruction.body, variables)
+                            executeBlock(runId, instruction.body, variables, declaredTypes)
                         } catch (_: ContinueLoop) {
                             Unit
                         } catch (_: BreakLoop) {
@@ -387,6 +400,11 @@ class ScriptExecutionEngine(
                 if (divisor == 0.0) throw ScriptRuntimeFailure("division_by_zero", "Không thể chia dư cho 0.")
                 requireNumber(left, "Phép chia dư cần số.") % divisor
             }
+            "^" -> {
+                val result = requireNumber(left, "Lũy thừa cần hai số.").pow(requireNumber(right, "Lũy thừa cần hai số."))
+                if (!result.isFinite()) throw ScriptRuntimeFailure("numeric_overflow", "Kết quả lũy thừa vượt giới hạn số hợp lệ.")
+                result
+            }
             "==" -> valuesEqual(left, right)
             "!=" -> !valuesEqual(left, right)
             ">" -> compareValues(left, right) > 0
@@ -432,6 +450,14 @@ class ScriptExecutionEngine(
             max(requireNumber(args[0], "LỚN_NHẤT cần hai số."), requireNumber(args[1], "LỚN_NHẤT cần hai số."))
         }
         else -> dispatcher.evaluateFunction(name.uppercase(Locale.ROOT), args)
+    }
+
+    private fun matchesDeclaredType(value: Any?, type: String): Boolean = when (type) {
+        "SỐ" -> value is Number
+        "CHUỖI" -> value is String
+        "LUẬN_LÝ" -> value is Boolean
+        "BẤT_KỲ" -> true
+        else -> false
     }
 
     private fun requireArgs(name: String, args: List<Any?>, count: Int) {
@@ -568,8 +594,12 @@ class ScriptExecutionEngine(
                     instruction.arguments.size == arity && instruction.arguments.all { validateExpression(it, 0) }
                 }
                 is ScriptInstruction.SetVariable ->
-                    instruction.name.isNotBlank() && instruction.name.first().let { it.isLetter() || it == '_' } &&
-                        instruction.name.all { it.isLetterOrDigit() || it == '_' } && validateExpression(instruction.value, 0)
+                    instruction.name.isNotBlank() &&
+                        instruction.name == instruction.name.uppercase(Locale.ROOT) &&
+                        instruction.name.first().let { it.isLetter() || it == '_' } &&
+                        instruction.name.all { it.isLetterOrDigit() || it == '_' } &&
+                        (instruction.declaredType == null || instruction.declaredType in setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "BẤT_KỲ")) &&
+                        validateExpression(instruction.value, 0)
                 is ScriptInstruction.If ->
                     validateExpression(instruction.condition, 0) &&
                         validateBlock(instruction.thenBody, depth + 1, loopDepth) &&
@@ -597,7 +627,7 @@ class ScriptExecutionEngine(
             is ScriptExpression.BooleanLiteral -> true
             is ScriptExpression.Variable -> expression.name.isNotBlank()
             is ScriptExpression.Unary -> expression.operator in setOf("KHÔNG", "+", "-") && validateExpression(expression.operand, depth + 1)
-            is ScriptExpression.Binary -> expression.operator in setOf("VÀ", "HOẶC", "==", "!=", ">", ">=", "<", "<=", "+", "-", "*", "/", "%") &&
+            is ScriptExpression.Binary -> expression.operator in setOf("VÀ", "HOẶC", "==", "!=", ">", ">=", "<", "<=", "+", "-", "*", "/", "%", "^") &&
                 validateExpression(expression.left, depth + 1) && validateExpression(expression.right, depth + 1)
             is ScriptExpression.FunctionCall -> expression.name.isNotBlank() && expression.arguments.size <= 16 &&
                 expression.arguments.all { validateExpression(it, depth + 1) }
