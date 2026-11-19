@@ -47,13 +47,13 @@ class ScriptCompilerTest {
     fun supportsWhileAndLoopControlStatements() {
         val result = ScriptCompiler.compile(
             """
-            ĐẶT i = 0
-            LẶP_KHI (i < 10) {
-                i = i + 1
-                NẾU (i == 5) {
+            ĐẶT I = 0
+            LẶP_KHI (I < 10) {
+                I = i + 1
+                NẾU (I == 5) {
                     THOÁT_LẶP
                 }
-                CHẠM(i, 20)
+                CHẠM(I, 20)
             }
             """.trimIndent()
         )
