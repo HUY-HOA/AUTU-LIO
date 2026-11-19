@@ -2,5 +2,5 @@
 <resources>
     <string name="app_name">AUTU-LIO</string>
     <string name="accessibility_service_label">AUTU-LIO Auto Click</string>
-    <string name="accessibility_service_description">Chỉ thực hiện thao tác chạm, nhấn giữ và vuốt trong kịch bản mà bạn chủ động chọn chạy. Dịch vụ không đọc nội dung màn hình, không thu thập văn bản và có thể dừng bất cứ lúc nào.</string>
+    <string name="accessibility_service_description">Thực hiện thao tác bạn chủ động chạy và cung cấp nhãn giao diện cho các chức năng đọc màn hình khi được gọi. Chỉ khi bạn tự bắt đầu Gemini Live, ảnh màn hình và âm thanh micro mới được gửi tới Google trong phiên; bạn có thể dừng bất cứ lúc nào.</string>
 </resources>
