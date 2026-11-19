@@ -37,6 +37,7 @@ import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
 import com.autulio.app.runtime.ScriptExecutionState
+import com.autulio.app.runtime.ScriptHttpClient
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
 import com.autulio.app.script.ScriptProgram
@@ -94,6 +95,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private val scriptFileStore: ScriptFileStore by lazy {
         ScriptFileStore(File(filesDir, "autu-script-data"))
     }
+
+    private val scriptHttpClient = ScriptHttpClient()
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var executionEngine: ScriptExecutionEngine? = null
@@ -379,6 +382,31 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "ĐẾM_VẬT_THỂ_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
                 recognizeScreenObjects().size
+            }
+            "GỬI_YÊU_CẦU_HTTP" -> {
+                requireArgumentCount(name, arguments, 5)
+                val method = requireTextArgument(name, arguments[0])
+                val url = requireTextArgument(name, arguments[1])
+                val body = when (val value = arguments[2]) {
+                    null -> null
+                    is String -> value
+                    else -> throw IllegalArgumentException("Thân yêu cầu HTTP phải là chuỗi hoặc RỖNG.")
+                }
+                val rawHeaders = arguments[3] as? Map<*, *>
+                    ?: throw IllegalArgumentException("Tiêu đề HTTP phải là BẢN_ĐỒ.")
+                val headers = linkedMapOf<String, Any?>()
+                rawHeaders.forEach { (key, value) ->
+                    val headerName = key as? String
+                        ?: throw IllegalArgumentException("Tên tiêu đề HTTP phải là chuỗi.")
+                    headers[headerName] = value
+                }
+                val timeoutValue = arguments[4] as? Number
+                    ?: throw IllegalArgumentException("Thời hạn HTTP phải là số.")
+                val timeoutMs = timeoutValue.toInt()
+                require(timeoutValue.toDouble() == timeoutMs.toDouble()) {
+                    "Thời hạn HTTP phải là số nguyên mili giây."
+                }
+                scriptHttpClient.request(method, url, body, headers, timeoutMs)
             }
             "ĐỌC_TỆP" -> {
                 requireArgumentCount(name, arguments, 1)
