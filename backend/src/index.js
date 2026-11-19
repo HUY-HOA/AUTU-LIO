@@ -1883,7 +1883,7 @@ async function createGeminiLiveToken(request, env, session) {
   // Google's ephemeral-token REST resource uses LiveConnectConfig under
   // liveConnectConstraints. Do not send the raw WebSocket setup-frame format here.
   const liveConnectConstraints = {
-    model: "gemini-3.8-live",
+    model: GEMINI_LIVE_MODEL,
     config: {
       // Keep only the documented token-lock fields. System instructions, tools,
       // transcription and context compression are supplied by the Android setup frame.
