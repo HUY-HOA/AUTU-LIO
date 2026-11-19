@@ -67,7 +67,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.3"
+    const val LANGUAGE_VERSION = "1.4"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -92,21 +92,27 @@ object ScriptCompiler {
         "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG",
         "QUAY_LẠI" to "QUAY_LẠI",
         "VỀ_MÀN_HÌNH_CHÍNH" to "VỀ_MÀN_HÌNH_CHÍNH",
-        "ỨNG_DỤNG_GẦN_ĐÂY" to "ỨNG_DỤNG_GẦN_ĐÂY",
-        "MỞ_THÔNG_BÁO" to "MỞ_THÔNG_BÁO",
-        "MỞ_CÀI_ĐẶT_NHANH" to "MỞ_CÀI_ĐẶT_NHANH",
-        "HIỆN_MENU_NGUỒN" to "HIỆN_MENU_NGUỒN",
+        "MỞ_ỨNG_DỤNG_GẦN_ĐÂY" to "MỞ_ỨNG_DỤNG_GẦN_ĐÂY",
+        "MỞ_THANH_THÔNG_BÁO" to "MỞ_THANH_THÔNG_BÁO",
+        "MỞ_BẢNG_CÀI_ĐẶT_NHANH" to "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
+        "MỞ_HỘP_THOẠI_NGUỒN" to "MỞ_HỘP_THOẠI_NGUỒN",
         "KHÓA_MÀN_HÌNH" to "KHÓA_MÀN_HÌNH",
-        "CHIA_MÀN_HÌNH" to "CHIA_MÀN_HÌNH"
+        "BẬT_TẮT_CHIA_MÀN_HÌNH" to "BẬT_TẮT_CHIA_MÀN_HÌNH",
+        // Bí danh cũ để bảo toàn các kịch bản đã lưu.
+        "ỨNG_DỤNG_GẦN_ĐÂY" to "MỞ_ỨNG_DỤNG_GẦN_ĐÂY",
+        "MỞ_THÔNG_BÁO" to "MỞ_THANH_THÔNG_BÁO",
+        "MỞ_CÀI_ĐẶT_NHANH" to "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
+        "HIỆN_MENU_NGUỒN" to "MỞ_HỘP_THOẠI_NGUỒN",
+        "CHIA_MÀN_HÌNH" to "BẬT_TẮT_CHIA_MÀN_HÌNH"
     )
 
     private val commandArgumentCounts = mapOf(
         "CHẠM" to 2, "NHẤN_GIỮ" to 3, "VUỐT" to 5,
         "CHỜ" to 1, "MỞ_ỨNG_DỤNG" to 1,
         "QUAY_LẠI" to 0, "VỀ_MÀN_HÌNH_CHÍNH" to 0,
-        "ỨNG_DỤNG_GẦN_ĐÂY" to 0, "MỞ_THÔNG_BÁO" to 0,
-        "MỞ_CÀI_ĐẶT_NHANH" to 0, "HIỆN_MENU_NGUỒN" to 0,
-        "KHÓA_MÀN_HÌNH" to 0, "CHIA_MÀN_HÌNH" to 0
+        "MỞ_ỨNG_DỤNG_GẦN_ĐÂY" to 0, "MỞ_THANH_THÔNG_BÁO" to 0,
+        "MỞ_BẢNG_CÀI_ĐẶT_NHANH" to 0, "MỞ_HỘP_THOẠI_NGUỒN" to 0,
+        "KHÓA_MÀN_HÌNH" to 0, "BẬT_TẮT_CHIA_MÀN_HÌNH" to 0
     )
 
     private val builtinFunctionArities = mapOf(
@@ -644,7 +650,7 @@ object ScriptCompiler {
 
         private fun parseCommand(name: Token): ScriptInstruction.Command {
             val command = commandAliases[name.text]
-                ?: fail(name.line, name.column, "unknown_command", "Không nhận ra lệnh '" + name.text + "'. AUTU Script 1.0 chỉ nhận lệnh tiếng Việt viết HOA và đúng dấu.", "Unknown command '" + name.text + "'. AUTU Script 1.0 accepts only uppercase Vietnamese commands with correct diacritics.")
+                ?: fail(name.line, name.column, "unknown_command", "Không nhận ra lệnh '" + name.text + "'. AUTU Script 1.4 chỉ nhận lệnh tiếng Việt viết HOA và đúng dấu.", "Unknown command '" + name.text + "'. AUTU Script 1.4 accepts only uppercase Vietnamese commands with correct diacritics.")
             val args = parseArguments()
             val expected = commandArgumentCounts[command]
                 ?: fail(name.line, name.column, "unsupported_command", "Lệnh '$command' chưa được đăng ký tham số.", "Command '$command' has no registered argument signature.")
@@ -762,7 +768,8 @@ object ScriptCompiler {
                     }
                 }
                 expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng hàm.", "Expected ')' after function arguments.")
-                val expected = builtinFunctionArities[token.text]
+                val normalizedName = builtinFunctionAliases[token.text] ?: token.text
+                val expected = builtinFunctionArities[normalizedName]
                 if (expected == -1 && args.size > MAX_LIST_ITEMS) {
                     fail(token.line, token.column, "list_too_large", "Danh sách không được vượt quá $MAX_LIST_ITEMS phần tử.", "A list cannot exceed $MAX_LIST_ITEMS items.")
                 } else if (expected == -2 && args.size > MAX_MAP_ENTRIES * 2) {
@@ -773,7 +780,7 @@ object ScriptCompiler {
                     fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' cần đúng " + expected + " tham số.", "Function '" + token.text + "' requires exactly " + expected + " arguments.")
                 }
                 if (expected == null) functionCallTokens += token
-                ScriptExpression.FunctionCall(token.text, args)
+                ScriptExpression.FunctionCall(normalizedName, args)
             } else ScriptExpression.Variable(token.text)
         }
 
