@@ -375,6 +375,37 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun createsMutatesAndIteratesTypedVietnameseLists() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20)
+                ĐẶT SO_LUONG: SỐ = THÊM_PHẦN_TỬ(DANH_SÁCH, 30)
+                ĐẶT CO_20: LUẬN_LÝ = CÓ_PHẦN_TỬ(DANH_SÁCH, 20)
+                ĐẶT PHAN_TU: SỐ = LẤY_PHẦN_TỬ(DANH_SÁCH, 1)
+                ĐẶT DA_XOA: SỐ = XÓA_PHẦN_TỬ(DANH_SÁCH, 1)
+                ĐẶT_PHẦN_TỬ(DANH_SÁCH, 0, 15)
+                NẾU (SO_LUONG == 3 VÀ CO_20 VÀ PHAN_TU == 20 VÀ DA_XOA == 20 VÀ ĐỘ_DÀI(DANH_SÁCH) == 2) {
+                    LẶP_MỖI (GIA_TRI TRONG DANH_SÁCH) {
+                        CHẠM(GIA_TRI, 40)
+                    }
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:15,40", "tap:30,40"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
