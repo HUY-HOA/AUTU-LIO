@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.4
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.5
 
-**Phiên bản cú pháp:** `1.4`  
+**Phiên bản cú pháp:** `1.5`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -236,9 +236,19 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị chỉ trả về thông tin Android hiện được dispatcher cung cấp. Không có hàm đọc cây giao diện hoặc văn bản ứng dụng.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.5 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
-## 8. Giới hạn an toàn và ngân sách
+## 8. OCR và văn bản trên màn hình
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Trả về văn bản tìm được trên màn hình |
+| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập") | ĐÚNG nếu nội dung màn hình có chuỗi |
+| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("Đăng nhập") | Danh sách [X, Y] là tâm vị trí; rỗng nếu không tìm thấy |
+
+Các hàm chỉ phân tích màn hình khi kịch bản gọi chúng. AUTU-LIO kết hợp cây giao diện trợ năng với OCR on-device. Ảnh màn hình không được tải lên máy chủ. Trên Android 11/API 30 trở lên, OCR có thể dùng ảnh màn hình của AccessibilityService; Android cũ hơn chỉ đọc được nội dung mà cây trợ năng cung cấp. Màn hình bảo mật, ứng dụng chặn chụp và vùng đồ họa không phơi bày nội dung có thể không đọc được. OCR có thể nhận sai chữ hoặc dấu; phải kiểm tra kết quả trước thao tác quan trọng.
+
+## 9. Giới hạn an toàn và ngân sách
 
 | Hạng mục | Giới hạn |
 |---|---:|
@@ -262,7 +272,7 @@ Các hàm thiết bị chỉ trả về thông tin Android hiện được dispa
 
 Nút Dừng vẫn có thể hủy kịch bản khi chạy. Runtime có bộ đếm lệnh thực tế để chặn trường hợp hàm/vòng lặp lồng nhau vượt quá ngân sách tĩnh.
 
-## 9. Ví dụ hoàn chỉnh
+## 10. Ví dụ hoàn chỉnh
 
 ```text
 // Khai báo dữ liệu và hàm
@@ -288,11 +298,11 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 }
 ```
 
-## 10. Những phần chưa thuộc AUTU Script 1.4
+## 11. Những phần chưa được triển khai
 
-Phiên bản 1.3 **chưa** có xử lý lỗi TRY/CATCH do người viết định nghĩa, lập lịch sự kiện, nhận diện ảnh, OCR, chụp màn hình hoặc thao tác đa điểm. Không dùng lệnh giả cho những tính năng này. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
+Các mô-đun còn cần phát triển gồm xử lý lỗi TRY/BẮT_LỖI, nhận diện vật thể và ảnh mẫu, đọc văn bản theo vùng, tệp, JSON lồng nhau, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, tô màu cú pháp, tự hoàn thành và debugger. Chỉ công bố từng lệnh sau khi runtime và kiểm thử đã có. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
 
-## 11. Quy trình chạy
+## 12. Quy trình chạy
 
 1. Viết mã bằng cú pháp HOA và đúng dấu.
 2. Nhấn **Kiểm tra mã**. Lỗi trả về mã lỗi, dòng và cột.
