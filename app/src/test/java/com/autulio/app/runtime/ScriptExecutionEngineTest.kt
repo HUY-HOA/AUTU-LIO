@@ -611,7 +611,6 @@ class ScriptExecutionEngineTest {
             )
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
             assertTrue("Execution did not reach a terminal state: " + engine.snapshot(), terminal.await(3, TimeUnit.SECONDS))
-            println("MULTI_TOUCH_TERMINAL=" + terminalSnapshot + "; ACTIONS=" + dispatcher.actions)
             assertEquals("Unexpected terminal snapshot: " + terminalSnapshot, ScriptExecutionState.COMPLETED, terminalSnapshot?.state)
             assertEquals(
                 listOf(
