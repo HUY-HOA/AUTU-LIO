@@ -108,7 +108,7 @@ class ScriptCompilerTest {
         assertTrue(vietnamese.diagnostics.toString(), vietnamese.isSuccess)
         assertFalse("English command aliases must not be accepted", english.isSuccess)
         assertEquals(2L, vietnamese.program?.expandedInstructionCount)
-        assertEquals(2L, english.program?.expandedInstructionCount)
+        assertEquals(null, english.program)
 
         val supportedActions = listOf(
             "ỨNG_DỤNG_GẦN_ĐÂY()", "MỞ_THÔNG_BÁO()", "MỞ_CÀI_ĐẶT_NHANH()",
