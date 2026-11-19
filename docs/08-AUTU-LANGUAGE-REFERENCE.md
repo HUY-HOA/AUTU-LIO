@@ -1,106 +1,130 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.1
 
-**Tên:** AUTU-LIO Script · **Bộ biên dịch:** 0.3 · **Ngôn ngữ chuẩn:** Tiếng Việt VIẾT HOA, ĐẦY ĐỦ DẤU.
+**Ngôn ngữ:** AUTU-LIO Script 1.1  
+**Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
-Tài liệu này ghi nhận các cú pháp đang có trong parser/runtime. Không xem chức năng trong kế hoạch là chức năng đã chạy.
+Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ.
 
-## Quy tắc
-- Viết từ khóa và lệnh theo dạng HOA, có dấu: `ĐẶT`, `NẾU`, `NGƯỢC_LẠI`, `LẶP`, `LẶP_KHI`, `LẶP_ĐẾN_KHI`, `CHỜ_ĐẾN_KHI`, `THOÁT_LẶP`, `BỎ_QUA_LƯỢT`, `ĐÚNG`, `SAI`, `VÀ`, `HOẶC`, `KHÔNG`.
-- Tên biến tự đặt có thể dùng chữ hoa/thường, chữ số, dấu gạch dưới và chữ tiếng Việt; tên biến phân biệt hoa/thường.
-- Chuỗi dùng dấu ngoặc kép; hỗ trợ escape newline, tab, carriage return, dấu gạch chéo ngược và ngoặc kép.
-- Mỗi lệnh một dòng hoặc phân cách bằng `;`; chú thích bắt đầu bằng `//`; khối lệnh dùng `{}`.
-- Dùng dấu chấm cho số thập phân; thời gian tính bằng mili giây.
-- Parser còn nhận bí danh tiếng Anh cũ để tương thích; mã mới nên dùng tiếng Việt chuẩn.
+## 1. Kiểu dữ liệu
 
-## Kiểu và biểu thức
-Hỗ trợ số hữu hạn, chuỗi Unicode, ĐÚNG/SAI và biến đã khai báo. Toán tử: `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `>`, `>=`, `<`, `<=`, `VÀ`, `HOẶC`, `KHÔNG`. Có ngoặc nhóm, ưu tiên toán tử và đánh giá ngắn mạch. Không tự ép kiểu mơ hồ; chia cho 0 báo lỗi.
+| Kiểu | Giá trị |
+|---|---|
+| `SỐ` | Số nguyên, số thập phân hữu hạn |
+| `CHUỖI` | Văn bản Unicode |
+| `LUẬN_LÝ` | `ĐÚNG` hoặc `SAI` |
+| `DANH_SÁCH` | Tối đa 64 phần tử số, chuỗi hoặc luận lý |
+| `BẤT_KỲ` | Kiểu động được runtime hỗ trợ |
 
-## Cú pháp lõi
+Ví dụ:
 
 ```text
-ĐẶT soLan = 3
-soLan = soLan + 1
+ĐẶT SO_LAN: SỐ = 3
+ĐẶT TEN_GOI: CHUỖI = "com.example.game"
+ĐẶT DA_SAN_SANG: LUẬN_LÝ = ĐÚNG
+ĐẶT CAC_GIA_TRI: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20, 30)
+```
 
-NẾU (soLan >= 3 VÀ ĐÚNG) {
+## 2. Từ khóa điều khiển
+
+`ĐẶT`, `NẾU`, `NGƯỢC_LẠI_NẾU`, `NGƯỢC_LẠI`, `LẶP`, `LẶP_KHI`, `LẶP_ĐẾN_KHI`, `LẶP_MỖI`, `TRONG`, `CHỜ_ĐẾN_KHI`, `THOÁT_LẶP`, `BỎ_QUA_LƯỢT`, `ĐỊNH_NGHĨA_HÀM`, `TRẢ_VỀ`, `ĐÚNG`, `SAI`, `VÀ`, `HOẶC`, `KHÔNG`.
+
+## 3. Toán tử
+
+- Số học: `+`, `-`, `*`, `/`, `%`, `^`.
+- So sánh: `==`, `!=`, `>`, `>=`, `<`, `<=`.
+- Logic: `VÀ`, `HOẶC`, `KHÔNG`.
+- Dùng `(...)` để nhóm biểu thức. Lũy thừa kết hợp từ phải sang trái.
+
+## 4. Điều kiện và vòng lặp
+
+```text
+NẾU (PIN() > 20 VÀ CÓ_MẠNG()) {
     CHẠM(200, 400)
-} NGƯỢC_LẠI_NẾU (soLan == 2) {
-    CHỜ(300)
 } NGƯỢC_LẠI {
-    QUAY_LẠI()
+    CHỜ(500)
 }
 
 LẶP(3) {
     CHẠM(200, 400)
-    CHỜ(500)
 }
 
-LẶP_KHI (soLan < 10) {
-    soLan = soLan + 1
+ĐẶT DEM = 0
+LẶP_KHI (DEM < 5) {
+    DEM = DEM + 1
 }
 
-LẶP_ĐẾN_KHI (soLan >= 10) {
-    soLan = soLan + 1
+LẶP_ĐẾN_KHI(DEM >= 10) {
+    DEM = DEM + 1
 }
 
-CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ("com.example.game"), 15000, 250)
+ĐẶT DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(100, 200, 300)
+LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
+    CHẠM(TOA_DO_X, 400)
+    CHỜ(250)
+}
 ```
 
-`THOÁT_LẶP` dừng vòng lặp gần nhất; `BỎ_QUA_LƯỢT` bỏ phần còn lại của lượt hiện tại.
+`THOÁT_LẶP` thoát vòng lặp gần nhất. `BỎ_QUA_LƯỢT` bỏ phần còn lại của lượt hiện tại. `LẶP_MỖI` duyệt bản sao an toàn của danh sách, biến vòng lặp được khôi phục khi thoát.
 
-## Lệnh Android có parser và runtime
-
-| Lệnh | Tham số |
-|---|---|
-| `CHẠM(X, Y)` | 2 số nguyên |
-| `NHẤN_GIỮ(X, Y, THỜI_LƯỢNG)` | 3 số nguyên |
-| `VUỐT(X1, Y1, X2, Y2, THỜI_LƯỢNG)` | 5 số nguyên |
-| `CHỜ(MILI_GIÂY)` | 1 số nguyên |
-| `MỞ_ỨNG_DỤNG("TÊN_GÓI")` | 1 chuỗi |
-| `QUAY_LẠI()` | Không |
-| `VỀ_MÀN_HÌNH_CHÍNH()` | Không |
-| `ỨNG_DỤNG_GẦN_ĐÂY()` | Không |
-| `MỞ_THÔNG_BÁO()` | Không |
-| `MỞ_CÀI_ĐẶT_NHANH()` | Không |
-| `HIỆN_MENU_NGUỒN()` | Không |
-| `KHÓA_MÀN_HÌNH()` | Không |
-| `CHIA_MÀN_HÌNH()` | Không |
-
-Giới hạn: tọa độ 0–10.000 (sau đó kiểm tra kích thước màn hình thật); giữ 100–10.000 ms; vuốt 1–10.000 ms; chờ 1–60.000 ms. Các lệnh thao tác cần AccessibilityService hoạt động; một số hành động phụ thuộc phiên bản Android.
-
-## Hàm dữ liệu
-- `SỐ(x)`, `CHUỖI(x)`, `LÀM_TRÒN(x)`, `TUYỆT_ĐỐI(x)`, `ĐỘ_DÀI(chuỗi)`, `NHỎ_NHẤT(a,b)`, `LỚN_NHẤT(a,b)`.
-
-## Hàm thiết bị
-- `PIN()`, `PHẦN_TRĂM_PIN()`, `ĐANG_SẠC()`, `CÓ_MẠNG()`, `MÀN_HÌNH_SÁNG()`.
-- `ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`.
-- `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `THỜI_GIAN_MS()`.
-
-## Ví dụ hoàn chỉnh trong phạm vi hiện hỗ trợ
+## 5. Hàm tự định nghĩa
 
 ```text
-ĐẶT tenUngDung = "com.example.game"
-NẾU (ỨNG_DỤNG_ĐÃ_CÀI(tenUngDung)) {
-    MỞ_ỨNG_DỤNG(tenUngDung)
-    CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ(tenUngDung), 15000, 250)
-    ĐẶT soLan = 0
-    LẶP_KHI (soLan < 3) {
-        CHẠM(200, 400)
-        CHỜ(500)
-        soLan = soLan + 1
-    }
-} NGƯỢC_LẠI {
-    QUAY_LẠI()
+ĐỊNH_NGHĨA_HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ {
+    TRẢ_VỀ A + B
 }
+
+ĐẶT KET_QUA: SỐ = TINH_TONG(10, 20)
 ```
 
-## Ngân sách và an toàn
-- Mã tối đa 32.768 ký tự; tối đa 1.000 câu lệnh; lồng nhau tối đa 8 cấp.
-- `LẶP` tối đa 100 lượt; `LẶP_KHI` tối đa 900 lượt.
-- Tối đa 5.000 lệnh sau khi mở rộng vòng lặp; thời lượng tĩnh tối đa 10 phút.
-- Runtime chạy tuần tự; hỗ trợ Tạm dừng, Tiếp tục, Dừng.
-- Không dùng eval, shell, reflection hoặc mã Kotlin/Java tùy ý.
+Hàm phải khai báo ở cấp cao nhất, tối đa 16 tham số và 16 cấp gọi lồng nhau. Kiểu tham số và kiểu trả về có thể bỏ trống; khi khai báo thì runtime kiểm tra kiểu.
 
-## Chưa hỗ trợ
-Hàm do người dùng tự định nghĩa, lớp/đối tượng, danh sách/bản đồ, vòng lặp for/foreach, xử lý ngoại lệ tùy biến, OCR, nhận diện ảnh, đọc nội dung ứng dụng, tọa độ tương đối, đa điểm, sự kiện nền và thư viện dùng chung chưa được hoàn tất. Không nhập các cú pháp đó như thể đã chạy được.
+## 6. Hàm xử lý dữ liệu và danh sách
 
-Một lệnh mới chỉ được công bố là ĐÃ_HỖ_TRỢ khi có parser, kiểm tra tham số, runtime Android thật, quyền phù hợp, xử lý lỗi, unit tests, kiểm thử thiết bị và tài liệu.
+| Hàm | Cú pháp | Ý nghĩa |
+|---|---|---|
+| `SỐ` | `SỐ(GIA_TRI)` | Chuyển thành số |
+| `CHUỖI` | `CHUỖI(GIA_TRI)` | Chuyển thành chuỗi |
+| `LÀM_TRÒN` | `LÀM_TRÒN(SO)` | Làm tròn |
+| `TUYỆT_ĐỐI` | `TUYỆT_ĐỐI(SO)` | Giá trị tuyệt đối |
+| `ĐỘ_DÀI` | `ĐỘ_DÀI(CHUOI_HOAC_DANH_SACH)` | Số ký tự hoặc số phần tử |
+| `NHỎ_NHẤT` | `NHỎ_NHẤT(A, B)` | Giá trị nhỏ hơn |
+| `LỚN_NHẤT` | `LỚN_NHẤT(A, B)` | Giá trị lớn hơn |
+| `TẠO_DANH_SÁCH` | `TẠO_DANH_SÁCH(A, B, ...)` | Tạo danh sách, 0–64 phần tử |
+| `LẤY_PHẦN_TỬ` | `LẤY_PHẦN_TỬ(DS, CHI_SO)` | Lấy phần tử |
+| `THÊM_PHẦN_TỬ` | `THÊM_PHẦN_TỬ(DS, GIA_TRI)` | Thêm phần tử |
+| `ĐẶT_PHẦN_TỬ` | `ĐẶT_PHẦN_TỬ(DS, CHI_SO, GIA_TRI)` | Thay phần tử |
+| `XÓA_PHẦN_TỬ` | `XÓA_PHẦN_TỬ(DS, CHI_SO)` | Xóa và trả về phần tử |
+| `CÓ_PHẦN_TỬ` | `CÓ_PHẦN_TỬ(DS, GIA_TRI)` | Kiểm tra phần tử |
+
+Chỉ số danh sách bắt đầu từ 0. Phần tử chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI. Truy cập ngoài phạm vi, thêm vượt quá 64 phần tử hoặc truyền sai kiểu sẽ báo lỗi runtime.
+
+## 7. Hàm truy vấn Android
+
+`PIN()`, `PHẦN_TRĂM_PIN()`, `ĐANG_SẠC()`, `CÓ_MẠNG()`, `MÀN_HÌNH_SÁNG()`, `ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `THỜI_GIAN_MS()`.
+
+## 8. Lệnh Android
+
+`CHẠM(X,Y)`, `NHẤN_GIỮ(X,Y,MS)`, `VUỐT(X1,Y1,X2,Y2,MS)`, `CHỜ(MS)`, `MỞ_ỨNG_DỤNG("TÊN_GÓI")`, `QUAY_LẠI()`, `VỀ_MÀN_HÌNH_CHÍNH()`, `ỨNG_DỤNG_GẦN_ĐÂY()`, `MỞ_THÔNG_BÁO()`, `MỞ_CÀI_ĐẶT_NHANH()`, `HIỆN_MENU_NGUỒN()`, `KHÓA_MÀN_HÌNH()`, `CHIA_MÀN_HÌNH()`.
+
+Các thao tác cần AccessibilityService hoạt động và chịu giới hạn Android. Tọa độ phải nằm trong màn hình thực tế; hành động bị Android từ chối sẽ làm runtime báo lỗi.
+
+## 9. Giới hạn thực thi
+
+| Hạng mục | Giới hạn |
+|---|---:|
+| Mã nguồn | 32.768 ký tự |
+| Câu lệnh khai báo | 1.000 |
+| Lặp LẶP | 100 lượt |
+| Lặp LẶP_KHI | 900 lượt |
+| Lồng khối | 8 cấp |
+| Tham số hàm | 16 |
+| Gọi hàm lồng nhau | 16 cấp |
+| Danh sách | 64 phần tử |
+| Lượt thực thi | 5.000 |
+| Thời lượng tĩnh | 10 phút |
+
+## 10. Chưa hỗ trợ
+
+Bản đồ khóa–giá trị, xử lý lỗi TRY/CATCH do người viết định nghĩa, lịch/sự kiện nền, OCR, nhận diện ảnh, đọc nội dung ứng dụng, tọa độ tương đối, đa điểm và thư viện hàm dùng chung chưa được tích hợp đầy đủ. Không dùng chúng như lệnh hợp lệ.
+
+Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).
