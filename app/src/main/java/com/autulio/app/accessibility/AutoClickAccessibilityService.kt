@@ -11,6 +11,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.os.SystemClock
 import android.accessibilityservice.GestureDescription
@@ -278,6 +279,60 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     (match.bounds.top + match.bounds.bottom) / 2
                 )
             }
+            "TÌM_THÀNH_PHẦN_VĂN_BẢN" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = requireTextArgument(name, arguments[0])
+                findAccessibilityNode({ node -> nodeMatchesText(node, query) }) { true } ?: false
+            }
+            "NHẤN_THÀNH_PHẦN_VĂN_BẢN" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = requireTextArgument(name, arguments[0])
+                findAccessibilityNode({ node -> nodeMatchesText(node, query) }) { node ->
+                    clickNodeOrClickableAncestor(node)
+                } ?: false
+            }
+            "NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN" -> {
+                requireArgumentCount(name, arguments, 2)
+                val query = requireTextArgument(name, arguments[0])
+                val value = requireTextArgument(name, arguments[1])
+                findAccessibilityNode({ node -> nodeMatchesText(node, query) }) { node ->
+                    setTextOnNodeOrEditableAncestor(node, value)
+                } ?: false
+            }
+            "TÌM_TỌA_ĐỘ_THÀNH_PHẦN" -> {
+                requireArgumentCount(name, arguments, 1)
+                val query = requireTextArgument(name, arguments[0])
+                findAccessibilityNode({ node -> nodeMatchesText(node, query) }) { node ->
+                    val bounds = Rect()
+                    node.getBoundsInScreen(bounds)
+                    if (bounds.isEmpty) emptyList<Int>() else listOf(
+                        (bounds.left + bounds.right) / 2,
+                        (bounds.top + bounds.bottom) / 2
+                    )
+                } ?: emptyList<Int>()
+            }
+            "TÌM_THÀNH_PHẦN_THEO_ID" -> {
+                requireArgumentCount(name, arguments, 1)
+                val resourceId = requireTextArgument(name, arguments[0])
+                findAccessibilityNode({ node -> nodeMatchesViewId(node, resourceId) }) { true } ?: false
+            }
+            "NHẤN_THÀNH_PHẦN_THEO_ID" -> {
+                requireArgumentCount(name, arguments, 1)
+                val resourceId = requireTextArgument(name, arguments[0])
+                findAccessibilityNode({ node -> nodeMatchesViewId(node, resourceId) }) { node ->
+                    clickNodeOrClickableAncestor(node)
+                } ?: false
+            }
+            "NHẬP_VĂN_BẢN_THEO_ID" -> {
+                requireArgumentCount(name, arguments, 2)
+                val resourceId = requireTextArgument(name, arguments[0])
+                val value = requireTextArgument(name, arguments[1])
+                findAccessibilityNode({ node -> nodeMatchesViewId(node, resourceId) }) { node ->
+                    setTextOnNodeOrEditableAncestor(node, value)
+                } ?: false
+            }
+            "CUỘN_XUỐNG" -> scrollFirstScrollableNode(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+            "CUỘN_LÊN" -> scrollFirstScrollableNode(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
             else -> throw UnsupportedOperationException("Hàm '$name' chưa được hỗ trợ trên thiết bị này.")
         }
     }
@@ -387,7 +442,174 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         return merged
     }
 
-    private fun readAccessibilityTextItems(): List<ScreenTextItem> {
+    private fun requireTextArgument(name: String, value: Any?): String =
+        value as? String ?: throw IllegalArgumentException("Hàm '$name' cần tham số dạng chuỗi.")
+
+    private fun <T> callOnMainThread(
+        timeoutMs: Long = 5_000L,
+        action: () -> T
+    ): T? {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return runCatching(action).getOrNull()
+        }
+        val completed = CountDownLatch(1)
+        val result = AtomicReference<T?>(null)
+        val posted = mainHandler.post {
+            try {
+                result.set(action())
+            } catch (_: Exception) {
+                result.set(null)
+            } finally {
+                completed.countDown()
+            }
+        }
+        if (!posted) return null
+        return try {
+            if (completed.await(timeoutMs, TimeUnit.MILLISECONDS)) result.get() else null
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            null
+        }
+    }
+
+    private fun nodeMatchesText(node: AccessibilityNodeInfo, query: String): Boolean {
+        if (query.isBlank() || !node.isVisibleToUser) return false
+        val nodeText = node.text?.toString().orEmpty()
+        val description = node.contentDescription?.toString().orEmpty()
+        return nodeText.contains(query, ignoreCase = true) ||
+            description.contains(query, ignoreCase = true)
+    }
+
+    private fun nodeMatchesViewId(node: AccessibilityNodeInfo, resourceId: String): Boolean {
+        if (resourceId.isBlank() || !node.isVisibleToUser) return false
+        val id = node.viewIdResourceName.orEmpty()
+        return id == resourceId || id.substringAfterLast('/') == resourceId
+    }
+
+    private fun <T> findAccessibilityNode(
+        matches: (AccessibilityNodeInfo) -> Boolean,
+        action: (AccessibilityNodeInfo) -> T
+    ): T? = callOnMainThread {
+        val root = rootInActiveWindow ?: return@callOnMainThread null
+
+        fun visit(node: AccessibilityNodeInfo, depth: Int): T? {
+            if (depth > 32) return null
+            if (matches(node)) return action(node)
+            for (index in 0 until node.childCount) {
+                val child = runCatching { node.getChild(index) }.getOrNull() ?: continue
+                try {
+                    val result = visit(child, depth + 1)
+                    if (result != null) return result
+                } finally {
+                    @Suppress("DEPRECATION")
+                    child.recycle()
+                }
+            }
+            return null
+        }
+
+        try {
+            visit(root, 0)
+        } finally {
+            @Suppress("DEPRECATION")
+            root.recycle()
+        }
+    }
+
+    private fun clickNodeOrClickableAncestor(node: AccessibilityNodeInfo): Boolean {
+        var current: AccessibilityNodeInfo? = AccessibilityNodeInfo.obtain(node)
+        var depth = 0
+        while (current != null && depth++ < 16) {
+            val parent = runCatching { current.parent }.getOrNull()
+            val clicked = runCatching {
+                current.isEnabled && current.isClickable &&
+                    current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            }.getOrDefault(false)
+            @Suppress("DEPRECATION")
+            current.recycle()
+            if (clicked) {
+                parent?.let {
+                    @Suppress("DEPRECATION")
+                    it.recycle()
+                }
+                return true
+            }
+            current = parent
+        }
+        current?.let {
+            @Suppress("DEPRECATION")
+            it.recycle()
+        }
+        return false
+    }
+
+    private fun setTextOnNodeOrEditableAncestor(node: AccessibilityNodeInfo, value: String): Boolean {
+        var current: AccessibilityNodeInfo? = AccessibilityNodeInfo.obtain(node)
+        var depth = 0
+        while (current != null && depth++ < 16) {
+            val parent = runCatching { current.parent }.getOrNull()
+            val changed = runCatching {
+                if (!current.isEnabled || !current.isEditable) false
+                else {
+                    val arguments = Bundle().apply {
+                        putCharSequence(
+                            AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                            value
+                        )
+                    }
+                    current.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+                }
+            }.getOrDefault(false)
+            @Suppress("DEPRECATION")
+            current.recycle()
+            if (changed) {
+                parent?.let {
+                    @Suppress("DEPRECATION")
+                    it.recycle()
+                }
+                return true
+            }
+            current = parent
+        }
+        current?.let {
+            @Suppress("DEPRECATION")
+            it.recycle()
+        }
+        return false
+    }
+
+    private fun scrollFirstScrollableNode(action: Int): Boolean {
+        return callOnMainThread {
+            val root = rootInActiveWindow ?: return@callOnMainThread false
+            fun visit(node: AccessibilityNodeInfo, depth: Int): Boolean {
+                if (depth > 32) return false
+                if (node.isVisibleToUser && node.isEnabled && node.isScrollable &&
+                    node.performAction(action)
+                ) return true
+                for (index in 0 until node.childCount) {
+                    val child = runCatching { node.getChild(index) }.getOrNull() ?: continue
+                    try {
+                        if (visit(child, depth + 1)) return true
+                    } finally {
+                        @Suppress("DEPRECATION")
+                        child.recycle()
+                    }
+                }
+                return false
+            }
+            try {
+                visit(root, 0)
+            } finally {
+                @Suppress("DEPRECATION")
+                root.recycle()
+            }
+        } ?: false
+    }
+
+    private fun readAccessibilityTextItems(): List<ScreenTextItem> =
+        callOnMainThread { readAccessibilityTextItemsOnMainThread() } ?: emptyList()
+
+    private fun readAccessibilityTextItemsOnMainThread(): List<ScreenTextItem> {
         val root = rootInActiveWindow ?: return emptyList()
         val output = mutableListOf<ScreenTextItem>()
 
