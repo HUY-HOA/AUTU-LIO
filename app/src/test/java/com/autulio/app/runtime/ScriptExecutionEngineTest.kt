@@ -897,30 +897,6 @@ class ScriptExecutionEngineTest {
                     "URL" to "https://api.example.com/status"
                 )
                 "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> "AUTU-LIO Đăng nhập"
-                "CHI_TIẾT_MÃ_QR_MÀN_HÌNH" -> listOf(
-                    linkedMapOf<String, Any?>(
-                        "GIÁ_TRỊ_GỐC" to "https://example.test",
-                        "GIÁ_TRỊ_HIỂN_THỊ" to "example.test",
-                        "ĐỊNH_DẠNG" to "MÃ_QR",
-                        "LOẠI_NỘI_DUNG" to "ĐƯỜNG_DẪN",
-                        "X" to 30.0,
-                        "Y" to 40.0,
-                        "RỘNG" to 80.0,
-                        "CAO" to 80.0
-                    )
-                )
-                "CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH" -> listOf(
-                    linkedMapOf<String, Any?>(
-                        "GIÁ_TRỊ_GỐC" to "123456789",
-                        "GIÁ_TRỊ_HIỂN_THỊ" to "123456789",
-                        "ĐỊNH_DẠNG" to "EAN_13",
-                        "LOẠI_NỘI_DUNG" to "SẢN_PHẨM",
-                        "X" to 20.0,
-                        "Y" to 40.0,
-                        "RỘNG" to 100.0,
-                        "CAO" to 40.0
-                    )
-                )
                 "ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH" -> listOf(
                     linkedMapOf<String, Any?>(
                         "VĂN_BẢN" to "Đăng nhập",
@@ -962,31 +938,6 @@ class ScriptExecutionEngineTest {
                 }
                 "CUỘN_XUỐNG" -> true
                 "CUỘN_LÊN" -> true
-                "ĐỌC_VĂN_BẢN_VÙNG" -> "OK vùng"
-                "MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG" -> arguments.firstOrNull() == "OK"
-                "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG" -> listOf(110, 220)
-                "NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH" -> listOf("Phone", "Screen")
-                "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" -> arguments.firstOrNull() == "Phone"
-                "QUÉT_MÃ_QR_MÀN_HÌNH" -> listOf("https://example.test")
-                "QUÉT_MÃ_VẠCH_MÀN_HÌNH" -> listOf("123456789")
-                "PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH" -> listOf(
-                    linkedMapOf<String, Any?>(
-                        "X" to 10.0,
-                        "Y" to 20.0,
-                        "RỘNG" to 40.0,
-                        "CAO" to 60.0,
-                        "NHÃN" to listOf(
-                            linkedMapOf<String, Any?>(
-                                "TÊN" to "Food",
-                                "CHỈ_SỐ" to 1.0,
-                                "ĐỘ_TIN_CẬY" to 0.91
-                            )
-                        )
-                    )
-                )
-                "MÀN_HÌNH_CÓ_VẬT_THỂ" -> arguments.firstOrNull() == "Food"
-                "TÌM_TỌA_ĐỘ_VẬT_THỂ" -> listOf(30, 50)
-                "ĐẾM_VẬT_THỂ_MÀN_HÌNH" -> 1
                 "ĐỌC_TỆP" -> "AUTU-LIO"
                 "GHI_TỆP" -> {
                     actions += "writeFile:${arguments.firstOrNull()}=${arguments.getOrNull(1)}"
