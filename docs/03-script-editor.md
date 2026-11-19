@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.11
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.13
 
-**Phiên bản cú pháp:** `1.11`  
+**Phiên bản cú pháp:** `1.13`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -262,7 +262,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.11 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.13 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. Kết nối API qua HTTPS
 
@@ -284,6 +284,16 @@ Ví dụ:
 )
 ĐẶT TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
 ```
+
+### SQLite nội bộ
+
+```text
+SQL_THỰC_THI("CREATE TABLE IF NOT EXISTS LICH_SU (ID INTEGER PRIMARY KEY, NOI_DUNG TEXT)", TẠO_DANH_SÁCH())
+SQL_THỰC_THI("INSERT INTO LICH_SU (NOI_DUNG) VALUES (?)", TẠO_DANH_SÁCH("Đã chạy"))
+ĐẶT CAC_DONG: DANH_SÁCH = SQL_TRUY_VẤN("SELECT ID, NOI_DUNG FROM LICH_SU", TẠO_DANH_SÁCH())
+```
+
+AUTU-LIO dùng một database SQLite nội bộ trong vùng riêng ứng dụng. SQL chỉ được thực thi qua allow-list và tham số dấu hỏi `?`; truy vấn chỉ cho SELECT, còn câu ghi chỉ cho CREATE/ALTER/DROP giới hạn, INSERT, UPDATE, DELETE và REPLACE. Không hỗ trợ tự chọn đường dẫn database, ATTACH, PRAGMA, nhiều câu SQL hoặc chú thích. Giới hạn kết quả: 256 dòng, 64 cột và 1 MiB văn bản.
 
 ## 9. OCR và văn bản trên màn hình
 
@@ -325,6 +335,17 @@ NẾU (MÀN_HÌNH_CÓ_VẬT_THỂ("Food")) {
 ```
 
 Mỗi phần tử trong danh sách VẬT_THỂ là bản đồ có X, Y, RỘNG, CAO và NHÃN. Hộp giới hạn dùng pixel ảnh màn hình. NHÃN chứa các bản đồ có TÊN, CHỈ_SỐ và ĐỘ_TIN_CẬY. Bộ nhận diện mặc định trả tối đa 5 vật thể và chỉ dùng nhãn tổng quát; không phải nhận dạng mọi đồ vật với tên chính xác.
+
+### Phân tích màu RGB trên màn hình
+
+| Hàm | Cú pháp |
+|---|---|
+| MÀU_TẠI | `MÀU_TẠI(X, Y)` trả về các kênh RGB, alpha và HEX |
+| MÀN_HÌNH_CÓ_MÀU | `MÀN_HÌNH_CÓ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
+| TÌM_VỊ_TRÍ_MÀU | `TÌM_VỊ_TRÍ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
+| TỶ_LỆ_MÀU_TRONG_VÙNG | `TỶ_LỆ_MÀU_TRONG_VÙNG(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO)` |
+
+Kênh RGB và sai số nằm trong khoảng 0–255. Phân tích màu dùng ảnh chụp tại thiết bị và lấy mẫu có giới hạn; tỷ lệ trong vùng là ước lượng. Màn hình bảo mật hoặc ứng dụng chặn chụp có thể không sử dụng được.
 
 ### Tìm và thao tác phần tử giao diện bằng Trợ năng
 
@@ -411,7 +432,7 @@ NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
 
 ## 12. Những phần chưa được triển khai
 
-Các mô-đun còn cần phát triển gồm khớp ảnh mẫu, tìm vùng màu, OCR từ tệp, đọc/ghi tệp, HTTP/API, SQLite, tọa độ tương đối, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, tô màu cú pháp, tự hoàn thành và debugger. Chỉ công bố từng lệnh sau khi runtime và kiểm thử đã có. Chỉ thêm chúng khi có AST, kiểm tra quyền, runtime Android và unit tests tương ứng.
+Các mô-đun còn cần phát triển gồm OCR/nhận diện từ ảnh do người dùng chọn qua URI, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, tọa độ DP/tương đối, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, regex/ngày giờ, tô màu cú pháp, tự hoàn thành và debugger từng bước. Chỉ công bố từng lệnh sau khi có parser, runtime, kiểm tra quyền và unit tests tương ứng.
 
 ## 13. Quy trình chạy
 
