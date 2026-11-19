@@ -1885,19 +1885,10 @@ async function createGeminiLiveToken(request, env, session) {
   const liveConnectConstraints = {
     model: "gemini-3.8-live",
     config: {
+      // Keep only the documented token-lock fields. System instructions, tools,
+      // transcription and context compression are supplied by the Android setup frame.
       responseModalities: ["AUDIO"],
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } },
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
-      contextWindowCompression: { slidingWindow: {} },
-      sessionResumption: {},
-      systemInstruction: { parts: [{ text: GEMINI_LIVE_SYSTEM_PROMPT }] },
-      tools: [{
-        functionDeclarations: [
-          ...GEMINI_LIVE_TOOLS.flatMap(group => group.functionDeclarations),
-          ...(session.role === "OWNER" ? GEMINI_LIVE_AUTU_SCRIPT_TOOLS : [])
-        ]
-      }]
+      sessionResumption: {}
     }
   };
 
