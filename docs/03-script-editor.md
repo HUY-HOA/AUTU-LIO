@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.13
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.14
 
-**Phiên bản cú pháp:** `1.13`  
+**Phiên bản cú pháp:** `1.14`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -262,7 +262,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
 | `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.13 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.14 bổ sung đọc cây giao diện trợ năng và OCR màn hình theo yêu cầu.
 
 ## 8. Kết nối API qua HTTPS
 
@@ -304,6 +304,16 @@ AUTU-LIO dùng một database SQLite nội bộ trong vùng riêng ứng dụng.
 | TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("Đăng nhập") | Danh sách [X, Y] là tâm vị trí; rỗng nếu không tìm thấy |
 
 Các hàm chỉ phân tích màn hình khi kịch bản gọi chúng. AUTU-LIO kết hợp cây giao diện trợ năng với OCR on-device. Ảnh màn hình không được tải lên máy chủ. Trên Android 11/API 30 trở lên, OCR có thể dùng ảnh màn hình của AccessibilityService; Android cũ hơn chỉ đọc được nội dung mà cây trợ năng cung cấp. Màn hình bảo mật, ứng dụng chặn chụp và vùng đồ họa không phơi bày nội dung có thể không đọc được. OCR có thể nhận sai chữ hoặc dấu; phải kiểm tra kết quả trước thao tác quan trọng.
+
+### OCR có cấu trúc
+
+```text
+ĐẶT CÁC_KHỐI: DANH_SÁCH = ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()
+ĐẶT KHỐI_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_KHỐI, 0)
+ĐẶT CÁC_DÒNG: DANH_SÁCH = LẤY_GIÁ_TRỊ(KHỐI_ĐẦU, "CÁC_DÒNG")
+```
+
+Mỗi khối trả về VĂN_BẢN, X, Y, RỘNG, CAO và danh sách CÁC_DÒNG. Mỗi dòng có VĂN_BẢN cùng bounds riêng. Kết quả được giới hạn tối đa 64 khối và 256 dòng để tránh tạo cấu trúc dữ liệu quá lớn. Tọa độ là pixel của ảnh chụp màn hình.
 
 ### OCR theo vùng và nhận diện ảnh
 
