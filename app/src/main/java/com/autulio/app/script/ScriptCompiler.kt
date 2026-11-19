@@ -14,6 +14,7 @@ sealed interface ScriptExpression {
     data class NumberLiteral(val value: Double) : ScriptExpression
     data class StringLiteral(val value: String) : ScriptExpression
     data class BooleanLiteral(val value: Boolean) : ScriptExpression
+    data object NullLiteral : ScriptExpression
     data class Variable(val name: String) : ScriptExpression
     data class Unary(val operator: String, val operand: ScriptExpression) : ScriptExpression
     data class Binary(val operator: String, val left: ScriptExpression, val right: ScriptExpression) : ScriptExpression
@@ -74,13 +75,15 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.7"
+    const val LANGUAGE_VERSION = "1.8"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
     const val MAX_WHILE_ITERATIONS = 900
     const val MAX_LIST_ITEMS = 64
     const val MAX_MAP_ENTRIES = 64
+    const val MAX_COLLECTION_DEPTH = 8
+    const val MAX_COLLECTION_VALUES = 512
     const val MAX_NESTING_DEPTH = 8
     const val MAX_EXPANDED_INSTRUCTIONS = 5_000L
     const val MAX_TOTAL_DURATION_MS = 600_000L
@@ -147,6 +150,8 @@ object ScriptCompiler {
         "XÓA_KHÓA" to 2,
         "CÓ_KHÓA" to 2,
         "DANH_SÁCH_KHÓA" to 1,
+        "PHÂN_TÍCH_JSON" to 1,
+        "CHUYỂN_JSON" to 1,
         "ĐỌC_VĂN_BẢN_MÀN_HÌNH" to 0,
         "MÀN_HÌNH_CHỨA_CHỮ" to 1,
         "TÌM_VỊ_TRÍ_CHỮ" to 1,
@@ -173,7 +178,7 @@ object ScriptCompiler {
         "ĐẶT", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
         "LẶP", "LẶP_KHI", "LẶP_ĐẾN_KHI", "LẶP_MỖI", "TRONG", "CHỜ_ĐẾN_KHI",
         "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "ĐỊNH_NGHĨA_HÀM", "TRẢ_VỀ", "THỬ", "BẮT_LỖI", "LUÔN_THỰC_HIỆN",
-        "ĐÚNG", "SAI", "VÀ", "HOẶC", "KHÔNG"
+        "ĐÚNG", "SAI", "RỖNG", "VÀ", "HOẶC", "KHÔNG"
     )
 
     fun compile(source: String): ScriptCompileResult {
@@ -860,6 +865,7 @@ object ScriptCompiler {
             val token = advance()
             if (token.text == "ĐÚNG") return ScriptExpression.BooleanLiteral(true)
             if (token.text == "SAI") return ScriptExpression.BooleanLiteral(false)
+            if (token.text == "RỖNG") return ScriptExpression.NullLiteral
             requireUppercaseIdentifier(token, "tên biến hoặc hàm")
             if (token.text in reservedWords || token.text in commandAliases) {
                 fail(token.line, token.column, "reserved_identifier", "Từ khóa hoặc lệnh không thể dùng làm biến/hàm.", "A keyword or command cannot be used as a variable/function.")
