@@ -209,6 +209,10 @@ class ScriptExecutionEngine(
                     completeInstruction(runId)
                     throw ReturnValue(value)
                 }
+                is ScriptInstruction.ExpressionStatement -> {
+                    evaluate(instruction.expression, variables, declaredTypes, runId, callDepth)
+                    completeInstruction(runId)
+                }
                 is ScriptInstruction.Command ->
                     executeCommand(runId, instruction, variables, declaredTypes, callDepth)
                 is ScriptInstruction.SetVariable -> {
@@ -1094,6 +1098,8 @@ class ScriptExecutionEngine(
                         validateBlock(instruction.body, depth + 1, 0, true)
                 is ScriptInstruction.Return ->
                     inFunction && validateExpression(instruction.value, 0)
+                is ScriptInstruction.ExpressionStatement ->
+                    validateExpression(instruction.expression, 0)
                 is ScriptInstruction.Command -> {
                     val arity = when (instruction.name) {
                         "CHẠM" -> 2
