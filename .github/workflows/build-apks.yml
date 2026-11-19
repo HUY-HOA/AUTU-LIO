@@ -1,6 +1,6 @@
 name: AUTU-LIO Android APK
 
-run-name: AUTU-LIO Release APK - Gemini Live v1beta and screen sharing - ${{ github.ref_name }}
+run-name: AUTU-LIO Release APK - Gemini Live v1alpha token and WebSocket - ${{ github.ref_name }}
 
 on:
   push:
