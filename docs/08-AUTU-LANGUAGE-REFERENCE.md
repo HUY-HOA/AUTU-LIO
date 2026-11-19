@@ -203,68 +203,18 @@ Chỉ chấp nhận URL HTTPS, không nhúng user/password và không theo chuy�
 
 `PIN()`, `PHẦN_TRĂM_PIN()`, `ĐANG_SẠC()`, `CÓ_MẠNG()`, `MÀN_HÌNH_SÁNG()`, `ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `THỜI_GIAN_MS()`.
 
-## 9. Đọc văn bản và OCR màn hình
+## 9. Đọc văn bản giao diện qua Trợ năng
+
+AUTU-LIO chỉ đọc văn bản, nhãn và tọa độ được ứng dụng đích công khai qua cây Android Accessibility. Không có OCR, mô hình nhận diện ảnh, quét QR/mã vạch hoặc phát hiện vật thể.
 
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
-| ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Trả về văn bản tìm được trên màn hình |
-| ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() | Danh sách khối OCR và từng dòng, gồm văn bản cùng tọa độ X/Y, rộng, cao |
-| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("chuỗi") | ĐÚNG nếu màn hình có chuỗi cần tìm |
-| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("chuỗi") | Danh sách [X, Y] là tâm vị trí tìm thấy; danh sách rỗng nếu không có |
+| ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Văn bản và nhãn công khai qua cây Trợ năng |
+| ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() | Danh sách cấu trúc khối/dòng, kèm tọa độ bounds |
+| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("chuỗi") | ĐÚNG nếu nhãn truy cập có chuỗi cần tìm |
+| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("chuỗi") | Danh sách [X, Y] là tâm vị trí tìm thấy |
 
-AUTU-LIO đọc cây giao diện trợ năng và dùng OCR trên ảnh màn hình khi Android hỗ trợ. OCR được gọi theo yêu cầu của kịch bản, kết quả chỉ lưu tạm trong bộ nhớ. Từ Android 11/API 30, ảnh màn hình được lấy qua AccessibilityService; Android cũ hơn chỉ có thể đọc nội dung mà cây giao diện trợ năng cung cấp. Nội dung trong màn hình bảo mật, ứng dụng chặn chụp hoặc thành phần đồ họa không được Android công khai có thể không đọc được. Kết quả OCR có thể sai; cần kiểm tra trước khi thực hiện thao tác quan trọng.
-
-### OCR theo vùng màn hình
-
-| Hàm | Cú pháp | Kết quả |
-|---|---|---|
-| ĐỌC_VĂN_BẢN_VÙNG | ĐỌC_VĂN_BẢN_VÙNG(X, Y, RỘNG, CAO) | Đọc chữ bên trong vùng pixel |
-| MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG | MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("OK", X, Y, RỘNG, CAO) | Kiểm tra chuỗi trong vùng |
-| TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG | TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("OK", X, Y, RỘNG, CAO) | Trả về tâm chữ theo tọa độ pixel toàn màn hình |
-
-Tọa độ X/Y bắt đầu từ góc trái trên. RỘNG/CAO phải là số nguyên dương; toàn bộ vùng phải nằm trong ảnh chụp màn hình thực tế. OCR vùng sử dụng crop của ảnh màn hình và model Text Recognition on-device.
-
-### Nhận diện hình ảnh và mã
-
-| Hàm | Cú pháp | Kết quả |
-|---|---|---|
-| NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH | NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH() | Danh sách nhãn ảnh theo độ tin cậy |
-| MÀN_HÌNH_CHỨA_NHÃN_ẢNH | MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone") | Kiểm tra nhãn có chứa từ khóa |
-| QUÉT_MÃ_QR_MÀN_HÌNH | QUÉT_MÃ_QR_MÀN_HÌNH() | Danh sách dữ liệu QR đã giải mã |
-| QUÉT_MÃ_VẠCH_MÀN_HÌNH | QUÉT_MÃ_VẠCH_MÀN_HÌNH() | Danh sách dữ liệu mã vạch đã giải mã |
-| CHI_TIẾT_MÃ_QR_MÀN_HÌNH | CHI_TIẾT_MÃ_QR_MÀN_HÌNH() | Danh sách giá trị, định dạng, loại nội dung và hộp tọa độ của mã QR |
-| CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH | CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH() | Danh sách chi tiết mã vạch của các định dạng được hỗ trợ |
-
-Các hàm CHI_TIẾT_MÃ_QR_MÀN_HÌNH và CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH trả về GIÁ_TRỊ_GỐC, GIÁ_TRỊ_HIỂN_THỊ, ĐỊNH_DẠNG, LOẠI_NỘI_DUNG và X/Y/RỘNG/CAO nếu ML Kit xác định được hộp giới hạn. Dữ liệu quét chỉ được trả về cho kịch bản; ứng dụng không tự mở liên kết, gọi điện hoặc kết nối Wi‑Fi. Kết quả chi tiết tối đa 56 mã mỗi lần; giá trị văn bản mỗi trường được giới hạn 4.096 ký tự.
-
-Mô hình gắn nhãn ảnh cơ bản nhận diện nhãn tổng quát, không phải mô hình phát hiện mọi vật thể hay xác định tọa độ từng vật. Quét mã cần đủ độ phân giải và độ nét; giá trị trả về là nội dung giải mã, không tự mở liên kết hoặc thực hiện hành động.
-
-### Trợ năng: tìm và thao tác thành phần giao diện
-
-| Hàm | Cú pháp | Kết quả |
-|---|---|---|
-| TÌM_THÀNH_PHẦN_VĂN_BẢN | TÌM_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập") | Kiểm tra văn bản hoặc mô tả nội dung có trên cây trợ năng |
-| NHẤN_THÀNH_PHẦN_VĂN_BẢN | NHẤN_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập") | Thực hiện ACTION_CLICK trên node hoặc tổ tiên có thể nhấn |
-| NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN | NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN("Tên", "LIO") | Gửi ACTION_SET_TEXT tới node có thể nhập |
-| TÌM_TỌA_ĐỘ_THÀNH_PHẦN | TÌM_TỌA_ĐỘ_THÀNH_PHẦN("Đăng nhập") | Trả về [X, Y] tâm bounds theo pixel màn hình |
-| TÌM_THÀNH_PHẦN_THEO_ID | TÌM_THÀNH_PHẦN_THEO_ID("login_button") | Tìm resource ID đầy đủ hoặc phần tên cuối |
-| NHẤN_THÀNH_PHẦN_THEO_ID | NHẤN_THÀNH_PHẦN_THEO_ID("login_button") | Nhấn phần tử theo resource ID |
-| NHẬP_VĂN_BẢN_THEO_ID | NHẬP_VĂN_BẢN_THEO_ID("username", "AUTU") | Nhập văn bản vào phần tử theo resource ID |
-| CUỘN_XUỐNG / CUỘN_LÊN | CUỘN_XUỐNG() / CUỘN_LÊN() | Cuộn node đầu tiên có thể cuộn |
-
-Các thao tác này chỉ tác động node mà ứng dụng đích công khai qua AccessibilityService. Nếu ứng dụng không cung cấp node, phần tử không bật, không thể nhấn/nhập hoặc nội dung nằm trong canvas/game, hàm sẽ trả về SAI/ danh sách rỗng. Không có cách bảo đảm mọi ứng dụng đều phơi bày cây giao diện.
-
-### Nhận diện vật thể và hộp giới hạn
-
-| Hàm | Cú pháp | Kết quả |
-|---|---|---|
-| PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH | PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH() | Danh sách tối đa 5 bản đồ vật thể |
-| MÀN_HÌNH_CÓ_VẬT_THỂ | MÀN_HÌNH_CÓ_VẬT_THỂ("Food") | Kiểm tra nhãn phân loại có chứa từ khóa |
-| TÌM_TỌA_ĐỘ_VẬT_THỂ | TÌM_TỌA_ĐỘ_VẬT_THỂ("Food") | Trả về [X,Y] tâm hộp giới hạn đầu tiên khớp nhãn |
-| ĐẾM_VẬT_THỂ_MÀN_HÌNH | ĐẾM_VẬT_THỂ_MÀN_HÌNH() | Số vật thể phát hiện trong ảnh |
-
-Mỗi bản đồ vật thể gồm X, Y, RỘNG, CAO theo pixel ảnh chụp màn hình và NHÃN là danh sách bản đồ có TÊN, CHỈ_SỐ, ĐỘ_TIN_CẬY. Bộ nhận diện ảnh tĩnh bật phân loại và phát hiện nhiều vật thể, tối đa 5 vật thể. Phân loại mặc định chỉ đưa ra nhóm tổng quát như thời trang, thực phẩm, đồ gia dụng, địa điểm hoặc cây cối; không phải mô hình nhận diện tên cụ thể mọi vật thể. Không có tracking ID trong chế độ ảnh tĩnh. Kết quả phụ thuộc kích thước/vị trí vật thể, độ nét và cảnh ảnh.
-
+Các hàm chỉ đọc dữ liệu mà ứng dụng đích đã công khai qua Trợ năng. Chúng không phân tích ảnh, không chạy OCR và không gửi ảnh hoặc âm thanh ra ngoài thiết bị. Nội dung game canvas, video hoặc thành phần tùy chỉnh không có nhãn có thể không đọc được.
 
 ### Phân tích màu RGB trên màn hình
 
@@ -288,142 +238,3 @@ NẾU (MÀN_HÌNH_CÓ_MÀU(0, 180, 80, 12)) {
 ĐẶT TY_LE_XANH: SỐ = TỶ_LỆ_MÀU_TRONG_VÙNG(0, 180, 80, 12, 100, 200, 400, 300)
 ```
 
-## 10. SQLite riêng của AUTU-LIO
-
-| Hàm | Cú pháp | Kết quả |
-|---|---|---|
-| SQL_THỰC_THI | SQL_THỰC_THI(CÂU_SQL, DANH_SÁCH_THAM_SỐ) | Bản đồ SỐ_DÒNG và ID_MỚI |
-| SQL_TRUY_VẤN | SQL_TRUY_VẤN(CÂU_SELECT, DANH_SÁCH_THAM_SỐ) | Danh sách bản đồ, mỗi bản đồ là một dòng |
-
-Ví dụ:
-
-```text
-SQL_THỰC_THI("CREATE TABLE IF NOT EXISTS GHI_CHU (ID INTEGER PRIMARY KEY, TEN TEXT)", TẠO_DANH_SÁCH())
-SQL_THỰC_THI("INSERT INTO GHI_CHU (TEN) VALUES (?)", TẠO_DANH_SÁCH("Việc cần làm"))
-ĐẶT CAC_DONG: DANH_SÁCH = SQL_TRUY_VẤN("SELECT ID, TEN FROM GHI_CHU WHERE ID > ?", TẠO_DANH_SÁCH(0))
-```
-
-Cơ sở dữ liệu được lưu trong vùng riêng của AUTU-LIO; script không chọn đường dẫn, mở cơ sở dữ liệu bên ngoài hoặc gắn thêm database. SQL_TRUY_VẤN chỉ nhận một câu SELECT. SQL_THỰC_THI chỉ nhận CREATE TABLE/INDEX, ALTER TABLE, DROP TABLE/INDEX, INSERT, UPDATE, DELETE hoặc REPLACE. Tham số phải dùng dấu hỏi không đánh số `?`; số dấu hỏi phải khớp danh sách tham số. Mỗi câu chỉ được có một lệnh; cấm dấu chấm phẩy, chú thích SQL, tham số có tên, ATTACH/DETACH, PRAGMA và các lệnh quản trị bị giới hạn. Mỗi lệnh thay đổi dữ liệu được chạy trong transaction nội bộ.
-
-Giới hạn: câu SQL tối đa 8.192 ký tự; 64 tham số; kết quả tối đa 256 dòng, 64 cột và 1 MiB văn bản. Một ô văn bản hoặc tham số chuỗi tối đa 4.096 ký tự. SQLite không nhận tham số nhị phân, danh sách hoặc bản đồ. Đây là SQLite nội bộ của AUTU-LIO, không thay thế công cụ quản trị database tổng quát.
-
-## 11. Tọa độ DP và tỷ lệ màn hình
-
-| Hàm | Cú pháp | Kết quả |
-|---|---|---|
-| MẬT_ĐỘ_MÀN_HÌNH | MẬT_ĐỘ_MÀN_HÌNH() | Hệ số density hiện tại của màn hình |
-| DP_SANG_PIXEL | DP_SANG_PIXEL(DP) | Đổi DP sang pixel theo density hiện tại, làm tròn số nguyên |
-| PIXEL_SANG_DP | PIXEL_SANG_DP(PIXEL) | Đổi pixel sang DP |
-| TỌA_ĐỘ_X_THEO_TỶ_LỆ | TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ) | Tỷ lệ 0–1 thành tọa độ X theo chiều rộng hiện tại |
-| TỌA_ĐỘ_Y_THEO_TỶ_LỆ | TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ) | Tỷ lệ 0–1 thành tọa độ Y theo chiều cao hiện tại |
-| TỶ_LỆ_X_THEO_TỌA_ĐỘ | TỶ_LỆ_X_THEO_TỌA_ĐỘ(X) | Đổi tọa độ X pixel sang tỷ lệ 0–1 |
-| TỶ_LỆ_Y_THEO_TỌA_ĐỘ | TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y) | Đổi tọa độ Y pixel sang tỷ lệ 0–1 |
-
-Ví dụ:
-
-```text
-ĐẶT X: SỐ = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.5)
-ĐẶT Y: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.75)
-CHẠM(X, Y)
-ĐẶT X_DP: SỐ = PIXEL_SANG_DP(X)
-```
-
-Tỷ lệ 0 ứng với pixel đầu tiên, tỷ lệ 1 ứng với pixel cuối cùng trên trục tương ứng. Các hàm đọc kích thước màn hình tại thời điểm được gọi nên có thể dùng lại cùng một kịch bản trên nhiều độ phân giải. Chúng không tự hiệu chỉnh status bar, navigation bar, vùng camera cutout hoặc vùng bị ứng dụng che; kết quả là hệ tọa độ màn hình mà AccessibilityService đang sử dụng.
-
-## 12. Thông tin màn hình và ứng dụng foreground
-
-| Hàm | Cú pháp | Kết quả |
-|---|---|---|
-| CHIỀU_RỘNG_DP | CHIỀU_RỘNG_DP() | Chiều rộng màn hình tính theo DP |
-| CHIỀU_CAO_DP | CHIỀU_CAO_DP() | Chiều cao màn hình tính theo DP |
-| TỶ_LỆ_KHUNG_HÌNH | TỶ_LỆ_KHUNG_HÌNH() | Chiều rộng pixel chia chiều cao pixel |
-| HƯỚNG_MÀN_HÌNH | HƯỚNG_MÀN_HÌNH() | NGANG, DỌC hoặc VUÔNG theo kích thước pixel thực |
-| XOAY_MÀN_HÌNH | XOAY_MÀN_HÌNH() | Mã xoay Android từ 0 đến 3 |
-| GÓC_XOAY_MÀN_HÌNH | GÓC_XOAY_MÀN_HÌNH() | Góc 0, 90, 180 hoặc 270 độ |
-| GÓI_ỨNG_DỤNG_ĐANG_MỞ | GÓI_ỨNG_DỤNG_ĐANG_MỞ() | Package foreground gần nhất nhận được từ sự kiện Trợ năng |
-| HÀNG_SẢN_XUẤT | HÀNG_SẢN_XUẤT() | Nhà sản xuất thiết bị Android |
-| MẪU_THIẾT_BỊ | MẪU_THIẾT_BỊ() | Model thiết bị Android |
-| PHIÊN_BẢN_ANDROID | PHIÊN_BẢN_ANDROID() | Chuỗi phiên bản Android |
-| MỨC_API_ANDROID | MỨC_API_ANDROID() | Mức API Android dạng số |
-| MÀN_HÌNH_BỊ_KHÓA | MÀN_HÌNH_BỊ_KHÓA() | ĐÚNG khi Keyguard đang khóa màn hình |
-| THIẾT_BỊ_ĐƯỢC_BẢO_MẬT | THIẾT_BỊ_ĐƯỢC_BẢO_MẬT() | ĐÚNG nếu thiết bị có khóa bảo mật được cấu hình |
-
-Ví dụ tự chọn vị trí theo hướng màn hình:
-
-```text
-NẾU (HƯỚNG_MÀN_HÌNH() == "DỌC") {
-    ĐẶT X: SỐ = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.5)
-    ĐẶT Y: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.8)
-} NGƯỢC_LẠI {
-    ĐẶT X: SỐ = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.8)
-    ĐẶT Y: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.5)
-}
-CHẠM(X, Y)
-```
-
-CHIỀU_RỘNG_DP/CHIỀU_CAO_DP dùng density hiện tại. TỶ_LỆ_KHUNG_HÌNH dùng kích thước pixel thực. HƯỚNG_MÀN_HÌNH suy ra từ chiều rộng/cao pixel, không phải khóa xoay của ứng dụng. XOAY_MÀN_HÌNH trả về chỉ số rotation của Android; GÓC_XOAY_MÀN_HÌNH đổi chỉ số đó thành độ. Các hàm HÀNG_SẢN_XUẤT, MẪU_THIẾT_BỊ, PHIÊN_BẢN_ANDROID và MỨC_API_ANDROID đọc thuộc tính Build cục bộ; MÀN_HÌNH_BỊ_KHÓA và THIẾT_BỊ_ĐƯỢC_BẢO_MẬT đọc trạng thái Keyguard, không mở khóa hoặc thay đổi bảo mật. GÓI_ỨNG_DỤNG_ĐANG_MỞ có thể rỗng nếu AccessibilityService chưa nhận sự kiện cửa sổ; đây là package từ sự kiện trợ năng, không phải bảo đảm tuyệt đối của hệ thống về foreground trong mọi ứng dụng.
-
-### Thao tác đa điểm và đa ngón
-
-| Lệnh | Cú pháp | Giới hạn |
-|---|---|---|
-| CHẠM_ĐA_ĐIỂM | CHẠM_ĐA_ĐIỂM(DANH_SÁCH_ĐIỂM, MS) | Chạm đồng thời từ 2 đến 5 điểm; mỗi điểm là [X, Y] |
-| VUỐT_ĐA_ĐIỂM | VUỐT_ĐA_ĐIỂM(DANH_SÁCH_ĐƯỜNG, MS) | Vuốt đồng thời từ 2 đến 5 đường; mỗi đường chứa 2–16 cặp X/Y |
-
-Ví dụ thu phóng hai ngón:
-
-```text
-VUỐT_ĐA_ĐIỂM(
-    TẠO_DANH_SÁCH(
-        TẠO_DANH_SÁCH(200, 400, 150, 350),
-        TẠO_DANH_SÁCH(400, 400, 450, 350)
-    ),
-    300
-)
-```
-
-Các đường bắt đầu cùng thời điểm và có cùng thời lượng. Tọa độ được kiểm tra theo giới hạn runtime rồi theo kích thước màn hình thực tế. Android/ứng dụng đích có thể hủy hoặc từ chối cử chỉ đa điểm; thiết bị và ứng dụng không hỗ trợ đa chạm sẽ không thực hiện được. Lệnh không mô phỏng phần cứng cảm ứng và không vượt qua giới hạn bảo mật Android.
-
-## 13. Lệnh Android
-
-`CHẠM(X,Y)`, `NHẤN_GIỮ(X,Y,MS)`, `VUỐT(X1,Y1,X2,Y2,MS)`, `CHỜ(MS)`, `MỞ_ỨNG_DỤNG("TÊN_GÓI")`, `QUAY_LẠI()`, `VỀ_MÀN_HÌNH_CHÍNH()`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY()`, `MỞ_THANH_THÔNG_BÁO()`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH()`, `MỞ_HỘP_THOẠI_NGUỒN()`, `KHÓA_MÀN_HÌNH()`, `BẬT_TẮT_CHIA_MÀN_HÌNH()`.
-
-Các thao tác cần AccessibilityService hoạt động và chịu giới hạn Android. Tọa độ phải nằm trong màn hình thực tế; hành động bị Android từ chối sẽ làm runtime báo lỗi.
-
-## 15. Xử lý lỗi có cấu trúc
-
-Cú pháp:
-
-```text
-THỬ {
-    MỞ_ỨNG_DỤNG("invalid")
-} BẮT_LỖI (LỖI) {
-    ĐẶT MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
-    ĐẶT THÔNG_BÁO: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "THÔNG_BÁO")
-} LUÔN_THỰC_HIỆN {
-    CHỜ(100)
-}
-```
-
-Biến trong BẮT_LỖI là BẢN_ĐỒ gồm khóa CHUỖI "MÃ" và "THÔNG_BÁO". BẮT_LỖI bắt lỗi thực thi của kịch bản; không bắt lệnh dừng, thoát vòng lặp, bỏ qua lượt hoặc trả về hàm. LUÔN_THỰC_HIỆN luôn chạy khi rời khối THỬ, kể cả khi lỗi không được xử lý. Nếu LUÔN_THỰC_HIỆN phát sinh lỗi mới, lỗi mới được truyền ra ngoài. Có thể dùng THỬ với LUÔN_THỰC_HIỆN mà không có BẮT_LỖI.
-
-## 16. Giới hạn thực thi
-
-| Hạng mục | Giới hạn |
-|---|---:|
-| Mã nguồn | 32.768 ký tự |
-| Câu lệnh khai báo | 1.000 |
-| Lặp LẶP | 100 lượt |
-| Lặp LẶP_KHI | 900 lượt |
-| Lồng khối | 8 cấp |
-| Tham số hàm | 16 |
-| Gọi hàm lồng nhau | 16 cấp |
-| Danh sách | 64 phần tử |
-| Lượt thực thi | 5.000 |
-| Thời lượng tĩnh | 10 phút |
-
-## 17. Chưa hỗ trợ
-
-AUTU Script 1.19 hiện có kho tệp riêng, HTTP(S) giới hạn, SQLite nội bộ, OCR màn hình/vùng, nhận diện nhãn ảnh, vật thể, QR/mã vạch và phân tích màu RGB lấy mẫu. Phần còn thiếu gồm nhập ảnh qua bộ chọn tệp/URI để OCR và nhận diện, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, đoạn tọa độ DP/tương đối cơ bản đã có; hiệu chỉnh vùng an toàn, kéo-thả/đa điểm, sự kiện và lịch nền, module dùng chung, regex/ngày giờ và debugger từng bước. Các phần này chưa phải lệnh hợp lệ cho đến khi có parser, runtime, kiểm tra quyền, kiểm thử và tài liệu đầy đủ.
-
-Tài liệu chi tiết và quy trình chạy nằm trong [docs/03-script-editor.md](03-script-editor.md).

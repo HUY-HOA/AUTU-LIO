@@ -31,7 +31,7 @@ AUTU-LIO không tích hợp trợ lý AI, mô hình ngôn ngữ, dịch vụ sin
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Đã có SQLite nội bộ, SQL allow-list, bind tham số và transaction mỗi câu ghi; hệ thống di trú schema còn thiếu |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
 | Văn bản giao diện | Đọc cây Trợ năng, tìm nhãn và trả tọa độ | Chỉ đọc nội dung mà ứng dụng đang mở công khai qua cây Trợ năng; không có OCR hoặc nhận diện bằng mô hình |
-| Thị giác máy tính | Nhãn ảnh, vật thể, hộp giới hạn, QR/mã vạch, màu, mẫu ảnh | Đã có nhãn ảnh, vật thể cơ bản, QR/mã vạch và chi tiết mã có định dạng/loại nội dung/bounds; RGB lấy mẫu màn hình bổ sung ở 1.13; khớp ảnh mẫu và so sánh khung hình còn thiếu |
+
 | Ảnh và màu màn hình | Lấy mẫu điểm ảnh để đọc màu khi người dùng gọi lệnh | Chỉ phân tích màu cục bộ; không dùng mô hình nhận diện ảnh |
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt và chạm/vuốt đồng thời 2–5 ngón, tối đa 16 điểm mỗi đường; kéo-thả đường cong chuyên biệt còn thiếu |
 | Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel, DP, tỷ lệ 0–1 và truy vấn hướng/góc xoay đã có; hiệu chỉnh vùng an toàn và chuyển đổi hệ tọa độ theo xoay còn thiếu |

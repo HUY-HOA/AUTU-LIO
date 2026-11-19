@@ -71,7 +71,7 @@ Thiết bị: `PIN`, `PHẦN_TRĂM_PIN`, `ĐANG_SẠC`, `CÓ_MẠNG`, `MÀN_HÌN
 - Ghi nhật ký có cấu trúc từ mã AUTU.
 - Tọa độ theo phần trăm, vùng thao tác, đa điểm.
 - Chờ sự kiện/lịch chạy và quản lý tác vụ nền.
-- MediaProjection, quét ảnh, OCR hoặc đọc nội dung màn hình.
+- OCR, nhận diện ảnh, quét mã và các tính năng AI không thuộc phạm vi runtime. Đọc văn bản chỉ dùng nhãn mà ứng dụng đích công khai qua cây Android Accessibility.
 - Debugger từng bước, breakpoint, biến theo dõi và tô màu cú pháp.
 
 Các mục này không được xem là hỗ trợ cho đến khi có AST, giới hạn an toàn, quyền người dùng, runtime thật, test và kiểm thử Android thật. Xem `docs/08-AUTU-LANGUAGE-REFERENCE.md` để tra cứu chính xác cú pháp đang hoạt động.

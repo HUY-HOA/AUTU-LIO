@@ -336,69 +336,18 @@ SQL_THỰC_THI("INSERT INTO LICH_SU (NOI_DUNG) VALUES (?)", TẠO_DANH_SÁCH("Đ
 
 AUTU-LIO dùng một database SQLite nội bộ trong vùng riêng ứng dụng. SQL chỉ được thực thi qua allow-list và tham số dấu hỏi `?`; truy vấn chỉ cho SELECT, còn câu ghi chỉ cho CREATE/ALTER/DROP giới hạn, INSERT, UPDATE, DELETE và REPLACE. Không hỗ trợ tự chọn đường dẫn database, ATTACH, PRAGMA, nhiều câu SQL hoặc chú thích. Giới hạn kết quả: 256 dòng, 64 cột và 1 MiB văn bản.
 
-## 9. OCR và văn bản trên màn hình
+## 9. Văn bản giao diện qua Trợ năng và màu màn hình
+
+AUTU-LIO không tích hợp OCR, nhận diện ảnh, quét QR/mã vạch hoặc phát hiện vật thể. Văn bản chỉ được đọc cục bộ từ cây Android Accessibility mà ứng dụng đang mở chủ động công khai.
 
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
-| ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Trả về văn bản tìm được trên màn hình |
-| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập") | ĐÚNG nếu nội dung màn hình có chuỗi |
-| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("Đăng nhập") | Danh sách [X, Y] là tâm vị trí; rỗng nếu không tìm thấy |
+| ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Văn bản và nhãn có thể truy cập qua cây Trợ năng |
+| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập") | ĐÚNG nếu một nhãn được công khai có chứa chuỗi |
+| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("Đăng nhập") | Danh sách [X, Y] là tâm bounds của nhãn tìm thấy |
+| ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() | Cấu trúc khối/dòng và tọa độ từ cây Trợ năng |
 
-Các hàm chỉ phân tích màn hình khi kịch bản gọi chúng. AUTU-LIO kết hợp cây giao diện trợ năng với OCR on-device. Ảnh màn hình không được tải lên máy chủ. Trên Android 11/API 30 trở lên, OCR có thể dùng ảnh màn hình của AccessibilityService; Android cũ hơn chỉ đọc được nội dung mà cây trợ năng cung cấp. Màn hình bảo mật, ứng dụng chặn chụp và vùng đồ họa không phơi bày nội dung có thể không đọc được. OCR có thể nhận sai chữ hoặc dấu; phải kiểm tra kết quả trước thao tác quan trọng.
-
-### OCR có cấu trúc
-
-```text
-ĐẶT CÁC_KHỐI: DANH_SÁCH = ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()
-ĐẶT KHỐI_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_KHỐI, 0)
-ĐẶT CÁC_DÒNG: DANH_SÁCH = LẤY_GIÁ_TRỊ(KHỐI_ĐẦU, "CÁC_DÒNG")
-```
-
-Mỗi khối trả về VĂN_BẢN, X, Y, RỘNG, CAO và danh sách CÁC_DÒNG. Mỗi dòng có VĂN_BẢN cùng bounds riêng. Kết quả được giới hạn tối đa 32 khối và 40 dòng, mỗi đoạn văn bản tối đa 4.096 ký tự để tránh tạo cấu trúc dữ liệu quá lớn. Tọa độ là pixel của ảnh chụp màn hình.
-
-### OCR theo vùng và nhận diện ảnh
-
-```text
-ĐẶT VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_VÙNG(100, 200, 500, 300)
-NẾU (MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("Đăng nhập", 100, 200, 500, 300)) {
-    ĐẶT VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("Đăng nhập", 100, 200, 500, 300)
-    CHẠM(LẤY_PHẦN_TỬ(VI_TRI, 0), LẤY_PHẦN_TỬ(VI_TRI, 1))
-}
-
-ĐẶT NHAN: DANH_SÁCH = NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()
-NẾU (MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone")) {
-    ĐẶT QR: DANH_SÁCH = QUÉT_MÃ_QR_MÀN_HÌNH()
-    ĐẶT MA_VACH: DANH_SÁCH = QUÉT_MÃ_VẠCH_MÀN_HÌNH()
-}
-```
-
-Tọa độ vùng là pixel toàn màn hình, gốc ở góc trái trên. Vùng phải nằm trọn trong ảnh chụp. Gắn nhãn ảnh trả về nhãn tổng quát của toàn khung hình, không trả hộp giới hạn từng vật thể. Quét QR và mã vạch trả về nội dung giải mã; không tự mở URL. Ảnh phải đủ nét và mã đủ lớn để giải mã.
-
-### Nhận diện vật thể
-
-```text
-ĐẶT VẬT_THỂ: DANH_SÁCH = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()
-ĐẶT SO_LUONG: SỐ = ĐẾM_VẬT_THỂ_MÀN_HÌNH()
-NẾU (MÀN_HÌNH_CÓ_VẬT_THỂ("Food")) {
-    ĐẶT TỌA_ĐỘ: DANH_SÁCH = TÌM_TỌA_ĐỘ_VẬT_THỂ("Food")
-    CHẠM(LẤY_PHẦN_TỬ(TỌA_ĐỘ, 0), LẤY_PHẦN_TỬ(TỌA_ĐỘ, 1))
-}
-```
-
-Mỗi phần tử trong danh sách VẬT_THỂ là bản đồ có X, Y, RỘNG, CAO và NHÃN. Hộp giới hạn dùng pixel ảnh màn hình. NHÃN chứa các bản đồ có TÊN, CHỈ_SỐ và ĐỘ_TIN_CẬY. Bộ nhận diện mặc định trả tối đa 5 vật thể và chỉ dùng nhãn tổng quát; không phải nhận dạng mọi đồ vật với tên chính xác.
-
-### Mã QR và mã vạch có cấu trúc
-
-```text
-ĐẶT CÁC_MÃ: DANH_SÁCH = CHI_TIẾT_MÃ_QR_MÀN_HÌNH()
-LẶP_MỖI (MỘT_MÃ TRONG CÁC_MÃ) {
-    ĐẶT GIÁ_TRỊ: CHUỖI = LẤY_GIÁ_TRỊ(MỘT_MÃ, "GIÁ_TRỊ_GỐC")
-    ĐẶT ĐỊNH_DẠNG: CHUỖI = LẤY_GIÁ_TRỊ(MỘT_MÃ, "ĐỊNH_DẠNG")
-}
-ĐẶT MÃ_VẠCH: DANH_SÁCH = CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()
-```
-
-Mỗi kết quả chứa GIÁ_TRỊ_GỐC, GIÁ_TRỊ_HIỂN_THỊ, ĐỊNH_DẠNG, LOẠI_NỘI_DUNG và bounds X/Y/RỘNG/CAO nếu có. Kết quả chi tiết tối đa 56 mã mỗi lần; mỗi trường văn bản giới hạn 4.096 ký tự. Không phải mọi mã đều có giá trị văn bản UTF-8 hoặc bounds. Kịch bản tự quyết định xử lý tiếp; ứng dụng không tự mở URL hoặc kết nối tới dữ liệu được quét.
+Cây Trợ năng không đảm bảo hiển thị nội dung game canvas, video, nội dung vẽ trực tiếp hoặc thành phần tùy chỉnh không cung cấp nhãn. Ảnh màn hình chỉ được xử lý cục bộ cho các lệnh màu RGB, không được gửi tới dịch vụ AI.
 
 ### Phân tích màu RGB trên màn hình
 
@@ -444,67 +393,3 @@ THỬ {
 
 Biến lỗi là BẢN_ĐỒ với hai khóa "MÃ" và "THÔNG_BÁO". LUÔN_THỰC_HIỆN luôn chạy khi rời khối, kể cả khi lỗi không được bắt. Lệnh dừng, thoát vòng lặp, bỏ qua lượt và trả về hàm vẫn giữ nguyên luồng điều khiển, không bị xem là lỗi có thể bắt.
 
-## 10. Giới hạn an toàn và ngân sách
-
-| Hạng mục | Giới hạn |
-|---|---:|
-| Mã nguồn | 32.768 ký tự |
-| Số câu lệnh khai báo | 1.000 |
-| Số lần LẶP | 1–100 |
-| Số lượt LẶP_KHI tối đa | 900 |
-| Độ sâu khối lệnh | 8 |
-| Độ sâu gọi hàm | 16 |
-| Tham số hàm | 16 |
-| Phần tử trong một danh sách | 64 |
-| Cặp khóa–giá trị trong một bản đồ | 64 |
-| Số lượt thực thi thực tế | 5.000 |
-| Tổng thời lượng chờ/thao tác tĩnh | 600.000 ms |
-| Tọa độ pixel | 0–10.000 |
-| CHỜ | 1–60.000 ms |
-| NHẤN_GIỮ | 100–10.000 ms |
-| VUỐT | 1–10.000 ms |
-| Thời hạn CHỜ_ĐẾN_KHI | 1–60.000 ms |
-| Chu kỳ CHỜ_ĐẾN_KHI | 50–5.000 ms |
-
-Nút Dừng vẫn có thể hủy kịch bản khi chạy. Runtime có bộ đếm lệnh thực tế để chặn trường hợp hàm/vòng lặp lồng nhau vượt quá ngân sách tĩnh.
-
-## 11. Ví dụ hoàn chỉnh
-
-```text
-// Khai báo dữ liệu và hàm
-ĐẶT PIN_TỐI_THIỂU: SỐ = 20
-ĐẶT TÊN_ỨNG_DỤNG: CHUỖI = "com.example.game"
-
-ĐỊNH_NGHĨA_HÀM CO_THE_CHAY(): LUẬN_LÝ {
-    TRẢ_VỀ PIN() >= PIN_TỐI_THIỂU VÀ CÓ_MẠNG()
-}
-
-// Mở ứng dụng nếu đủ điều kiện
-NẾU (CO_THE_CHAY() VÀ ỨNG_DỤNG_ĐÃ_CÀI(TÊN_ỨNG_DỤNG)) {
-    MỞ_ỨNG_DỤNG(TÊN_ỨNG_DỤNG)
-    CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ(TÊN_ỨNG_DỤNG), 15000, 250)
-
-    ĐẶT SỐ_LẦN = 3
-    LẶP(SỐ_LẦN) {
-        CHẠM(200, 400)
-        CHỜ(500)
-    }
-} NGƯỢC_LẠI {
-    QUAY_LẠI()
-}
-```
-
-## 12. Những phần chưa được triển khai
-
-Các mô-đun còn cần phát triển gồm OCR/nhận diện từ ảnh do người dùng chọn qua URI, khớp ảnh mẫu, so sánh khung hình, CSV, PATCH/multipart/download, hiệu chỉnh vùng an toàn cho tọa độ, kéo-thả/đa điểm, lịch và sự kiện nền, thư viện dùng chung, regex/ngày giờ, tô màu cú pháp, tự hoàn thành và debugger từng bước. Chỉ công bố từng lệnh sau khi có parser, runtime, kiểm tra quyền và unit tests tương ứng.
-
-## 13. Quy trình chạy
-
-1. Viết mã bằng cú pháp HOA và đúng dấu.
-2. Nhấn **Kiểm tra mã**. Lỗi trả về mã lỗi, dòng và cột.
-3. Nhấn **Chuẩn bị chạy** khi mã hợp lệ.
-4. Tự bật AUTU-LIO trong Cài đặt Android > Trợ năng nếu chưa bật.
-5. Chuyển sang ứng dụng mục tiêu rồi tự nhấn **Chạy** trên cửa sổ nổi.
-6. Dùng Tạm dừng, Tiếp tục, Dừng hoặc đóng cửa sổ để điều khiển phiên chạy.
-
-Bản nháp được mã hóa và lưu cục bộ. Gói phát hành được kiểm tra chữ ký/quyền, mã hóa phía Worker và chỉ được tải về thiết bị đã đăng ký có giấy phép hợp lệ.
