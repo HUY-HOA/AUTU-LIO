@@ -19,7 +19,7 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Customer package listing and download require an active license and the requesting device's registered RSA-3072 public key.
 - At download time, the Worker re-wraps the package data key to that device; the private key remains in Android Keystore.
 
-Permission overrides are restricted to each role's allowed set. Owner-only controls, such as managing collaborators and licenses or final publishing, cannot be granted to collaborators.
+Only OWNER can manage customers, licenses, devices and AUTU packages; CUSTOMER accounts are limited to their own licensed devices and packages.
 
 ## D1
 
