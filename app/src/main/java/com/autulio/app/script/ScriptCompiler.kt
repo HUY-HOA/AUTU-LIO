@@ -768,7 +768,7 @@ object ScriptCompiler {
                     }
                 }
                 expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng hàm.", "Expected ')' after function arguments.")
-                val normalizedName = builtinFunctionAliases[token.text] ?: token.text
+                val normalizedName = token.text
                 val expected = builtinFunctionArities[normalizedName]
                 if (expected == -1 && args.size > MAX_LIST_ITEMS) {
                     fail(token.line, token.column, "list_too_large", "Danh sách không được vượt quá $MAX_LIST_ITEMS phần tử.", "A list cannot exceed $MAX_LIST_ITEMS items.")
