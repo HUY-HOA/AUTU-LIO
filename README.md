@@ -4,15 +4,12 @@ AUTU-LIO là **ứng dụng Android native**, phát hành dưới dạng một A
 
 Thư mục `backend/` chứa Cloudflare Worker REST API phục vụ trực tiếp ứng dụng Android (đăng nhập, phân quyền, dữ liệu dự án, thiết bị, giấy phép và gói AUTU); đây không phải ứng dụng web.
 
-## Vai trò trong ứng dụng
+## Vai trò hiện dùng
 
-- **Chủ sở hữu:** quản trị ứng dụng, cộng tác viên, khách hàng, thiết bị, giấy phép, kịch bản và phát hành.
-- **Nhà phát triển:** viết, sửa và kiểm thử kịch bản theo quyền máy chủ cấp.
-- **Nhà thiết kế:** chỉnh sửa cấu hình giao diện của ứng dụng.
-- **Người kiểm duyệt:** xem xét và duyệt bản phát hành.
-- **Người dùng:** chỉ tải và chạy kịch bản đã phát hành, có giấy phép hợp lệ.
+- **OWNER (Chủ sở hữu):** quản trị AUTU-LIO, khách hàng, thiết bị, giấy phép, kịch bản và phát hành.
+- **CUSTOMER (Người dùng AUTU):** sử dụng các AUTU đã phát hành khi tài khoản, giấy phép và thiết bị đáp ứng điều kiện.
 
-Mọi bản Debug và Release đều đi qua cùng luồng đăng nhập và xác minh vai trò. Ứng dụng không có bộ chọn vai trò giả hoặc tài khoản xem thử để cấp quyền.
+Phạm vi vận hành hiện tại chỉ dùng OWNER và CUSTOMER. Quy trình cộng tác viên/nhà phát triển được để dành cho giai đoạn sau; hiện chưa triển khai onboarding người viết AUTU. Mọi quyền vẫn do máy chủ xác minh, không cấp quyền bằng bộ chọn vai trò cục bộ.
 
 ## Cấu trúc
 
@@ -31,6 +28,6 @@ Xem [hướng dẫn bảo mật và ký APK](docs/SECURITY-AND-SIGNING.md) và [
 
 ## Trạng thái phát triển
 
-Ứng dụng Android đang được hoàn thiện theo hướng sản phẩm thực tế, không dùng màn hình demo làm chức năng. Luồng đăng nhập, xác minh quyền, quản lý dự án, ngôn ngữ AUTU Script, runtime và cửa sổ chạy nổi đã có mã nguồn trong nhánh tích hợp Android. Trước khi phát hành cần hoàn tất cấu hình Google OAuth và Cloudflare Worker, đồng bộ dữ liệu/giấy phép, hoàn thiện đóng gói kịch bản, ký Release và kiểm thử trực tiếp trên thiết bị Android thật.
+AUTU-LIO đã đăng nhập Google thành công trên thiết bị và tài khoản chủ sở hữu đã được máy chủ xác nhận là OWNER. Cloudflare Worker và D1 đã triển khai; bản Release v0.1.12 trước đó đã qua bước kiểm tra chữ ký và tải artifact lên GitHub Actions. Các hạng mục còn phải nghiệm thu là luồng khách hàng/giấy phép/thiết bị, đóng gói và phân phối AUTU, cùng kiểm thử thao tác Trợ năng và cửa sổ nổi trên thiết bị Android thật.
 
 Xem [trạng thái và các điều kiện còn thiếu để phát hành](docs/PROJECT-STATUS.md).
