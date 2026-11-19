@@ -1905,7 +1905,7 @@ async function createGeminiLiveToken(request, env, session) {
 
   let upstream;
   try {
-    upstream = await fetch("https://generativelanguage.googleapis.com/v1alpha/auth_tokens", {
+    upstream = await fetch(`https://generativelanguage.googleapis.com/${GEMINI_LIVE_API_VERSION}/auth_tokens`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
