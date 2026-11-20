@@ -2,6 +2,7 @@ package com.autulio.app.accessibility
 
 import android.app.KeyguardManager
 import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
 import android.accessibilityservice.AccessibilityService.ScreenshotResult
 import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
 import android.content.Context
@@ -1219,6 +1220,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     @Suppress("DEPRECATION")
+    @SuppressLint("NewApi")
     private fun captureDisplayGeometry(insets: WindowInsets) {
         val metrics = readDisplayMetrics()
         val systemInsets: ScreenInsets
