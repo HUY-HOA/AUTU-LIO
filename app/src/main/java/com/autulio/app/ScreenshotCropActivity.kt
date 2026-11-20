@@ -130,9 +130,12 @@ class ScreenshotCropActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        imageSaver.shutdown()
-        originalBitmap?.recycle()
+        val bitmapToRecycle = originalBitmap
         originalBitmap = null
+        if (bitmapToRecycle != null) {
+            imageSaver.execute { bitmapToRecycle.recycle() }
+        }
+        imageSaver.shutdown()
         super.onDestroy()
     }
 }
