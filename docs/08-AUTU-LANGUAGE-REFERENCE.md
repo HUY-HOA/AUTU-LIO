@@ -137,6 +137,26 @@ Mỗi phiên bản đã áp dụng được lưu checksum SHA-256. Gọi lại �
 
 Giới hạn di trú: tối đa 64 câu SQL, 65.536 ký tự SQL tổng cộng và 256 tham số tổng cộng trong một phiên bản; từng câu vẫn tuân theo giới hạn SQL 8.192 ký tự và 64 tham số. SQL_THỰC_THI chỉ cho phép CREATE TABLE/INDEX, ALTER TABLE, DROP TABLE/INDEX, INSERT, UPDATE, DELETE hoặc REPLACE. SQL_TRUY_VẤN chỉ chấp nhận SELECT. Các giới hạn truy vấn, kiểu tham số và cấm nhiều câu SQL/chú thích/PRAGMA/ATTACH vẫn áp dụng. Lệnh KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU() chạy PRAGMA integrity_check và foreign_key_check nội bộ, đồng thời xác thực thứ tự/checksum/thời điểm của lịch sử di trú. Kết quả có giới hạn tối đa 64 thông báo integrity và 64 lỗi khóa ngoại; ĐẠT chỉ là ĐÚNG khi tất cả kiểm tra đều sạch và không bị cắt bớt. Tính năng này không thay thế backup/restore.
 
+### CSV — dữ liệu dạng bảng
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| PHÂN_TÍCH_CSV | PHÂN_TÍCH_CSV(NỘI_DUNG, DẤU_TÁCH) | DANH_SÁCH các dòng; mỗi dòng là DANH_SÁCH CHUỖI |
+| CHUYỂN_CSV | CHUYỂN_CSV(BẢNG, DẤU_TÁCH) | Chuỗi CSV UTF-8 |
+
+Ví dụ đọc và ghi CSV trong vùng tệp riêng của AUTU:
+
+```text
+ĐẶT NỘI_DUNG: CHUỖI = ĐỌC_TỆP("data/customers.csv")
+ĐẶT CÁC_DÒNG: DANH_SÁCH = PHÂN_TÍCH_CSV(NỘI_DUNG, ",")
+ĐẶT CSV_MỚI: CHUỖI = CHUYỂN_CSV(CÁC_DÒNG, ",")
+GHI_TỆP("data/customers-copy.csv", CSV_MỚI)
+```
+
+Parser hỗ trợ dấu nháy kép, dấu phẩy/dấu phân cách nằm trong ô có nháy, nháy kép lặp (`""`), BOM UTF-8, CRLF/LF/CR và xuống dòng nằm trong ô có nháy. Serializer tự đặt nháy khi cần và ghi kết thúc bản ghi bằng CRLF. Dấu phân cách bắt buộc là đúng một ký tự, không được là dấu nháy hoặc ký tự xuống dòng.
+
+Giới hạn: tối đa 1.048.576 ký tự đầu vào/đầu ra, 64 dòng, 64 cột mỗi dòng, 512 ô tổng cộng và 16.384 ký tự mỗi ô. Bộ chuyển đổi chỉ nhận CHUỖI, SỐ hữu hạn, LUẬN_LÝ hoặc RỖNG; BẢN_ĐỒ và DANH_SÁCH lồng nhau không được tự chuyển thành CSV.
+
 ### JSON và dữ liệu lồng nhau
 
 | Hàm / giá trị | Cú pháp | Kết quả |

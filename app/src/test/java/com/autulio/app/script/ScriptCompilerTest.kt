@@ -961,4 +961,27 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", wrongObjects.diagnostics.first().code)
     }
 
+    @Test
+    fun compilesCsvParseAndSerializeFunctions() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT BẢNG: DANH_SÁCH = PHÂN_TÍCH_CSV("Tên,Giá trị", ",")
+            ĐẶT NỘI_DUNG: CHUỖI = CHUYỂN_CSV(BẢNG, ",")
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
+    @Test
+    fun validatesCsvFunctionArgumentCounts() {
+        val parseWrong = ScriptCompiler.compile(
+            "ĐẶT BẢNG = PHÂN_TÍCH_CSV(\"A,B\")"
+        )
+        val serializeWrong = ScriptCompiler.compile(
+            "ĐẶT CSV = CHUYỂN_CSV(TẠO_DANH_SÁCH())"
+        )
+        assertEquals("function_argument_count", parseWrong.diagnostics.first().code)
+        assertEquals("function_argument_count", serializeWrong.diagnostics.first().code)
+    }
+
 }

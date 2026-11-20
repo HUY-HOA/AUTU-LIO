@@ -221,6 +221,8 @@ object ScriptCompiler {
         "LIỆT_KÊ_TỆP" to 1,
         "ĐỌC_JSON_TỆP" to 1,
         "GHI_JSON_TỆP" to 2,
+        "PHÂN_TÍCH_CSV" to 2,
+        "CHUYỂN_CSV" to 2,
         "GỬI_YÊU_CẦU_HTTP" to 5,
         "SQL_THỰC_THI" to 2,
         "SQL_TRUY_VẤN" to 2,

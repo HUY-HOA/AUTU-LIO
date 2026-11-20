@@ -64,6 +64,7 @@ import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScriptSchemaMigrationStatement
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
+import com.autulio.app.runtime.ScriptCsvCodec
 import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptProgram
 import java.util.Locale
@@ -894,6 +895,19 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 2)
                 val path = requireTextArgument(name, arguments[0])
                 scriptFileStore.writeText(path, ScriptJsonCodec.stringify(arguments[1]))
+            }
+            "PHÂN_TÍCH_CSV" -> {
+                requireArgumentCount(name, arguments, 2)
+                val csv = requireTextArgument(name, arguments[0])
+                val delimiter = requireTextArgument(name, arguments[1])
+                ScriptCsvCodec.parse(csv, delimiter)
+            }
+            "CHUYỂN_CSV" -> {
+                requireArgumentCount(name, arguments, 2)
+                val rows = arguments[0] as? List<*>
+                    ?: throw IllegalArgumentException("CHUYỂN_CSV cần một DANH_SÁCH các dòng.")
+                val delimiter = requireTextArgument(name, arguments[1])
+                ScriptCsvCodec.serialize(rows, delimiter)
             }
             "TÌM_THÀNH_PHẦN_VĂN_BẢN" -> {
                 requireArgumentCount(name, arguments, 1)

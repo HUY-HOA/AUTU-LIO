@@ -39,6 +39,7 @@
 - Accessibility Service phát gesture Android, gọi hành động hệ thống được hỗ trợ và tạo cửa sổ điều khiển nổi.
 - AUTU Script 1.21 có chuyển đổi DP/pixel, tọa độ vùng an toàn và hướng xoay màn hình; thao tác thực tế theo pixel nguyên.
 - HTTP client dùng OkHttp, hỗ trợ HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, chặn redirect, giới hạn header/body/timeout và không trả các header xác thực nhạy cảm.
+- CSV parser/serializer có dấu nháy, dấu phân cách tùy chọn, BOM và CRLF; giới hạn 64 dòng/64 cột/512 ô/1 MiB; gọi qua PHÂN_TÍCH_CSV và CHUYỂN_CSV.
 - SQLite riêng của ứng dụng có giới hạn 8 MiB; SQL allow-list, bind tham số, giới hạn kết quả và transaction cho từng câu ghi.
 - Di trú schema theo phiên bản 1..100.000: chạy tuần tự, transaction nguyên tử, checksum SHA-256, gọi lặp cùng checksum không chạy lại; thay đổi nội dung cùng phiên bản bị từ chối. Bảng lịch sử di trú bị ẩn khỏi SQL của script.
 - Hàm KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU() chạy integrity_check, foreign_key_check và xác thực lịch sử di trú; kết quả bị giới hạn.
@@ -46,7 +47,7 @@
 - Cài đặt OWNER/CUSTOMER có nút Sao lưu/Khôi phục qua Android SAF; thao tác bị từ chối khi runtime đang chạy/tạm dừng và yêu cầu phiên đã xác minh nếu dùng Accessibility Service.
 - ML Kit được bật trong mọi Android build: OCR, QR/mã vạch, nhãn ảnh và phát hiện vật thể chạy cục bộ; không có Gemini.
 - Android source checks run 44682290716 đã xanh trên commit 6b630c64 (compile, Kotlin unit tests và lint; gồm codec backup/restore và giao diện SAF). Worker checks run 44676593746 đã xanh trên commit backend a3192286; backend không thay đổi trong các commit Android sau đó.
-- Unit tests hiện có cho parser/compiler, runtime, HTTP, di trú SQLite, integrity policy và codec backup/restore; CI chạy unit tests và lint. Chưa có kiểm thử Android instrumented/device cho luồng đổi file SQLite khi restore.
+- Unit tests hiện có cho parser/compiler, runtime, HTTP, CSV, di trú SQLite, integrity policy và codec backup/restore; CI chạy unit tests và lint. Chưa có kiểm thử Android instrumented/device cho luồng đổi file SQLite khi restore.
 - Mã nguồn có tính năng không đồng nghĩa đã nghiệm thu trên thiết bị thật. Cần kiểm tra độ chính xác gesture, vòng đời service, quyền Trợ năng, overlay và khả năng dừng trong các tình huống thực tế.
 
 ### Quản lý và phân phối AUTU
@@ -67,10 +68,10 @@
 2. **Giấy phép/thiết bị — API và màn hình đã có, nghiệm thu end-to-end còn thiếu:** OWNER tạo giấy phép; CUSTOMER đăng ký thiết bị; kiểm tra giới hạn thiết bị, ngày hết hạn, thu hồi và phiên đăng nhập.
 3. **Package — mã hóa và API đã có, nghiệm thu phát hành/tải xuống còn thiếu:** OWNER tạo và phát hành package; CUSTOMER tải, giải mã, kiểm tra hash và chạy package bằng giấy phép/thiết bị hợp lệ.
 4. **Runtime — mã nguồn và unit test đã có, kiểm thử thiết bị thật còn thiếu:** kiểm tra CHẠM, NHẤN_GIỮ, VUỐT, CHỜ, mở ứng dụng, pause/resume/stop, LUÔN_THỰC_HIỆN và lỗi quyền Trợ năng.
-4. **Sao lưu/khôi phục SQLite — mã nguồn và CI đã có, thiết bị thật còn thiếu:** thử xuất qua SAF, thử khôi phục đúng/sai checksum, file hỏng, thiếu dung lượng, đang chạy kịch bản và tình huống rollback; xác nhận database mở lại và dữ liệu giữ nguyên.
-5. **Độ ổn định Android — chưa nghiệm thu:** kiểm tra Xiaomi/HyperOS và Android khác; tối ưu pin, service bị hệ thống dừng, đổi hướng màn hình, khuyết màn hình và độ phân giải.
-6. **Chất lượng — kiểm tra tự động đang được duy trì:** giữ Worker tests, Kotlin unit tests và lint xanh; đối chiếu commit CI với main; kiểm tra bảo mật và không đưa secret vào APK/Git.
-7. **Phạm vi AUTU Script tiếp theo:** CSV và chọn tệp người dùng qua SAF; multipart upload/download; sự kiện/tác vụ nền; regex/ngày giờ; module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md. SQLite migration, integrity check và backup/restore đã có mã nguồn/unit-level checks nhưng chưa nghiệm thu trên thiết bị thật.
+5. **Sao lưu/khôi phục SQLite — mã nguồn và CI đã có, thiết bị thật còn thiếu:** thử xuất qua SAF, thử khôi phục đúng/sai checksum, file hỏng, thiếu dung lượng, đang chạy kịch bản và tình huống rollback; xác nhận database mở lại và dữ liệu giữ nguyên.
+6. **Độ ổn định Android — chưa nghiệm thu:** kiểm tra Xiaomi/HyperOS và Android khác; tối ưu pin, service bị hệ thống dừng, đổi hướng màn hình, khuyết màn hình và độ phân giải.
+7. **Chất lượng — kiểm tra tự động đang được duy trì:** giữ Worker tests, Kotlin unit tests và lint xanh; đối chiếu commit CI với main; kiểm tra bảo mật và không đưa secret vào APK/Git.
+8. **Phạm vi AUTU Script tiếp theo:** chọn tệp người dùng qua SAF cho thao tác CSV/tổng quát; multipart upload/download; sự kiện/tác vụ nền; regex/ngày giờ; module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md. SQLite migration, integrity check và backup/restore đã có mã nguồn/unit-level checks nhưng chưa nghiệm thu trên thiết bị thật.
 
 ## 6. Quy tắc an toàn và phát hành
 
