@@ -25,6 +25,10 @@ import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -352,8 +356,26 @@ private fun ScreenshotLibraryRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val thumbnail = remember(entry.file.absolutePath, entry.file.lastModified()) {
-        decodeScreenshotThumbnail(entry.file)?.asImageBitmap()
+    val thumbnailBitmap by produceState<android.graphics.Bitmap?>(
+        initialValue = null,
+        key1 = entry.file.absolutePath,
+        key2 = entry.file.lastModified()
+    ) {
+        val file = entry.file
+        value = withContext(Dispatchers.IO) {
+            decodeScreenshotThumbnail(file)
+        }
+    }
+    val thumbnail: ImageBitmap? = remember(thumbnailBitmap) {
+        thumbnailBitmap?.asImageBitmap()
+    }
+    DisposableEffect(thumbnailBitmap) {
+        val bitmapToRecycle = thumbnailBitmap
+        onDispose {
+            if (bitmapToRecycle != null && !bitmapToRecycle.isRecycled) {
+                bitmapToRecycle.recycle()
+            }
+        }
     }
 
     Card(
