@@ -326,10 +326,14 @@ async function googleLogin(request, env) {
   const expiresAt = now + ttl;
   const sessionId = crypto.randomUUID();
   const deviceLabel = typeof body.deviceLabel === "string" ? body.deviceLabel.trim().slice(0, 100) : null;
+  const deviceInfo = sanitizeClientTechnicalInfo(body.deviceInfo);
   await env.DB.prepare(
     "INSERT INTO sessions (id, user_id, token_hash, created_at, expires_at, last_seen_at, device_label) VALUES (?, ?, ?, ?, ?, ?, ?)"
   ).bind(sessionId, user.id, await sha256(rawSession), now, expiresAt, now, deviceLabel).run();
-  await audit(env, user.id, "auth.google_sign_in", "session", sessionId);
+  await audit(env, user.id, "auth.google_sign_in", "session", sessionId, {
+    deviceLabel,
+    deviceInfo
+  });
   return response(request, {
     accessToken: rawSession,
     tokenType: "Bearer",
@@ -341,6 +345,40 @@ async function googleLogin(request, env) {
       role: user.role,
     }
   }, 200, env);
+}
+
+function sanitizeClientTechnicalInfo(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const text = (key, maxLength) => cleanDeviceText(value[key], maxLength);
+  const integer = (key, maxValue) => {
+    const number = Number(value[key]);
+    return Number.isSafeInteger(number) && number >= 0 && number <= maxValue ? number : null;
+  };
+  const allowedNetworkTypes = new Set(["NONE", "VPN", "WIFI", "CELLULAR", "ETHERNET", "OTHER"]);
+  const allowedNetworkStates = new Set(["CONNECTED", "OFFLINE"]);
+  const networkType = text("networkType", 20);
+  const networkStatus = text("networkStatus", 20);
+
+  return {
+    manufacturer: text("manufacturer", 80),
+    model: text("model", 100),
+    brand: text("brand", 80),
+    product: text("product", 100),
+    deviceCodeName: text("deviceCodeName", 100),
+    supportedAbis: text("supportedAbis", 300),
+    androidVersion: text("androidVersion", 40),
+    sdkInt: integer("sdkInt", 1000),
+    appVersionName: text("appVersionName", 40),
+    appVersionCode: integer("appVersionCode", 2147483647),
+    localeTag: text("localeTag", 40),
+    timeZoneId: text("timeZoneId", 80),
+    screenWidthPx: integer("screenWidthPx", 20000),
+    screenHeightPx: integer("screenHeightPx", 20000),
+    densityDpi: integer("densityDpi", 2000),
+    networkType: allowedNetworkTypes.has(networkType) ? networkType : "OTHER",
+    networkStatus: allowedNetworkStates.has(networkStatus) ? networkStatus : "OFFLINE",
+    networkValidated: value.networkValidated === true
+  };
 }
 
 function cleanDeviceText(value, maxLength) {
