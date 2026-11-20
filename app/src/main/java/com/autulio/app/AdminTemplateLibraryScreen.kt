@@ -132,7 +132,7 @@ internal fun AdminTemplateLibraryScreen(
                                 fontSize = 14.sp
                             )
                             Text(
-                                if (result.isSuccess) "Script ${ScriptCompiler.LANGUAGE_VERSION}" else tr("Lỗi mẫu", "Invalid"),
+                                if (result.isSuccess) "Ngôn ngữ AUTU ${ScriptCompiler.LANGUAGE_VERSION}" else tr("Lỗi mẫu", "Invalid"),
                                 color = if (result.isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold
