@@ -198,6 +198,7 @@ class AuthRepository(context: Context) {
             .put("nonce", nonce)
             .put("idToken", googleCredential.idToken)
             .put("deviceLabel", deviceLabel())
+            .put("deviceInfo", collectDeviceTechnicalInfo())
 
         val login = apiRequest("/api/auth/google", "POST", payload)
         val accessToken = login.optString("accessToken")
@@ -698,6 +699,55 @@ class AuthRepository(context: Context) {
         val model = Build.MODEL.orEmpty().trim()
         return listOf(manufacturer, model).filter { it.isNotBlank() }
             .joinToString(" ").take(100)
+    }
+
+    private fun collectDeviceTechnicalInfo(): JSONObject {
+        val metrics = appContext.resources.displayMetrics
+        val packageInfo = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
+        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.versionCode.toLong()
+        }
+
+        val connectivity = appContext.getSystemService(Context.CONNECTIVITY_SERVICE)
+            as? android.net.ConnectivityManager
+        val activeNetwork = connectivity?.activeNetwork
+        val capabilities = activeNetwork?.let { connectivity.getNetworkCapabilities(it) }
+        val networkType = when {
+            capabilities == null -> "NONE"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "WIFI"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "CELLULAR"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "ETHERNET"
+            else -> "OTHER"
+        }
+
+        return JSONObject()
+            .put("manufacturer", Build.MANUFACTURER.orEmpty())
+            .put("model", Build.MODEL.orEmpty())
+            .put("brand", Build.BRAND.orEmpty())
+            .put("product", Build.PRODUCT.orEmpty())
+            .put("deviceCodeName", Build.DEVICE.orEmpty())
+            .put("supportedAbis", Build.SUPPORTED_ABIS.joinToString(","))
+            .put("androidVersion", Build.VERSION.RELEASE.orEmpty())
+            .put("sdkInt", Build.VERSION.SDK_INT)
+            .put("appVersionName", BuildConfig.VERSION_NAME)
+            .put("appVersionCode", versionCode)
+            .put("localeTag", Locale.getDefault().toLanguageTag())
+            .put("timeZoneId", java.util.TimeZone.getDefault().id)
+            .put("screenWidthPx", metrics.widthPixels)
+            .put("screenHeightPx", metrics.heightPixels)
+            .put("densityDpi", metrics.densityDpi)
+            .put("networkType", networkType)
+            .put("networkStatus", if (activeNetwork != null) "CONNECTED" else "OFFLINE")
+            .put(
+                "networkValidated",
+                capabilities?.hasCapability(
+                    android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED
+                ) == true
+            )
     }
 
     private fun ensureConfigured() {
