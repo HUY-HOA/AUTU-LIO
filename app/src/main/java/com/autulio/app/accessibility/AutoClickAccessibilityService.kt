@@ -1929,6 +1929,15 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         })
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+        ) {
+            root.setOnApplyWindowInsetsListener { _, insets ->
+                captureDisplayGeometry(insets)
+                insets
+            }
+        }
+
         try {
             manager.addView(root, params)
             root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
@@ -1965,6 +1974,13 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             collapsed = true
             editor.setText(loadFloatingDraft())
             root.requestApplyInsets()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+            ) {
+                root.post {
+                    root.rootWindowInsets?.let(::captureDisplayGeometry)
+                }
+            }
             renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
             return true
         } catch (_: RuntimeException) {
