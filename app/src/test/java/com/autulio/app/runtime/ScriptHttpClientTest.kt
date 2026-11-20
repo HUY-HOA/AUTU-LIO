@@ -103,6 +103,135 @@ class ScriptHttpClientTest {
     }
 
     @Test
+    fun uploadsMultipartFileWithAutomaticBoundaryAndUtf8Payload() {
+        lateinit var request: Request
+        val client = clientWithResponse { captured ->
+            request = captured
+            response(captured, 201, """{"uploaded":true}""")
+        }
+        val result = client.uploadFile(
+            method = "POST",
+            urlText = "https://api.example.com/upload",
+            fieldName = "attachment",
+            fileName = "report.csv",
+            mimeTypeText = "text/csv; charset=utf-8",
+            fileBytes = "Tên,Giá trị\r\nLIO,42\r\n".toByteArray(Charsets.UTF_8),
+            headers = mapOf("Authorization" to "Bearer upload-token"),
+            timeoutMs = 5_000
+        )
+        val requestContentType = request.header("Content-Type").orEmpty()
+        val body = requestBodyText(request)
+
+        assertEquals(201, result["TRẠNG_THÁI"])
+        assertEquals("POST", request.method)
+        assertTrue(requestContentType.startsWith("multipart/form-data; boundary="))
+        assertTrue(body.contains("name=\"attachment\"; filename=\"report.csv\""))
+        assertTrue(body.contains("Content-Type: text/csv; charset=utf-8"))
+        assertTrue(body.contains("Tên,Giá trị"))
+        assertEquals("Bearer upload-token", request.header("Authorization"))
+    }
+
+    @Test
+    fun supportsPutAndPatchForMultipartUploads() {
+        listOf("PUT", "PATCH").forEach { method ->
+            lateinit var captured: Request
+            val client = clientWithResponse { request ->
+                captured = request
+                response(request, 200, "")
+            }
+            client.uploadFile(
+                method,
+                "https://api.example.com/files",
+                "file",
+                "data.bin",
+                "application/octet-stream",
+                byteArrayOf(1, 2, 3),
+                emptyMap(),
+                2_000
+            )
+            assertEquals(method, captured.method)
+        }
+    }
+
+    @Test
+    fun rejectsMultipartUnsafeMetadataHeadersMethodsAndOversizedFiles() {
+        val client = ScriptHttpClient(maxRequestBytes = 4)
+        assertFalse(runCatching {
+            client.uploadFile("GET", "https://api.example.com/upload", "file", "a.bin", "application/octet-stream", byteArrayOf(1), emptyMap(), 2_000)
+        }.isSuccess)
+        assertFalse(runCatching {
+            client.uploadFile("POST", "https://api.example.com/upload", "file", "a.bin", "application/octet-stream", byteArrayOf(1, 2, 3, 4, 5), emptyMap(), 2_000)
+        }.isSuccess)
+        assertFalse(runCatching {
+            client.uploadFile("POST", "https://api.example.com/upload", "bad\r\nname", "a.bin", "application/octet-stream", byteArrayOf(1), emptyMap(), 2_000)
+        }.isSuccess)
+        assertFalse(runCatching {
+            client.uploadFile("POST", "https://api.example.com/upload", "file", "../a.bin", "application/octet-stream", byteArrayOf(1), emptyMap(), 2_000)
+        }.isSuccess)
+        assertFalse(runCatching {
+            client.uploadFile("POST", "https://api.example.com/upload", "file", "a.bin", "not a mime", byteArrayOf(1), emptyMap(), 2_000)
+        }.isSuccess)
+        assertFalse(runCatching {
+            client.uploadFile("POST", "https://api.example.com/upload", "file", "a.bin", "application/octet-stream", byteArrayOf(1), mapOf("Content-Type" to "multipart/form-data"), 2_000)
+        }.isSuccess)
+    }
+
+    @Test
+    fun downloadsRawBytesAndResponseMetadata() {
+        val payload = byteArrayOf(0, 1, 2, 0xff.toByte())
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .header("Content-Type", "application/octet-stream")
+                    .body(payload.toResponseBody("application/octet-stream".toMediaType()))
+                    .build()
+            }
+            .build()
+        val downloaded = ScriptHttpClient(baseClient = client).downloadFile(
+            "https://api.example.com/report.bin",
+            mapOf("X-Request" to "AUTU"),
+            2_000
+        )
+        assertEquals(200, downloaded.statusCode)
+        assertTrue(downloaded.isSuccessful)
+        assertEquals("application/octet-stream", downloaded.contentType)
+        assertTrue(payload.contentEquals(downloaded.bytes))
+    }
+
+    @Test
+    fun downloadRejectsOversizedResponsesAndDoesNotFollowRedirects() {
+        val limited = clientWithResponse(
+            maxRequestBytes = 16,
+            maxResponseBytes = 4
+        ) { request -> response(request, 200, "12345") }
+        assertFalse(runCatching {
+            limited.downloadFile("https://api.example.com/file", emptyMap(), 2_000)
+        }.isSuccess)
+
+        var calls = 0
+        val redirectClient = OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .addInterceptor { chain ->
+                calls++
+                response(chain.request(), 302, "")
+                    .newBuilder()
+                    .header("Location", "https://other.example.com/file")
+                    .build()
+            }
+            .build()
+        val redirected = ScriptHttpClient(baseClient = redirectClient).downloadFile(
+            "https://api.example.com/start", emptyMap(), 2_000
+        )
+        assertEquals(302, redirected.statusCode)
+        assertEquals(1, calls)
+    }
+
+    @Test
     fun doesNotFollowRedirects() {
         var calls = 0
         val client = OkHttpClient.Builder()
