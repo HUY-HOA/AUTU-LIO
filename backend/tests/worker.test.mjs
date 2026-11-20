@@ -613,7 +613,7 @@ test("package publishing stores AES-GCM ciphertext and master-key version, not p
       body: JSON.stringify({
         name: "Encrypted package",
         description: "Package test",
-        languageVersion: "1.21",
+        languageVersion: "1.22",
         source
       })
     }),

@@ -35,9 +35,10 @@
 
 ### AUTU Script và chạy tự động
 - Parser/compiler tạo AST, báo lỗi theo dòng/cột; có giới hạn mã nguồn, số lệnh và thời lượng.
+- AUTU Script 1.22 dùng `BIẾN` để khai báo biến và `HÀM` để định nghĩa hàm; `ĐẶT` và `ĐỊNH_NGHĨA_HÀM` được giữ làm bí danh tương thích, các ví dụ mới trong hướng dẫn dùng tên chuẩn.
 - Runtime chạy trên luồng riêng; có trạng thái chạy, tạm dừng, tiếp tục, dừng, hủy và lỗi; kiểm thử hồi quy bao gồm dừng trong lúc chạy và dừng khi đang tạm dừng để xác nhận khối LUÔN_THỰC_HIỆN.
 - Accessibility Service phát gesture Android, gọi hành động hệ thống được hỗ trợ và tạo cửa sổ điều khiển nổi.
-- AUTU Script 1.21 có chuyển đổi DP/pixel, tọa độ vùng an toàn và hướng xoay màn hình; thao tác thực tế theo pixel nguyên.
+- AUTU Script 1.22 có chuyển đổi DP/pixel, tọa độ vùng an toàn và hướng xoay màn hình; thao tác thực tế theo pixel nguyên.
 - HTTP client dùng OkHttp, hỗ trợ HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, chặn redirect, giới hạn header/body/timeout và không trả các header xác thực nhạy cảm.
 - CSV parser/serializer có dấu nháy, dấu phân cách tùy chọn, BOM và CRLF; giới hạn 64 dòng/64 cột/512 ô/1 MiB; gọi qua PHÂN_TÍCH_CSV và CHUYỂN_CSV.
 - HTTP multipart upload/download cho tệp trong kho riêng: POST/PUT/PATCH upload, GET download, HTTPS-only, redirect off, giới hạn 1 MiB kể cả multipart overhead; MIME/tên tệp/header được kiểm tra; download chỉ lưu khi HTTP 2xx.

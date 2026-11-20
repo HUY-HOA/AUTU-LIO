@@ -884,11 +884,11 @@ function validatePackageMetadata(body) {
   if (!source.trim() || source.length > 32_768) throw new HttpError(400, "invalid_package_source", "Package source must contain 1 to 32,768 characters.");
   // Keep legacy packages publishable while accepting the exact Android compiler
   // versions currently used by AUTU-LIO.
-  if (!["0.2", "0.3", "1.19", "1.20", "1.21"].includes(languageVersion)) {
+  if (!["0.2", "0.3", "1.19", "1.20", "1.21", "1.22"].includes(languageVersion)) {
     throw new HttpError(
       400,
       "unsupported_language_version",
-      "Supported AUTU Script versions are 0.2, 0.3, 1.19, 1.20 and 1.21."
+      "Supported AUTU Script versions are 0.2, 0.3, 1.19, 1.20, 1.21 and 1.22."
     );
   }
   return { name, description, source, languageVersion };

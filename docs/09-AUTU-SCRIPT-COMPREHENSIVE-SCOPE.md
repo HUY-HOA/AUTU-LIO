@@ -6,7 +6,7 @@ Tài liệu này phân biệt rõ **đã triển khai**, **đang triển khai**,
 
 ## Nguyên tắc thiết kế
 
-1. Tên lệnh, từ khóa, hàm dựng sẵn và kiểu dữ liệu viết HOA, tiếng Việt đủ dấu.
+1. Tên lệnh, từ khóa, hàm dựng sẵn và kiểu dữ liệu viết HOA, tiếng Việt đủ dấu; dùng tên thể hiện đúng vai trò như BIẾN để khai báo biến và HÀM để định nghĩa hàm.
 2. Lệnh phải có triển khai thực tế; không tạo lệnh chỉ để đủ danh sách.
 3. Tác vụ có rủi ro phải có quyền phù hợp, thông báo minh bạch và cơ chế dừng.
 4. Ưu tiên xử lý tại thiết bị; không gửi ảnh màn hình, văn bản hoặc dữ liệu riêng tư lên máy chủ nếu người dùng không chủ động cấu hình.
@@ -19,7 +19,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 
 ## Ma trận tính năng
 
-**Trạng thái mã nguồn hiện tại:** AUTU Script 1.21. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.21; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.22. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.22; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
 
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
