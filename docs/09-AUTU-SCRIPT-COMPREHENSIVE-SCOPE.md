@@ -34,7 +34,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 
 | Ảnh và màu màn hình | Lấy mẫu điểm ảnh để đọc màu khi người dùng gọi lệnh | Lấy mẫu RGB và xử lý ảnh ML Kit cục bộ; không dùng AI tạo sinh |
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt và chạm/vuốt đồng thời 2–5 ngón, tối đa 16 điểm mỗi đường; kéo-thả đường cong chuyên biệt còn thiếu |
-| Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Pixel, DP, tỷ lệ 0–1 và truy vấn hướng/góc xoay đã có; hiệu chỉnh vùng an toàn và chuyển đổi hệ tọa độ theo xoay còn thiếu |
+| Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Đã có quy đổi DP/pixel, tỷ lệ toàn màn hình/vùng an toàn và chuyển tọa độ giữa hướng ROTATION_0 với hướng logic hiện tại; kéo-thả đường cong còn thiếu |
 | Sự kiện | Thay đổi cửa sổ, nội dung, thông báo do người dùng cấp quyền, trạng thái ứng dụng | Còn thiếu |
 | Lịch và nền | Lịch chạy, hàng đợi, retry, điều kiện pin/mạng, tác vụ định kỳ và thông báo trạng thái | Còn thiếu |
 | Thiết bị | Pin, sạc, mạng, màn hình, ứng dụng foreground và thông số màn hình | Đã có pin/sạc/mạng, trạng thái màn hình, pixel/DP, density, hướng/xoay, package foreground, model/nhà sản xuất/phiên bản Android và trạng thái Keyguard; âm lượng/rung/clipboard còn thiếu |
@@ -45,11 +45,14 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 | Quản lý chạy | Chạy/tạm dừng/tiếp tục/dừng và cửa sổ nổi | Đã có; hàng đợi nhiều kịch bản và lịch sử chi tiết còn thiếu |
 | Kiểm thử | Test parser/runtime, test thiết bị, test quyền, test tương thích Android | Một phần |
 
-### Các API màn hình đã nối runtime ở 1.18
+### Các API màn hình đã nối runtime ở 1.18–1.20
 
 - `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()` trả thông số kích thước theo density và pixel.
 - `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()` trả hướng và rotation hiện tại.
 - `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` trả package gần nhất từ sự kiện AccessibilityService; có thể rỗng nếu chưa có sự kiện.
+- `TỌA_ĐỘ_X_VÙNG_AN_TOÀN()`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN()` đổi tỷ lệ 0–1 thành pixel trong vùng an toàn; hai hàm `TỶ_LỆ_*_VÙNG_AN_TOÀN()` thực hiện chiều ngược lại.
+- `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa ROTATION_0 và hệ trục logic hiện tại. Công thức bao quát thiết bị hướng gốc ngang và cả bốn mã xoay Android.
+- Chuyển đổi góc xoay chỉ đổi hệ tọa độ trả về; không đổi tự động các tham số CHẠM/VUỐT. Cần nghiệm thu thực tế trên thiết bị để xác nhận sự tương thích với từng OEM.
 
 ### Thông tin thiết bị đã nối runtime ở 1.19
 
