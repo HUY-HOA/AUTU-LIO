@@ -132,8 +132,9 @@ internal object SafeScreenshotBitmapDecoder {
         require(maxPixels > 0L && maxSide > 0) { "Giới hạn ảnh không hợp lệ." }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            decodeWithImageDecoder(file, maxPixels, maxSide)
-                ?: decodeWithBitmapFactory(file, maxPixels, maxSide)
+            runCatching {
+                decodeWithImageDecoder(file, maxPixels, maxSide)
+            }.getOrNull() ?: decodeWithBitmapFactory(file, maxPixels, maxSide)
         } else {
             decodeWithBitmapFactory(file, maxPixels, maxSide)
         }
