@@ -1,7 +1,6 @@
 package com.autulio.app
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -59,27 +58,66 @@ class ScreenshotCropActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val path = intent.getStringExtra(EXTRA_ORIGINAL_PATH).orEmpty()
-        originalBitmap = runCatching { BitmapFactory.decodeFile(path) }.getOrNull()
+        showLoadingScreen()
+        imageSaver.execute {
+            val decoded = SafeScreenshotBitmapDecoder.decode(path)
+            runOnUiThread {
+                if (isFinishing || isDestroyed) {
+                    decoded?.bitmap?.recycle()
+                    return@runOnUiThread
+                }
+                val bitmap = decoded?.bitmap
+                originalBitmap = bitmap
+                if (decoded == null || bitmap == null) {
+                    showOpenErrorScreen()
+                } else {
+                    if (decoded.wasDownsampled) {
+                        Toast.makeText(
+                            this,
+                            "Ảnh có độ phân giải lớn đã được thu nhỏ khi mở để giảm nguy cơ thiếu bộ nhớ.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    showCropScreen(bitmap)
+                }
+            }
+        }
+    }
 
-        val bitmap = originalBitmap
-        if (bitmap == null) {
-            setContent {
-                AppTheme(dark = true) {
-                    Scaffold { padding ->
-                        Column(
-                            Modifier.fillMaxSize().padding(padding).padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("Không mở được ảnh chụp.", color = MaterialTheme.colorScheme.error)
-                            Button(onClick = { finish() }) { Text("Đóng") }
-                        }
+    private fun showLoadingScreen() {
+        setContent {
+            AppTheme(dark = true) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator()
+                        Text("Đang mở ảnh...")
                     }
                 }
             }
-            return
         }
+    }
 
+    private fun showOpenErrorScreen() {
+        setContent {
+            AppTheme(dark = true) {
+                Scaffold { padding ->
+                    Column(
+                        Modifier.fillMaxSize().padding(padding).padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Không mở được ảnh chụp.", color = MaterialTheme.colorScheme.error)
+                        Button(onClick = { finish() }) { Text("Đóng") }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showCropScreen(bitmap: Bitmap) {
         setContent {
             AppTheme(dark = true) {
                 ScreenshotCropScreen(
