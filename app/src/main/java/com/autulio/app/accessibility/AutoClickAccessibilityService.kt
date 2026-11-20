@@ -42,7 +42,11 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.SecureScriptDraftStore
+import com.autulio.app.auth.AuthApiException
+import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.SecureSessionStore
 import com.autulio.app.script.ScriptTemplateCatalog
+import kotlinx.coroutines.runBlocking
 import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
 import com.autulio.app.runtime.ScriptExecutionState
@@ -63,6 +67,7 @@ import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -107,6 +112,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private val screenshotExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "AUTU-LIO-Screenshot").apply { isDaemon = true }
     }
+    private val authorizationMonitorExecutor = Executors.newSingleThreadScheduledExecutor { task ->
+        Thread(task, "AUTU-LIO-SessionMonitor").apply { isDaemon = true }
+    }
+    private val sessionStore by lazy { SecureSessionStore(this) }
+    private val authRepository by lazy { AuthRepository(this) }
+    @Volatile private var authorizationMonitorTask: ScheduledFuture<*>? = null
     private var executionEngine: ScriptExecutionEngine? = null
     private var windowManager: WindowManager? = null
     private var floatingWindow: LinearLayout? = null
@@ -149,7 +160,27 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 }
             }
         }
+        startAuthorizationMonitor()
         // The runner window is opened only after the signed-in app prepares a program.
+    }
+
+    private fun startAuthorizationMonitor() {
+        if (authorizationMonitorTask != null) return
+        authorizationMonitorTask = authorizationMonitorExecutor.scheduleWithFixedDelay({
+            val token = runCatching { sessionStore.read() }.getOrNull()
+            if (token.isNullOrBlank()) {
+                if (floatingWindow != null) lockRunner()
+            } else {
+                try {
+                    runBlocking { authRepository.currentUser(token) }
+                } catch (error: AuthApiException) {
+                    if (error.statusCode in 401..403) runCatching { sessionStore.clear() }
+                    lockRunner()
+                } catch (_: Exception) {
+                    lockRunner()
+                }
+            }
+        }, 60L, 60L, TimeUnit.SECONDS)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -166,6 +197,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     override fun onDestroy() {
         executionEngine?.close()
         executionEngine = null
+        authorizationMonitorTask?.cancel(true)
+        authorizationMonitorExecutor.shutdownNow()
         screenshotExecutor.shutdownNow()
         if (screenVisionEngineLazy.isInitialized()) runCatching { screenVisionEngine.close() }
         if (scriptDatabaseStoreLazy.isInitialized()) {
@@ -196,7 +229,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         }
 
-        if (executionEngine == null) return false
+        if (executionEngine == null || sessionStore.read().isNullOrBlank()) {
+            lockRunner()
+            return false
+        }
         val state = executionEngine?.snapshot()?.state
         if (state == ScriptExecutionState.RUNNING ||
             state == ScriptExecutionState.PAUSED ||
