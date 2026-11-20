@@ -408,9 +408,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
             "XÓA_ĐÁNH_DẤU_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
-                screenAnnotationOverlay?.remove()
-                screenAnnotationOverlay = null
-                true
+                clearScreenAnnotations()
             }
             "ỨNG_DỤNG_ĐÃ_CÀI" -> {
                 requireArgumentCount(name, arguments, 1)
@@ -1110,7 +1108,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         } ?: false
 
     private fun clearScreenAnnotations(): Boolean = callOnMainThread {
-        screenAnnotationOverlay?.clear()
+        screenAnnotationOverlay?.remove()
+        screenAnnotationOverlay = null
         true
     } ?: false
 
