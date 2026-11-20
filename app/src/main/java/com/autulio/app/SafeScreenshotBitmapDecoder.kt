@@ -67,9 +67,10 @@ internal object SafeScreenshotBitmapDecoder {
         if (width <= 0 || height <= 0) return null
         val w = width.toFloat()
         val h = height.toFloat()
-        val swapped = orientation in ExifInterface.ORIENTATION_TRANSPOSE..
-            ExifInterface.ORIENTATION_ROTATE_270 &&
-            orientation != ExifInterface.ORIENTATION_NORMAL
+        val swapped = orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
+            orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
+            orientation == ExifInterface.ORIENTATION_TRANSVERSE ||
+            orientation == ExifInterface.ORIENTATION_ROTATE_270
 
         val values = when (orientation) {
             ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> floatArrayOf(
