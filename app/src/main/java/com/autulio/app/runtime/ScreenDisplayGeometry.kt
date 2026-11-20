@@ -95,3 +95,23 @@ data class ScreenDisplayGeometry(
         )
     }
 }
+
+
+/** Shared in-process cache populated by the app window and the accessibility overlay. */
+object ScreenDisplayGeometryStore {
+    @Volatile
+    private var latest: ScreenDisplayGeometry? = null
+
+    fun publish(geometry: ScreenDisplayGeometry) {
+        latest = geometry
+    }
+
+    fun current(widthPx: Int, heightPx: Int): ScreenDisplayGeometry? {
+        val value = latest ?: return null
+        return value.copy(widthPx = widthPx, heightPx = heightPx)
+    }
+
+    fun clear() {
+        latest = null
+    }
+}
