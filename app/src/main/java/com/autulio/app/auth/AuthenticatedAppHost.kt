@@ -121,8 +121,7 @@ internal fun AuthenticatedAppHost() {
                         user = session.user
                         hasSavedSession = true
                     } catch (error: Exception) {
-                        errorMessage = error.message?.takeIf { it.isNotBlank() }
-                            ?: tr("Đăng nhập thất bại. Vui lòng thử lại.", "Sign-in failed. Please try again.")
+                        errorMessage = localizedErrorMessage(error, tr("Đăng nhập thất bại. Vui lòng kiểm tra tài khoản Google và thử lại.", "Sign-in failed. Please try again."))
                     } finally {
                         working = false
                     }
