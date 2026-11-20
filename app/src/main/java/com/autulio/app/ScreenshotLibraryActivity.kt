@@ -1,7 +1,6 @@
 package com.autulio.app
 
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -487,18 +486,15 @@ private fun isSupportedScreenshotFile(file: File): Boolean {
         name.endsWith(".img")
 }
 
-private fun decodeScreenshotThumbnail(file: File): android.graphics.Bitmap? = runCatching {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeFile(file.absolutePath, bounds)
-    var sampleSize = 1
-    while (bounds.outWidth / sampleSize > 256 || bounds.outHeight / sampleSize > 256) {
-        sampleSize *= 2
-    }
-    BitmapFactory.decodeFile(
-        file.absolutePath,
-        BitmapFactory.Options().apply { inSampleSize = sampleSize }
-    )
-}.getOrNull()
+private fun decodeScreenshotThumbnail(file: File): android.graphics.Bitmap? =
+    SafeScreenshotBitmapDecoder.decode(
+        path = file.absolutePath,
+        maxPixels = THUMBNAIL_MAX_PIXELS,
+        maxSide = THUMBNAIL_MAX_SIDE
+    )?.bitmap
+
+private const val THUMBNAIL_MAX_SIDE = 256
+private const val THUMBNAIL_MAX_PIXELS = THUMBNAIL_MAX_SIDE.toLong() * THUMBNAIL_MAX_SIDE
 
 private fun formatImageBytes(bytes: Long): String = when {
     bytes < 1024L -> "$bytes B"

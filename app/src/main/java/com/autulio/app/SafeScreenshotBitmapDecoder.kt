@@ -1,9 +1,12 @@
 package com.autulio.app
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.graphics.Matrix
 import android.media.ExifInterface
+import android.os.Build
 import java.io.File
 
 internal data class DecodedScreenshotBitmap(
@@ -118,7 +121,118 @@ internal object SafeScreenshotBitmapDecoder {
         )
     }
 
-    fun decode(path: String): DecodedScreenshotBitmap? = runCatching {
+    fun decode(
+        path: String,
+        maxPixels: Long = MAX_DECODED_PIXELS,
+        maxSide: Int = MAX_DECODED_SIDE
+    ): DecodedScreenshotBitmap? = runCatching {
+        if (path.isBlank()) return@runCatching null
+        val file = File(path)
+        if (!file.isFile) return@runCatching null
+        require(maxPixels > 0L && maxSide > 0) { "Giới hạn ảnh không hợp lệ." }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            decodeWithImageDecoder(file, maxPixels, maxSide)
+                ?: decodeWithBitmapFactory(file, maxPixels, maxSide)
+        } else {
+            decodeWithBitmapFactory(file, maxPixels, maxSide)
+        }
+    }.getOrNull()
+
+    /**
+     * ImageDecoder supports HEIF, GIF, JPEG, PNG and WebP, applies source orientation,
+     * and can subsample before allocating the output bitmap.
+     */
+    @SuppressLint("NewApi")
+    private fun decodeWithImageDecoder(
+        file: File,
+        maxPixels: Long,
+        maxSide: Int
+    ): DecodedScreenshotBitmap? {
+        var sourceWidth = 0
+        var sourceHeight = 0
+        var sampleSize = 1
+        val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
+            sourceWidth = info.size.width
+            sourceHeight = info.size.height
+            if (sourceWidth <= 0 || sourceHeight <= 0) {
+                throw IllegalArgumentException("Kích thước ảnh không hợp lệ.")
+            }
+            sampleSize = calculateInSampleSize(sourceWidth, sourceHeight, maxPixels, maxSide)
+            decoder.setTargetSampleSize(sampleSize)
+            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
+            decoder.setMutableRequired(true)
+        }
+        return DecodedScreenshotBitmap(
+            bitmap = bitmap,
+            sourceWidth = sourceWidth,
+            sourceHeight = sourceHeight,
+            sampleSize = sampleSize
+        )
+    }
+
+    private fun decodeWithBitmapFactory(
+        file: File,
+        maxPixels: Long,
+        maxSide: Int
+    ): DecodedScreenshotBitmap? {
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        val sourceWidth = bounds.outWidth
+        val sourceHeight = bounds.outHeight
+        if (sourceWidth <= 0 || sourceHeight <= 0) return null
+
+        val sampleSize = calculateInSampleSize(sourceWidth, sourceHeight, maxPixels, maxSide)
+        val decodedBitmap = BitmapFactory.decodeFile(
+            file.absolutePath,
+            BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+        ) ?: return null
+
+        var displayBitmap = decodedBitmap
+        val orientation = runCatching {
+            ExifInterface(file.absolutePath).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
+            )
+        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+        val transform = orientationTransform(
+            orientation,
+            decodedBitmap.width,
+            decodedBitmap.height
+        )
+        if (transform != null) {
+            val matrix = Matrix().apply { setValues(transform.matrixValues) }
+            val orientedBitmap = runCatching {
+                Bitmap.createBitmap(
+                    decodedBitmap,
+                    0,
+                    0,
+                    decodedBitmap.width,
+                    decodedBitmap.height,
+                    matrix,
+                    true
+                )
+            }.getOrNull()
+            if (orientedBitmap != null && orientedBitmap !== decodedBitmap) {
+                displayBitmap = orientedBitmap
+                decodedBitmap.recycle()
+            }
+        }
+
+        return DecodedScreenshotBitmap(
+            bitmap = displayBitmap,
+            sourceWidth = sourceWidth,
+            sourceHeight = sourceHeight,
+            sampleSize = sampleSize
+        )
+    }
+}
+
         if (path.isBlank()) return@runCatching null
         val file = File(path)
         if (!file.isFile) return@runCatching null

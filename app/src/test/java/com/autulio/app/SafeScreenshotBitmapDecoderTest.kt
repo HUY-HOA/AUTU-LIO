@@ -124,6 +124,40 @@ class SafeScreenshotBitmapDecoderTest {
     }
 
     @Test
+    fun computesThumbnailSamplingWithStrictPixelAndSideLimits() {
+        val sampleSize = SafeScreenshotBitmapDecoder.calculateInSampleSize(
+            width = 4_000,
+            height = 3_000,
+            maxPixels = 256L * 256L,
+            maxSide = 256
+        )
+        val sampledWidth = (4_000L + sampleSize - 1L) / sampleSize
+        val sampledHeight = (3_000L + sampleSize - 1L) / sampleSize
+
+        assertTrue(sampleSize > 1)
+        assertTrue(sampledWidth <= 256L)
+        assertTrue(sampledHeight <= 256L)
+        assertTrue(sampledWidth * sampledHeight <= 256L * 256L)
+    }
+
+    @Test
+    fun supportsTheFullResolutionPixelLimitWhenThumbnailLimitIsSmaller() {
+        val fullSizeSample = SafeScreenshotBitmapDecoder.calculateInSampleSize(
+            width = 1_440,
+            height = 3_200
+        )
+        val thumbnailSample = SafeScreenshotBitmapDecoder.calculateInSampleSize(
+            width = 1_440,
+            height = 3_200,
+            maxPixels = 256L * 256L,
+            maxSide = 256
+        )
+
+        assertEquals(1, fullSizeSample)
+        assertTrue(thumbnailSample > fullSizeSample)
+    }
+
+    @Test
     fun rejectsInvalidDimensionsAndLimits() {
         val invalidDimensions = runCatching {
             SafeScreenshotBitmapDecoder.calculateInSampleSize(0, 100)
