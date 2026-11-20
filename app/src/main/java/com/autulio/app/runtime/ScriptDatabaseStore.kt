@@ -5,7 +5,6 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import java.io.Closeable
 import java.util.Base64
-import java.util.regex.Pattern
 
 /**
  * One app-private SQLite database for AUTU scripts.
@@ -69,15 +68,16 @@ class ScriptDatabaseStore(context: Context) : Closeable {
             try {
                 val history = readMigrationHistoryLocked()
                 val existing = history.firstOrNull { it.version == version }
-                if (existing != null) {
-                    check(existing.checksum == migration.checksum) {
-                        "Checksum của phiên bản di trú $version không khớp với bản đã áp dụng."
-                    }
+                val currentVersion = history.lastOrNull()?.version ?: 0
+                val shouldApply = ScriptSchemaMigrationPolicy.shouldApply(
+                    version,
+                    currentVersion,
+                    existing?.checksum,
+                    migration.checksum
+                )
+                if (!shouldApply) {
                     return migrationResult(version, applied = false, migration.checksum)
                 }
-
-                val currentVersion = history.lastOrNull()?.version ?: 0
-                ScriptSchemaMigrationPolicy.requireNextVersion(version, currentVersion)
 
                 migration.statements.forEach { statement ->
                     database.execSQL(statement.sql, statement.arguments)

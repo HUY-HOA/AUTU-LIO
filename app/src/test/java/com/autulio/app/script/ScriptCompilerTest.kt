@@ -873,6 +873,39 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun supportsVersionedSqliteSchemaMigrationBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT DI_TRÚ: BẢN_ĐỒ = DI_TRÚ_CƠ_SỞ_DỮ_LIỆU(1, TẠO_DANH_SÁCH(
+                TẠO_BẢN_ĐỒ(
+                    "SQL",
+                    "CREATE TABLE IF NOT EXISTS customers(id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
+                ),
+                TẠO_BẢN_ĐỒ(
+                    "SQL",
+                    "CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)"
+                )
+            ))
+            ĐẶT PHIÊN_BẢN: SỐ = PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU()
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.21", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesVersionedSqliteMigrationArgumentCounts() {
+        val missingList = ScriptCompiler.compile(
+            "ĐẶT X = DI_TRÚ_CƠ_SỞ_DỮ_LIỆU(1)"
+        )
+        val extraVersionArgument = ScriptCompiler.compile(
+            "ĐẶT X = PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU(1)"
+        )
+        assertEquals("function_argument_count", missingList.diagnostics.first().code)
+        assertEquals("function_argument_count", extraVersionArgument.diagnostics.first().code)
+    }
+
+    @Test
     fun validatesSqlFunctionArgumentCounts() {
         val missingParams = ScriptCompiler.compile("""ĐẶT X = SQL_TRUY_VẤN("SELECT 1")""")
         val tooMany = ScriptCompiler.compile("""ĐẶT X = SQL_THỰC_THI("DELETE FROM users", TẠO_DANH_SÁCH(), 1)""")

@@ -50,6 +50,26 @@ object ScriptSchemaMigrationPolicy {
         return ValidatedMigration(validated, checksum(validated))
     }
 
+    /**
+     * Returns false for an already-applied migration with the exact same
+     * checksum; changed contents or skipped versions are rejected.
+     */
+    fun shouldApply(
+        requestedVersion: Int,
+        currentVersion: Int,
+        previouslyAppliedChecksum: String?,
+        requestedChecksum: String
+    ): Boolean {
+        if (previouslyAppliedChecksum != null) {
+            check(previouslyAppliedChecksum == requestedChecksum) {
+                "Checksum của phiên bản di trú $requestedVersion không khớp với bản đã áp dụng."
+            }
+            return false
+        }
+        requireNextVersion(requestedVersion, currentVersion)
+        return true
+    }
+
     fun requireNextVersion(requestedVersion: Int, currentVersion: Int) {
         require(requestedVersion in 1..MAX_VERSION) {
             "Phiên bản di trú phải từ 1 đến $MAX_VERSION."
