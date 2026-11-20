@@ -31,6 +31,10 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
         <activity
+            android:name=".ScreenshotImageEditorActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".ScreenshotLibraryActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
