@@ -714,7 +714,11 @@ class AuthRepository(context: Context) {
         val connectivity = appContext.getSystemService(Context.CONNECTIVITY_SERVICE)
             as? android.net.ConnectivityManager
         val activeNetwork = connectivity?.activeNetwork
-        val capabilities = activeNetwork?.let { connectivity.getNetworkCapabilities(it) }
+        val capabilities = if (connectivity != null && activeNetwork != null) {
+            connectivity.getNetworkCapabilities(activeNetwork)
+        } else {
+            null
+        }
         val networkType = when {
             capabilities == null -> "NONE"
             capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
