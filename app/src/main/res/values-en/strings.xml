@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AUTU-LIO</string>
-    <string name="accessibility_service_label">AUTU-LIO Auto Click</string>
-    <string name="accessibility_service_description">Runs actions only for scripts you explicitly start and reads labels the target app exposes through Android Accessibility when requested. Data is processed on this device; no microphone audio or AI image recognition is used. You can stop the service at any time.</string>
+    <string name="accessibility_service_label">Dịch vụ thao tác tự động AUTU-LIO</string>
+    <string name="accessibility_service_description">Thực hiện thao tác từ kịch bản bạn chủ động chạy và đọc nhãn, vị trí thành phần mà ứng dụng đang mở công khai qua Dịch vụ trợ năng. Dữ liệu được xử lý trên thiết bị; bạn có thể dừng dịch vụ bất cứ lúc nào.</string>
 </resources>
