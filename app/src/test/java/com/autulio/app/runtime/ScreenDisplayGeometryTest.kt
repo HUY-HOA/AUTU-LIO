@@ -55,6 +55,47 @@ class ScreenDisplayGeometryTest {
     }
 
     @Test
+    fun returnsCachedGeometryOnlyForThePublishedDisplayDimensions() {
+        ScreenDisplayGeometryStore.clear()
+        try {
+            val published = ScreenDisplayGeometry(
+                widthPx = 1080,
+                heightPx = 2400,
+                systemInsets = ScreenInsets(top = 90, bottom = 80),
+                cutoutSafeInsets = ScreenInsets(top = 120),
+                cutoutDetectionKnown = true,
+                cutoutBounds = listOf(ScreenCutoutBounds(440, 0, 640, 95))
+            )
+            ScreenDisplayGeometryStore.publish(published)
+
+            assertEquals(published, ScreenDisplayGeometryStore.current(1080, 2400))
+            assertNull(ScreenDisplayGeometryStore.current(2400, 1080))
+            assertNull(ScreenDisplayGeometryStore.current(720, 1600))
+        } finally {
+            ScreenDisplayGeometryStore.clear()
+        }
+    }
+
+    @Test
+    fun clearRemovesCachedDisplayGeometry() {
+        ScreenDisplayGeometryStore.clear()
+        try {
+            ScreenDisplayGeometryStore.publish(
+                ScreenDisplayGeometry(
+                    widthPx = 720,
+                    heightPx = 1600,
+                    cutoutDetectionKnown = false
+                )
+            )
+            ScreenDisplayGeometryStore.clear()
+
+            assertNull(ScreenDisplayGeometryStore.current(720, 1600))
+        } finally {
+            ScreenDisplayGeometryStore.clear()
+        }
+    }
+
+    @Test
     fun limitsSafeDimensionsToZeroWhenInsetsExceedDisplay() {
         val geometry = ScreenDisplayGeometry(
             widthPx = 100,
