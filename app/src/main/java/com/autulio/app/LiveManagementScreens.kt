@@ -57,7 +57,7 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
         try {
             customers = repository.listAdminCustomers(accessToken)
         } catch (exception: Exception) {
-            error = exception.message ?: tr("Không tải được danh sách khách hàng.", "Could not load customers.")
+            error = localizedErrorMessage(exception, tr("Không tải được danh sách khách hàng.", "Could not load customers."))
         } finally {
             loading = false
         }
@@ -166,7 +166,7 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                                 target = null
                                 refresh()
                             } catch (exception: Exception) {
-                                error = exception.message ?: tr("Không cấp được giấy phép.", "Could not issue license.")
+                                error = localizedErrorMessage(exception, tr("Không cấp được giấy phép.", "Could not issue license."))
                             } finally {
                                 saving = false
                             }
@@ -196,7 +196,7 @@ internal fun LicensesAdminScreen(accessToken: String?, modifier: Modifier = Modi
         try {
             licenses = repository.listAdminLicenses(accessToken)
         } catch (exception: Exception) {
-            error = exception.message ?: tr("Không tải được giấy phép.", "Could not load licenses.")
+            error = localizedErrorMessage(exception, tr("Không tải được giấy phép.", "Could not load licenses."))
         } finally {
             loading = false
         }
@@ -252,7 +252,7 @@ internal fun LicensesAdminScreen(accessToken: String?, modifier: Modifier = Modi
                                     notice = tr("Đã gia hạn giấy phép thêm 30 ngày.", "License extended by 30 days.")
                                     refresh()
                                 } catch (exception: Exception) {
-                                    error = exception.message.orEmpty()
+                                    error = localizedErrorMessage(exception, tr("Không thể gia hạn giấy phép.", "Could not renew the license."))
                                 }
                             }
                         },
@@ -272,7 +272,7 @@ internal fun LicensesAdminScreen(accessToken: String?, modifier: Modifier = Modi
                                         notice = tr("Đã cập nhật giấy phép.", "License updated.")
                                         refresh()
                                     } catch (exception: Exception) {
-                                        error = exception.message.orEmpty()
+                                        error = localizedErrorMessage(exception, tr("Không thể cập nhật giấy phép.", "Could not update the license."))
                                     }
                                 }
                             }
@@ -289,7 +289,7 @@ internal fun LicensesAdminScreen(accessToken: String?, modifier: Modifier = Modi
                                         notice = tr("Đã thu hồi giấy phép và các thiết bị liên kết.", "License and its enrolled devices were revoked.")
                                         refresh()
                                     } catch (exception: Exception) {
-                                        error = exception.message.orEmpty()
+                                        error = localizedErrorMessage(exception, tr("Không thể thu hồi giấy phép.", "Could not revoke the license."))
                                     }
                                 }
                             }
@@ -318,7 +318,7 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
         try {
             devices = repository.listAdminDevices(accessToken)
         } catch (exception: Exception) {
-            error = exception.message ?: tr("Không tải được thiết bị.", "Could not load devices.")
+            error = localizedErrorMessage(exception, tr("Không tải được thiết bị.", "Could not load devices."))
         } finally {
             loading = false
         }
@@ -371,7 +371,7 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
                                         notice = tr("Đã thu hồi thiết bị ${device.email}.", "Revoked device for ${device.email}.")
                                         refresh()
                                     } catch (exception: Exception) {
-                                        error = exception.message.orEmpty()
+                                        error = localizedErrorMessage(exception, tr("Không thể thu hồi thiết bị.", "Could not revoke the device."))
                                     }
                                 }
                             },
@@ -408,7 +408,7 @@ internal fun CustomerDeviceLicenseScreen(
         try {
             account = repository.customerAccount(accessToken)
         } catch (exception: Exception) {
-            error = exception.message ?: tr("Không tải được thông tin tài khoản.", "Could not load account details.")
+            error = localizedErrorMessage(exception, tr("Không tải được thông tin tài khoản.", "Could not load account details."))
         } finally {
             loading = false
         }
@@ -481,7 +481,7 @@ internal fun CustomerDeviceLicenseScreen(
                                             notice = tr("Đã gỡ thiết bị khỏi tài khoản.", "Device removed from your account.")
                                             refresh()
                                         } catch (exception: Exception) {
-                                            error = exception.message.orEmpty()
+                                            error = localizedErrorMessage(exception, tr("Không thể gỡ thiết bị khỏi tài khoản.", "Could not remove the device."))
                                         }
                                     }
                                 }
@@ -542,7 +542,7 @@ internal fun CustomerDeviceLicenseScreen(
                                 showRegistrationConsent = false
                                 refresh()
                             } catch (exception: Exception) {
-                                error = exception.message ?: tr("Không đăng ký được thiết bị.", "Could not register this device.")
+                                error = localizedErrorMessage(exception, tr("Không đăng ký được thiết bị.", "Could not register this device."))
                             } finally {
                                 registering = false
                             }
@@ -582,7 +582,7 @@ internal fun AdminPackagesScreen(
         try {
             packages = repository.listAdminPackages(accessToken)
         } catch (exception: Exception) {
-            error = exception.message ?: tr("Không tải được danh sách gói.", "Could not load packages.")
+            error = localizedErrorMessage(exception, tr("Không tải được danh sách gói.", "Could not load packages."))
         } finally {
             loading = false
         }
@@ -721,7 +721,7 @@ internal fun AdminPackagesScreen(
                                     selectedDraft = null
                                     refresh()
                                 } catch (exception: Exception) {
-                                    error = exception.message ?: tr("Không phát hành được gói AUTU.", "Could not publish this AUTU package.")
+                                    error = localizedErrorMessage(exception, tr("Không phát hành được gói AUTU.", "Could not publish this AUTU package."))
                                 } finally {
                                     publishing = false
                                 }
@@ -775,7 +775,7 @@ internal fun AdminPackagesScreen(
                                             notice = tr("Đã cập nhật trạng thái gói.", "Package status updated.")
                                             refresh()
                                         } catch (exception: Exception) {
-                                            error = exception.message.orEmpty()
+                                            error = localizedErrorMessage(exception, tr("Không thể cập nhật trạng thái gói AUTU.", "Could not update package status."))
                                         }
                                     }
                                 }
@@ -814,7 +814,7 @@ internal fun CustomerPackagesScreen(
         try {
             packages = repository.listCustomerPackages(accessToken, identity.fingerprintSha256).packages
         } catch (exception: Exception) {
-            error = exception.message ?: tr("Không tải được kho AUTU.", "Could not load the AUTU library.")
+            error = localizedErrorMessage(exception, tr("Không tải được kho AUTU.", "Could not load the AUTU library."))
         } finally {
             loading = false
         }
@@ -952,7 +952,7 @@ internal fun CustomerPackagesScreen(
                                         )
                                     }
                                 } catch (exception: Exception) {
-                                    error = exception.message ?: tr("Không thể tải hoặc chạy gói AUTU.", "Could not download or prepare this AUTU.")
+                                    error = localizedErrorMessage(exception, tr("Không thể tải hoặc chạy gói AUTU.", "Could not download or prepare this AUTU."))
                                 } finally {
                                     runningId = null
                                 }
