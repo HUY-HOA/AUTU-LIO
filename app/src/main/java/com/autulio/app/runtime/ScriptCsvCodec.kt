@@ -210,8 +210,10 @@ object ScriptCsvCodec {
         }
         output.append('"')
         value.forEach { character ->
-            if (character == '"') output.append("""")
-            else output.append(character)
+            if (character == '"') {
+                output.append('"')
+                output.append('"')
+            } else output.append(character)
         }
         output.append('"')
     }
