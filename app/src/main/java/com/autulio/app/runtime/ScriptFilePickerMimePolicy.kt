@@ -1,7 +1,7 @@
 package com.autulio.app.runtime
 
 /**
- * Accepts a bounded MIME type or a type with a wildcard subtype (for example image/*).
+ * Accepts a bounded MIME type or a type with a wildcard subtype (for example the image type with any subtype).
  * A wildcard major type is rejected so a script cannot silently broaden its filter.
  */
 object ScriptFilePickerMimePolicy {
