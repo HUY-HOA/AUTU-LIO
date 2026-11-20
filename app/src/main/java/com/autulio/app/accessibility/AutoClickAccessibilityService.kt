@@ -1599,7 +1599,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             editorVisible = false
             collapsed = true
             editor.setText(loadFloatingDraft())
-            root.requestApplyWindowInsets()
+            root.requestApplyInsets()
             renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
             return true
         } catch (_: RuntimeException) {
