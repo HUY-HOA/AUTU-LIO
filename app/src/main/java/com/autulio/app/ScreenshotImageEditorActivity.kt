@@ -289,7 +289,9 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                 ScreenshotImageAnalysis(text, labels, objects, barcodes)
             }.getOrNull()
             scaledBitmap?.recycle()
-            runOnUiThread { onFinished(analysis) }
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) onFinished(analysis)
+            }
         }
     }
 
@@ -480,6 +482,7 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                 }
             }
             runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
                 Toast.makeText(
                     this,
                     if (saved.isSuccess) "Đã lưu ảnh chỉnh sửa thành bản mới."
