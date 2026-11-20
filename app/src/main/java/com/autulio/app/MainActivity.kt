@@ -607,6 +607,11 @@ private fun EditorScreen(
     var validationSucceeded by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var showTemplates by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
+    var templateSearch by rememberSaveable { mutableStateOf("") }
+    var templateDetailId by rememberSaveable { mutableStateOf<String?>(null) }
+    var guideSectionDetailId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedTemplate = ScriptTemplateCatalog.templates.firstOrNull { it.id == templateDetailId }
+    val selectedGuideSection = EditorGuideCatalog.sections.firstOrNull { it.id == guideSectionDetailId }
 
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
@@ -708,57 +713,143 @@ private fun EditorScreen(
     if (showTemplates) {
         AlertDialog(
             onDismissRequest = { showTemplates = false },
-            title = { Text(tr("Chọn mẫu AUTU có sẵn", "Choose an AUTU template")) },
+            title = { Text("Chọn mẫu AUTU có sẵn") },
             text = {
                 Column(
-                    modifier = Modifier.heightIn(max = 430.dp).verticalScroll(rememberScrollState()),
+                    modifier = Modifier.heightIn(max = 480.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ScriptTemplateCatalog.templates.forEach { template ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                val existingCode = code.trimEnd()
-                                val separator = if (existingCode.isBlank()) "" else "\n\n"
-                                onCodeChange(existingCode + separator + template.source.trim())
-                                validationText = ""
-                                validationSucceeded = null
-                                onMessage("Đã thêm mẫu vào cuối mã. Bạn có thể chọn thêm mẫu khác.")
-                            },
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                        ) {
-                            Column(
-                                Modifier.fillMaxWidth().padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                    OutlinedTextField(
+                        value = templateSearch,
+                        onValueChange = { templateSearch = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Tìm mẫu") },
+                        placeholder = { Text("Nhập tên mẫu cần tìm") },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.Search, contentDescription = "Tìm mẫu")
+                        }
+                    )
+                    val filteredTemplates = ScriptTemplateCatalog.templates.filter { template ->
+                        template.nameVi.contains(templateSearch, ignoreCase = true) ||
+                            template.descriptionVi.contains(templateSearch, ignoreCase = true)
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        if (filteredTemplates.isEmpty()) {
+                            Text(
+                                "Không tìm thấy mẫu phù hợp.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                        }
+                        filteredTemplates.forEach { template ->
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
-                                Text(
-                                    tr(template.nameVi, template.nameEn),
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    tr(template.descriptionVi, template.descriptionEn),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp
-                                )
-                                Text(
-                                    template.source,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp
-                                )
-                                Text(
-                                    tr("Chạm để dùng mẫu này", "Tap to use this template"),
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    fontSize = 11.sp
-                                )
+                                Column(
+                                    Modifier.fillMaxWidth().padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(template.nameVi, fontWeight = FontWeight.SemiBold)
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        TextButton(
+                                            onClick = { templateDetailId = template.id },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.Info,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Chi tiết")
+                                        }
+                                        Spacer(Modifier.weight(1f))
+                                        Button(
+                                            onClick = {
+                                                val existingCode = code.trimEnd()
+                                                val separator = if (existingCode.isBlank()) "" else "\n\n"
+                                                onCodeChange(existingCode + separator + template.source.trim())
+                                                validationText = ""
+                                                validationSucceeded = null
+                                                onMessage("Đã thêm mẫu vào cuối mã. Bạn có thể chọn thêm mẫu khác.")
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.Add,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Chèn mẫu")
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showTemplates = false }) {
-                    Text(tr("Đóng", "Close"))
+                TextButton(onClick = {
+                    showTemplates = false
+                    templateSearch = ""
+                }) {
+                    Text("Đóng")
+                }
+            }
+        )
+    }
+
+    if (selectedTemplate != null) {
+        AlertDialog(
+            onDismissRequest = { templateDetailId = null },
+            title = { Text(selectedTemplate.nameVi) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Text(selectedTemplate.descriptionVi)
+                    Text("Mã mẫu", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        selectedTemplate.source,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+                    Text(
+                        "Nhấn Chèn mẫu để thêm đoạn mã này vào cuối nội dung đang có. Có thể chọn lại cùng một mẫu hoặc chèn nhiều mẫu liên tiếp.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { templateDetailId = null }) { Text("Đóng") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    val existingCode = code.trimEnd()
+                    val separator = if (existingCode.isBlank()) "" else "\n\n"
+                    onCodeChange(existingCode + separator + selectedTemplate.source.trim())
+                    validationText = ""
+                    validationSucceeded = null
+                    templateDetailId = null
+                    onMessage("Đã thêm mẫu vào cuối mã.")
+                }) {
+                    Text("Chèn mẫu")
                 }
             }
         )
@@ -767,128 +858,102 @@ private fun EditorScreen(
     if (showHelp) {
         AlertDialog(
             onDismissRequest = { showHelp = false },
-            title = { Text(tr("Hướng dẫn tạo và chạy AUTU", "How to create and run an AUTU")) },
+            title = { Text("Hướng dẫn AUTU-LIO") },
             text = {
                 Column(
-                    modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                    modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        tr("1. Chọn mẫu có sẵn hoặc tự viết mã. Khi chọn mẫu, toàn bộ mã mẫu được đưa vào ô soạn thảo và bạn có thể sửa tiếp.", "1. Choose a template or write code yourself. A selected template is inserted into the editor and remains fully editable.")
+                        "Chọn nhóm chức năng rồi nhấn Chi tiết để xem cú pháp, cách dùng, ví dụ và giới hạn. Nội dung chi tiết chỉ mở khi cần."
                     )
-                    Text(
-                        tr("2. Sửa tọa độ X, Y theo vị trí trên màn hình điện thoại. Tọa độ tính bằng pixel; cần kiểm tra lại khi đổi độ phân giải hoặc xoay màn hình.", "2. Adjust X and Y to match positions on the phone screen. Coordinates are pixels and should be checked after changing resolution or rotating the device.")
-                    )
-                    Text(tr("Các lệnh đang hỗ trợ", "Supported commands"), fontWeight = FontWeight.SemiBold)
-                    Text("CHẠM(x, y)  ·  " + tr("Chạm một lần", "Single tap"))
-                    Text("NHẤN_GIỮ(x, y, ms)  ·  " + tr("Nhấn giữ", "Long press"))
-                    Text("VUỐT(x1, y1, x2, y2, ms)  ·  " + tr("Vuốt", "Swipe"))
-                    Text("CHẠM_ĐA_ĐIỂM(ĐƯỜNG_ĐIỂM, ms)  ·  " + tr("Chạm đồng thời 2–5 điểm", "Simultaneous 2–5 finger tap"))
-                    Text("VUỐT_ĐA_ĐIỂM(CÁC_ĐƯỜNG, ms)  ·  " + tr("Vuốt đồng thời nhiều ngón", "Simultaneous multi-finger paths"))
-                    Text(tr("Mỗi đường là danh sách tọa độ X/Y xen kẽ; tối đa 5 ngón, 16 điểm mỗi đường.", "Each path is a flat X/Y coordinate list; maximum 5 fingers and 16 points per path."))
-                    Text("CHỜ(ms)  ·  " + tr("Chờ", "Wait"))
-                    Text("MỞ_ỨNG_DỤNG(\"tên.gói\")  ·  " + tr("Mở ứng dụng", "Launch an app"))
-                    Text("QUAY_LẠI()  ·  " + tr("Thực hiện thao tác quay lại", "Run Android Back action"))
-                    Text("VỀ_MÀN_HÌNH_CHÍNH()  ·  " + tr("Về màn hình chính", "Go to the Android home screen"))
-                    Text("MỞ_ỨNG_DỤNG_GẦN_ĐÂY()  ·  " + tr("Mở giao diện ứng dụng gần đây", "Open recent apps"))
-                    Text("MỞ_THANH_THÔNG_BÁO()  ·  " + tr("Mở thanh thông báo", "Open the notification shade"))
-                    Text("MỞ_BẢNG_CÀI_ĐẶT_NHANH()  ·  " + tr("Mở bảng cài đặt nhanh", "Open Quick Settings"))
-                    Text("MỞ_HỘP_THOẠI_NGUỒN()  ·  " + tr("Mở hộp thoại nguồn", "Open the power dialog"))
-                    Text("KHÓA_MÀN_HÌNH()  ·  " + tr("Khóa màn hình", "Lock the screen"))
-                    Text("BẬT_TẮT_CHIA_MÀN_HÌNH()  ·  " + tr("Bật hoặc tắt chế độ chia màn hình", "Toggle split-screen mode"))
-                    Text("ĐẶT SO_LAN: SỐ = 3  ·  " + tr("Khai báo biến có kiểu", "Declare a typed variable"))
-                    Text("ĐẶT NOI_DUNG: CHUỖI = \"SẴN SÀNG\"")
-                    Text("ĐẶT DA_SANG: LUẬN_LÝ = ĐÚNG")
-                    Text("NẾU (SO_LAN > 1 VÀ DA_SANG) { ... } NGƯỢC_LẠI { ... }")
-                    Text("NGƯỢC_LẠI_NẾU (SO_LAN == 1) { ... }")
-                    Text("LẶP(SO_LAN) { ... }")
-                    Text("LẶP_KHI (SO_LAN < 10) { ... }")
-                    Text("LẶP_ĐẾN_KHI(SO_LAN >= 10) { ... }")
-                    Text("ĐẶT DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20, 30)")
-                    Text("LẶP_MỖI (PHAN_TU TRONG DANH_SÁCH) { CHẠM(PHAN_TU, 400) }")
-                    Text("ĐẶT CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ(\"TEN\", \"AUTU-LIO\", \"SO\", 3)")
-                    Text("ĐẶT_GIÁ_TRỊ(CAU_HINH, \"SO\", 4) · LẤY_GIÁ_TRỊ(CAU_HINH, \"SO\")")
-                    Text("CÓ_KHÓA(CAU_HINH, \"SO\") · XÓA_KHÓA(CAU_HINH, \"SO\") · DANH_SÁCH_KHÓA(CAU_HINH)")
-                    Text("CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ(\"com.example.game\"), 15000, 250)")
-                    Text("THOÁT_LẶP  ·  BỎ_QUA_LƯỢT")
-                    Text("ĐỊNH_NGHĨA_HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ { TRẢ_VỀ A + B }")
-                    Text("ĐẶT KET_QUA: SỐ = TINH_TONG(10, 20)")
-                    Text("SỐ(GIA_TRI), CHUỖI(GIA_TRI), LÀM_TRÒN(SO), TUYỆT_ĐỐI(SO), ĐỘ_DÀI(CHUOI)")
-                    Text("CHỮ_HOA(CHUOI), CHỮ_THƯỜNG(CHUOI), CẮT_KHOẢNG_TRẮNG(CHUOI)")
-                    Text("CHỨA_CHUỖI(A, B), BẮT_ĐẦU_BẰNG(A, B), KẾT_THÚC_BẰNG(A, B)")
-                    Text("THAY_THẾ(A, CU, MOI), TÁCH_CHUỖI(CHUOI, PHAN_CACH), NỐI_CHUỖI(DANH_SACH, PHAN_CACH)")
-                    Text("KÝ_TỰ_TẠI(CHUOI, VI_TRI), CẮT_CHUỖI(CHUOI, VI_TRI, DO_DAI)")
-                    Text("NHỎ_NHẤT(A, B), LỚN_NHẤT(A, B)")
-                    Text("TẠO_DANH_SÁCH(...), ĐỘ_DÀI(DANH_SÁCH), LẤY_PHẦN_TỬ(DANH_SÁCH, CHI_SO)")
-                    Text("THÊM_PHẦN_TỬ(DANH_SÁCH, GIA_TRI), ĐẶT_PHẦN_TỬ(DANH_SÁCH, CHI_SO, GIA_TRI)")
-                    Text("XÓA_PHẦN_TỬ(DANH_SÁCH, CHI_SO), CÓ_PHẦN_TỬ(DANH_SÁCH, GIA_TRI)")
-                    Text("PIN(), PHẦN_TRĂM_PIN(), ĐANG_SẠC(), CÓ_MẠNG(), MÀN_HÌNH_SÁNG()")
-                    Text("ỨNG_DỤNG_ĐÃ_CÀI(\"tên.gói\"), ỨNG_DỤNG_ĐANG_MỞ(\"tên.gói\")")
-                    Text("CHIỀU_RỘNG_MÀN_HÌNH(), CHIỀU_CAO_MÀN_HÌNH(), THỜI_GIAN_MS()")
-                    Text("ĐỌC_VĂN_BẢN_MÀN_HÌNH(), MÀN_HÌNH_CHỨA_CHỮ(\"nội dung\"), TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")")
-                    Text("ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()")
-                    Text(tr("Có thể đọc chữ qua cây Trợ năng và OCR; các lệnh nhận diện ảnh sử dụng bộ xử lý hình ảnh trên thiết bị.", "Text can be read through Accessibility and OCR; image recognition commands use on-device vision."))
-                    Text("PHÂN_TÍCH_JSON(\"{\\\"A\\\":1}\"), CHUYỂN_JSON(GIÁ_TRỊ), RỖNG")
-                    Text("ĐỌC_TỆP(\"settings/a.txt\"), GHI_TỆP(\"settings/a.txt\", NỘI_DUNG)")
-                    Text("TỆP_TỒN_TẠI(\"settings/a.txt\"), XÓA_TỆP(\"settings/a.txt\"), TẠO_THƯ_MỤC(\"settings\")")
-                    Text("LIỆT_KÊ_TỆP(\"settings\"), ĐỌC_JSON_TỆP(\"settings/a.json\"), GHI_JSON_TỆP(\"settings/a.json\", GIÁ_TRỊ)")
-                    Text("GỬI_YÊU_CẦU_HTTP(\"GET\", \"https://api.example.com/status\", RỖNG, TẠO_BẢN_ĐỒ(), 10000)")
-                    Text(tr("HTTP chỉ dùng HTTPS; GET/POST/PUT/DELETE/HEAD; tối đa 1 MiB mỗi chiều và timeout 30 giây.", "HTTP uses HTTPS only; GET/POST/PUT/DELETE/HEAD; 1 MiB request/response limit and 30-second timeout."))
-                    Text(tr("Tệp lưu trong vùng riêng AUTU-LIO, đường dẫn tương đối, tối đa 1 MiB mỗi tệp.", "Files stay in AUTU-LIO private storage, use relative paths, and are limited to 1 MiB per file."))
-                    Text(tr("DANH_SÁCH và BẢN_ĐỒ có thể lồng nhau; giới hạn 8 cấp, 512 giá trị.", "Lists and maps can be nested; limited to 8 levels and 512 values."))
-                    Text(tr("Trả về giá trị gốc/hiển thị, định dạng, loại nội dung và hộp tọa độ; không tự mở liên kết.", "Returns raw/display value, format, content type and bounds; does not open links automatically."))
-                    Text("MÀU_TẠI(X, Y), MÀN_HÌNH_CÓ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)")
-                    Text("TÌM_VỊ_TRÍ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)")
-                    Text("MẬT_ĐỘ_MÀN_HÌNH(), DP_SANG_PIXEL(DP), PIXEL_SANG_DP(PIXEL)")
-                    Text("CHIỀU_RỘNG_DP(), CHIỀU_CAO_DP(), TỶ_LỆ_KHUNG_HÌNH()")
-                    Text("HƯỚNG_MÀN_HÌNH(), XOAY_MÀN_HÌNH(), GÓC_XOAY_MÀN_HÌNH()")
-                    Text("CHIỀU_RỘNG_VÙNG_AN_TOÀN(), CHIỀU_CAO_VÙNG_AN_TOÀN()")
-                    Text("LỀ_AN_TOÀN_TRÁI(), LỀ_AN_TOÀN_TRÊN(), LỀ_AN_TOÀN_PHẢI(), LỀ_AN_TOÀN_DƯỚI()")
-                    Text("CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH(), CÓ_VÙNG_KHUYẾT_MÀN_HÌNH()")
-                    Text("SỐ_VÙNG_KHUYẾT_MÀN_HÌNH(), TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH()")
-                    Text("GÓI_ỨNG_DỤNG_ĐANG_MỞ()  ·  " + tr("Tên package foreground từ sự kiện Trợ năng", "Foreground package from Accessibility events"))
-                    Text("HÃNG_SẢN_XUẤT(), MẪU_THIẾT_BỊ(), PHIÊN_BẢN_ANDROID(), MỨC_API_ANDROID()")
-                    Text("MÀN_HÌNH_BỊ_KHÓA(), THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()")
-                    Text(tr("Thông tin model/Android và trạng thái khóa được đọc cục bộ từ Android; không gửi lên máy chủ.", "Device model/Android and keyguard state are read locally from Android; not uploaded to a server."))
-                    Text(tr("Kích thước vùng an toàn đã tính phần giao nhau của thanh hệ thống và vùng khuyết để không cộng trùng. Tọa độ vùng khuyết trả về từng nhóm trái, trên, phải, dưới.", "Safe dimensions combine system and cutout insets without double counting. Cutout coordinates are returned as left, top, right, bottom groups."))
-                    Text("TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ), TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)")
-                    Text("TỶ_LỆ_X_THEO_TỌA_ĐỘ(X), TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)")
-                    Text(tr("Tỷ lệ tọa độ nằm trong khoảng 0 đến 1; tọa độ 0 và 1 tương ứng pixel đầu và cuối màn hình.", "Coordinate ratios range from 0 to 1; 0 and 1 map to the first and last screen pixels."))
-                    Text("TỶ_LỆ_MÀU_TRONG_VÙNG(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO)")
-                    Text(tr("Phân tích RGB dùng ảnh chụp màn hình tại thiết bị, lấy mẫu có giới hạn; tỷ lệ màu là giá trị ước lượng.", "RGB analysis uses on-device screenshots and bounded sampling; region color percentage is an estimate."))
-                    Text("TÌM_THÀNH_PHẦN_VĂN_BẢN(\"Đăng nhập\"), NHẤN_THÀNH_PHẦN_VĂN_BẢN(\"Đăng nhập\")")
-                    Text("NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN(\"Tên\", \"LIO\"), TÌM_TỌA_ĐỘ_THÀNH_PHẦN(\"Tên\")")
-                    Text("TÌM_THÀNH_PHẦN_THEO_ID(\"login_button\"), NHẤN_THÀNH_PHẦN_THEO_ID(\"login_button\")")
-                    Text("NHẬP_VĂN_BẢN_THEO_ID(\"username\", \"AUTU\"), CUỘN_XUỐNG(), CUỘN_LÊN()")
-                    Text("THỬ { ... } BẮT_LỖI (LỖI) { ... } LUÔN_THỰC_HIỆN { ... }")
-                    Text(tr("Biến LỖI là BẢN_ĐỒ có khóa MÃ và THÔNG_BÁO. Trợ năng chỉ thao tác phần tử mà ứng dụng đích công khai.", "LỖI is a BẢN_ĐỒ with MÃ and THÔNG_BÁO keys. Accessibility can only act on elements exposed by the target app."))
-                    Text("Toán tử: +  -  *  /  %  ^  ==  !=  >  >=  <  <=  VÀ  HOẶC  KHÔNG")
-                    Text(tr("Danh sách chứa tối đa 64 phần tử; LẶP_MỖI duyệt bản sao an toàn. BẢN_ĐỒ chứa tối đa 64 cặp khóa–giá trị, khóa là CHUỖI không rỗng.", "Lists hold up to 64 items; LẶP_MỖI iterates a safe snapshot. BẢN_ĐỒ holds up to 64 key-value pairs with non-empty CHUỖI keys."))
-                    Text(tr("Hàm tự định nghĩa phải viết HOA, khai báo ở cấp cao nhất; tối đa 16 tham số và 16 cấp gọi lồng nhau.", "User functions must be uppercase and declared at top level; up to 16 parameters and 16 nested calls."))
-                    Text(
-                        tr("3. Nhấn Kiểm tra mã để tìm lỗi cú pháp. Chỉ khi mã hợp lệ mới chuẩn bị được cửa sổ chạy.", "3. Tap Check code to find syntax errors. Only valid code can be prepared for running.")
-                    )
-                    Text(
-                        tr("4. Bật quyền Trợ năng cho AUTU-LIO khi Android yêu cầu. Đây là quyền do bạn tự cấp trong Cài đặt Android.", "4. Enable AUTU-LIO Accessibility when Android asks. You grant this permission yourself in Android Settings.")
-                    )
-                    Text(
-                        tr("5. Khi cửa sổ chạy xuất hiện, chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi. Có thể Tạm dừng, Tiếp tục, Dừng hoặc thu nhỏ bất cứ lúc nào.", "5. When the runner appears, switch to the target app and press Run on the floating window. You can pause, resume, stop or collapse it.")
-                    )
-                    Text(
-                        tr(
-                            "Văn bản chỉ đọc từ cây Android Accessibility mà ứng dụng đích công khai. AUTU-LIO không tích hợp OCR, nhận diện ảnh hoặc trợ lý AI.",
-                            "Text is read only from the target app's public Android Accessibility tree. AUTU-LIO does not include OCR, image recognition or an AI assistant."
-                        )
-                    )
+                    EditorGuideCatalog.sections.forEach { section ->
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(section.title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text(
+                                        section.summary,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                        lineHeight = 15.sp,
+                                        maxLines = 2
+                                    )
+                                }
+                                TextButton(
+                                    onClick = { guideSectionDetailId = section.id },
+                                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Chi tiết")
+                                }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showHelp = false }) {
-                    Text(tr("Đã hiểu", "Got it"))
-                }
+                TextButton(onClick = { showHelp = false }) { Text("Đóng") }
             }
         )
     }
+
+    if (selectedGuideSection != null) {
+        AlertDialog(
+            onDismissRequest = { guideSectionDetailId = null },
+            title = { Text(selectedGuideSection.title) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Text(selectedGuideSection.summary)
+                    selectedGuideSection.commands.forEach { command ->
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                command.syntax,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                command.description,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp
+                            )
+                            if (!command.example.isNullOrBlank()) {
+                                Text(
+                                    "Ví dụ: " + command.example,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    if (selectedGuideSection.notes.isNotEmpty()) {
+                        Text("Lưu ý", fontWeight = FontWeight.SemiBold)
+                        selectedGuideSection.notes.forEach { note ->
+                            Text("• " + note, fontSize = 12.sp, lineHeight = 17.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { guideSectionDetailId = null }) { Text("Đóng") }
+            }
+        )
+    }
+
 }
 
 @Composable
