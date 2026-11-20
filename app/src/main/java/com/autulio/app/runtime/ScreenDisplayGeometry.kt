@@ -108,7 +108,10 @@ object ScreenDisplayGeometryStore {
 
     fun current(widthPx: Int, heightPx: Int): ScreenDisplayGeometry? {
         val value = latest ?: return null
-        return value.copy(widthPx = widthPx, heightPx = heightPx)
+        // Insets and cutout bounds are orientation-dependent. Never reuse them
+        // for a display size that does not match the window that published them.
+        if (value.widthPx != widthPx || value.heightPx != heightPx) return null
+        return value
     }
 
     fun clear() {
