@@ -46,6 +46,7 @@ import com.autulio.app.runtime.ScreenMetricsInfo
 import com.autulio.app.runtime.ScreenDisplayGeometry
 import com.autulio.app.runtime.ScreenInsets
 import com.autulio.app.runtime.ScreenCutoutBounds
+import com.autulio.app.runtime.ScreenDisplayGeometryStore
 import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
@@ -1255,7 +1256,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             ScreenCutoutBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
         }
 
-        latestDisplayGeometry = ScreenDisplayGeometry(
+        val geometry = ScreenDisplayGeometry(
             widthPx = metrics.widthPixels,
             heightPx = metrics.heightPixels,
             systemInsets = systemInsets,
@@ -1263,17 +1264,16 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             cutoutDetectionKnown = cutoutKnown,
             cutoutBounds = cutoutBounds
         )
+        latestDisplayGeometry = geometry
+        ScreenDisplayGeometryStore.publish(geometry)
     }
 
     private fun readDisplayGeometry(): ScreenDisplayGeometry {
         refreshDisplayGeometry()
         val metrics = readDisplayMetrics()
         val cached = latestDisplayGeometry
-        return if (cached != null) {
-            cached.copy(widthPx = metrics.widthPixels, heightPx = metrics.heightPixels)
-        } else {
-            ScreenDisplayGeometry.unknown(metrics.widthPixels, metrics.heightPixels)
-        }
+            ?: ScreenDisplayGeometryStore.current(metrics.widthPixels, metrics.heightPixels)
+        return cached ?: ScreenDisplayGeometry.unknown(metrics.widthPixels, metrics.heightPixels)
     }
 
     @Suppress("DEPRECATION")
@@ -1433,6 +1433,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             gravity = Gravity.TOP or Gravity.START
             x = dp(8)
             y = dp(100)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
         }
 
         move.setOnTouchListener(object : View.OnTouchListener {
