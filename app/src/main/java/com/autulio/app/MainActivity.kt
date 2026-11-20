@@ -120,8 +120,32 @@ private fun RolePreviewChooser(
         }
     }
 }
-internal fun tr(vi: String, en: String) =
-    if (Locale.getDefault().language == "vi") vi else en
+@Suppress("UNUSED_PARAMETER")
+internal fun tr(vi: String, en: String): String = vi
+
+internal fun statusText(value: String): String = when (value.trim().uppercase(Locale.ROOT)) {
+    "ACTIVE" -> "Đang hoạt động"
+    "PAUSED" -> "Tạm dừng"
+    "REVOKED" -> "Đã thu hồi"
+    "EXPIRED" -> "Đã hết hạn"
+    "PENDING" -> "Đang chờ"
+    "INACTIVE" -> "Không hoạt động"
+    "ARCHIVED" -> "Đã lưu trữ"
+    "FAILED" -> "Thất bại"
+    "COMPLETED" -> "Hoàn tất"
+    "CANCELLED" -> "Đã hủy"
+    else -> value.trim().ifBlank { "Không xác định" }
+}
+
+internal fun planText(value: String): String = when (value.trim().uppercase(Locale.ROOT)) {
+    "WEEKLY" -> "Theo tuần"
+    "MONTHLY" -> "Theo tháng"
+    "QUARTERLY" -> "Theo quý"
+    "YEARLY", "ANNUAL" -> "Theo năm"
+    "LIFETIME" -> "Trọn đời"
+    "TRIAL" -> "Dùng thử"
+    else -> value.trim().ifBlank { "Chưa xác định" }
+}
 
 @Composable
 internal fun AppTheme(dark: Boolean, content: @Composable () -> Unit) {
@@ -507,8 +531,8 @@ private fun EditorScreen(
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(
             tr(
-                "Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. AUTU-LIO Script ${ScriptCompiler.LANGUAGE_VERSION} hỗ trợ lệnh thao tác, biến, biểu thức, điều kiện, vòng lặp và trạng thái thiết bị.",
-                "Choose a built-in template, or write and edit your own source below. AUTU-LIO Script ${ScriptCompiler.LANGUAGE_VERSION} supports gestures, variables, expressions, conditions, loops and device state."
+                "Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. ngôn ngữ lệnh AUTU-LIO ${ScriptCompiler.LANGUAGE_VERSION} hỗ trợ lệnh thao tác, biến, biểu thức, điều kiện, vòng lặp và trạng thái thiết bị.",
+                "Choose a built-in template, or write and edit your own source below. ngôn ngữ lệnh AUTU-LIO ${ScriptCompiler.LANGUAGE_VERSION} supports gestures, variables, expressions, conditions, loops and device state."
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
