@@ -73,7 +73,7 @@ private enum class ImageEditTool {
 }
 
 private enum class RegionEffect {
-    BLUR, COVER
+    BLUR, PIXELATE, COVER
 }
 
 private data class ImageRegion(
@@ -324,7 +324,8 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                             coverPaint
                         )
                     }
-                    RegionEffect.BLUR -> {
+                    RegionEffect.BLUR,
+                    RegionEffect.PIXELATE -> {
                         val crop = Bitmap.createBitmap(bitmap, left, top, width, height)
                         try {
                             val reduced = Bitmap.createScaledBitmap(
@@ -334,14 +335,20 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                                 true
                             )
                             try {
-                                val blurPaint = AndroidPaint(
-                                    AndroidPaint.ANTI_ALIAS_FLAG or AndroidPaint.FILTER_BITMAP_FLAG
-                                )
+                                val effectPaint = if (effect == RegionEffect.BLUR) {
+                                    AndroidPaint(
+                                        AndroidPaint.ANTI_ALIAS_FLAG or AndroidPaint.FILTER_BITMAP_FLAG
+                                    )
+                                } else {
+                                    AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                                        isFilterBitmap = false
+                                    }
+                                }
                                 canvas.drawBitmap(
                                     reduced,
                                     null,
                                     AndroidRect(left, top, right, bottom),
-                                    blurPaint
+                                    effectPaint
                                 )
                             } finally {
                                 if (reduced !== crop && !reduced.isRecycled) reduced.recycle()
@@ -718,6 +725,17 @@ private fun ScreenshotImageEditorScreen(
                         }
                     }
                 ) { Text("Làm mờ vùng") }
+                OutlinedButton(
+                    enabled = !isApplyingImageEffect,
+                    onClick = {
+                        val region = selectedRegion ?: return@OutlinedButton
+                        isApplyingImageEffect = true
+                        onApplyRegionEffect(workingBitmap, region, RegionEffect.PIXELATE) { result ->
+                            acceptProcessedBitmap(result, "Đã pixel hóa vùng đã chọn.")
+                            if (result != null) selectedRegion = null
+                        }
+                    }
+                ) { Text("Pixel hóa vùng") }
                 Button(
                     enabled = !isApplyingImageEffect,
                     onClick = {
@@ -732,7 +750,7 @@ private fun ScreenshotImageEditorScreen(
                 TextButton(onClick = { selectedRegion = null }) { Text("Bỏ chọn") }
             }
             Text(
-                "Lưu ý: làm mờ không bảo đảm che dữ liệu nhạy cảm; hãy dùng Che kín vùng.",
+                "Làm mờ hoặc pixel hóa không bảo đảm ẩn dữ liệu nhạy cảm. Hãy dùng Che kín vùng.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.sp
             )
