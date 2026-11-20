@@ -10,6 +10,7 @@ import android.net.Uri
 import android.util.DisplayMetrics
 import android.view.WindowInsets
 import android.provider.Settings
+import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
@@ -43,6 +44,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.util.Locale
+import java.io.File
 import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.auth.AuthApiException
@@ -52,6 +54,8 @@ import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptTemplate
 import com.autulio.app.script.ScriptTemplateCatalog
 import com.autulio.app.runtime.ScriptDatabaseStore
+import com.autulio.app.runtime.ScriptFileStore
+import com.autulio.app.runtime.ScriptSafFileTransfer
 import com.autulio.app.runtime.ScreenDisplayGeometry
 import com.autulio.app.runtime.ScreenInsets
 import com.autulio.app.runtime.ScreenCutoutBounds
@@ -1050,6 +1054,7 @@ private fun MoreScreen(
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
                     SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Vai trò được xác minh từ máy chủ; thông tin kỹ thuật thiết bị và kết nối được ghi nhận khi đăng nhập.", "Roles are verified by the server; basic device and network diagnostics are recorded at sign-in."))
                     DatabaseBackupControls()
+        ScriptFileControls()
                     SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
                 }
             }
@@ -1357,8 +1362,143 @@ private fun SettingsScreen(
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
         SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
         DatabaseBackupControls()
+        ScriptFileControls()
         SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
     }
+}
+
+@Composable
+private fun ScriptFileControls() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val transfer = remember(context) {
+        ScriptSafFileTransfer(ScriptFileStore(File(context.filesDir, "autu-script-data")))
+    }
+    var targetPath by rememberSaveable { mutableStateOf("") }
+    var working by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("") }
+
+    val importDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) scope.launch {
+            working = true
+            message = ""
+            try {
+                val imported = withContext(Dispatchers.IO) {
+                    val displayName = querySafDisplayName(context, uri)
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        transfer.importFrom(input, displayName)
+                    } ?: throw java.io.IOException("Không mở được tệp đã chọn.")
+                }
+                targetPath = imported.relativePath
+                message = tr(
+                    "Đã nhập ${imported.bytes} byte vào ${imported.relativePath}.",
+                    "Imported ${imported.bytes} bytes to ${imported.relativePath}."
+                )
+            } catch (error: Exception) {
+                message = error.localizedMessage ?: tr("Không nhập được tệp.", "Could not import the file.")
+            } finally {
+                working = false
+            }
+        }
+    }
+
+    val exportDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
+    ) { uri ->
+        if (uri != null) scope.launch {
+            val path = targetPath.trim()
+            working = true
+            message = ""
+            try {
+                val bytes = withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                        transfer.exportTo(path, output)
+                    } ?: throw java.io.IOException("Không mở được tệp đích.")
+                }
+                message = tr(
+                    "Đã xuất $bytes byte từ $path.",
+                    "Exported $bytes bytes from $path."
+                )
+            } catch (error: Exception) {
+                message = error.localizedMessage ?: tr("Không xuất được tệp.", "Could not export the file.")
+            } finally {
+                working = false
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(tr("Tệp AUTU Script", "AUTU Script files"), fontWeight = FontWeight.SemiBold)
+        Text(
+            tr(
+                "Nhập tệp từ nơi bạn chọn vào vùng riêng của AUTU, hoặc xuất một tệp trong vùng này ra nơi khác. Giới hạn 1 MiB mỗi tệp.",
+                "Import a file from a location you choose into AUTU's private storage, or export a stored file. Each file is limited to 1 MiB."
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            lineHeight = 17.sp
+        )
+        OutlinedTextField(
+            value = targetPath,
+            onValueChange = { targetPath = it.take(256) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !working,
+            label = { Text(tr("Đường dẫn tệp trong AUTU", "AUTU file path")) },
+            placeholder = { Text("imports/baocao.csv") }
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { importDocument.launch(arrayOf("*/*")) },
+                enabled = !working,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Outlined.AttachFile, contentDescription = null)
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Nhập tệp", "Import"))
+            }
+            OutlinedButton(
+                onClick = {
+                    val path = targetPath.trim()
+                    if (path.isBlank() || path.endsWith('/')) {
+                        message = tr("Nhập đường dẫn tệp cần xuất.", "Enter the file path to export.")
+                    } else {
+                        exportDocument.launch(path.substringAfterLast('/'))
+                    }
+                },
+                enabled = !working,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Outlined.Share, contentDescription = null)
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Xuất tệp", "Export"))
+            }
+        }
+        if (working) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (message.isNotBlank()) {
+            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+        }
+    }
+}
+
+private fun querySafDisplayName(context: Context, uri: Uri): String {
+    val queriedName = runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (column >= 0 && cursor.moveToFirst()) cursor.getString(column) else null
+        }
+    }.getOrNull()
+    return queriedName?.takeIf { it.isNotBlank() }
+        ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: "tep_nhap.bin"
 }
 
 @Composable

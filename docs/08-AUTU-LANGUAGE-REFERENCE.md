@@ -81,6 +81,9 @@ Hàm phải khai báo ở cấp cao nhất, tối đa 16 tham số và 16 cấp 
 
 ### Tệp và thư mục riêng của AUTU
 
+Trong Cài đặt → Tệp AUTU Script, người dùng có thể nhập một tệp bằng Android Storage Access Framework (SAF) hoặc xuất tệp trong kho riêng. Tệp nhập được sao chép vào `imports/` với tên đã làm sạch; nếu trùng tên, AUTU tự thêm hậu tố số thay vì ghi đè. Không lưu quyền truy cập URI lâu dài và không đọc tệp bên ngoài sau khi quá trình nhập kết thúc. Mỗi lần nhập/xuất tối đa 1 MiB. Sau khi nhập, script dùng đường dẫn hiển thị trên màn hình để gọi ĐỌC_TỆP, ĐỌC_JSON_TỆP, PHÂN_TÍCH_CSV hoặc các hàm tương ứng. Khi xuất, người dùng nhập đường dẫn tương đối trong kho riêng và tự chọn đích lưu.
+
+
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
 | ĐỌC_TỆP | ĐỌC_TỆP("settings/config.txt") | Đọc văn bản UTF-8 |
