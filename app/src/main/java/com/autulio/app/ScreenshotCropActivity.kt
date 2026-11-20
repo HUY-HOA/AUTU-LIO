@@ -136,6 +136,10 @@ class ScreenshotCropActivity : ComponentActivity() {
             imageSaver.execute { bitmapToRecycle.recycle() }
         }
         imageSaver.shutdown()
+        if (!isChangingConfigurations) {
+            com.autulio.app.accessibility.AutoClickAccessibilityService.current()
+                ?.restoreFloatingControlsAfterExternalScreen()
+        }
         super.onDestroy()
     }
 }
