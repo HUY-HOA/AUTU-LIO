@@ -29,6 +29,7 @@ import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -42,6 +43,9 @@ import com.autulio.app.runtime.ScriptHttpClient
 import com.autulio.app.runtime.ScreenColorAnalyzer
 import com.autulio.app.runtime.ScreenCoordinateConverter
 import com.autulio.app.runtime.ScreenMetricsInfo
+import com.autulio.app.runtime.ScreenDisplayGeometry
+import com.autulio.app.runtime.ScreenInsets
+import com.autulio.app.runtime.ScreenCutoutBounds
 import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
@@ -102,12 +106,14 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var collapsed = false
     private var pendingProgram: ScriptProgram? = null
     private var latestSnapshot: ScriptExecutionSnapshot? = null
+    @Volatile private var latestDisplayGeometry: ScreenDisplayGeometry? = null
     @Volatile private var foregroundPackage: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         activeInstance = this
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        refreshDisplayGeometry()
         executionEngine = ScriptExecutionEngine(this) { snapshot ->
             mainHandler.post { renderSnapshot(snapshot) }
         }
@@ -354,6 +360,18 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
             "CHIỀU_RỘNG_MÀN_HÌNH" -> readDisplayMetrics().widthPixels
             "CHIỀU_CAO_MÀN_HÌNH" -> readDisplayMetrics().heightPixels
+            "CHIỀU_RỘNG_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeWidthPx
+            "CHIỀU_CAO_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeHeightPx
+            "LỀ_AN_TOÀN_TRÁI" -> readDisplayGeometry().safeInsets.left
+            "LỀ_AN_TOÀN_TRÊN" -> readDisplayGeometry().safeInsets.top
+            "LỀ_AN_TOÀN_PHẢI" -> readDisplayGeometry().safeInsets.right
+            "LỀ_AN_TOÀN_DƯỚI" -> readDisplayGeometry().safeInsets.bottom
+            "CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutDetectionKnown
+            "CÓ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().hasCutout
+            "SỐ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutCount
+            "TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().let { geometry ->
+                if (geometry.cutoutDetectionKnown) geometry.flattenedCutoutBounds() else null
+            }
             "THỜI_GIAN_MS" -> System.currentTimeMillis()
             "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
@@ -1189,6 +1207,75 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private fun readDisplayRotation(): Int =
         (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
 
+    private fun refreshDisplayGeometry() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val insets = runCatching {
+                (windowManager ?: getSystemService(WINDOW_SERVICE) as WindowManager)
+                    .currentWindowMetrics.windowInsets
+            }.getOrNull() ?: return
+            captureDisplayGeometry(insets)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun captureDisplayGeometry(insets: WindowInsets) {
+        val metrics = readDisplayMetrics()
+        val systemInsets: ScreenInsets
+        val cutoutInsets: ScreenInsets
+        val cutoutBounds: List<ScreenCutoutBounds>
+        val cutoutKnown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bars = insets.getInsets(WindowInsets.Type.systemBars())
+            val cutout = insets.getInsets(WindowInsets.Type.displayCutout())
+            systemInsets = ScreenInsets(bars.left, bars.top, bars.right, bars.bottom)
+            cutoutInsets = ScreenInsets(cutout.left, cutout.top, cutout.right, cutout.bottom)
+        } else {
+            systemInsets = ScreenInsets(
+                insets.systemWindowInsetLeft,
+                insets.systemWindowInsetTop,
+                insets.systemWindowInsetRight,
+                insets.systemWindowInsetBottom
+            )
+            val cutout = if (cutoutKnown) insets.displayCutout else null
+            cutoutInsets = if (cutout != null) {
+                ScreenInsets(
+                    cutout.safeInsetLeft,
+                    cutout.safeInsetTop,
+                    cutout.safeInsetRight,
+                    cutout.safeInsetBottom
+                )
+            } else {
+                ScreenInsets()
+            }
+        }
+
+        val displayCutout = if (cutoutKnown) insets.displayCutout else null
+        cutoutBounds = displayCutout?.boundingRects.orEmpty().map { bounds ->
+            ScreenCutoutBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
+        }
+
+        latestDisplayGeometry = ScreenDisplayGeometry(
+            widthPx = metrics.widthPixels,
+            heightPx = metrics.heightPixels,
+            systemInsets = systemInsets,
+            cutoutSafeInsets = cutoutInsets,
+            cutoutDetectionKnown = cutoutKnown,
+            cutoutBounds = cutoutBounds
+        )
+    }
+
+    private fun readDisplayGeometry(): ScreenDisplayGeometry {
+        refreshDisplayGeometry()
+        val metrics = readDisplayMetrics()
+        val cached = latestDisplayGeometry
+        return if (cached != null) {
+            cached.copy(widthPx = metrics.widthPixels, heightPx = metrics.heightPixels)
+        } else {
+            ScreenDisplayGeometry.unknown(metrics.widthPixels, metrics.heightPixels)
+        }
+    }
+
     @Suppress("DEPRECATION")
     private fun readDisplayMetrics(): DisplayMetrics {
         val metrics = DisplayMetrics()
@@ -1388,9 +1475,15 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         })
 
+        root.setOnApplyWindowInsetsListener { _, insets ->
+            captureDisplayGeometry(insets)
+            insets
+        }
+
         try {
             manager.addView(root, params)
             floatingWindow = root
+            root.requestApplyInsets()
             statusLabel = status
             primaryButton = primary
             stopButton = stop
