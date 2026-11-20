@@ -167,6 +167,54 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
+    fun stoppingWhilePausedRunsFinallyBlockBeforeCancellation() {
+        val dispatcher = RecordingDispatcher()
+        val firstTapEntered = CountDownLatch(1)
+        val releaseFirstTap = CountDownLatch(1)
+        dispatcher.firstTapEntered = firstTapEntered
+        dispatcher.releaseFirstTap = releaseFirstTap
+
+        val cancelled = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.CANCELLED) cancelled.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                THỬ {
+                    CHẠM(10, 20)
+                } LUÔN_THỰC_HIỆN {
+                    CHẠM(30, 40)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(
+                "Kịch bản chưa đi vào thao tác chạm.",
+                firstTapEntered.await(5, TimeUnit.SECONDS)
+            )
+            assertTrue("Không thể tạm dừng kịch bản.", engine.pause())
+            assertEquals(ScriptExecutionState.PAUSED, engine.snapshot().state)
+            assertTrue("Không thể dừng kịch bản đang tạm dừng.", engine.stop())
+            assertEquals(ScriptExecutionState.STOPPING, engine.snapshot().state)
+            releaseFirstTap.countDown()
+
+            assertTrue(
+                "Kịch bản không kết thúc sau khi dừng từ trạng thái tạm dừng.",
+                cancelled.await(3, TimeUnit.SECONDS)
+            )
+            assertEquals(ScriptExecutionState.CANCELLED, engine.snapshot().state)
+            assertEquals(
+                listOf("tap:10,20", "tap:30,40"),
+                dispatcher.actions
+            )
+        } finally {
+            releaseFirstTap.countDown()
+            engine.close()
+        }
+    }
+
+    @Test
     fun dispatchesAppLaunchAndDeviceQueryFunctions() {
         val dispatcher = RecordingDispatcher().apply { appLaunchResult = true }
         val completed = CountDownLatch(1)
