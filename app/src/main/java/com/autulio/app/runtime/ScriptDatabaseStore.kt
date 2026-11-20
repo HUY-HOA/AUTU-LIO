@@ -243,8 +243,8 @@ class ScriptDatabaseStore(context: Context) : Closeable {
                 copyAndSync(liveFile, rollbackFile)
                 rollbackReady = true
 
-                database.close()
                 oldDatabaseClosed = true
+                database.close()
                 deleteSqliteSidecars(liveFile)
                 moveReplacing(stagedFile, liveFile)
                 database = openDatabaseHandle()
@@ -255,17 +255,28 @@ class ScriptDatabaseStore(context: Context) : Closeable {
                 metadata
             } catch (error: Exception) {
                 if (oldDatabaseClosed) {
-                    runCatching { if (database.isOpen) database.close() }
-                    deleteSqliteSidecars(liveFile)
-                    if (rollbackReady && rollbackFile.exists()) {
-                        moveReplacing(rollbackFile, liveFile)
+                    try {
+                        runCatching { if (database.isOpen) database.close() }
+                        deleteSqliteSidecars(liveFile)
+                        if (rollbackReady && rollbackFile.exists()) {
+                            moveReplacing(rollbackFile, liveFile)
+                            rollbackReady = false
+                        }
+                        database = openDatabaseHandle()
+                    } catch (recoveryError: Exception) {
+                        error.addSuppressed(recoveryError)
+                        throw IllegalStateException(
+                            "Khôi phục SQLite thất bại và không thể tự động phục hồi bản dữ liệu trước đó.",
+                            error
+                        )
                     }
-                    database = openDatabaseHandle()
                 }
                 throw error
             } finally {
                 stagedFile.delete()
-                if (rollbackFile.exists()) rollbackFile.delete()
+                if (rollbackReady && rollbackFile.exists()) {
+                    rollbackFile.delete()
+                }
             }
         }
 

@@ -85,65 +85,89 @@ object ScriptDatabaseBackupCodec {
      * file. Expanded database bytes and manifest bytes are strictly bounded.
      */
     fun read(input: InputStream, destination: File): Metadata {
-        val names = linkedSetOf<String>()
-        var manifestBytes: ByteArray? = null
-        var databaseBytes = 0L
-
-        ZipInputStream(BufferedInputStream(LimitedInputStream(input, MAX_ARCHIVE_BYTES))).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                require(!entry.isDirectory) {
-                    "Tệp sao lưu chứa thư mục không hợp lệ."
-                }
-                require(names.add(entry.name)) {
-                    "Tệp sao lưu chứa mục trùng lặp."
-                }
-                when (entry.name) {
-                    MANIFEST_ENTRY -> {
-                        manifestBytes = readBoundedEntry(zip, MAX_MANIFEST_BYTES)
-                    }
-                    DATABASE_ENTRY -> {
-                        FileOutputStream(destination).use { target ->
-                            val buffer = ByteArray(BUFFER_BYTES)
-                            while (true) {
-                                val count = zip.read(buffer)
-                                if (count < 0) break
-                                databaseBytes += count
-                                require(databaseBytes <= ScriptDatabaseStore.MAX_DATABASE_BYTES) {
-                                    "Tệp SQLite trong bản sao lưu vượt quá giới hạn."
-                                }
-                                target.write(buffer, 0, count)
-                            }
-                            target.fd.sync()
+        val archiveParent = destination.absoluteFile.parentFile
+            ?: throw IllegalArgumentException("Không xác định được thư mục tạm để đọc bản sao lưu.")
+        val archiveFile = File.createTempFile(".autu-backup-", ".zip", archiveParent)
+        try {
+            var archiveBytes = 0L
+            input.use { source ->
+                FileOutputStream(archiveFile).use { output ->
+                    val buffer = ByteArray(BUFFER_BYTES)
+                    while (true) {
+                        val count = source.read(buffer)
+                        if (count < 0) break
+                        archiveBytes += count
+                        require(archiveBytes <= MAX_ARCHIVE_BYTES) {
+                            "Tệp sao lưu vượt quá giới hạn $MAX_ARCHIVE_BYTES byte."
                         }
+                        output.write(buffer, 0, count)
                     }
-                    else -> throw IllegalArgumentException(
-                        "Tệp sao lưu chứa mục không được hỗ trợ."
-                    )
-                }
-                zip.closeEntry()
-                require(names.size <= 2) {
-                    "Tệp sao lưu chứa quá nhiều mục."
+                    output.fd.sync()
                 }
             }
-        }
 
-        require(names == setOf(MANIFEST_ENTRY, DATABASE_ENTRY)) {
-            "Tệp sao lưu thiếu manifest hoặc dữ liệu SQLite."
+            val names = linkedSetOf<String>()
+            var manifestBytes: ByteArray? = null
+            var databaseBytes = 0L
+
+            ZipInputStream(BufferedInputStream(FileInputStream(archiveFile))).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    require(!entry.isDirectory) {
+                        "Tệp sao lưu chứa thư mục không hợp lệ."
+                    }
+                    require(names.add(entry.name)) {
+                        "Tệp sao lưu chứa mục trùng lặp."
+                    }
+                    when (entry.name) {
+                        MANIFEST_ENTRY -> {
+                            manifestBytes = readBoundedEntry(zip, MAX_MANIFEST_BYTES)
+                        }
+                        DATABASE_ENTRY -> {
+                            FileOutputStream(destination, false).use { target ->
+                                val buffer = ByteArray(BUFFER_BYTES)
+                                while (true) {
+                                    val count = zip.read(buffer)
+                                    if (count < 0) break
+                                    databaseBytes += count
+                                    require(databaseBytes <= ScriptDatabaseStore.MAX_DATABASE_BYTES) {
+                                        "Tệp SQLite trong bản sao lưu vượt quá giới hạn."
+                                    }
+                                    target.write(buffer, 0, count)
+                                }
+                                target.fd.sync()
+                            }
+                        }
+                        else -> throw IllegalArgumentException(
+                            "Tệp sao lưu chứa mục không được hỗ trợ."
+                        )
+                    }
+                    zip.closeEntry()
+                    require(names.size <= 2) {
+                        "Tệp sao lưu chứa quá nhiều mục."
+                    }
+                }
+            }
+
+            require(names == setOf(MANIFEST_ENTRY, DATABASE_ENTRY)) {
+                "Tệp sao lưu thiếu manifest hoặc dữ liệu SQLite."
+            }
+            require(destination.exists() && destination.isFile && databaseBytes > 0L) {
+                "Tệp sao lưu không có dữ liệu SQLite."
+            }
+            val metadata = parseManifest(
+                requireNotNull(manifestBytes) { "Tệp sao lưu thiếu manifest." }
+            )
+            require(metadata.databaseBytes == databaseBytes) {
+                "Kích thước SQLite không khớp manifest."
+            }
+            require(sha256(destination) == metadata.sha256) {
+                "Checksum SHA-256 của bản sao lưu không khớp."
+            }
+            return metadata
+        } finally {
+            archiveFile.delete()
         }
-        require(destination.exists() && destination.isFile && databaseBytes > 0L) {
-            "Tệp sao lưu không có dữ liệu SQLite."
-        }
-        val metadata = parseManifest(
-            requireNotNull(manifestBytes) { "Tệp sao lưu thiếu manifest." }
-        )
-        require(metadata.databaseBytes == databaseBytes) {
-            "Kích thước SQLite không khớp manifest."
-        }
-        require(sha256(destination) == metadata.sha256) {
-            "Checksum SHA-256 của bản sao lưu không khớp."
-        }
-        return metadata
     }
 
     private fun parseManifest(bytes: ByteArray): Metadata {

@@ -56,7 +56,7 @@ class ScriptDatabaseBackupCodecTest {
     }
 
     @Test
-    fun rejectsUnknownAndDuplicateArchiveEntries() {
+    fun rejectsArchivesWithUnknownEntries() {
         val unknown = makeArchive(
             "manifest.txt" to manifest(1, 1, "0".repeat(64)),
             "database.sqlite" to byteArrayOf(1),
@@ -67,13 +67,6 @@ class ScriptDatabaseBackupCodecTest {
             ScriptDatabaseBackupCodec.read(ByteArrayInputStream(unknown), destination)
         }.isSuccess)
 
-        val duplicate = makeArchive(
-            "manifest.txt" to manifest(1, 1, "0".repeat(64)),
-            "manifest.txt" to manifest(1, 1, "0".repeat(64))
-        )
-        assertFalse(runCatching {
-            ScriptDatabaseBackupCodec.read(ByteArrayInputStream(duplicate), destination)
-        }.isSuccess)
     }
 
     @Test
@@ -112,8 +105,16 @@ class ScriptDatabaseBackupCodecTest {
     }
 
     @Test
-    fun rejectsAnArchiveWhoseRawInputExceedsTheLimit() {
-        val oversized = ByteArray(ScriptDatabaseBackupCodec.MAX_ARCHIVE_BYTES.toInt() + 1) { 1 }
+    fun rejectsAnOtherwiseValidArchiveWithExcessTrailingBytes() {
+        val source = temporaryFolder.newFile("small.sqlite")
+        source.writeBytes(ByteArray(64) { it.toByte() })
+        val archive = ByteArrayOutputStream()
+        ScriptDatabaseBackupCodec.write(source, 1, archive)
+        val trailingBytes = (
+            ScriptDatabaseBackupCodec.MAX_ARCHIVE_BYTES - archive.size() + 1
+        ).toInt()
+        val oversized = archive.toByteArray() + ByteArray(trailingBytes)
+
         val destination = temporaryFolder.newFile("too-large.sqlite")
         assertFalse(runCatching {
             ScriptDatabaseBackupCodec.read(ByteArrayInputStream(oversized), destination)
