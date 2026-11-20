@@ -2,12 +2,12 @@ package com.autulio.app.runtime
 
 import okhttp3.Interceptor
 import okio.Buffer
-import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
-import okhttp3.ResponseBody
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -34,7 +34,7 @@ class ScriptHttpClientTest {
         assertEquals(200, result["TRẠNG_THÁI"])
         assertEquals(true, result["THÀNH_CÔNG"])
         assertEquals("""{"trạng_thái":"sẵn sàng"}""", result["NỘI_DUNG"])
-        assertEquals("GET", request.method())
+        assertEquals("GET", request.method)
         assertEquals("AUTU-LIO", request.header("X-Client"))
         assertEquals("identity", request.header("Accept-Encoding"))
     }
@@ -204,7 +204,7 @@ class ScriptHttpClientTest {
                     .code(200)
                     .message("OK")
                     .header("Content-Type", "text/plain; charset=ISO-8859-1")
-                    .body(ResponseBody.create(MediaType.parse("text/plain; charset=ISO-8859-1"), latin1))
+                    .body(latin1.toResponseBody("text/plain; charset=ISO-8859-1".toMediaType()))
                     .build()
             }
             .build()
@@ -218,7 +218,7 @@ class ScriptHttpClientTest {
 
     private fun requestBodyText(request: Request): String {
         val buffer = Buffer()
-        request.body()!!.writeTo(buffer)
+        request.body!!.writeTo(buffer)
         return buffer.readUtf8()
     }
 
@@ -237,6 +237,6 @@ class ScriptHttpClientTest {
             .code(status)
             .message("test")
             .header("Content-Type", "application/json; charset=utf-8")
-            .body(ResponseBody.create(MediaType.parse("application/json; charset=utf-8"), body))
+            .body(body.toResponseBody("application/json; charset=utf-8".toMediaType()))
             .build()
 }
