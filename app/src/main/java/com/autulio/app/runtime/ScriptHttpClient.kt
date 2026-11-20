@@ -72,6 +72,9 @@ class ScriptHttpClient(
         require(bodyBytes == null || bodyBytes.size <= maxRequestBytes) {
             "Dữ liệu gửi vượt quá giới hạn $maxRequestBytes byte."
         }
+        require(bodyBytes != null || normalizedMethod !in setOf("POST", "PUT", "PATCH")) {
+            "$normalizedMethod cần có phần thân yêu cầu trong AUTU."
+        }
         require(bodyBytes == null || normalizedMethod in bodyMethods) {
             "$normalizedMethod không nhận phần thân yêu cầu trong AUTU."
         }
@@ -118,7 +121,7 @@ class ScriptHttpClient(
             val responseBytes = responseBody?.byteStream()?.use { readLimited(it, maxResponseBytes) }
                 ?: ByteArray(0)
             val charset = runCatching {
-                responseBody?.contentType()?.charset(StandardCharsets.UTF_8) ?: StandardCharsets.UTF_8
+                responseBody?.contentType?.charset(StandardCharsets.UTF_8) ?: StandardCharsets.UTF_8
             }.getOrDefault(StandardCharsets.UTF_8)
             val responseHeaders = linkedMapOf<String, Any?>()
             response.headers.toMultimap().forEach { (name, values) ->
