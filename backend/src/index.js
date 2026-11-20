@@ -407,6 +407,59 @@ async function listAdminCustomers(request, env, session) {
   return response(request, { customers: result.results || [] }, 200, env);
 }
 
+
+async function updateAdminCustomer(request, env, session, customerId) {
+  await requireRole(session, ["OWNER"]);
+  if (!ID_PATTERN.test(customerId)) {
+    throw new HttpError(400, "invalid_customer_id", "Customer ID is invalid.");
+  }
+  const body = await readBody(request);
+  const status = typeof body.status === "string" ? body.status.trim().toUpperCase() : "";
+  if (!["ACTIVE", "SUSPENDED", "REVOKED"].includes(status)) {
+    throw new HttpError(400, "invalid_customer_status", "Customer status must be ACTIVE, SUSPENDED or REVOKED.");
+  }
+
+  const customer = await env.DB.prepare(
+    "SELECT id, role, status FROM users WHERE id = ?"
+  ).bind(customerId).first();
+  if (!customer || customer.role !== "CUSTOMER") {
+    throw new HttpError(404, "customer_not_found", "Customer was not found.");
+  }
+  if (customer.status === status) {
+    return response(request, { updated: true, customerId, status, unchanged: true }, 200, env);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const statements = [
+    env.DB.prepare(
+      "UPDATE users SET status = ?, updated_at = ? WHERE id = ? AND role = 'CUSTOMER'"
+    ).bind(status, now, customerId),
+    env.DB.prepare(
+      "UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL"
+    ).bind(now, customerId)
+  ];
+
+  if (status === "REVOKED") {
+    statements.push(
+      env.DB.prepare(
+        "UPDATE licenses SET status = 'REVOKED', updated_at = ? WHERE user_id = ? AND status <> 'REVOKED'"
+      ).bind(now, customerId),
+      env.DB.prepare(
+        "UPDATE devices SET status = 'REVOKED', revoked_at = ? WHERE user_id = ? AND status = 'ACTIVE'"
+      ).bind(now, customerId)
+    );
+  }
+
+  await env.DB.batch(statements);
+  await audit(env, session.user_id, status === "REVOKED" ? "customer.revoked" : "customer.status_updated", "customer", customerId, {
+    previousStatus: customer.status,
+    status,
+    sessionsRevoked: true,
+    dependentAccessRevoked: status === "REVOKED"
+  });
+  return response(request, { updated: true, customerId, status }, 200, env);
+}
+
 async function listAdminLicenses(request, env, session) {
   await requireRole(session, ["OWNER"]);
   const now = Math.floor(Date.now() / 1000);
@@ -1177,6 +1230,8 @@ async function route(request, env) {
   if (adminPackageMatch && method === "PATCH") return await updateAdminPackage(request, env, session, adminPackageMatch[1]);
 
   if (method === "GET" && path === "/api/admin/customers") return await listAdminCustomers(request, env, session);
+  const adminCustomerMatch = path.match(/^\/api\/admin\/customers\/([0-9a-f-]{36})$/i);
+  if (adminCustomerMatch && method === "PATCH") return await updateAdminCustomer(request, env, session, adminCustomerMatch[1]);
   if (method === "GET" && path === "/api/admin/licenses") return await listAdminLicenses(request, env, session);
   if (method === "POST" && path === "/api/admin/licenses") return await createCustomerLicense(request, env, session);
   const licenseMatch = path.match(/^\/api\/admin\/licenses\/([0-9a-f-]{36})$/i);

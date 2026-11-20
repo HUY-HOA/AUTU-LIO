@@ -216,6 +216,7 @@ internal fun localizedErrorMessage(error: Throwable?, fallback: String): String 
 
 internal fun statusText(value: String): String = when (value.trim().uppercase(Locale.ROOT)) {
     "ACTIVE" -> "Đang hoạt động"
+    "SUSPENDED" -> "Bị tạm khóa"
     "PAUSED" -> "Tạm dừng"
     "REVOKED" -> "Đã thu hồi"
     "EXPIRED" -> "Đã hết hạn"
@@ -260,7 +261,6 @@ private val adminTabs = listOf(
     Tab("overview", "Tổng quan", "Overview", Icons.Outlined.Home),
     Tab("scripts", "Kịch bản", "Scripts", Icons.Outlined.ListAlt),
     Tab("customers", "Khách hàng", "Customers", Icons.Outlined.Group),
-    Tab("devices", "Thiết bị", "Devices", Icons.Outlined.Smartphone),
     Tab("more", "Thêm", "More", Icons.Outlined.MoreHoriz)
 )
 
@@ -328,13 +328,14 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                         editorLauncher.launch(ScriptEditorActivity.intent(context, name))
                     }
                 )
-                "customers" -> CustomersAdminScreen(
+                "customers" -> AccessControlAdminScreen(
                     accessToken = accessToken,
                     modifier = Modifier.padding(padding)
                 )
-                "devices" -> DevicesAdminScreen(
+                "devices" -> AccessControlAdminScreen(
                     accessToken = accessToken,
-                    modifier = Modifier.padding(padding)
+                    modifier = Modifier.padding(padding),
+                    initialSection = "devices"
                 )
                 else -> MoreScreen(
                     Modifier.padding(padding),
@@ -975,7 +976,7 @@ private fun MoreScreen(
     onOpenTemplate: (ScriptTemplate) -> Unit
 ) {
     if (page == "licenses") {
-        LicensesAdminScreen(accessToken = accessToken, modifier = modifier)
+        AccessControlAdminScreen(accessToken = accessToken, modifier = modifier, initialSection = "licenses")
         return
     }
     if (page == "packages") {
@@ -991,7 +992,6 @@ private fun MoreScreen(
         return
     }
     val items = listOf(
-        Triple("licenses", tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser),
         Triple("library", tr("Thư viện mẫu AUTU", "AUTU template library"), Icons.Outlined.ListAlt),
         Triple("packages", tr("Gói AUTU", "AUTU packages"), Icons.Outlined.Code),
         Triple("logs", tr("Nhật ký", "Logs"), Icons.Outlined.Info),

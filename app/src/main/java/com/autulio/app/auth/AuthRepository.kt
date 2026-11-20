@@ -260,6 +260,18 @@ class AuthRepository(context: Context) {
         }
     }
 
+
+    suspend fun updateCustomerStatus(accessToken: String, userId: String, status: String) {
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(status in setOf("ACTIVE", "SUSPENDED", "REVOKED"))
+        apiRequest(
+            "/api/admin/customers/$userId",
+            "PATCH",
+            JSONObject().put("status", status),
+            accessToken
+        )
+    }
+
     suspend fun listAdminLicenses(accessToken: String): List<LicenseRecord> {
         val result = apiRequest("/api/admin/licenses", "GET", bearerToken = accessToken)
         val items = result.optJSONArray("licenses") ?: return emptyList()
@@ -774,6 +786,7 @@ class AuthRepository(context: Context) {
         "insufficient_permissions" -> "Tài khoản hiện tại không có quyền thực hiện thao tác này."
         "account_inactive" -> "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ chủ ứng dụng."
         "invalid_customer_id", "customer_not_found" -> "Không tìm thấy tài khoản khách hàng."
+        "invalid_customer_status" -> "Trạng thái tài khoản khách hàng không hợp lệ."
         "invalid_plan_code" -> "Mã gói sử dụng không hợp lệ."
         "invalid_license_period" -> "Thời hạn giấy phép không hợp lệ."
         "invalid_device_limit" -> "Giới hạn số thiết bị không hợp lệ."

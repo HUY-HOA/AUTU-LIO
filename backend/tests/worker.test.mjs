@@ -343,6 +343,99 @@ test("non-owner cannot read customer license administration", async () => {
   assert.equal((await json(response)).error, "insufficient_permissions");
 });
 
+
+test("owner can suspend a customer and revoke its existing sessions", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const statementsSeen = [];
+  const originalPrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = originalPrepare(sql);
+    if (sql.includes("SELECT id, role, status FROM users WHERE id = ?")) {
+      statement.first = async () => ({ id: "12345678-1234-1234-1234-123456789012", role: "CUSTOMER", status: "ACTIVE" });
+    }
+    return statement;
+  };
+  env.DB.batch = async statements => {
+    statementsSeen.push(...statements.map(item => item.sql));
+    return statements.map(() => ({ meta: { changes: 1 } }));
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/customers/12345678-1234-1234-1234-123456789012", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${"E".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ status: "SUSPENDED" })
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.status, "SUSPENDED");
+  assert.ok(statementsSeen.some(sql => sql.includes("UPDATE users SET status")));
+  assert.ok(statementsSeen.some(sql => sql.includes("UPDATE sessions SET revoked_at")));
+  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE licenses")), false);
+  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE devices")), false);
+});
+
+test("revoking a customer revokes its licenses, devices and sessions", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const statementsSeen = [];
+  const originalPrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = originalPrepare(sql);
+    if (sql.includes("SELECT id, role, status FROM users WHERE id = ?")) {
+      statement.first = async () => ({ id: "12345678-1234-1234-1234-123456789012", role: "CUSTOMER", status: "ACTIVE" });
+    }
+    return statement;
+  };
+  env.DB.batch = async statements => {
+    statementsSeen.push(...statements.map(item => item.sql));
+    return statements.map(() => ({ meta: { changes: 1 } }));
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/customers/12345678-1234-1234-1234-123456789012", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${"E".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ status: "REVOKED" })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(statementsSeen.some(sql => sql.includes("UPDATE users SET status")));
+  assert.ok(statementsSeen.some(sql => sql.includes("UPDATE sessions SET revoked_at")));
+  assert.ok(statementsSeen.some(sql => sql.includes("UPDATE licenses SET status = 'REVOKED'")));
+  assert.ok(statementsSeen.some(sql => sql.includes("UPDATE devices SET status = 'REVOKED'")));
+});
+
+test("non-owner cannot suspend a customer", async () => {
+  const customer = { ...customerSession, user_id: "customer-user" };
+  const { env, queries } = createEnv({ session: customer });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/customers/12345678-1234-1234-1234-123456789012", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${"D".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ status: "SUSPENDED" })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "insufficient_permissions");
+  assert.equal(queries.some(sql => sql.includes("SELECT id, role, status FROM users")), false);
+});
+
 test("device enrollment challenge requires an active customer license", async () => {
   const { env } = createEnv({ session: customerSession });
   const response = await worker.fetch(
