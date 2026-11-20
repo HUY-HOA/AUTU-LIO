@@ -46,7 +46,7 @@ internal fun AuthenticatedAppHost() {
         val savedToken = store.read()
         hasSavedSession = !savedToken.isNullOrBlank()
         if (savedToken.isNullOrBlank()) {
-            AutoClickAccessibilityService.current()?.lockRunner()
+            AutoClickAccessibilityService.invalidateSession()
             accessToken = null
             user = null
             restoring = false
@@ -54,19 +54,20 @@ internal fun AuthenticatedAppHost() {
         }
         try {
             val verifiedUser = repository.currentUser(savedToken)
+            AutoClickAccessibilityService.markSessionVerified()
             accessToken = savedToken
             user = verifiedUser
             hasSavedSession = true
         } catch (error: Exception) {
             if (error is AuthApiException && error.statusCode in 401..403) {
-                AutoClickAccessibilityService.current()?.lockRunner()
+                AutoClickAccessibilityService.invalidateSession()
                 store.clear()
                 accessToken = null
                 user = null
                 hasSavedSession = false
                 errorMessage = error.message.orEmpty()
             } else {
-                AutoClickAccessibilityService.current()?.lockRunner()
+                AutoClickAccessibilityService.invalidateSession()
                 errorMessage = tr(
                     "Không thể xác minh phiên vì máy chủ đang ngoại tuyến. Hãy kết nối mạng rồi thử lại.",
                     "The saved session could not be verified because the server is unavailable. Connect to the internet and retry."
@@ -89,11 +90,14 @@ internal fun AuthenticatedAppHost() {
             delay(60_000)
             try {
                 val verifiedUser = repository.currentUser(token)
-                if (accessToken == token) user = verifiedUser
+                if (accessToken == token) {
+                    AutoClickAccessibilityService.markSessionVerified()
+                    user = verifiedUser
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                AutoClickAccessibilityService.current()?.lockRunner()
+                AutoClickAccessibilityService.invalidateSession()
                 if (accessToken == token) {
                     if (error is AuthApiException && error.statusCode in 401..403) {
                         store.clear()
@@ -115,14 +119,14 @@ internal fun AuthenticatedAppHost() {
 
     fun signOut() {
         val currentToken = accessToken
-        AutoClickAccessibilityService.current()?.lockRunner()
+        AutoClickAccessibilityService.invalidateSession()
+        store.clear()
+        accessToken = null
+        user = null
+        hasSavedSession = false
+        errorMessage = ""
         scope.launch {
             if (!currentToken.isNullOrBlank()) repository.signOut(currentToken)
-            store.clear()
-            accessToken = null
-            user = null
-            hasSavedSession = false
-            errorMessage = ""
         }
     }
 
@@ -157,6 +161,7 @@ internal fun AuthenticatedAppHost() {
                     try {
                         val session = repository.signIn(activity)
                         store.save(session.accessToken)
+                        AutoClickAccessibilityService.markSessionVerified()
                         accessToken = session.accessToken
                         user = session.user
                         hasSavedSession = true
