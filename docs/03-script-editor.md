@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.21
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.22
 
-**Phiên bản cú pháp:** `1.21`  
+**Phiên bản cú pháp:** `1.22`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -9,7 +9,8 @@ AUTU Script là ngôn ngữ kịch bản chuyên cho tự động hóa Android t
 
 ## 1. Quy tắc viết mã
 
-- Lệnh và từ khóa phải viết HOA, đúng dấu: `NẾU`, `LẶP`, `CHẠM`, `NHẤN_GIỮ`.
+- Lệnh và từ khóa phải viết HOA, đúng dấu: `BIẾN`, `HÀM`, `NẾU`, `LẶP`, `CHẠM`, `NHẤN_GIỮ`.
+- `BIẾN` khai báo biến; `HÀM` định nghĩa hàm. `ĐẶT` và `ĐỊNH_NGHĨA_HÀM` vẫn được chấp nhận để chạy kịch bản cũ.
 - Các tên lệnh điều hướng Android dùng tên mô tả đúng thao tác; tên cũ vẫn được chấp nhận như bí danh tương thích.
 - Tên biến, tham số và hàm tự định nghĩa cũng phải viết HOA: `SO_LAN`, `SỐ_LẦN`, `TINH_TONG`.
 - Tên có thể gồm chữ Unicode, chữ số và dấu gạch dưới `_`; tên phải bắt đầu bằng chữ hoặc `_`.
@@ -34,15 +35,15 @@ Kiểu được hỗ trợ:
 Khai báo biến có kiểu:
 
 ```text
-ĐẶT SỐ_LẦN: SỐ = 3
-ĐẶT TÊN_GÓI: CHUỖI = "com.example.game"
-ĐẶT ĐÃ_SẴN_SÀNG: LUẬN_LÝ = SAI
+BIẾN SỐ_LẦN: SỐ = 3
+BIẾN TÊN_GÓI: CHUỖI = "com.example.game"
+BIẾN ĐÃ_SẴN_SÀNG: LUẬN_LÝ = SAI
 ```
 
 Có thể khai báo không ghi kiểu; khi đó biến không bị khóa vào một kiểu cụ thể:
 
 ```text
-ĐẶT KẾT_QUẢ = 10
+BIẾN KẾT_QUẢ = 10
 KẾT_QUẢ = KẾT_QUẢ + 5
 ```
 
@@ -53,10 +54,10 @@ Biến đã khai báo kiểu sẽ kiểm tra mọi lần gán tiếp theo. Gán 
 ```text
 TẠO_THƯ_MỤC("settings")
 GHI_TỆP("settings/note.txt", "AUTU-LIO")
-ĐẶT NỘI_DUNG: CHUỖI = ĐỌC_TỆP("settings/note.txt")
+BIẾN NỘI_DUNG: CHUỖI = ĐỌC_TỆP("settings/note.txt")
 GHI_JSON_TỆP("settings/config.json", TẠO_BẢN_ĐỒ("TÊN", "AUTU-LIO", "BẬT", ĐÚNG))
-ĐẶT CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
-ĐẶT TỆP: DANH_SÁCH = LIỆT_KÊ_TỆP("settings")
+BIẾN CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
+BIẾN TỆP: DANH_SÁCH = LIỆT_KÊ_TỆP("settings")
 ```
 
 Các tệp nằm trong thư mục riêng của AUTU-LIO. Đường dẫn phải tương đối, cấm "..", "." và đường dẫn tuyệt đối; không truy cập tùy ý bộ nhớ dùng chung hoặc dữ liệu ứng dụng khác. Kích thước mỗi tệp tối đa 1 MiB. LIỆT_KÊ_TỆP chỉ trả về tệp trực tiếp trong thư mục, tối đa 128 tên.
@@ -64,12 +65,12 @@ Các tệp nằm trong thư mục riêng của AUTU-LIO. Đường dẫn phải 
 ### JSON và cấu trúc dữ liệu lồng nhau
 
 ```text
-ĐẶT CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TÊN\":\"AUTU\",\"ITEMS\":[1,{\"X\":120},null]}")
-ĐẶT ITEMS: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "ITEMS")
-ĐẶT ITEM: BẢN_ĐỒ = LẤY_PHẦN_TỬ(ITEMS, 1)
-ĐẶT X: SỐ = LẤY_GIÁ_TRỊ(ITEM, "X")
-ĐẶT JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
-ĐẶT KHÔNG_CÓ_GIÁ_TRỊ: BẤT_KỲ = RỖNG
+BIẾN CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TÊN\":\"AUTU\",\"ITEMS\":[1,{\"X\":120},null]}")
+BIẾN ITEMS: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "ITEMS")
+BIẾN ITEM: BẢN_ĐỒ = LẤY_PHẦN_TỬ(ITEMS, 1)
+BIẾN X: SỐ = LẤY_GIÁ_TRỊ(ITEM, "X")
+BIẾN JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
+BIẾN KHÔNG_CÓ_GIÁ_TRỊ: BẤT_KỲ = RỖNG
 ```
 
 JSON hỗ trợ object/array lồng nhau, chuỗi Unicode, số hữu hạn, boolean và null. Bản đồ/danh sách cũng có thể lồng nhau. Giới hạn: 65.536 ký tự JSON, 64 phần tử hoặc khóa trong mỗi container, 8 cấp lồng nhau, 512 giá trị và 4.096 ký tự mỗi chuỗi. JSON có khóa lặp, sai cú pháp hoặc vượt giới hạn sẽ báo lỗi và có thể được bắt bằng BẮT_LỖI.
@@ -77,10 +78,10 @@ JSON hỗ trợ object/array lồng nhau, chuỗi Unicode, số hữu hạn, boo
 ### Bản đồ khóa–giá trị
 
 ```text
-ĐẶT CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TOA_DO_X", 120, "TOA_DO_Y", 400)
-ĐẶT X: SỐ = LẤY_GIÁ_TRỊ(CAU_HINH, "TOA_DO_X")
+BIẾN CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TOA_DO_X", 120, "TOA_DO_Y", 400)
+BIẾN X: SỐ = LẤY_GIÁ_TRỊ(CAU_HINH, "TOA_DO_X")
 ĐẶT_GIÁ_TRỊ(CAU_HINH, "TOA_DO_X", 180)
-ĐẶT KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+BIẾN KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
 
 LẶP_MỖI (TEN_KHOA TRONG KHOA) {
     CHẠM(LẤY_GIÁ_TRỊ(CAU_HINH, TEN_KHOA), 500)
@@ -119,7 +120,7 @@ NẾU (PIN() > 20 VÀ CÓ_MẠNG()) {
 ### Vòng lặp theo số lần
 
 ```text
-ĐẶT SỐ_LẦN = 3
+BIẾN SỐ_LẦN = 3
 LẶP(SỐ_LẦN) {
     CHẠM(200, 400)
     CHỜ(500)
@@ -129,7 +130,7 @@ LẶP(SỐ_LẦN) {
 ### Lặp theo điều kiện
 
 ```text
-ĐẶT BỘ_ĐẾM = 0
+BIẾN BỘ_ĐẾM = 0
 LẶP_KHI (BỘ_ĐẾM < 5) {
     CHẠM(200, 400)
     BỘ_ĐẾM = BỘ_ĐẾM + 1
@@ -139,7 +140,7 @@ LẶP_KHI (BỘ_ĐẾM < 5) {
 ### Lặp đến khi điều kiện đúng
 
 ```text
-ĐẶT BỘ_ĐẾM = 0
+BIẾN BỘ_ĐẾM = 0
 LẶP_ĐẾN_KHI(BỘ_ĐẾM >= 5) {
     BỘ_ĐẾM = BỘ_ĐẾM + 1
     CHỜ(250)
@@ -149,7 +150,7 @@ LẶP_ĐẾN_KHI(BỘ_ĐẾM >= 5) {
 ### Danh sách và duyệt từng phần tử
 
 ```text
-ĐẶT DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(120, 240, 360)
+BIẾN DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(120, 240, 360)
 LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
     CHẠM(TOA_DO_X, 400)
     CHỜ(300)
@@ -167,7 +168,7 @@ LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
 Cú pháp:
 
 ```text
-ĐỊNH_NGHĨA_HÀM TÊN_HÀM(THAM_SỐ_1: KIỂU, THAM_SỐ_2: KIỂU): KIỂU_TRẢ_VỀ {
+HÀM TÊN_HÀM(THAM_SỐ_1: KIỂU, THAM_SỐ_2: KIỂU): KIỂU_TRẢ_VỀ {
     // Các lệnh trong hàm
     TRẢ_VỀ BIỂU_THỨC
 }
@@ -178,11 +179,11 @@ Kiểu tham số và kiểu trả về là tùy chọn. Mỗi hàm có tối đa
 Ví dụ hàm tính tổng:
 
 ```text
-ĐỊNH_NGHĨA_HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ {
+HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ {
     TRẢ_VỀ A + B
 }
 
-ĐẶT KẾT_QUẢ: SỐ = TINH_TONG(12, 30)
+BIẾN KẾT_QUẢ: SỐ = TINH_TONG(12, 30)
 CHẠM(KẾT_QUẢ, 300)
 ```
 
@@ -209,13 +210,13 @@ VUỐT_ĐA_ĐIỂM(
 ### Tọa độ DP và tỷ lệ màn hình
 
 ```text
-ĐẶT X: SỐ = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.5)
-ĐẶT Y: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.75)
+BIẾN X: SỐ = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.5)
+BIẾN Y: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.75)
 CHẠM(X, Y)
-ĐẶT KHOẢNG_CÁCH: SỐ = DP_SANG_PIXEL(24)
+BIẾN KHOẢNG_CÁCH: SỐ = DP_SANG_PIXEL(24)
 ```
 
-Dùng `MẬT_ĐỘ_MÀN_HÌNH()`, `DP_SANG_PIXEL(DP)`, `PIXEL_SANG_DP(PIXEL)`, `TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỶ_LỆ_X_THEO_TỌA_ĐỘ(X)` và `TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)`. Tỷ lệ 0–1 ánh xạ từ pixel đầu đến pixel cuối của màn hình. Từ phiên bản 1.21 có thêm `TỌA_ĐỘ_X_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỶ_LỆ_X_VÙNG_AN_TOÀN(X)` và `TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y)` để quy đổi trong vùng an toàn theo system bars/cutout mà Android xác định được. `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa hướng tự nhiên ROTATION_0 và hệ tọa độ logic hiện tại, bao gồm thiết bị có hướng gốc ngang. Tọa độ đầu vào và đầu ra của hai hàm này là pixel nguyên; chuyển đổi không tự thay tham số CHẠM/VUỐT.
+Dùng `MẬT_ĐỘ_MÀN_HÌNH()`, `DP_SANG_PIXEL(DP)`, `PIXEL_SANG_DP(PIXEL)`, `TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỶ_LỆ_X_THEO_TỌA_ĐỘ(X)` và `TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)`. Tỷ lệ 0–1 ánh xạ từ pixel đầu đến pixel cuối của màn hình. Từ phiên bản 1.22 có thêm `TỌA_ĐỘ_X_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỶ_LỆ_X_VÙNG_AN_TOÀN(X)` và `TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y)` để quy đổi trong vùng an toàn theo system bars/cutout mà Android xác định được. `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa hướng tự nhiên ROTATION_0 và hệ tọa độ logic hiện tại, bao gồm thiết bị có hướng gốc ngang. Tọa độ đầu vào và đầu ra của hai hàm này là pixel nguyên; chuyển đổi không tự thay tham số CHẠM/VUỐT.
 
 ## 6. Lệnh thao tác Android đã nối runtime
 
@@ -303,7 +304,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 
 Thông tin hãng/model, phiên bản Android và trạng thái Keyguard được đọc cục bộ tại thiết bị, không gửi lên máy chủ. Các hàm Keyguard chỉ đọc trạng thái, không mở khóa hoặc thay đổi thiết lập bảo mật. Các hàm DP dùng density hiện tại; tỷ lệ khung hình và hướng được suy ra từ kích thước pixel thực. Chỉ số xoay 0–3 là rotation Android, góc xoay là 0°/90°/180°/270°. Package foreground chỉ có khi AccessibilityService nhận được sự kiện cửa sổ, nên có thể rỗng khi dịch vụ chưa bật hoặc chưa nhận sự kiện.
  
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.21 bổ sung dữ liệu hiển thị theo DP, hướng/xoay màn hình và package foreground.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.22 bổ sung dữ liệu hiển thị theo DP, hướng/xoay màn hình và package foreground.
 
 ## 8. Kết nối API qua HTTPS
 
@@ -316,14 +317,14 @@ Client chỉ chấp nhận HTTPS, không tự theo redirect, không cho phép UR
 Ví dụ:
 
 ```text
-ĐẶT PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
+BIẾN PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
     "GET",
     "https://api.example.com/status",
     RỖNG,
     TẠO_BẢN_ĐỒ("Accept", "application/json"),
     10000
 )
-ĐẶT TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
+BIẾN TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
 ```
 
 ### SQLite nội bộ
@@ -331,7 +332,7 @@ Ví dụ:
 ```text
 SQL_THỰC_THI("CREATE TABLE IF NOT EXISTS LICH_SU (ID INTEGER PRIMARY KEY, NOI_DUNG TEXT)", TẠO_DANH_SÁCH())
 SQL_THỰC_THI("INSERT INTO LICH_SU (NOI_DUNG) VALUES (?)", TẠO_DANH_SÁCH("Đã chạy"))
-ĐẶT CAC_DONG: DANH_SÁCH = SQL_TRUY_VẤN("SELECT ID, NOI_DUNG FROM LICH_SU", TẠO_DANH_SÁCH())
+BIẾN CAC_DONG: DANH_SÁCH = SQL_TRUY_VẤN("SELECT ID, NOI_DUNG FROM LICH_SU", TẠO_DANH_SÁCH())
 ```
 
 AUTU-LIO dùng một database SQLite nội bộ trong vùng riêng ứng dụng. SQL chỉ được thực thi qua allow-list và tham số dấu hỏi `?`; truy vấn chỉ cho SELECT, còn câu ghi chỉ cho CREATE/ALTER/DROP giới hạn, INSERT, UPDATE, DELETE và REPLACE. Không hỗ trợ tự chọn đường dẫn database, ATTACH, PRAGMA, nhiều câu SQL hoặc chú thích. Giới hạn kết quả: 256 dòng, 64 cột và 1 MiB văn bản.
@@ -367,7 +368,7 @@ NẾU (TÌM_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập")) {
     NHẤN_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập")
 }
 NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN("Tên người dùng", "LIO")
-ĐẶT TOA_DO: DANH_SÁCH = TÌM_TỌA_ĐỘ_THÀNH_PHẦN("Đăng nhập")
+BIẾN TOA_DO: DANH_SÁCH = TÌM_TỌA_ĐỘ_THÀNH_PHẦN("Đăng nhập")
 NẾU (TÌM_THÀNH_PHẦN_THEO_ID("login_button")) {
     NHẤN_THÀNH_PHẦN_THEO_ID("login_button")
 }
@@ -384,8 +385,8 @@ Các API tìm kiếm chạy trên cây giao diện do Android và ứng dụng m
 THỬ {
     MỞ_ỨNG_DỤNG("invalid")
 } BẮT_LỖI (LỖI) {
-    ĐẶT MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
-    ĐẶT THÔNG_BÁO: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "THÔNG_BÁO")
+    BIẾN MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
+    BIẾN THÔNG_BÁO: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "THÔNG_BÁO")
 } LUÔN_THỰC_HIỆN {
     CHỜ(100)
 }

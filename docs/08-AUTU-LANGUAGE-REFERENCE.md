@@ -1,6 +1,6 @@
-# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.21
+# NGÔN NGỮ AUTU-LIO — CÚ PHÁP CHUẨN 1.22
 
-**Ngôn ngữ:** AUTU-LIO Script 1.21  
+**Ngôn ngữ:** AUTU-LIO Script 1.22  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
 Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.11; các tên cũ được giữ làm bí danh tương thích.
@@ -19,15 +19,15 @@ Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem
 Ví dụ:
 
 ```text
-ĐẶT SO_LAN: SỐ = 3
-ĐẶT TEN_GOI: CHUỖI = "com.example.game"
-ĐẶT DA_SAN_SANG: LUẬN_LÝ = ĐÚNG
-ĐẶT CAC_GIA_TRI: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20, 30)
+BIẾN SO_LAN: SỐ = 3
+BIẾN TEN_GOI: CHUỖI = "com.example.game"
+BIẾN DA_SAN_SANG: LUẬN_LÝ = ĐÚNG
+BIẾN CAC_GIA_TRI: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20, 30)
 ```
 
 ## 2. Từ khóa điều khiển
 
-`ĐẶT`, `NẾU`, `NGƯỢC_LẠI_NẾU`, `NGƯỢC_LẠI`, `LẶP`, `LẶP_KHI`, `LẶP_ĐẾN_KHI`, `LẶP_MỖI`, `TRONG`, `CHỜ_ĐẾN_KHI`, `THOÁT_LẶP`, `BỎ_QUA_LƯỢT`, `ĐỊNH_NGHĨA_HÀM`, `TRẢ_VỀ`, `ĐÚNG`, `SAI`, `VÀ`, `HOẶC`, `KHÔNG`.
+`BIẾN`, `HÀM`, `NẾU`, `NGƯỢC_LẠI_NẾU`, `NGƯỢC_LẠI`, `LẶP`, `LẶP_KHI`, `LẶP_ĐẾN_KHI`, `LẶP_MỖI`, `TRONG`, `CHỜ_ĐẾN_KHI`, `THOÁT_LẶP`, `BỎ_QUA_LƯỢT`, `TRẢ_VỀ`, `ĐÚNG`, `SAI`, `VÀ`, `HOẶC`, `KHÔNG`. Bí danh tương thích: `ĐẶT` tương đương `BIẾN`, `ĐỊNH_NGHĨA_HÀM` tương đương `HÀM`.
 
 ## 3. Toán tử
 
@@ -49,7 +49,7 @@ LẶP(3) {
     CHẠM(200, 400)
 }
 
-ĐẶT DEM = 0
+BIẾN DEM = 0
 LẶP_KHI (DEM < 5) {
     DEM = DEM + 1
 }
@@ -58,7 +58,7 @@ LẶP_ĐẾN_KHI(DEM >= 10) {
     DEM = DEM + 1
 }
 
-ĐẶT DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(100, 200, 300)
+BIẾN DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(100, 200, 300)
 LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
     CHẠM(TOA_DO_X, 400)
     CHỜ(250)
@@ -70,11 +70,11 @@ LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
 ## 5. Hàm tự định nghĩa
 
 ```text
-ĐỊNH_NGHĨA_HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ {
+HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ {
     TRẢ_VỀ A + B
 }
 
-ĐẶT KET_QUA: SỐ = TINH_TONG(10, 20)
+BIẾN KET_QUA: SỐ = TINH_TONG(10, 20)
 ```
 
 Hàm phải khai báo ở cấp cao nhất, tối đa 16 tham số và 16 cấp gọi lồng nhau. Kiểu tham số và kiểu trả về có thể bỏ trống; khi khai báo thì runtime kiểm tra kiểu.
@@ -110,8 +110,8 @@ Ví dụ:
 ```text
 TẠO_THƯ_MỤC("settings")
 GHI_JSON_TỆP("settings/config.json", TẠO_BẢN_ĐỒ("TÊN", "AUTU-LIO", "BẬT", ĐÚNG))
-ĐẶT CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
-ĐẶT TÊN: CHUỖI = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "TÊN")
+BIẾN CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
+BIẾN TÊN: CHUỖI = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "TÊN")
 ```
 
 ### SQLite riêng và di trú schema có phiên bản
@@ -129,7 +129,7 @@ AUTU-LIO lưu SQLite trong vùng riêng của ứng dụng. Script không đư�
 Ví dụ tạo schema phiên bản 1:
 
 ```text
-ĐẶT KẾT_QUẢ_DI_TRÚ: BẢN_ĐỒ = DI_TRÚ_CƠ_SỞ_DỮ_LIỆU(1, TẠO_DANH_SÁCH(
+BIẾN KẾT_QUẢ_DI_TRÚ: BẢN_ĐỒ = DI_TRÚ_CƠ_SỞ_DỮ_LIỆU(1, TẠO_DANH_SÁCH(
     TẠO_BẢN_ĐỒ(
         "SQL",
         "CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
@@ -139,7 +139,7 @@ Ví dụ tạo schema phiên bản 1:
         "CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)"
     )
 ))
-ĐẶT PHIÊN_BẢN: SỐ = PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU()
+BIẾN PHIÊN_BẢN: SỐ = PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU()
 ```
 
 Mỗi mục trong danh sách là BẢN_ĐỒ có khóa SQL bắt buộc dạng CHUỖI và khóa THAM_SỐ tùy chọn dạng DANH_SÁCH. Tham số được bind riêng, không ghép trực tiếp vào chuỗi SQL. Phiên bản bắt đầu từ 1 và phải tăng đúng từng bước; không được bỏ qua phiên bản. Tất cả câu SQL trong một phiên bản chạy trong cùng một transaction: nếu một câu lỗi, toàn bộ thay đổi của phiên bản đó bị rollback.
@@ -158,9 +158,9 @@ Giới hạn di trú: tối đa 64 câu SQL, 65.536 ký tự SQL tổng cộng v
 Ví dụ đọc và ghi CSV trong vùng tệp riêng của AUTU:
 
 ```text
-ĐẶT NỘI_DUNG: CHUỖI = ĐỌC_TỆP("data/customers.csv")
-ĐẶT CÁC_DÒNG: DANH_SÁCH = PHÂN_TÍCH_CSV(NỘI_DUNG, ",")
-ĐẶT CSV_MỚI: CHUỖI = CHUYỂN_CSV(CÁC_DÒNG, ",")
+BIẾN NỘI_DUNG: CHUỖI = ĐỌC_TỆP("data/customers.csv")
+BIẾN CÁC_DÒNG: DANH_SÁCH = PHÂN_TÍCH_CSV(NỘI_DUNG, ",")
+BIẾN CSV_MỚI: CHUỖI = CHUYỂN_CSV(CÁC_DÒNG, ",")
 GHI_TỆP("data/customers-copy.csv", CSV_MỚI)
 ```
 
@@ -179,9 +179,9 @@ Giới hạn: tối đa 1.048.576 ký tự đầu vào/đầu ra, 64 dòng, 64 c
 Ví dụ:
 
 ~~~text
-ĐẶT MỐC: SỐ = PHÂN_TÍCH_THỜI_GIAN_ISO("2026-11-20T14:30:00+07:00")
-ĐẶT HIỂN_THỊ: CHUỖI = ĐỊNH_DẠNG_THỜI_GIAN(MỐC, "dd/MM/yyyy HH:mm:ss")
-ĐẶT HIỆN_TẠI: CHUỖI = THỜI_GIAN_ISO()
+BIẾN MỐC: SỐ = PHÂN_TÍCH_THỜI_GIAN_ISO("2026-11-20T14:30:00+07:00")
+BIẾN HIỂN_THỊ: CHUỖI = ĐỊNH_DẠNG_THỜI_GIAN(MỐC, "dd/MM/yyyy HH:mm:ss")
+BIẾN HIỆN_TẠI: CHUỖI = THỜI_GIAN_ISO()
 ~~~
 
 Bộ phân tích chỉ nhận ISO 8601 có múi giờ rõ ràng (Z hoặc độ lệch UTC); chuỗi không có múi giờ bị từ chối để tránh diễn giải sai. Hàm định dạng dùng múi giờ và ngôn ngữ hiện tại của thiết bị, theo mẫu DateTimeFormatter; mẫu tối đa 128 ký tự và kết quả tối đa 256 ký tự. Các hàm xử lý tại thiết bị, không gọi mạng.
@@ -199,10 +199,10 @@ Danh sách và bản đồ có thể chứa nhau nhiều cấp. JSON hỗ trợ 
 Ví dụ:
 
 ```text
-ĐẶT CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TÊN\":\"AUTU\",\"VẬT_THỂ\":[{\"X\":120,\"Y\":240},null]}")
-ĐẶT DANH_SÁCH: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "VẬT_THỂ")
-ĐẶT VẬT_THỂ: BẢN_ĐỒ = LẤY_PHẦN_TỬ(DANH_SÁCH, 0)
-ĐẶT JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
+BIẾN CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TÊN\":\"AUTU\",\"VẬT_THỂ\":[{\"X\":120,\"Y\":240},null]}")
+BIẾN DANH_SÁCH: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "VẬT_THỂ")
+BIẾN VẬT_THỂ: BẢN_ĐỒ = LẤY_PHẦN_TỬ(DANH_SÁCH, 0)
+BIẾN JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
 ```
 
 ## 6. Hàm xử lý dữ liệu, danh sách và bản đồ
@@ -251,25 +251,25 @@ Chỉ số danh sách và vị trí chuỗi bắt đầu từ 0. KÝ_TỰ_TẠI/
 Ví dụ GET:
 
 ```text
-ĐẶT PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
+BIẾN PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
     "GET",
     "https://api.example.com/status",
     RỖNG,
     TẠO_BẢN_ĐỒ("Accept", "application/json"),
     10000
 )
-ĐẶT MÃ_TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
-ĐẶT NỘI_DUNG: CHUỖI = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "NỘI_DUNG")
+BIẾN MÃ_TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
+BIẾN NỘI_DUNG: CHUỖI = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "NỘI_DUNG")
 NẾU (LẤY_GIÁ_TRỊ(PHẢN_HỒI, "THÀNH_CÔNG")) {
-    ĐẶT DỮ_LIỆU: BẢN_ĐỒ = PHÂN_TÍCH_JSON(NỘI_DUNG)
+    BIẾN DỮ_LIỆU: BẢN_ĐỒ = PHÂN_TÍCH_JSON(NỘI_DUNG)
 }
 ```
 
 Ví dụ POST JSON:
 
 ```text
-ĐẶT THÂN: CHUỖI = CHUYỂN_JSON(TẠO_BẢN_ĐỒ("TÊN", "AUTU-LIO"))
-ĐẶT PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
+BIẾN THÂN: CHUỖI = CHUYỂN_JSON(TẠO_BẢN_ĐỒ("TÊN", "AUTU-LIO"))
+BIẾN PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
     "POST",
     "https://api.example.com/items",
     THÂN,
@@ -310,9 +310,9 @@ Hai hàm hướng gốc sử dụng kích thước màn hình hiện tại và m
 Ví dụ:
 
 ```text
-ĐẶT X: SỐ = TỌA_ĐỘ_X_VÙNG_AN_TOÀN(0.5)
-ĐẶT Y: SỐ = TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(0.5)
-ĐẶT TOA_DO_HIEN_TAI: DANH_SÁCH = TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(180, 420)
+BIẾN X: SỐ = TỌA_ĐỘ_X_VÙNG_AN_TOÀN(0.5)
+BIẾN Y: SỐ = TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(0.5)
+BIẾN TOA_DO_HIEN_TAI: DANH_SÁCH = TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(180, 420)
 CHẠM(X, Y)
 ```
 
@@ -351,11 +351,11 @@ Mỗi kênh RGB và SAI_SỐ là số nguyên từ 0 đến 255. SAI_SỐ áp d�
 Ví dụ:
 
 ```text
-ĐẶT MAU_NUT: BẢN_ĐỒ = MÀU_TẠI(300, 500)
+BIẾN MAU_NUT: BẢN_ĐỒ = MÀU_TẠI(300, 500)
 NẾU (MÀN_HÌNH_CÓ_MÀU(0, 180, 80, 12)) {
-    ĐẶT TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_MÀU(0, 180, 80, 12)
+    BIẾN TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_MÀU(0, 180, 80, 12)
     CHẠM(LẤY_PHẦN_TỬ(TOA_DO, 0), LẤY_PHẦN_TỬ(TOA_DO, 1))
 }
-ĐẶT TY_LE_XANH: SỐ = TỶ_LỆ_MÀU_TRONG_VÙNG(0, 180, 80, 12, 100, 200, 400, 300)
+BIẾN TY_LE_XANH: SỐ = TỶ_LỆ_MÀU_TRONG_VÙNG(0, 180, 80, 12, 100, 200, 400, 300)
 ```
 

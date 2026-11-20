@@ -40,7 +40,7 @@ object EditorGuideCatalog {
             title = "Đọc và thao tác thành phần giao diện",
             summary = "Tìm nội dung và điều khiển các thành phần mà ứng dụng đích công khai qua Trợ năng Android.",
             commands = listOf(
-                EditorGuideCommand("ĐỌC_VĂN_BẢN_MÀN_HÌNH()", "Đọc văn bản nhận diện được trên màn hình.", "ĐẶT NOI_DUNG: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()"),
+                EditorGuideCommand("ĐỌC_VĂN_BẢN_MÀN_HÌNH()", "Đọc văn bản nhận diện được trên màn hình.", "BIẾN NOI_DUNG: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()"),
                 EditorGuideCommand("ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()", "Đọc văn bản có cấu trúc và thông tin vị trí."),
                 EditorGuideCommand("MÀN_HÌNH_CHỨA_CHỮ(\"nội dung\")", "Kiểm tra văn bản có xuất hiện trên màn hình không."),
                 EditorGuideCommand("TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")", "Trả về tọa độ tâm của văn bản tìm được."),
@@ -61,7 +61,7 @@ object EditorGuideCatalog {
             commands = listOf(
                 EditorGuideCommand("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()", "Nhận diện nhãn mô tả nội dung hình ảnh."),
                 EditorGuideCommand("ĐỌC_VĂN_BẢN_MÀN_HÌNH()", "Dùng OCR để đọc chữ trong ảnh chụp màn hình."),
-                EditorGuideCommand("MÀU_TẠI(x, y)", "Đọc màu tại một điểm trên màn hình.", "ĐẶT MAU: BẢN_ĐỒ = MÀU_TẠI(200, 400)"),
+                EditorGuideCommand("MÀU_TẠI(x, y)", "Đọc màu tại một điểm trên màn hình.", "BIẾN MAU: BẢN_ĐỒ = MÀU_TẠI(200, 400)"),
                 EditorGuideCommand("TÌM_VỊ_TRÍ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)", "Tìm vị trí có màu gần với màu RGB cần tìm."),
                 EditorGuideCommand("MÀN_HÌNH_CÓ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)", "Kiểm tra màn hình có màu gần với màu RGB cần tìm."),
                 EditorGuideCommand("TỶ_LỆ_MÀU_TRONG_VÙNG(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO)", "Ước lượng tỷ lệ pixel gần màu mục tiêu trong vùng.")
@@ -138,18 +138,19 @@ object EditorGuideCatalog {
             title = "Biến, điều kiện và vòng lặp",
             summary = "Tổ chức kịch bản thành các bước có điều kiện, lặp lại, hàm dùng chung và xử lý lỗi.",
             commands = listOf(
-                EditorGuideCommand("ĐẶT TÊN_BIẾN: SỐ = 10", "Khai báo biến có kiểu.", "ĐẶT SO_LAN: SỐ = 3"),
+                EditorGuideCommand("BIẾN TÊN_BIẾN: SỐ = 10", "Khai báo biến có kiểu.", "BIẾN SO_LAN: SỐ = 3"),
                 EditorGuideCommand("NẾU (điều_kiện) { ... } NGƯỢC_LẠI { ... }", "Chạy một nhánh theo điều kiện."),
                 EditorGuideCommand("LẶP(số_lần) { ... }", "Lặp một khối lệnh theo số lần."),
                 EditorGuideCommand("LẶP_KHI (điều_kiện) { ... }", "Lặp khi điều kiện còn đúng."),
                 EditorGuideCommand("LẶP_ĐẾN_KHI(điều_kiện) { ... }", "Lặp cho đến khi đạt điều kiện dừng."),
                 EditorGuideCommand("LẶP_MỖI (phần_tử TRONG danh_sách) { ... }", "Duyệt lần lượt các phần tử."),
-                EditorGuideCommand("ĐỊNH_NGHĨA_HÀM TEN(THAM_SO: SỐ): SỐ { ... }", "Tạo hàm để tái sử dụng đoạn lệnh."),
+                EditorGuideCommand("HÀM TEN(THAM_SO: SỐ): SỐ { ... }", "Tạo hàm để tái sử dụng đoạn lệnh."),
                 EditorGuideCommand("THỬ { ... } BẮT_LỖI (LỖI) { ... } LUÔN_THỰC_HIỆN { ... }", "Bắt lỗi và thực hiện phần dọn dẹp.")
             ),
             notes = listOf(
                 "Bộ chạy có giới hạn số lệnh, số vòng lặp và thời lượng để tránh kịch bản chạy vô hạn.",
-                "Tên hàm tự định nghĩa phải viết hoa và khai báo ở cấp cao nhất."
+                "Tên hàm tự định nghĩa phải viết hoa và khai báo ở cấp cao nhất.",
+                "Dùng BIẾN để khai báo biến và HÀM để định nghĩa hàm. ĐẶT và ĐỊNH_NGHĨA_HÀM vẫn được nhận diện như bí danh cũ."
             )
         ),
         EditorGuideSection(

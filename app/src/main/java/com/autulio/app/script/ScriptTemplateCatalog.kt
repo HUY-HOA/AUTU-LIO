@@ -61,7 +61,7 @@ object ScriptTemplateCatalog {
             descriptionVi = "Lặp thao tác chạm theo số lần đã đặt.",
             descriptionEn = "Repeat a tap for the chosen number of iterations.",
             source = """
-                ĐẶT SO_LAN = 3
+                BIẾN SO_LAN = 3
                 LẶP(SO_LAN) {
                     CHẠM(200, 400)
                     CHỜ(500)
@@ -99,7 +99,7 @@ object ScriptTemplateCatalog {
             descriptionVi = "Tăng biến đếm và dừng lặp khi đạt điều kiện.",
             descriptionEn = "Increase a counter and stop when the condition is met.",
             source = """
-                ĐẶT DEM = 0
+                BIẾN DEM = 0
                 LẶP_KHI (DEM < 5) {
                     DEM = DEM + 1
                     CHẠM(200, 400)
@@ -125,7 +125,7 @@ object ScriptTemplateCatalog {
             descriptionVi = "Thực hiện thao tác cho đến khi biến đạt điều kiện dừng.",
             descriptionEn = "Repeat actions until a variable reaches the stop condition.",
             source = """
-                ĐẶT DEM = 0
+                BIẾN DEM = 0
                 LẶP_ĐẾN_KHI(DEM >= 5) {
                     DEM = DEM + 1
                     CHẠM(200, 400)
@@ -140,7 +140,7 @@ object ScriptTemplateCatalog {
             descriptionVi = "Tạo danh sách tọa độ và thực hiện thao tác cho từng phần tử.",
             descriptionEn = "Create a coordinate list and perform an action for each item.",
             source = """
-                ĐẶT CAC_TOA_DO: DANH_SÁCH = TẠO_DANH_SÁCH(120, 240, 360)
+                BIẾN CAC_TOA_DO: DANH_SÁCH = TẠO_DANH_SÁCH(120, 240, 360)
                 LẶP_MỖI (TOA_DO_X TRONG CAC_TOA_DO) {
                     CHẠM(TOA_DO_X, 400)
                     CHỜ(300)
@@ -154,8 +154,8 @@ object ScriptTemplateCatalog {
             descriptionVi = "Tạo bản đồ cài đặt và duyệt từng khóa để lấy giá trị tương ứng.",
             descriptionEn = "Create a settings map and iterate through keys to read their values.",
             source = """
-                ĐẶT CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TOA_DO_X", 120, "TOA_DO_Y", 400)
-                ĐẶT DANH_SACH_KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+                BIẾN CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TOA_DO_X", 120, "TOA_DO_Y", 400)
+                BIẾN DANH_SACH_KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
                 LẶP_MỖI (KHOA TRONG DANH_SACH_KHOA) {
                     CHẠM(LẤY_GIÁ_TRỊ(CAU_HINH, KHOA), 500)
                 }
