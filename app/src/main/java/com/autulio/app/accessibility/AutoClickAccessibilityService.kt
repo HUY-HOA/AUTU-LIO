@@ -1861,6 +1861,16 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         editorTools.addView(sizeButton)
         editorTools.requestLayout()
 
+        if (collapsed) {
+            status.visibility = View.GONE
+            edit.visibility = View.GONE
+            primary.visibility = View.GONE
+            stop.visibility = View.GONE
+            camera.visibility = View.GONE
+            gallery.visibility = View.GONE
+            collapse.visibility = View.GONE
+        }
+
         move.setOnTouchListener(object : View.OnTouchListener {
             private var startRawX = 0f
             private var startRawY = 0f
@@ -2197,10 +2207,13 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             val density = resources.displayMetrics.density
             val screenWidth = resources.displayMetrics.widthPixels
             val anchorToRight = params.x + root.width / 2 > screenWidth / 2
+            val screenWidthDp = (screenWidth / density).toInt()
+            val maximumContentWidthDp = (screenWidthDp - 12).coerceAtLeast(266)
             val contentWidthDp = getSharedPreferences(
                 "autu_lio_floating_window",
                 MODE_PRIVATE
-            ).getInt("content_width_dp", 280).coerceAtLeast(266)
+            ).getInt("content_width_dp", 280)
+                .coerceIn(266, maximumContentWidthDp)
             val targetWidth = (
                 (if (value) 50 else contentWidthDp + 12) * density
             ).toInt()
