@@ -39,8 +39,11 @@
 - Accessibility Service phát gesture Android, gọi hành động hệ thống được hỗ trợ và tạo cửa sổ điều khiển nổi.
 - AUTU Script 1.21 có chuyển đổi DP/pixel, tọa độ vùng an toàn và hướng xoay màn hình; thao tác thực tế theo pixel nguyên.
 - HTTP client dùng OkHttp, hỗ trợ HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, chặn redirect, giới hạn header/body/timeout và không trả các header xác thực nhạy cảm.
+- SQLite riêng của ứng dụng có giới hạn 8 MiB; SQL allow-list, bind tham số, giới hạn kết quả và transaction cho từng câu ghi.
+- Di trú schema theo phiên bản 1..100.000: chạy tuần tự, transaction nguyên tử, checksum SHA-256, gọi lặp cùng checksum không chạy lại; thay đổi nội dung cùng phiên bản bị từ chối. Bảng lịch sử di trú bị ẩn khỏi SQL của script.
+- Hàm KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU() chạy integrity_check, foreign_key_check và xác thực lịch sử di trú; kết quả bị giới hạn. Backup/restore SQLite vẫn chưa có.
 - ML Kit được bật trong mọi Android build: OCR, QR/mã vạch, nhãn ảnh và phát hiện vật thể chạy cục bộ; không có Gemini.
-- Android source checks và Worker checks đều xanh trên mã nguồn mới nhất đã kiểm tra.
+- Android source checks run 44680524262 đã xanh trên commit 0473d490 (compile, unit tests và lint). Worker checks run 44676593746 đã xanh trên commit backend a3192286; backend không thay đổi trong các commit Android sau đó.
 - Unit tests hiện có cho parser/compiler và runtime; CI chạy unit tests và lint.
 - Mã nguồn có tính năng không đồng nghĩa đã nghiệm thu trên thiết bị thật. Cần kiểm tra độ chính xác gesture, vòng đời service, quyền Trợ năng, overlay và khả năng dừng trong các tình huống thực tế.
 
@@ -64,7 +67,7 @@
 4. **Runtime — mã nguồn và unit test đã có, kiểm thử thiết bị thật còn thiếu:** kiểm tra CHẠM, NHẤN_GIỮ, VUỐT, CHỜ, mở ứng dụng, pause/resume/stop, LUÔN_THỰC_HIỆN và lỗi quyền Trợ năng.
 5. **Độ ổn định Android — chưa nghiệm thu:** kiểm tra Xiaomi/HyperOS và Android khác; tối ưu pin, service bị hệ thống dừng, đổi hướng màn hình, khuyết màn hình và độ phân giải.
 6. **Chất lượng — kiểm tra tự động đang được duy trì:** giữ Worker tests, Kotlin unit tests và lint xanh; đối chiếu commit CI với main; kiểm tra bảo mật và không đưa secret vào APK/Git.
-7. **Phạm vi AUTU Script tiếp theo:** hoàn thiện di trú schema SQLite, CSV/chọn tệp qua SAF, multipart upload/download, sự kiện/tác vụ nền, regex/ngày giờ, module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md.
+7. **Phạm vi AUTU Script tiếp theo:** backup/restore SQLite an toàn; CSV/chọn tệp qua SAF; multipart upload/download; sự kiện/tác vụ nền; regex/ngày giờ; module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md. Di trú schema và lệnh kiểm tra toàn vẹn đã có mã nguồn/unit-level checks nhưng chưa nghiệm thu trên thiết bị thật.
 
 ## 6. Quy tắc an toàn và phát hành
 
