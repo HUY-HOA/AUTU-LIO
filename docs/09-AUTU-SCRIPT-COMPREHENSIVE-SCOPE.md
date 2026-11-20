@@ -26,7 +26,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 | Ngôn ngữ lõi | Biến, kiểu, biểu thức, điều kiện, vòng lặp, hàm, danh sách, bản đồ | Đã có nền tảng |
 | Điều khiển luồng | THỬ/BẮT_LỖI/LUÔN_THỰC_HIỆN, hủy, thời hạn, luồng tác vụ | Đã có try/catch, hủy và timeout; chưa có đa luồng script |
 | Chuỗi và dữ liệu | Unicode, JSON lồng nhau, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Đã có Unicode và JSON lồng nhau; regex/ngày giờ/mã hóa còn thiếu |
-| Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI người dùng | Đã có kho tệp riêng, JSON, CSV parser/serializer giới hạn và SAF backup/restore SQLite; chọn URI tổng quát còn thiếu |
+| Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI, multipart upload/download | Đã có kho tệp riêng, JSON/CSV, SAF backup/restore SQLite và multipart file HTTP có giới hạn; chọn URI tổng quát còn thiếu |
 | Mạng | HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn và PATCH; multipart/upload/download còn thiếu |
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema, toàn vẹn, backup/restore | Đã có SQLite nội bộ, SQL allow-list/bind tham số, transaction ghi, di trú tuần tự checksum SHA-256, integrity/foreign-key check và backup/restore ZIP qua SAF có checksum/rollback; còn thiếu nghiệm thu thiết bị thật |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
