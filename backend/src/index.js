@@ -1168,7 +1168,7 @@ async function decryptPackageSourceForOwner(request, env, session, packageId) {
   }
 }
 
-async function updateAdminPackage(request, env, session, packageId) {async function updateAdminPackage(request, env, session, packageId) {
+async function updateAdminPackage(request, env, session, packageId) {
   await requireRole(session, ["OWNER"]);
   if (!ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
   const body = await readBody(request, 4_000);
