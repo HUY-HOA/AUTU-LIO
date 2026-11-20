@@ -47,6 +47,12 @@ class ScriptDatabaseStore(context: Context) : Closeable {
         }
     }
 
+    /** Returns the latest contiguous schema version, or zero before migration 1. */
+    fun schemaVersion(): Int = synchronized(lock) {
+        ensureOpen()
+        readMigrationHistoryLocked().lastOrNull()?.version ?: 0
+    }
+
     /**
      * Runs SQLite's full integrity check, foreign-key check and AUTU migration
      * history validation. Results are bounded so scripts cannot create a huge
