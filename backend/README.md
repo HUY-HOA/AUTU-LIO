@@ -13,7 +13,7 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - One-owner bootstrap by the exact Google OpenID Connect `sub` claim configured as the `OWNER_GOOGLE_SUB` Worker secret; email is not used to grant OWNER.
 - D1 schema migrations and local migration validation.
 - Owner-only publication of immutable AUTU package versions.
-- Package metadata accepts legacy AUTU Script versions 0.2, 0.3 and 1.19, plus current Android compiler version 1.20. The Android app publishes the compiler's exact version and checks that version again before executing a downloaded package.
+- Package metadata accepts legacy AUTU Script versions 0.2, 0.3, 1.19 and 1.20, plus current Android compiler version 1.21. The Android app publishes the compiler's exact version and checks that version again before executing a downloaded package.
 - AES-256-GCM encryption with a fresh random 256-bit data key and 96-bit nonce for every published version; only ciphertext is stored in D1.
 - Versioned Worker master keys protect package data keys and support controlled key rotation.
 - Customer package listing and download require an active license and the requesting device's registered RSA-3072 public key.

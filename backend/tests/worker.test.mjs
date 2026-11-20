@@ -613,7 +613,7 @@ test("package publishing stores AES-GCM ciphertext and master-key version, not p
       body: JSON.stringify({
         name: "Encrypted package",
         description: "Package test",
-        languageVersion: "1.20",
+        languageVersion: "1.21",
         source
       })
     }),
@@ -624,9 +624,9 @@ test("package publishing stores AES-GCM ciphertext and master-key version, not p
 
   assert.equal(response.status, 201);
   assert.equal(body.published, true);
-  assert.equal(body.package.languageVersion, "1.20");
+  assert.equal(body.package.languageVersion, "1.21");
   assert.ok(versionInsert);
-  assert.equal(versionInsert.values[3], "1.20");
+  assert.equal(versionInsert.values[3], "1.21");
   assert.notEqual(versionInsert.values[4], source);
   assert.ok(versionInsert.values[4].length > source.length);
   assert.equal(versionInsert.values[8], "V1");

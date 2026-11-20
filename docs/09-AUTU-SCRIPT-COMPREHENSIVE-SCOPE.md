@@ -19,7 +19,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 
 ## Ma trận tính năng
 
-**Trạng thái mã nguồn hiện tại:** AUTU Script 1.20. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.20; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
+**Trạng thái mã nguồn hiện tại:** AUTU Script 1.21. Bảng dưới đây được cập nhật theo tài liệu cú pháp 1.21; các khả năng vẫn cần kiểm thử thiết bị thật được ghi riêng, không coi CI là xác nhận trên mọi thiết bị.
 
 | Phân hệ | Phạm vi mục tiêu | Trạng thái |
 |---|---|---|
@@ -27,7 +27,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 | Điều khiển luồng | THỬ/BẮT_LỖI/LUÔN_THỰC_HIỆN, hủy, thời hạn, luồng tác vụ | Đã có try/catch, hủy và timeout; chưa có đa luồng script |
 | Chuỗi và dữ liệu | Unicode, JSON lồng nhau, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Đã có Unicode và JSON lồng nhau; regex/ngày giờ/mã hóa còn thiếu |
 | Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI người dùng | Đã có kho tệp riêng và JSON; CSV/chọn URI còn thiếu |
-| Mạng | HTTPS GET/POST/PUT/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn; PATCH/multipart/upload/download còn thiếu |
+| Mạng | HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn và PATCH; multipart/upload/download còn thiếu |
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Đã có SQLite nội bộ, SQL allow-list, bind tham số và transaction mỗi câu ghi; hệ thống di trú schema còn thiếu |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
 | Văn bản giao diện | Đọc cây Trợ năng, tìm nhãn và trả tọa độ | Kết hợp cây Accessibility và OCR ML Kit; nhận diện nhãn ảnh/vật thể, QR/mã vạch trên thiết bị |
@@ -45,7 +45,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 | Quản lý chạy | Chạy/tạm dừng/tiếp tục/dừng và cửa sổ nổi | Đã có; hàng đợi nhiều kịch bản và lịch sử chi tiết còn thiếu |
 | Kiểm thử | Test parser/runtime, test thiết bị, test quyền, test tương thích Android | Một phần |
 
-### Các API màn hình đã nối runtime ở 1.18–1.20
+### Các API màn hình đã nối runtime ở 1.18–1.21
 
 - `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()` trả thông số kích thước theo density và pixel.
 - `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()` trả hướng và rotation hiện tại.
@@ -54,7 +54,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 - `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa ROTATION_0 và hệ trục logic hiện tại. Công thức bao quát thiết bị hướng gốc ngang và cả bốn mã xoay Android.
 - Chuyển đổi góc xoay chỉ đổi hệ tọa độ trả về; không đổi tự động các tham số CHẠM/VUỐT. Cần nghiệm thu thực tế trên thiết bị để xác nhận sự tương thích với từng OEM.
 
-### Thông tin thiết bị đã nối runtime ở 1.20
+### Thông tin thiết bị đã nối runtime ở 1.21
 
 Các hàm HÀNG_SẢN_XUẤT(), MẪU_THIẾT_BỊ(), PHIÊN_BẢN_ANDROID(), MỨC_API_ANDROID(), MÀN_HÌNH_BỊ_KHÓA() và THIẾT_BỊ_ĐƯỢC_BẢO_MẬT() đọc thuộc tính thiết bị/Keyguard cục bộ. Trạng thái bảo mật chỉ được truy vấn; không có hàm bỏ qua hoặc mở khóa bảo mật.
 
@@ -83,8 +83,8 @@ Các lệnh đã được nối vào AUTU Script:
 
 ### Tệp, dữ liệu và mạng
 - Đã có kho tệp UTF-8 riêng, JSON lồng nhau và HTTP(S) client giới hạn payload.
-- HTTP hiện hỗ trợ HTTPS GET/POST/PUT/DELETE/HEAD, header map, timeout, response map; không theo redirect tự động.
-- Còn thiếu PATCH, multipart upload/download, API file picker có SAF và SQLite.
+- HTTP hiện hỗ trợ HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header map, timeout, response map; không theo redirect tự động. Thân request cho phép POST/PUT/PATCH/DELETE.
+- Còn thiếu multipart upload/download, API file picker có SAF và SQLite.
 - API mạng phải có timeout, giới hạn kích thước, HTTPS mặc định, kiểm tra phản hồi và không ghi log bí mật.
 
 ### Tác vụ nền và sự kiện

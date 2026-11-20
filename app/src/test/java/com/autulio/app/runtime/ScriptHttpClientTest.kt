@@ -67,6 +67,29 @@ class ScriptHttpClientTest {
     }
 
     @Test
+    fun sendsUtf8PatchBodyAndKeepsHttpsRestrictions() {
+        lateinit var connection: FakeHttpURLConnection
+        val client = ScriptHttpClient(connectionFactory = { url ->
+            FakeHttpURLConnection(url, 204, ByteArray(0)).also { connection = it }
+        })
+        val body = """{"trạng_thái":"đã cập nhật"}"""
+        val result = client.request(
+            method = "PATCH",
+            urlText = "https://api.example.com/items/7",
+            body = body,
+            headers = mapOf("Content-Type" to "application/json; charset=utf-8"),
+            timeoutMs = 8_000
+        )
+        assertEquals(204, result["TRẠNG_THÁI"])
+        assertEquals(true, result["THÀNH_CÔNG"])
+        assertEquals("PATCH", connection.requestMethod)
+        assertEquals(body, connection.requestBytes.toString(StandardCharsets.UTF_8))
+        assertEquals("application/json; charset=utf-8", connection.getRequestProperty("Content-Type"))
+        assertFalse(connection.instanceFollowRedirects)
+        assertTrue(connection.disconnected)
+    }
+
+    @Test
     fun returnsErrorBodyAndMarksNonSuccessStatus() {
         val client = ScriptHttpClient(connectionFactory = { url ->
             FakeHttpURLConnection(url, 422, """{"error":"invalid"}""".toByteArray())
@@ -89,7 +112,7 @@ class ScriptHttpClientTest {
         assertFalse(runCatching { client.request("GET", "http://api.example.com", null, headers, 1_000) }.isSuccess)
         assertFalse(runCatching { client.request("GET", "https://user:pass@api.example.com", null, headers, 1_000) }.isSuccess)
         assertFalse(runCatching { client.request("GET", "https://api.example.com/path#private", null, headers, 1_000) }.isSuccess)
-        assertFalse(runCatching { client.request("PATCH", "https://api.example.com", null, headers, 1_000) }.isSuccess)
+        assertFalse(runCatching { client.request("OPTIONS", "https://api.example.com", null, headers, 1_000) }.isSuccess)
         assertFalse(runCatching { client.request("GET", "https://api.example.com", "body", headers, 1_000) }.isSuccess)
         assertFalse(runCatching { client.request("GET", "https://api.example.com", null, mapOf("X-Test" to "safe\r\nInjected: yes"), 1_000) }.isSuccess)
         assertFalse(runCatching { client.request("GET", "https://api.example.com", null, headers, 50) }.isSuccess)

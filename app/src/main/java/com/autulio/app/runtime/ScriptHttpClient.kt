@@ -30,7 +30,7 @@ class ScriptHttpClient(
         const val MAX_HEADERS = 32
         const val MAX_HEADER_CHARS = 16_384
 
-        private val allowedMethods = setOf("GET", "POST", "PUT", "DELETE", "HEAD")
+        private val allowedMethods = setOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD")
         private val forbiddenRequestHeaders = setOf(
             "host", "content-length", "connection", "transfer-encoding",
             "proxy-authorization", "proxy-connection"
@@ -56,7 +56,7 @@ class ScriptHttpClient(
     ): Map<String, Any?> {
         val normalizedMethod = method.uppercase(Locale.ROOT)
         require(normalizedMethod in allowedMethods) {
-            "Phương thức HTTP chỉ hỗ trợ GET, POST, PUT, DELETE hoặc HEAD."
+            "Phương thức HTTP chỉ hỗ trợ GET, POST, PUT, PATCH, DELETE hoặc HEAD."
         }
         require(timeoutMs in MIN_TIMEOUT_MS..MAX_TIMEOUT_MS) {
             "Thời hạn HTTP phải từ $MIN_TIMEOUT_MS đến $MAX_TIMEOUT_MS mili giây."
@@ -66,7 +66,7 @@ class ScriptHttpClient(
         require(bodyBytes == null || bodyBytes.size <= maxRequestBytes) {
             "Dữ liệu gửi vượt quá giới hạn $maxRequestBytes byte."
         }
-        require(bodyBytes == null || normalizedMethod in setOf("POST", "PUT", "DELETE")) {
+        require(bodyBytes == null || normalizedMethod in setOf("POST", "PUT", "PATCH", "DELETE")) {
             "$normalizedMethod không nhận phần thân yêu cầu trong AUTU."
         }
         val safeHeaders = validateHeaders(headers)
