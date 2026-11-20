@@ -1,6 +1,5 @@
 package com.autulio.app
 
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas as AndroidCanvas
@@ -13,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -32,7 +32,6 @@ import androidx.compose.material.icons.outlined.HorizontalRule
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Flip
 import androidx.compose.material.icons.outlined.FormatColorText
-import androidx.compose.material.icons.outlined.Redo
 import androidx.compose.material.icons.outlined.RotateRight
 import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material3.*
@@ -45,7 +44,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -354,22 +352,18 @@ private fun ScreenshotImageEditorScreen(
                 Box(
                     Modifier
                         .size(if (selected) 30.dp else 25.dp)
+                        .border(
+                            width = if (selected) 2.dp else 1.dp,
+                            color = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant,
+                            shape = CircleShape
+                        )
+                        .padding(3.dp)
                         .clip(CircleShape)
                         .background(Color(color))
-                        .then(
-                            if (selected) Modifier.background(
-                                Color.Transparent,
-                                CircleShape
-                            ) else Modifier
-                        )
-                        .padding(if (selected) 3.dp else 0.dp)
-                        .clip(CircleShape)
-                        .background(Color(color))
-                        .then(
-                            Modifier.pointerInput(color) {
-                                detectTapGestures { selectedColor = color }
-                            }
-                        )
+                        .pointerInput(color) {
+                            detectTapGestures { selectedColor = color }
+                        }
                 )
             }
             Spacer(Modifier.weight(1f))
