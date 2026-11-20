@@ -128,7 +128,7 @@ internal fun AdminAuditLogsScreen(
 
         if (accessToken.isNullOrBlank()) {
             CardBox {
-                Text(tr("Cần đăng nhập OWNER", "OWNER sign-in required"), fontWeight = FontWeight.SemiBold)
+                Text(tr("Cần đăng nhập bằng tài khoản chủ sở hữu", "OWNER sign-in required"), fontWeight = FontWeight.SemiBold)
                 Text(
                     tr("Nhật ký quản trị chỉ hiển thị cho tài khoản chủ sở hữu đã được máy chủ xác minh.", "Audit logs are available only to an owner account verified by the server."),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -253,7 +253,7 @@ private fun auditActionTitle(action: String): String = when (action) {
     "package.version_published" -> tr("Phát hành phiên bản AUTU", "Publish AUTU version")
     "package.status_changed" -> tr("Thay đổi trạng thái gói AUTU", "Change AUTU package status")
     "package.downloaded" -> tr("Khách hàng tải gói AUTU", "Customer downloads AUTU package")
-    else -> action
+    else -> tr("Sự kiện khác", "Other event")
 }
 
 private fun formatAuditTime(epochSeconds: Long): String {
