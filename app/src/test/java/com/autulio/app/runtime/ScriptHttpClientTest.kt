@@ -1,6 +1,7 @@
 package com.autulio.app.runtime
 
 import okhttp3.Interceptor
+import okio.Buffer
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -57,7 +58,7 @@ class ScriptHttpClientTest {
 
         assertEquals(201, result["TRẠNG_THÁI"])
         assertEquals("POST", request.method())
-        assertEquals(body, request.body()!!.string())
+        assertEquals(body, requestBodyText(request))
         assertEquals("application/json; charset=utf-8", request.header("Content-Type"))
         assertEquals("Bearer test-token", request.header("Authorization"))
     }
@@ -213,6 +214,12 @@ class ScriptHttpClientTest {
         )
 
         assertEquals("café", result["NỘI_DUNG"])
+    }
+
+    private fun requestBodyText(request: Request): String {
+        val buffer = Buffer()
+        request.body()!!.writeTo(buffer)
+        return buffer.readUtf8()
     }
 
     private fun clientWithResponse(
