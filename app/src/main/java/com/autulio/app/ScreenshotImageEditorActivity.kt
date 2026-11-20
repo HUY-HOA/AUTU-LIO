@@ -242,6 +242,7 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                     onBitmapCreated = { created ->
                         synchronized(generatedBitmaps) { generatedBitmaps += created }
                     },
+                    onBitmapSuperseded = ::recycleSupersededBitmap,
                     onSave = ::saveEditedImage,
                     onRecognize = ::analyzeImage,
                     onApplyAdjustments = ::applyImageAdjustments,
@@ -298,12 +299,14 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
         onFinished: (Bitmap?) -> Unit
     ) {
         saveExecutor.execute {
+            var output: Bitmap? = null
             val adjusted = runCatching {
-                val output = Bitmap.createBitmap(
+                val target = Bitmap.createBitmap(
                     bitmap.width,
                     bitmap.height,
                     Bitmap.Config.ARGB_8888
                 )
+                output = target
                 val contrastScaleBase = (contrast.coerceIn(-100f, 100f) + 100f) / 100f
                 val contrastScale = contrastScaleBase * contrastScaleBase
                 val offset = 128f * (1f - contrastScale) +
@@ -320,9 +323,10 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                     colorFilter = ColorMatrixColorFilter(matrix)
                     isFilterBitmap = true
                 }
-                AndroidCanvas(output).drawBitmap(bitmap, 0f, 0f, paint)
-                output
+                AndroidCanvas(target).drawBitmap(bitmap, 0f, 0f, paint)
+                target
             }.getOrNull()
+            if (adjusted == null) output?.let { runCatching { it.recycle() } }
             runOnUiThread {
                 if (isFinishing || isDestroyed) {
                     adjusted?.recycle()
@@ -340,16 +344,18 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
         onFinished: (Bitmap?) -> Unit
     ) {
         saveExecutor.execute {
+            var output: Bitmap? = null
             val edited = runCatching {
-                val output = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+                val target = bitmap.copy(Bitmap.Config.ARGB_8888, true)
                     ?: throw IllegalStateException("Không tạo được ảnh.")
+                output = target
                 val left = (region.left * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
                 val top = (region.top * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
                 val right = (region.right * bitmap.width).toInt().coerceIn(left + 1, bitmap.width)
                 val bottom = (region.bottom * bitmap.height).toInt().coerceIn(top + 1, bitmap.height)
                 val width = right - left
                 val height = bottom - top
-                val canvas = AndroidCanvas(output)
+                val canvas = AndroidCanvas(target)
                 when (effect) {
                     RegionEffect.COVER -> {
                         val coverPaint = AndroidPaint().apply {
@@ -396,14 +402,27 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                         }
                     }
                 }
-                output
+                target
             }.getOrNull()
+            if (edited == null) output?.let { runCatching { it.recycle() } }
             runOnUiThread {
                 if (isFinishing || isDestroyed) {
                     edited?.recycle()
                 } else {
                     onFinished(edited)
                 }
+            }
+        }
+    }
+
+    private fun recycleSupersededBitmap(bitmap: Bitmap) {
+        if (bitmap === originalBitmap || bitmap.isRecycled) return
+        saveExecutor.execute {
+            synchronized(generatedBitmaps) {
+                generatedBitmaps.remove(bitmap)
+            }
+            if (!bitmap.isRecycled) {
+                runCatching { bitmap.recycle() }
             }
         }
     }
@@ -467,6 +486,7 @@ private fun ScreenshotImageEditorScreen(
     originalBitmap: Bitmap,
     onBack: () -> Unit,
     onBitmapCreated: (Bitmap) -> Unit,
+    onBitmapSuperseded: (Bitmap) -> Unit,
     onSave: (Bitmap, List<ImageMark>) -> Unit,
     onRecognize: (Bitmap, (ScreenshotImageAnalysis?) -> Unit) -> Unit,
     onApplyAdjustments: (Bitmap, Float, Float, (Bitmap?) -> Unit) -> Unit,
@@ -496,8 +516,12 @@ private fun ScreenshotImageEditorScreen(
         if (bitmap == null) {
             statusMessage = "Không xử lý được ảnh. Hãy thử lại với vùng nhỏ hơn."
         } else {
+            val previous = workingBitmap
             workingBitmap = bitmap
             onBitmapCreated(bitmap)
+            if (previous !== originalBitmap && previous !== bitmap) {
+                onBitmapSuperseded(previous)
+            }
             statusMessage = successMessage
         }
     }
@@ -521,6 +545,9 @@ private fun ScreenshotImageEditorScreen(
         if (transformed != null) {
             workingBitmap = transformed
             onBitmapCreated(transformed)
+            if (current !== originalBitmap && current !== transformed) {
+                onBitmapSuperseded(current)
+            }
             val transformedMarks = marks.map { mark ->
                 when (mark) {
                     is ImageMark.Pen -> mark.copy(points = mark.points.map(transformPoint))
