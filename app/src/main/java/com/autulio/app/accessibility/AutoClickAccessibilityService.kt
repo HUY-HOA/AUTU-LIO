@@ -1153,6 +1153,58 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         return output
     }
 
+    private fun captureAndOpenCropEditor() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            statusLabel?.text = "Chụp màn hình tự động hiện cần Android 11 trở lên."
+            return
+        }
+        statusLabel?.text = "Đang chụp màn hình..."
+        screenshotExecutor.execute {
+            val bitmap = captureDisplayBitmap()
+            if (bitmap == null) {
+                mainHandler.post {
+                    statusLabel?.text = "Không chụp được màn hình. Hãy kiểm tra quyền Trợ năng của AUTU-LIO."
+                }
+                return@execute
+            }
+
+            val savedOriginal = runCatching {
+                val directory = File(filesDir, "screenshots/originals")
+                check(directory.exists() || directory.mkdirs()) {
+                    "Không tạo được thư mục lưu ảnh gốc."
+                }
+                val output = File(directory, "anh-goc-${System.currentTimeMillis()}.png")
+                output.outputStream().use { stream ->
+                    check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                        "Không ghi được ảnh chụp."
+                    }
+                    stream.flush()
+                }
+                output
+            }
+            bitmap.recycle()
+
+            mainHandler.post {
+                val original = savedOriginal.getOrNull()
+                if (original == null) {
+                    statusLabel?.text = savedOriginal.exceptionOrNull()?.message
+                        ?: "Không lưu được ảnh chụp."
+                    return@post
+                }
+                val intent = Intent(this, com.autulio.app.ScreenshotCropActivity::class.java)
+                    .putExtra(
+                        com.autulio.app.ScreenshotCropActivity.EXTRA_ORIGINAL_PATH,
+                        original.absolutePath
+                    )
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                runCatching { startActivity(intent) }
+                    .onFailure {
+                        statusLabel?.text = "Đã lưu ảnh gốc nhưng không mở được màn hình cắt ảnh."
+                    }
+            }
+        }
+    }
+
     private fun captureDisplayBitmap(): Bitmap? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
         val finished = CountDownLatch(1)
