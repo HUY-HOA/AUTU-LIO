@@ -91,6 +91,10 @@ Hàm phải khai báo ở cấp cao nhất, tối đa 16 tham số và 16 cấp 
 | LIỆT_KÊ_TỆP | LIỆT_KÊ_TỆP("settings") | Danh sách tệp trực tiếp trong thư mục |
 | ĐỌC_JSON_TỆP | ĐỌC_JSON_TỆP("settings/config.json") | Đọc và phân tích JSON |
 | GHI_JSON_TỆP | GHI_JSON_TỆP("settings/config.json", GIÁ_TRỊ) | Chuyển giá trị thành JSON rồi ghi |
+| GỬI_TỆP_HTTP | GỬI_TỆP_HTTP(PHƯƠNG_THỨC, URL, TỆP, TÊN_TRƯỜNG, TÊN_TỆP, MIME, TIÊU_ĐỀ, THỜI_HẠN) | Upload tệp bằng multipart/form-data; trả metadata HTTP |
+| TẢI_TỆP_HTTP | TẢI_TỆP_HTTP(URL, ĐƯỜNG_DẪN_ĐÍCH, TIÊU_ĐỀ, THỜI_HẠN) | Tải GET HTTPS và lưu bytes khi phản hồi 2xx |
+
+GỬI_TỆP_HTTP chỉ hỗ trợ POST, PUT hoặc PATCH; tệp nguồn phải nằm trong kho riêng. Tên trường, tên tệp và MIME được kiểm tra; tên tệp không được chứa đường dẫn; không được tự đặt Content-Type vì OkHttp tạo multipart boundary. TẢI_TỆP_HTTP dùng GET và chỉ ghi tệp khi phản hồi HTTP là 2xx. Tệp upload, multipart tổng và phản hồi download tối đa 1 MiB; URL chỉ HTTPS, không theo redirect, timeout 100..30.000 ms.
 
 Tệp chỉ được lưu trong vùng dữ liệu riêng của AUTU-LIO, không truy cập tùy ý bộ nhớ chung hoặc thư mục của ứng dụng khác. Đường dẫn phải tương đối; không chấp nhận đường dẫn tuyệt đối, phân đoạn "..", "." hoặc symlink thoát khỏi vùng lưu trữ. Mỗi tệp tối đa 1 MiB. GHI_TỆP thay thế tệp theo cách an toàn; LIỆT_KÊ_TỆP chỉ liệt kê tệp trực tiếp, tối đa 128 mục.
 
