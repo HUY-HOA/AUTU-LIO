@@ -147,7 +147,7 @@ internal fun statusText(value: String): String = when (value.trim().uppercase(Lo
     "FAILED" -> "Thất bại"
     "COMPLETED" -> "Hoàn tất"
     "CANCELLED" -> "Đã hủy"
-    else -> value.trim().ifBlank { "Không xác định" }
+    else -> "Trạng thái khác"
 }
 
 internal fun planText(value: String): String = when (value.trim().uppercase(Locale.ROOT)) {
