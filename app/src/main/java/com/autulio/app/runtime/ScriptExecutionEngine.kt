@@ -73,6 +73,7 @@ class ScriptExecutionEngine(
     private var lastErrorCode: String? = null
     private var lastMessage: String? = null
     private var activeFunctions: Map<String, ScriptInstruction.FunctionDefinition> = emptyMap()
+    private val cleanupExecution = ThreadLocal.withInitial { false }
     private val maxFunctionCallDepth = 16
 
     fun snapshot(): ScriptExecutionSnapshot = lock.withLock { snapshotLocked() }
@@ -392,10 +393,14 @@ class ScriptExecutionEngine(
             pendingControl = control
         } finally {
             if (instruction.finallyBody.isNotEmpty()) {
+                val wasExecutingCleanup = cleanupExecution.get()
+                cleanupExecution.set(true)
                 try {
                     executeBlock(runId, instruction.finallyBody, variables, declaredTypes, callDepth)
                 } catch (cleanupFailure: RuntimeException) {
                     pendingControl = cleanupFailure
+                } finally {
+                    cleanupExecution.set(wasExecutingCleanup)
                 }
             }
         }
@@ -1111,7 +1116,7 @@ class ScriptExecutionEngine(
     private fun checkpoint(runId: Long) {
         lock.withLock {
             while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
-            ensureActiveLocked(runId)
+            ensureActiveLocked(runId, allowCancellation = cleanupExecution.get())
             if (activeRunDeadlineNanos > 0L && System.nanoTime() >= activeRunDeadlineNanos) {
                 throw ScriptRuntimeFailure(
                     "runtime_duration_limit",
@@ -1133,15 +1138,23 @@ class ScriptExecutionEngine(
         checkpoint(runId)
     }
 
-    private fun ensureActiveLocked(runId: Long) {
-        if (runId != activeRunId || cancellationRequested || state == ScriptExecutionState.STOPPING || closed) throw StopRequested()
-        if (state != ScriptExecutionState.RUNNING) throw IllegalStateException("Trạng thái thực thi không hợp lệ.")
+    private fun ensureActiveLocked(runId: Long, allowCancellation: Boolean = false) {
+        if (
+            runId != activeRunId ||
+            closed ||
+            (!allowCancellation && (cancellationRequested || state == ScriptExecutionState.STOPPING))
+        ) throw StopRequested()
+        if (state != ScriptExecutionState.RUNNING &&
+            !(allowCancellation && state == ScriptExecutionState.STOPPING)
+        ) {
+            throw IllegalStateException("Trạng thái thực thi không hợp lệ.")
+        }
     }
 
     private fun completeInstruction(runId: Long) {
         val update = lock.withLock {
             while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
-            ensureActiveLocked(runId)
+            ensureActiveLocked(runId, allowCancellation = cleanupExecution.get())
             if (completedInstructions >= ScriptCompiler.MAX_EXPANDED_INSTRUCTIONS) {
                 throw ScriptRuntimeFailure("instruction_budget_exceeded", "Kịch bản đã chạm giới hạn thực tế 5.000 lượt thực thi lệnh.")
             }

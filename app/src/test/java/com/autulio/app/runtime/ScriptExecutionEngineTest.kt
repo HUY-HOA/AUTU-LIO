@@ -630,6 +630,45 @@ class ScriptExecutionEngineTest {
     }
 
     @Test
+    fun runsFinallyBlockAfterExecutionIsStopped() {
+        val dispatcher = RecordingDispatcher()
+        val firstTapEntered = CountDownLatch(1)
+        val releaseFirstTap = CountDownLatch(1)
+        dispatcher.firstTapEntered = firstTapEntered
+        dispatcher.releaseFirstTap = releaseFirstTap
+
+        val cancelled = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.CANCELLED) cancelled.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                THỬ {
+                    CHẠM(10, 20)
+                } LUÔN_THỰC_HIỆN {
+                    CHẠM(30, 40)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue("Kịch bản chưa đi vào thao tác chạm.", firstTapEntered.await(2, TimeUnit.SECONDS))
+            assertTrue("Không thể gửi yêu cầu dừng.", engine.stop())
+            releaseFirstTap.countDown()
+
+            assertTrue("Kịch bản không chuyển sang trạng thái đã dừng.", cancelled.await(3, TimeUnit.SECONDS))
+            assertEquals(ScriptExecutionState.CANCELLED, engine.snapshot().state)
+            assertEquals(
+                listOf("tap:10,20", "tap:30,40"),
+                dispatcher.actions
+            )
+        } finally {
+            releaseFirstTap.countDown()
+            engine.close()
+        }
+    }
+
+    @Test
     fun runsFinallyBeforePropagatingAnUncaughtFailure() {
         val dispatcher = RecordingDispatcher()
         val failed = CountDownLatch(1)
@@ -820,9 +859,15 @@ class ScriptExecutionEngineTest {
         val actions = CopyOnWriteArrayList<String>()
         val functions = CopyOnWriteArrayList<String>()
         var appLaunchResult = false
+        var firstTapEntered: CountDownLatch? = null
+        var releaseFirstTap: CountDownLatch? = null
 
         override fun tap(x: Int, y: Int): Boolean {
             actions += "tap:$x,$y"
+            if (actions.size == 1) {
+                firstTapEntered?.countDown()
+                releaseFirstTap?.await(2, TimeUnit.SECONDS)
+            }
             return true
         }
 
