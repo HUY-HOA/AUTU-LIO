@@ -64,16 +64,35 @@ class ScreenDisplayGeometryTest {
                 systemInsets = ScreenInsets(top = 90, bottom = 80),
                 cutoutSafeInsets = ScreenInsets(top = 120),
                 cutoutDetectionKnown = true,
-                cutoutBounds = listOf(ScreenCutoutBounds(440, 0, 640, 95))
+                cutoutBounds = listOf(ScreenCutoutBounds(440, 0, 640, 95)),
+                rotation = 0
             )
             ScreenDisplayGeometryStore.publish(published)
 
             assertEquals(published, ScreenDisplayGeometryStore.current(1080, 2400))
+            assertEquals(published, ScreenDisplayGeometryStore.current(1080, 2400, 0))
+            assertNull(ScreenDisplayGeometryStore.current(1080, 2400, 2))
             assertNull(ScreenDisplayGeometryStore.current(2400, 1080))
             assertNull(ScreenDisplayGeometryStore.current(720, 1600))
         } finally {
             ScreenDisplayGeometryStore.clear()
         }
+    }
+
+
+    @Test
+    fun rejectsPreferredGeometryWhenRotationChangesWithoutDimensionChanges() {
+        val geometry = ScreenDisplayGeometry(
+            widthPx = 1080,
+            heightPx = 2400,
+            systemInsets = ScreenInsets(bottom = 96),
+            cutoutDetectionKnown = true,
+            rotation = 0
+        )
+
+        assertTrue(ScreenDisplayGeometryStore.matches(geometry, 1080, 2400, 0))
+        assertFalse(ScreenDisplayGeometryStore.matches(geometry, 1080, 2400, 2))
+        assertFalse(ScreenDisplayGeometryStore.matches(geometry, 2400, 1080, 0))
     }
 
     @Test

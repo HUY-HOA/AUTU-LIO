@@ -1516,7 +1516,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             systemInsets = systemInsets,
             cutoutSafeInsets = cutoutInsets,
             cutoutDetectionKnown = cutoutKnown,
-            cutoutBounds = cutoutBounds
+            cutoutBounds = cutoutBounds,
+            rotation = readDisplayRotation()
         )
         latestDisplayGeometry = geometry
         ScreenDisplayGeometryStore.publish(geometry)
@@ -1525,9 +1526,20 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private fun readDisplayGeometry(): ScreenDisplayGeometry {
         refreshDisplayGeometry()
         val metrics = readDisplayMetrics()
-        val cached = latestDisplayGeometry
-            ?: ScreenDisplayGeometryStore.current(metrics.widthPixels, metrics.heightPixels)
-        return cached ?: ScreenDisplayGeometry.unknown(metrics.widthPixels, metrics.heightPixels)
+        val rotation = readDisplayRotation()
+        val cached = latestDisplayGeometry?.takeIf {
+            ScreenDisplayGeometryStore.matches(
+                it,
+                metrics.widthPixels,
+                metrics.heightPixels,
+                rotation
+            )
+        } ?: ScreenDisplayGeometryStore.current(metrics.widthPixels, metrics.heightPixels, rotation)
+        return cached ?: ScreenDisplayGeometry.unknown(
+            metrics.widthPixels,
+            metrics.heightPixels,
+            rotation = rotation
+        )
     }
 
     @Suppress("DEPRECATION")
