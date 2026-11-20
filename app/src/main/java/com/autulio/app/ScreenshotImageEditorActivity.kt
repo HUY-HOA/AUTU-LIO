@@ -116,6 +116,35 @@ private val imageEditorPalette = listOf(
 class ScreenshotImageEditorActivity : ComponentActivity() {
     companion object {
         const val EXTRA_IMAGE_PATH = "com.autulio.app.extra.IMAGE_EDITOR_PATH"
+        private const val MAX_ANALYSIS_SIDE = 2_000
+        private const val MAX_RECOGNIZED_TEXT_CHARS = 3_000
+
+        fun describeRecognizedObject(value: Any?): String? {
+            val objectData = value as? Map<*, *> ?: return null
+            val labelMaps = objectData["NHÃN"] as? List<*> ?: emptyList<Any?>()
+            val label = labelMaps.firstNotNullOfOrNull { item ->
+                (item as? Map<*, *>)?.get("TÊN") as? String
+            }?.takeIf { it.isNotBlank() } ?: "Vật thể"
+            val x = (objectData["X"] as? Number)?.toInt()
+            val y = (objectData["Y"] as? Number)?.toInt()
+            val width = (objectData["RỘNG"] as? Number)?.toInt()
+            val height = (objectData["CAO"] as? Number)?.toInt()
+            return if (x != null && y != null && width != null && height != null) {
+                "$label · X=$x, Y=$y, rộng $width, cao $height"
+            } else {
+                label
+            }
+        }
+
+        fun describeRecognizedBarcode(value: Any?): String? {
+            val barcode = value as? Map<*, *> ?: return null
+            val content = (
+                barcode["GIÁ_TRỊ_HIỂN_THỊ"] as? String
+                    ?: barcode["GIÁ_TRỊ_GỐC"] as? String
+                )?.takeIf { it.isNotBlank() } ?: return null
+            val format = barcode["ĐỊNH_DẠNG"] as? String ?: "Mã"
+            return "$format · $content"
+        }
     }
 
     private val saveExecutor = Executors.newSingleThreadExecutor()
@@ -256,37 +285,6 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    private companion object {
-        const val MAX_ANALYSIS_SIDE = 2_000
-        const val MAX_RECOGNIZED_TEXT_CHARS = 3_000
-
-        fun describeRecognizedObject(value: Any?): String? {
-            val objectData = value as? Map<*, *> ?: return null
-            val labelMaps = objectData["NHÃN"] as? List<*> ?: emptyList<Any?>()
-            val label = labelMaps.firstNotNullOfOrNull { item ->
-                (item as? Map<*, *>)?.get("TÊN") as? String
-            }?.takeIf { it.isNotBlank() } ?: "Vật thể"
-            val x = (objectData["X"] as? Number)?.toInt()
-            val y = (objectData["Y"] as? Number)?.toInt()
-            val width = (objectData["RỘNG"] as? Number)?.toInt()
-            val height = (objectData["CAO"] as? Number)?.toInt()
-            return if (x != null && y != null && width != null && height != null) {
-                "$label · X=$x, Y=$y, rộng $width, cao $height"
-            } else {
-                label
-            }
-        }
-
-        fun describeRecognizedBarcode(value: Any?): String? {
-            val barcode = value as? Map<*, *> ?: return null
-            val content = (
-                barcode["GIÁ_TRỊ_HIỂN_THỊ"] as? String
-                    ?: barcode["GIÁ_TRỊ_GỐC"] as? String
-                )?.takeIf { it.isNotBlank() } ?: return null
-            val format = barcode["ĐỊNH_DẠNG"] as? String ?: "Mã"
-            return "$format · $content"
-        }
-    }
 }
 
 @Composable
