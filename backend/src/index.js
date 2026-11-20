@@ -937,7 +937,7 @@ async function createLegacyPackagePayload(env, item) {
   let compressedBytes;
   let sourceBytes;
   let legacyCiphertextBytes;
-  const legacyIv = randomBytes(12);
+  const legacyIv = crypto.getRandomValues(new Uint8Array(12));
   try {
     dataKeyBytes = new Uint8Array(await crypto.subtle.decrypt(
       { name: "AES-GCM", iv: base64UrlDecode(item.key_iv), additionalData: encoder.encode(context + "|DATA_KEY"), tagLength: 128 },

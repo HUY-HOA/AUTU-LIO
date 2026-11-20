@@ -1024,7 +1024,7 @@ test("legacy APK download receives raw AES-GCM payload and RSA-OAEP SHA-1 wrappi
   assert.equal(new TextDecoder().decode(plain), source);
 });
 
-test("customer without an active license cannot list published AUTUs", async () => {test("customer without an active license cannot list published AUTUs", async () => {
+test("customer without an active license cannot list published AUTUs", async () => {
   const { env, queries } = createEnv({ session: customerSession });
   const response = await worker.fetch(
     makeRequest("/api/customer/packages?deviceFingerprint=" + "a".repeat(64), {
