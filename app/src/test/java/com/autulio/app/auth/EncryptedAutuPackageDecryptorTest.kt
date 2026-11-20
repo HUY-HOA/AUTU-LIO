@@ -47,7 +47,6 @@ class EncryptedAutuPackageDecryptorTest {
     }
 
     @Test
-    @Test
     fun rejectsCiphertextTampering() {
         val source = "CHẠM(10, 20)"
         val dataKey = ByteArray(32).also(SecureRandom()::nextBytes)
