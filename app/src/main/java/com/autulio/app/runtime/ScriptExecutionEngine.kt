@@ -1131,7 +1131,7 @@ class ScriptExecutionEngine(
         while (remainingNanos > 0L) {
             lock.withLock {
                 while (state == ScriptExecutionState.PAUSED && !cancellationRequested) changed.await()
-                ensureActiveLocked(runId)
+                ensureActiveLocked(runId, allowCancellation = cleanupExecution.get())
                 remainingNanos = changed.awaitNanos(remainingNanos)
             }
         }
