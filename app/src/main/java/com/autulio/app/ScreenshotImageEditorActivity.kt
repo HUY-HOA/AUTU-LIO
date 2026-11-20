@@ -44,10 +44,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -208,7 +208,7 @@ private fun ScreenshotImageEditorScreen(
     onSave: (Bitmap, List<ImageMark>) -> Unit
 ) {
     var workingBitmap by remember(originalBitmap) {
-        mutableStateOf(originalBitmap.copy(Bitmap.Config.ARGB_8888, true))
+        mutableStateOf(originalBitmap)
     }
     val marks = remember(originalBitmap) { mutableStateListOf<ImageMark>() }
     var activeTool by rememberSaveable { mutableStateOf(ImageEditTool.PEN) }
@@ -514,8 +514,8 @@ private fun ImageAnnotationCanvas(
             dstOffset = IntOffset(imageRect.left.roundToInt(), imageRect.top.roundToInt()),
             dstSize = IntSize(imageRect.width.roundToInt(), imageRect.height.roundToInt())
         )
-        marks.forEach { mark -> drawImageMark(mark, imageRect, bitmap.width, bitmap.height) }
-        activeMark?.let { drawImageMark(it, imageRect, bitmap.width, bitmap.height) }
+        marks.forEach { mark -> drawImageMark(mark, imageRect) }
+        activeMark?.let { drawImageMark(it, imageRect) }
     }
 }
 
@@ -533,11 +533,9 @@ private fun fitImageRect(
     return Rect(left, top, left + width, top + height)
 }
 
-private fun drawImageMark(
+private fun DrawScope.drawImageMark(
     mark: ImageMark,
-    imageRect: Rect,
-    imageWidth: Int,
-    imageHeight: Int
+    imageRect: Rect
 ) {
     val unit = min(imageRect.width, imageRect.height)
     val stroke = max(1f, mark.widthRatio * unit)
