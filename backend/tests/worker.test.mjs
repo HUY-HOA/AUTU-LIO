@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import worker, { isConfiguredOwnerIdentity } from "../src/index.js";
+import { gzipSync, gunzipSync } from "node:zlib";
 
 const customerSession = {
   session_id: "session-customer",
@@ -554,7 +555,89 @@ test("owner cannot create a license for an invalid customer identifier", async (
   assert.equal((await json(response)).error, "invalid_customer_id");
 });
 
-test("malformed Google sign-in JSON is rejected", async () => {
+
+test("owner can inspect original source and authenticated encrypted envelope", async () => {
+  const masterKey = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
+  const { env } = createEnv({ session: ownerSession });
+  env.PACKAGE_MASTER_KEY_V1 = masterKey;
+  const packageId = "123e4567-e89b-42d3-a456-426614174000";
+  const source = "ĐẶT soLan = 100\\nLẶP(soLan) {\\n  CHẠM(10, 20)\\n  CHỜ(5)\\n}";
+  const sourceBytes = new TextEncoder().encode(source);
+  const compressed = new Uint8Array(gzipSync(sourceBytes, { level: 9 }));
+  const dataKeyBytes = crypto.getRandomValues(new Uint8Array(32));
+  const contentIv = crypto.getRandomValues(new Uint8Array(12));
+  const keyIv = crypto.getRandomValues(new Uint8Array(12));
+  const context = "AUTU-LIO|PACKAGE|" + packageId + "|v1";
+  const master = await crypto.subtle.importKey("raw", Buffer.from(masterKey, "base64url"), {name:"AES-GCM"}, false, ["encrypt"]);
+  const contentKey = await crypto.subtle.importKey("raw", dataKeyBytes, {name:"AES-GCM"}, false, ["encrypt"]);
+  const ciphertext = await crypto.subtle.encrypt(
+    {name:"AES-GCM",iv:contentIv,additionalData:new TextEncoder().encode(context),tagLength:128},
+    contentKey,
+    compressed
+  );
+  const encryptedDataKey = await crypto.subtle.encrypt(
+    {name:"AES-GCM",iv:keyIv,additionalData:new TextEncoder().encode(context+"|DATA_KEY"),tagLength:128},
+    master,
+    dataKeyBytes
+  );
+  const sourceSha256 = Buffer.from(await crypto.subtle.digest("SHA-256", sourceBytes)).toString("hex");
+  const packageRow = {
+    version: 1,
+    language_version: "1.22",
+    ciphertext: "GZ1." + Buffer.from(ciphertext).toString("base64url"),
+    content_iv: Buffer.from(contentIv).toString("base64url"),
+    encrypted_data_key: Buffer.from(encryptedDataKey).toString("base64url"),
+    key_iv: Buffer.from(keyIv).toString("base64url"),
+    key_version: "V1",
+    source_sha256: sourceSha256
+  };
+  const basePrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = basePrepare(sql);
+    if (sql.includes("FROM script_packages WHERE id = ?")) {
+      statement.first = async () => ({
+        id: packageId,
+        name: "Owner preview",
+        description: "",
+        status: "ACTIVE",
+        latest_version: 1
+      });
+    }
+    if (sql.includes("FROM script_package_versions WHERE package_id = ? AND version = ?")) {
+      statement.first = async () => packageRow;
+    }
+    return statement;
+  };
+  const response = await worker.fetch(
+    makeRequest("/api/admin/packages/" + packageId + "/source", {
+      headers: { Authorization: "Bearer " + "E".repeat(48) }
+    }),
+    env
+  );
+  const body = await json(response);
+  assert.equal(response.status, 200);
+  assert.equal(body.package.source, source);
+  assert.equal(body.package.encrypted.algorithm, "AES-256-GCM");
+  assert.equal(body.package.encrypted.keyWrapping, "RSA-3072-OAEP-SHA256 (wrapped per registered device at download)");
+  assert.equal(body.package.encrypted.compression, "GZIP");
+  assert.equal(body.package.encrypted.ciphertext.startsWith("GZ1."), true);
+  assert.equal(JSON.stringify(body.package.encrypted).includes(source), false);
+});
+
+test("customer cannot inspect owner-only package source preview", async () => {
+  const { env, queries } = createEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/packages/123e4567-e89b-42d3-a456-426614174000/source", {
+      headers: { Authorization: "Bearer " + "P".repeat(48) }
+    }),
+    env
+  );
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "insufficient_permissions");
+  assert.equal(queries.some(sql => sql.includes("FROM script_package_versions")), false);
+});
+
+test("malformed Google sign-in JSON is rejected", async () => {test("malformed Google sign-in JSON is rejected", async () => {
   const { env } = createEnv();
   const response = await worker.fetch(
     makeRequest("/api/auth/google", {
@@ -762,7 +845,7 @@ test("customer package download decrypts the server envelope and wraps the data 
       name: "RSA-OAEP",
       modulusLength: 3072,
       publicExponent: new Uint8Array([1, 0, 1]),
-      hash: "SHA-1"
+      hash: "SHA-256"
     },
     true,
     ["encrypt", "decrypt"]
@@ -844,9 +927,13 @@ test("customer package download decrypts the server envelope and wraps the data 
       tagLength: 128
     },
     dataKey,
-    Buffer.from(packageEnvelope.ciphertext, "base64url")
+    Buffer.from(packageEnvelope.ciphertext.startsWith("GZ1.") ? packageEnvelope.ciphertext.slice(4) : packageEnvelope.ciphertext, "base64url")
   );
-  const decryptedSource = new TextDecoder().decode(plainBytes);
+  const decryptedPayload = Buffer.from(plainBytes);
+  const sourcePayload = packageEnvelope.ciphertext.startsWith("GZ1.")
+    ? gunzipSync(decryptedPayload)
+    : decryptedPayload;
+  const decryptedSource = new TextDecoder().decode(sourcePayload);
   const digest = Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(decryptedSource))).toString("hex");
 
   assert.equal(decryptedSource, source);

@@ -142,6 +142,17 @@ data class CustomerAutuPackageCatalog(
     val packages: List<AutuPackageRecord>
 )
 
+data class AdminPackageSourceInfo(
+    val packageId: String,
+    val name: String,
+    val version: Int,
+    val languageVersion: String,
+    val source: String,
+    val sourceSha256: String,
+    val compression: String,
+    val encryptedJson: String
+)
+
 data class EncryptedAutuPackage(
     val id: String,
     val name: String,
@@ -483,6 +494,49 @@ class AuthRepository(context: Context) {
             contentIv = contentIv,
             wrappedKey = wrappedKey,
             sourceSha256 = sourceSha256.lowercase(Locale.ROOT)
+        )
+    }
+
+    suspend fun getAdminPackageSource(
+        accessToken: String,
+        packageId: String,
+        version: Int? = null
+    ): AdminPackageSourceInfo {
+        require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(version == null || version in 1..10_000)
+        val path = buildString {
+            append("/api/admin/packages/$packageId/source")
+            if (version != null) append("?version=$version")
+        }
+        val result = apiRequest(path, "GET", bearerToken = accessToken)
+        val item = result.optJSONObject("package")
+            ?: throw IOException("Máy chủ không trả về bản mã nguồn của gói AUTU.")
+        val encrypted = item.optJSONObject("encrypted")
+            ?: throw IOException("Máy chủ không trả về dữ liệu mã hóa của gói AUTU.")
+        val encryptedJson = JSONObject()
+            .put("algorithm", encrypted.optString("algorithm"))
+            .put("keyWrapping", encrypted.optString("keyWrapping"))
+            .put("compression", encrypted.optString("compression"))
+            .put("ciphertext", encrypted.optString("ciphertext"))
+            .put("contentIv", encrypted.optString("contentIv"))
+            .put("encryptedDataKey", encrypted.optString("encryptedDataKey"))
+            .put("keyIv", encrypted.optString("keyIv"))
+            .put("keyVersion", encrypted.optString("keyVersion"))
+            .put("sourceSha256", encrypted.optString("sourceSha256"))
+            .toString(2)
+        val source = item.optString("source")
+        if (source.isBlank() || encrypted.optString("sourceSha256").length != 64) {
+            throw IOException("Dữ liệu mã nguồn hoặc mã kiểm tra không hợp lệ.")
+        }
+        return AdminPackageSourceInfo(
+            packageId = item.optString("id"),
+            name = item.optString("name"),
+            version = item.optInt("version"),
+            languageVersion = item.optString("languageVersion"),
+            source = source,
+            sourceSha256 = encrypted.optString("sourceSha256"),
+            compression = encrypted.optString("compression"),
+            encryptedJson = encryptedJson
         )
     }
 

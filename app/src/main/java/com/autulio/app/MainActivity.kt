@@ -279,6 +279,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
     var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("overview") }
     var createDialog by remember { mutableStateOf(false) }
+    var publishDraftName by rememberSaveable { mutableStateOf<String?>(null) }
     val scripts = remember(initialDrafts) {
         mutableStateListOf<String>().apply { addAll(initialDrafts.names) }
     }
@@ -296,6 +297,10 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
             scripts.addAll(updated.names)
             draftContents.clear()
             draftContents.putAll(updated.contents)
+            if (result.data?.getBooleanExtra("com.autulio.app.extra.OPEN_PACKAGE_PUBLISH", false) == true) {
+                publishDraftName = result.data?.getStringExtra("com.autulio.app.extra.PUBLISH_DRAFT_NAME")
+                page = "packages"
+            }
         }
     }
     AppTheme(dark) {
@@ -344,6 +349,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     onTheme = { dark = !dark },
                     onLogout = onLogout,
                     accessToken = accessToken,
+                    initialDraftName = publishDraftName,
                     onOpenTemplate = { template ->
                         val draftName = "Mẫu - " + tr(template.nameVi, template.nameEn)
                         editorLauncher.launch(
@@ -609,6 +615,8 @@ private fun EditorScreen(
     onBack: () -> Unit,
     onMessage: (String) -> Unit,
     onSaveDraft: () -> Unit,
+    onPublishDraft: () -> Unit,
+    allowPublish: Boolean,
     allowTest: Boolean,
     onPrepareRun: (String) -> Unit
 ) {
@@ -716,6 +724,17 @@ private fun EditorScreen(
         }
         OutlinedButton(onClick = onSaveDraft, modifier = Modifier.fillMaxWidth()) {
             Text(tr("Lưu bản nháp trên thiết bị", "Save draft on this device"))
+        }
+        if (allowPublish) {
+            Button(
+                onClick = onPublishDraft,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = code.isNotBlank()
+            ) {
+                Icon(Icons.Outlined.VerifiedUser, contentDescription = null)
+                Spacer(Modifier.width(7.dp))
+                Text(tr("Chuyển sang mã hóa & phát hành", "Continue to secure packaging"))
+            }
         }
     }
 
@@ -973,6 +992,7 @@ private fun MoreScreen(
     onTheme: () -> Unit,
     onLogout: () -> Unit,
     accessToken: String?,
+    initialDraftName: String? = null,
     onOpenTemplate: (ScriptTemplate) -> Unit
 ) {
     if (page == "licenses") {
@@ -980,7 +1000,12 @@ private fun MoreScreen(
         return
     }
     if (page == "packages") {
-        AdminPackagesScreen(accessToken = accessToken, modifier = modifier, onBack = { onSelect("more") })
+        AdminPackagesScreen(
+            accessToken = accessToken,
+            modifier = modifier,
+            onBack = { onSelect("more") },
+            initialDraftName = initialDraftName
+        )
         return
     }
     if (page == "library") {
@@ -1770,6 +1795,8 @@ class ScriptEditorActivity : ComponentActivity() {
         private const val EXTRA_NAMESPACE = "com.autulio.app.extra.SCRIPT_NAMESPACE"
         private const val EXTRA_ALLOW_TEST = "com.autulio.app.extra.ALLOW_TEST"
         private const val EXTRA_INITIAL_SOURCE = "com.autulio.app.extra.INITIAL_SOURCE"
+        private const val EXTRA_OPEN_PACKAGE_PUBLISH = "com.autulio.app.extra.OPEN_PACKAGE_PUBLISH"
+        private const val EXTRA_PUBLISH_DRAFT_NAME = "com.autulio.app.extra.PUBLISH_DRAFT_NAME"
 
         fun intent(
             context: Context,
@@ -1838,6 +1865,17 @@ class ScriptEditorActivity : ComponentActivity() {
                                 )
                             }
                         },
+                        onPublishDraft = {
+                            store.save(initialNames, initial.contents + (scriptName to code))
+                            setResult(
+                                Activity.RESULT_OK,
+                                Intent()
+                                    .putExtra(EXTRA_OPEN_PACKAGE_PUBLISH, true)
+                                    .putExtra(EXTRA_PUBLISH_DRAFT_NAME, scriptName)
+                            )
+                            finish()
+                        },
+                        allowPublish = namespace == "admin",
                         allowTest = allowTest,
                         onPrepareRun = { source ->
                             if (!allowTest) return@EditorScreen

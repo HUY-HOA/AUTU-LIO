@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.selection.SelectionContainer
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AutuPackageRecord
@@ -559,7 +561,8 @@ internal fun CustomerDeviceLicenseScreen(
 internal fun AdminPackagesScreen(
     accessToken: String?,
     modifier: Modifier = Modifier,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    initialDraftName: String? = null
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -567,8 +570,11 @@ internal fun AdminPackagesScreen(
     val scope = rememberCoroutineScope()
     var drafts by remember { mutableStateOf(draftStore.load()) }
     var packages by remember { mutableStateOf<List<AutuPackageRecord>>(emptyList()) }
-    var selectedDraft by remember { mutableStateOf<String?>(null) }
+    var selectedDraft by remember(initialDraftName) { mutableStateOf<String?>(initialDraftName) }
     var description by remember { mutableStateOf("") }
+    var sourceInfo by remember { mutableStateOf<com.autulio.app.auth.AdminPackageSourceInfo?>(null) }
+    var sourceViewMode by remember { mutableStateOf("SOURCE") }
+    var inspectingPackageId by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     var publishing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
@@ -576,6 +582,9 @@ internal fun AdminPackagesScreen(
 
     suspend fun refresh() {
         drafts = draftStore.load()
+        if (selectedDraft !in drafts.names) {
+            selectedDraft = initialDraftName?.takeIf { it in drafts.names } ?: drafts.names.lastOrNull()
+        }
         if (accessToken.isNullOrBlank()) return
         loading = true
         error = ""
@@ -610,7 +619,7 @@ internal fun AdminPackagesScreen(
             Column(Modifier.weight(1f)) {
                 Heading(
                     tr("Phát hành gói AUTU", "Publish AUTU packages"),
-                    tr("Chỉ chủ ứng dụng được phát hành. Mã nguồn được mã hóa trước khi lưu trên máy chủ.", "Only the app owner can publish. Source is encrypted before it is stored on the server.")
+                    tr("Tạo script → kiểm tra AUTU → nén và mã hóa → phát hành. Bản gốc vẫn nằm trong kho nháp riêng của chủ ứng dụng.", "Create script → validate AUTU → compress and encrypt → publish. The original remains in the owner's private draft vault.")
                 )
             }
             IconButton(onClick = { scope.launch { refresh() } }, enabled = !loading && !publishing) {
@@ -622,7 +631,7 @@ internal fun AdminPackagesScreen(
         } else {
             if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
             if (notice.isNotBlank()) Text(notice, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
-            Text(tr("Bản nháp đã lưu trên thiết bị", "Saved drafts on this device"), fontWeight = FontWeight.SemiBold)
+            Text(tr("Bản nháp đã mã hóa trên thiết bị", "Encrypted drafts on this device"), fontWeight = FontWeight.SemiBold)
             if (drafts.names.isEmpty()) {
                 EmptyState(
                     Icons.Outlined.Code,
@@ -736,14 +745,26 @@ internal fun AdminPackagesScreen(
                         Text(actionLabel)
                     }
                     Text(
-                        tr(
-                            "Máy chủ dùng AES-256-GCM cho nội dung, khóa dữ liệu riêng cho từng phiên bản và lưu khóa bọc dưới khóa máy chủ có phiên bản.",
-                            "The server uses AES-256-GCM for source, a unique data key per version and a versioned server key to protect that data key."
-                        ),
+                        "Luồng bảo mật: nén GZIP khi có lợi → AES-256-GCM 256-bit với khóa ngẫu nhiên riêng từng phiên bản → RSA-3072 OAEP SHA-256 bọc khóa cho từng thiết bị khi tải. D1 chỉ lưu ciphertext và phong bì khóa đã mã hóa.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
                     )
                 }
+            }
+            CardBox {
+                Text("Bảo vệ mã nguồn", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Khách hàng chỉ nhận gói mã hóa. Máy chủ xác minh giấy phép và thiết bị trước khi bọc khóa riêng cho đúng thiết bị. Bản rõ chỉ được giải mã trong bộ nhớ để biên dịch và chuẩn bị chạy, không ghi thành tệp dùng chung.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
+                Text(
+                    "Chủ ứng dụng có thể xem lại mã gốc và phong bì mã hóa đã phát hành ở từng gói.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
             }
             Divider()
             Text(tr("Các gói đã phát hành", "Published packages"), fontWeight = FontWeight.SemiBold)
@@ -764,6 +785,26 @@ internal fun AdminPackagesScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp
                                 )
+                            }
+                            TextButton(
+                                enabled = inspectingPackageId != item.id,
+                                onClick = {
+                                    val token = accessToken ?: return@TextButton
+                                    scope.launch {
+                                        inspectingPackageId = item.id
+                                        error = ""
+                                        try {
+                                            sourceInfo = repository.getAdminPackageSource(token, item.id)
+                                            sourceViewMode = "SOURCE"
+                                        } catch (exception: Exception) {
+                                            error = localizedErrorMessage(exception, "Không xem được mã nguồn của gói.")
+                                        } finally {
+                                            inspectingPackageId = null
+                                        }
+                                    }
+                                }
+                            ) {
+                                Text(if (inspectingPackageId == item.id) "Đang tải…" else "Mã gốc / mã hóa")
                             }
                             TextButton(
                                 onClick = {
@@ -789,6 +830,56 @@ internal fun AdminPackagesScreen(
             }
         }
     }
+
+    sourceInfo?.let { info ->
+        AlertDialog(
+            onDismissRequest = { sourceInfo = null },
+            title = { Text("${info.name} · v${info.version}") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "AUTU ${info.languageVersion} · SHA-256 ${info.sourceSha256.take(16)}…",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(
+                            selected = sourceViewMode == "SOURCE",
+                            onClick = { sourceViewMode = "SOURCE" },
+                            label = { Text("Mã gốc") }
+                        )
+                        FilterChip(
+                            selected = sourceViewMode == "ENCRYPTED",
+                            onClick = { sourceViewMode = "ENCRYPTED" },
+                            label = { Text("Bản mã hóa") }
+                        )
+                    }
+                    SelectionContainer {
+                        Text(
+                            if (sourceViewMode == "SOURCE") info.source else info.encryptedJson,
+                            modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    Text(
+                        if (sourceViewMode == "SOURCE") "Chỉ chủ ứng dụng được truy xuất mã gốc qua API quản trị."
+                        else "Phong bì gồm thuật toán, IV, ciphertext, khóa dữ liệu đã bọc và mã kiểm tra toàn vẹn.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 10.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { sourceInfo = null }) { Text("Đóng") }
+            }
+        )
+    }
+
 }
 
 @Composable

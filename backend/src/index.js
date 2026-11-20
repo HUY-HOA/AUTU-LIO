@@ -1,3 +1,5 @@
+import { gzipSync, gunzipSync } from "node:zlib";
+
 const encoder = new TextEncoder();
 const ID_PATTERN = /^[0-9a-fA-F-]{36}$/;
 
@@ -845,7 +847,11 @@ async function encryptPackageSource(env, packageId, version, source) {
   const keyIv = randomBytes(12);
   const context = packageContext(packageId, version);
   const sourceBytes = encoder.encode(source);
+  let compressedBytes;
   try {
+    compressedBytes = new Uint8Array(gzipSync(sourceBytes, { level: 9 }));
+    const useCompression = compressedBytes.length < sourceBytes.length;
+    const payloadBytes = useCompression ? compressedBytes : sourceBytes;
     const contentKey = await crypto.subtle.importKey(
       "raw",
       dataKeyBytes,
@@ -856,7 +862,7 @@ async function encryptPackageSource(env, packageId, version, source) {
     const ciphertext = await crypto.subtle.encrypt(
       { name: "AES-GCM", iv: contentIv, additionalData: encoder.encode(context), tagLength: 128 },
       contentKey,
-      sourceBytes
+      payloadBytes
     );
     const encryptedDataKey = await crypto.subtle.encrypt(
       {
@@ -869,15 +875,16 @@ async function encryptPackageSource(env, packageId, version, source) {
       dataKeyBytes
     );
     return {
-      ciphertext: base64UrlEncode(new Uint8Array(ciphertext)),
+      ciphertext: (useCompression ? "GZ1." : "") + base64UrlEncode(new Uint8Array(ciphertext)),
       contentIv: base64UrlEncode(contentIv),
       encryptedDataKey: base64UrlEncode(new Uint8Array(encryptedDataKey)),
-      keyIv: base64UrlEncode(keyIv),
+      keyIv: base64UrlEncode(new Uint8Array(keyIv)),
       sourceSha256: await sha256Bytes(sourceBytes),
       keyVersion
     };
   } finally {
     sourceBytes.fill(0);
+    compressedBytes?.fill(0);
     dataKeyBytes.fill(0);
   }
 }
@@ -905,7 +912,7 @@ async function wrapPackageKeyForDevice(env, packageId, version, encryptedDataKey
     const publicKey = await crypto.subtle.importKey(
       "spki",
       base64UrlDecode(publicKeySpki),
-      { name: "RSA-OAEP", hash: "SHA-1" },
+      { name: "RSA-OAEP", hash: "SHA-256" },
       false,
       ["encrypt"]
     );
@@ -1080,7 +1087,88 @@ async function createAdminPackageVersion(request, env, session, packageId) {
   }, 201, env);
 }
 
-async function updateAdminPackage(request, env, session, packageId) {
+async function decryptPackageSourceForOwner(request, env, session, packageId) {
+  await requireRole(session, ["OWNER"]);
+  if (!ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  const packageInfo = await env.DB.prepare(
+    "SELECT id, name, description, status, latest_version FROM script_packages WHERE id = ?"
+  ).bind(packageId).first();
+  if (!packageInfo) throw new HttpError(404, "package_not_found", "Package was not found.");
+  const url = new URL(request.url);
+  const requestedVersion = url.searchParams.has("version") ? Number(url.searchParams.get("version")) : packageInfo.latest_version;
+  if (!Number.isSafeInteger(requestedVersion) || requestedVersion < 1 || requestedVersion > packageInfo.latest_version) {
+    throw new HttpError(400, "invalid_package_version", "The requested package version is invalid.");
+  }
+  const item = await env.DB.prepare(
+    "SELECT version, language_version, ciphertext, content_iv, encrypted_data_key, key_iv, key_version, source_sha256 " +
+    "FROM script_package_versions WHERE package_id = ? AND version = ?"
+  ).bind(packageId, requestedVersion).first();
+  if (!item) throw new HttpError(404, "package_version_not_found", "The requested AUTU package version was not found.");
+  const context = packageContext(packageInfo.id, item.version);
+  const masterKey = await packageMasterKey(env, item.key_version);
+  let dataKeyBytes;
+  let encryptedPayloadBytes;
+  let sourceBytes;
+  try {
+    dataKeyBytes = new Uint8Array(await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: base64UrlDecode(item.key_iv),
+        additionalData: encoder.encode(context + "|DATA_KEY"),
+        tagLength: 128
+      },
+      masterKey,
+      base64UrlDecode(item.encrypted_data_key)
+    ));
+    if (dataKeyBytes.length !== 32) throw new HttpError(500, "package_key_invalid", "The package data key is invalid.");
+    const compressed = String(item.ciphertext).startsWith("GZ1.");
+    const encodedCiphertext = compressed ? String(item.ciphertext).slice(4) : String(item.ciphertext);
+    const contentKey = await crypto.subtle.importKey("raw", dataKeyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+    encryptedPayloadBytes = new Uint8Array(await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: base64UrlDecode(item.content_iv), additionalData: encoder.encode(context), tagLength: 128 },
+      contentKey,
+      base64UrlDecode(encodedCiphertext)
+    ));
+    sourceBytes = compressed
+      ? new Uint8Array(gunzipSync(encryptedPayloadBytes, { maxOutputLength: 262144 }))
+      : encryptedPayloadBytes;
+    const digest = await sha256Bytes(sourceBytes);
+    if (digest.toLowerCase() !== String(item.source_sha256).toLowerCase()) {
+      throw new HttpError(500, "package_integrity_failed", "The AUTU source hash does not match.");
+    }
+    const sourceCode = new TextDecoder("utf-8", { fatal: true }).decode(sourceBytes);
+    await audit(env, session.user_id, "package.source_viewed", "script_package", packageId, { version: requestedVersion, sourceSha256: item.source_sha256 });
+    return response(request, {
+      package: {
+        id: packageInfo.id,
+        name: packageInfo.name,
+        version: requestedVersion,
+        languageVersion: item.language_version,
+        source: sourceCode,
+        encrypted: {
+          algorithm: "AES-256-GCM",
+          keyWrapping: "RSA-3072-OAEP-SHA256 (wrapped per registered device at download)",
+          compression: compressed ? "GZIP" : "NONE",
+          ciphertext: item.ciphertext,
+          contentIv: item.content_iv,
+          encryptedDataKey: item.encrypted_data_key,
+          keyIv: item.key_iv,
+          keyVersion: item.key_version,
+          sourceSha256: item.source_sha256
+        }
+      }
+    }, 200, env);
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(500, "package_decryption_failed", "The owner preview could not decrypt or verify this AUTU package.");
+  } finally {
+    dataKeyBytes?.fill(0);
+    encryptedPayloadBytes?.fill(0);
+    if (sourceBytes !== encryptedPayloadBytes) sourceBytes?.fill(0);
+  }
+}
+
+async function updateAdminPackage(request, env, session, packageId) {async function updateAdminPackage(request, env, session, packageId) {
   await requireRole(session, ["OWNER"]);
   if (!ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
   const body = await readBody(request, 4_000);
@@ -1224,6 +1312,8 @@ async function route(request, env) {
   if (method === "GET" && path === "/api/admin/audit-logs") return await listAdminAuditLogs(request, env, session);
   if (method === "GET" && path === "/api/admin/packages") return await listAdminPackages(request, env, session);
   if (method === "POST" && path === "/api/admin/packages") return await createAdminPackage(request, env, session);
+  const adminPackageSourceMatch = path.match(/^\/api\/admin\/packages\/([0-9a-f-]{36})\/source$/i);
+  if (adminPackageSourceMatch && method === "GET") return await decryptPackageSourceForOwner(request, env, session, adminPackageSourceMatch[1]);
   const adminPackageVersionMatch = path.match(/^\/api\/admin\/packages\/([0-9a-f-]{36})\/versions$/i);
   if (adminPackageVersionMatch && method === "POST") return await createAdminPackageVersion(request, env, session, adminPackageVersionMatch[1]);
   const adminPackageMatch = path.match(/^\/api\/admin\/packages\/([0-9a-f-]{36})$/i);

@@ -26,6 +26,10 @@ Phạm vi vận hành hiện tại chỉ dùng OWNER và CUSTOMER. Quy trình c�
 
 Xem [hướng dẫn bảo mật và ký APK](docs/SECURITY-AND-SIGNING.md) và [quy trình GitHub](docs/GITHUB-WORKFLOW.md).
 
+## Đóng gói và bảo vệ AUTU
+
+Quy trình mã hóa, phân phối theo giấy phép/thiết bị, xem mã gốc và phong bì mã hóa được mô tả tại [docs/10-AUTU-PACKAGE-SECURITY.md](docs/10-AUTU-PACKAGE-SECURITY.md).
+
 ## Trạng thái phát triển
 
 AUTU-LIO đã đăng nhập Google thành công trên thiết bị và tài khoản chủ sở hữu đã được máy chủ xác nhận là OWNER. Cloudflare Worker và D1 đã triển khai; bản Release v0.1.12 trước đó đã qua bước kiểm tra chữ ký và tải artifact lên GitHub Actions. Các hạng mục còn phải nghiệm thu là luồng khách hàng/giấy phép/thiết bị, đóng gói và phân phối AUTU, cùng kiểm thử thao tác Trợ năng và cửa sổ nổi trên thiết bị Android thật.

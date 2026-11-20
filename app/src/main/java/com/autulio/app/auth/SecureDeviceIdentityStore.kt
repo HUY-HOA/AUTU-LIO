@@ -86,11 +86,11 @@ class SecureDeviceIdentityStore(context: Context) {
             wrappedKeyBase64Url,
             Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
         )
-        val cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-1AndMGF1Padding")
+        val cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
         cipher.init(
             Cipher.DECRYPT_MODE,
             entry.privateKey,
-            OAEPParameterSpec("SHA-1", "MGF1", MGF1ParameterSpec.SHA1, PSource.PSpecified.DEFAULT)
+            OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT)
         )
         return cipher.doFinal(wrappedKey)
     }
