@@ -116,6 +116,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var collapseButton: TextView? = null
     private var moveHandle: TextView? = null
     private var captureButton: TextView? = null
+    private var galleryButton: TextView? = null
     private var actionRow: LinearLayout? = null
     private var editorButton: TextView? = null
     private var editorPanel: LinearLayout? = null
@@ -205,6 +206,21 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     fun resumeExecution(): Boolean = executionEngine?.resume() == true
 
     fun stopExecution(): Boolean = executionEngine?.stop() == true
+
+    private fun openScreenshotLibrary() {
+        restoreFloatingExpandedAfterScreenshot = !collapsed
+        removeFloatingWindow()
+        val intent = Intent(this, com.autulio.app.ScreenshotLibraryActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { startActivity(intent) }
+            .onFailure {
+                val restoreExpanded = restoreFloatingExpandedAfterScreenshot
+                restoreFloatingExpandedAfterScreenshot = false
+                showFloatingWindow()
+                setCollapsed(!restoreExpanded)
+                statusLabel?.text = "Không mở được kho ảnh AUTU-LIO."
+            }
+    }
 
     fun restoreFloatingControlsAfterExternalScreen() {
         val restoreExpanded = restoreFloatingExpandedAfterScreenshot
@@ -1485,7 +1501,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 cornerRadius = dp(9).toFloat()
                 setStroke(dp(1), 0x805C708C.toInt())
             }
-            layoutParams = LinearLayout.LayoutParams(dp(40), dp(38)).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(34), dp(36)).apply {
                 marginStart = dp(2)
                 marginEnd = dp(2)
             }
@@ -1528,6 +1544,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val camera = controlButton("▣", "Chụp màn hình và chọn vùng cần giữ", 0xFF7DD3FC.toInt()) {
             captureAndOpenCropEditor()
         }
+        val gallery = controlButton("▤", "Mở kho ảnh chụp và ảnh đã nhập", 0xFF7DD3FC.toInt()) {
+            openScreenshotLibrary()
+        }
         val collapse = controlButton("▾", "Thu gọn thành nút AUTU", 0xFFE2E8F0.toInt()) {
             setCollapsed(true)
         }
@@ -1537,6 +1556,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         controls.addView(primary)
         controls.addView(stop)
         controls.addView(camera)
+        controls.addView(gallery)
         controls.addView(collapse)
         root.addView(status)
         root.addView(controls)
@@ -1676,6 +1696,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             collapseButton = collapse
             moveHandle = move
             captureButton = camera
+            galleryButton = gallery
             editorButton = edit
             actionRow = controls
             editorPanel = editorArea
@@ -1695,6 +1716,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             collapseButton = null
             moveHandle = null
             captureButton = null
+            galleryButton = null
             editorButton = null
             actionRow = null
             editorPanel = null
@@ -1904,6 +1926,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         editorButton?.visibility =
             if (!collapsed && !running && !paused && !stopping) View.VISIBLE else View.GONE
         captureButton?.visibility = if (collapsed) View.GONE else View.VISIBLE
+        galleryButton?.visibility = if (collapsed) View.GONE else View.VISIBLE
         collapse.visibility = if (collapsed) View.GONE else View.VISIBLE
         editorPanel?.visibility = if (!collapsed && editorVisible) View.VISIBLE else View.GONE
         actionRow?.visibility = View.VISIBLE
@@ -1928,6 +1951,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         collapseButton = null
         moveHandle = null
         captureButton = null
+        galleryButton = null
         editorButton = null
         actionRow = null
         editorPanel = null
