@@ -821,7 +821,7 @@ private fun ScreenshotImageEditorScreen(
                     }
                 ) { Text("Làm mờ vùng") }
                 OutlinedButton(
-                    enabled = !isApplyingImageEffect,
+                    enabled = !isApplyingImageEffect && !isRecognizing,
                     onClick = {
                         val region = selectedRegion ?: return@OutlinedButton
                         isApplyingImageEffect = true
@@ -832,7 +832,7 @@ private fun ScreenshotImageEditorScreen(
                     }
                 ) { Text("Pixel hóa vùng") }
                 Button(
-                    enabled = !isApplyingImageEffect,
+                    enabled = !isApplyingImageEffect && !isRecognizing,
                     onClick = {
                         val region = selectedRegion ?: return@Button
                         isApplyingImageEffect = true
