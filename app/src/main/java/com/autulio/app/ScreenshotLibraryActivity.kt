@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
@@ -30,7 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -122,23 +120,28 @@ class ScreenshotLibraryActivity : ComponentActivity() {
                         directory,
                         "anh-nhap-${System.currentTimeMillis()}-${index + 1}.$extension"
                     )
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        output.outputStream().use { stream ->
-                            val buffer = ByteArray(8192)
-                            var total = 0L
-                            while (true) {
-                                val count = input.read(buffer)
-                                if (count < 0) break
-                                total += count
-                                check(total <= MAX_IMPORTED_IMAGE_BYTES) {
-                                    "Ảnh vượt quá giới hạn dung lượng cho phép."
+                    try {
+                        contentResolver.openInputStream(uri)?.use { input ->
+                            output.outputStream().use { stream ->
+                                val buffer = ByteArray(8192)
+                                var total = 0L
+                                while (true) {
+                                    val count = input.read(buffer)
+                                    if (count < 0) break
+                                    total += count
+                                    check(total <= MAX_IMPORTED_IMAGE_BYTES) {
+                                        "Ảnh vượt quá giới hạn dung lượng cho phép."
+                                    }
+                                    stream.write(buffer, 0, count)
                                 }
-                                stream.write(buffer, 0, count)
+                                stream.flush()
                             }
-                            stream.flush()
-                        }
-                    } ?: throw IllegalStateException("Không đọc được ảnh đã chọn.")
-                    output
+                        } ?: throw IllegalStateException("Không đọc được ảnh đã chọn.")
+                        output
+                    } catch (error: Exception) {
+                        runCatching { output.delete() }
+                        throw error
+                    }
                 }
                 if (saved.isSuccess) {
                     imported++
