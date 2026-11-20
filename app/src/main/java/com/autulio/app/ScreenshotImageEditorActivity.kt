@@ -219,7 +219,10 @@ private fun ScreenshotImageEditorScreen(
     var textPosition by remember { mutableStateOf(ImagePoint(0.5f, 0.5f)) }
     var statusMessage by remember { mutableStateOf("") }
 
-    fun replaceBitmap(matrix: Matrix) {
+    fun replaceBitmap(
+        matrix: Matrix,
+        transformPoint: (ImagePoint) -> ImagePoint
+    ) {
         val current = workingBitmap
         val transformed = runCatching {
             Bitmap.createBitmap(
@@ -235,6 +238,18 @@ private fun ScreenshotImageEditorScreen(
         if (transformed != null) {
             workingBitmap = transformed
             onBitmapCreated(transformed)
+            val transformedMarks = marks.map { mark ->
+                when (mark) {
+                    is ImageMark.Pen -> mark.copy(points = mark.points.map(transformPoint))
+                    is ImageMark.Shape -> mark.copy(
+                        start = transformPoint(mark.start),
+                        end = transformPoint(mark.end)
+                    )
+                    is ImageMark.Text -> mark.copy(position = transformPoint(mark.position))
+                }
+            }
+            marks.clear()
+            marks.addAll(transformedMarks)
             statusMessage = "Đã cập nhật hướng ảnh."
         } else {
             statusMessage = "Không thực hiện được thay đổi ảnh."
@@ -270,7 +285,9 @@ private fun ScreenshotImageEditorScreen(
             horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             OutlinedButton(onClick = {
-                replaceBitmap(Matrix().apply { setRotate(90f) })
+                replaceBitmap(Matrix().apply { setRotate(90f) }) {
+                    ImagePoint(1f - it.y, it.x)
+                }
             }) {
                 Icon(Icons.Outlined.RotateRight, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
@@ -279,7 +296,9 @@ private fun ScreenshotImageEditorScreen(
             OutlinedButton(onClick = {
                 replaceBitmap(Matrix().apply {
                     setScale(-1f, 1f, workingBitmap.width / 2f, workingBitmap.height / 2f)
-                })
+                }) {
+                    ImagePoint(1f - it.x, it.y)
+                }
             }) {
                 Icon(Icons.Outlined.Flip, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
@@ -288,7 +307,9 @@ private fun ScreenshotImageEditorScreen(
             OutlinedButton(onClick = {
                 replaceBitmap(Matrix().apply {
                     setScale(1f, -1f, workingBitmap.width / 2f, workingBitmap.height / 2f)
-                })
+                }) {
+                    ImagePoint(it.x, 1f - it.y)
+                }
             }) {
                 Icon(Icons.Outlined.Flip, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
@@ -457,7 +478,12 @@ private fun ImageAnnotationCanvas(
 
     Canvas(
         Modifier.fillMaxSize().pointerInput(bitmap, activeTool, activeColor, brushWidth) {
-            val imageRect = fitImageRect(size.width, size.height, bitmap.width, bitmap.height)
+            val imageRect = fitImageRect(
+                size.width.toFloat(),
+                size.height.toFloat(),
+                bitmap.width,
+                bitmap.height
+            )
             fun normalized(position: Offset): ImagePoint = ImagePoint(
                 ((position.x - imageRect.left) / imageRect.width).coerceIn(0f, 1f),
                 ((position.y - imageRect.top) / imageRect.height).coerceIn(0f, 1f)
