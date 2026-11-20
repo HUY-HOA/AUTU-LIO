@@ -637,7 +637,7 @@ test("customer cannot inspect owner-only package source preview", async () => {
   assert.equal(queries.some(sql => sql.includes("FROM script_package_versions")), false);
 });
 
-test("malformed Google sign-in JSON is rejected", async () => {test("malformed Google sign-in JSON is rejected", async () => {
+test("malformed Google sign-in JSON is rejected", async () => {
   const { env } = createEnv();
   const response = await worker.fetch(
     makeRequest("/api/auth/google", {
