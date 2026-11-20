@@ -3,11 +3,6 @@ name: AUTU-LIO Android APK
 run-name: AUTU-LIO Release APK - ${{ github.ref_name }}
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/AUTU-LIO-BUILD-APK-ONCE"
   workflow_dispatch:
     inputs:
       build_variant:
