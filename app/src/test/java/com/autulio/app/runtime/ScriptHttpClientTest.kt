@@ -83,7 +83,7 @@ class ScriptHttpClientTest {
         assertEquals(200, result["TRẠNG_THÁI"])
         assertEquals(true, result["THÀNH_CÔNG"])
         assertEquals("PATCH", request.method())
-        assertEquals(body, request.body()!!.string())
+        assertEquals(body, requestBodyText(request))
         assertEquals("application/json; charset=utf-8", request.header("Content-Type"))
     }
 
