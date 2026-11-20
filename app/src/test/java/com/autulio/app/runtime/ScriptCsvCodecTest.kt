@@ -55,7 +55,7 @@ class ScriptCsvCodecTest {
 
     @Test
     fun rejectsInvalidDelimiters() {
-        listOf("", ",,", "\" , "\n", "\u0000").forEach { delimiter ->
+        listOf("", ",,", '"'.toString(), "\n", "\u0000").forEach { delimiter ->
             assertFalse(runCatching {
                 ScriptCsvCodec.parse("a,b", delimiter)
             }.isSuccess)
