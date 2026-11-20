@@ -201,20 +201,58 @@ Chỉ chấp nhận URL HTTPS, không nhúng user/password và không theo chuy�
 
 ## 8. Hàm truy vấn Android
 
-`PIN()`, `PHẦN_TRĂM_PIN()`, `ĐANG_SẠC()`, `CÓ_MẠNG()`, `MÀN_HÌNH_SÁNG()`, `ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `THỜI_GIAN_MS()`.
+`PIN()`, `PHẦN_TRĂM_PIN()`, `ĐANG_SẠC()`, `CÓ_MẠNG()`, `MÀN_HÌNH_SÁNG()`, `ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()`, `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()`, `MẬT_ĐỘ_MÀN_HÌNH()`, `GÓI_ỨNG_DỤNG_ĐANG_MỞ()`, `THỜI_GIAN_MS()`.
 
-## 9. Đọc văn bản giao diện qua Trợ năng
+### Quy đổi tọa độ và vùng an toàn
 
-AUTU-LIO chỉ đọc văn bản, nhãn và tọa độ được ứng dụng đích công khai qua cây Android Accessibility. Không có OCR, mô hình nhận diện ảnh, quét QR/mã vạch hoặc phát hiện vật thể.
+Tọa độ runtime là pixel của màn hình logic hiện tại. Các hàm DP dùng density thực tế; hàm tỷ lệ toàn màn hình dùng hai mép pixel đầu/cuối. Hàm vùng an toàn tính từ lề hệ thống và lề khuyết màn hình đã xác định được; nếu Android không cung cấp vùng an toàn hoặc kích thước khả dụng bằng 0, hàm sẽ báo lỗi thay vì trả tọa độ giả.
 
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
-| ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Văn bản và nhãn công khai qua cây Trợ năng |
-| ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() | Danh sách cấu trúc khối/dòng, kèm tọa độ bounds |
-| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("chuỗi") | ĐÚNG nếu nhãn truy cập có chuỗi cần tìm |
-| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("chuỗi") | Danh sách [X, Y] là tâm vị trí tìm thấy |
+| DP_SANG_PIXEL | DP_SANG_PIXEL(DP) | Đổi DP sang pixel theo density hiện tại |
+| PIXEL_SANG_DP | PIXEL_SANG_DP(PIXEL) | Đổi pixel sang DP |
+| TỌA_ĐỘ_X_THEO_TỶ_LỆ | TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ) | X theo tỷ lệ 0–1 trên toàn màn hình |
+| TỌA_ĐỘ_Y_THEO_TỶ_LỆ | TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ) | Y theo tỷ lệ 0–1 trên toàn màn hình |
+| TỶ_LỆ_X_THEO_TỌA_ĐỘ | TỶ_LỆ_X_THEO_TỌA_ĐỘ(X) | Đổi X pixel thành tỷ lệ toàn màn hình |
+| TỶ_LỆ_Y_THEO_TỌA_ĐỘ | TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y) | Đổi Y pixel thành tỷ lệ toàn màn hình |
+| TỌA_ĐỘ_X_VÙNG_AN_TOÀN | TỌA_ĐỘ_X_VÙNG_AN_TOÀN(TỶ_LỆ) | X pixel trong vùng an toàn, tỷ lệ 0–1 |
+| TỌA_ĐỘ_Y_VÙNG_AN_TOÀN | TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(TỶ_LỆ) | Y pixel trong vùng an toàn, tỷ lệ 0–1 |
+| TỶ_LỆ_X_VÙNG_AN_TOÀN | TỶ_LỆ_X_VÙNG_AN_TOÀN(X) | Đổi X pixel trong vùng an toàn thành tỷ lệ 0–1 |
+| TỶ_LỆ_Y_VÙNG_AN_TOÀN | TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y) | Đổi Y pixel trong vùng an toàn thành tỷ lệ 0–1 |
+| TỌA_ĐỘ_TỪ_HƯỚNG_GỐC | TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X, Y) | Trả DANH_SÁCH [X, Y] ở hướng màn hình hiện tại |
+| TỌA_ĐỘ_VỀ_HƯỚNG_GỐC | TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X, Y) | Trả DANH_SÁCH [X, Y] ở hướng ROTATION_0 |
 
-Các hàm chỉ đọc dữ liệu mà ứng dụng đích đã công khai qua Trợ năng. Chúng không phân tích ảnh, không chạy OCR và không gửi ảnh hoặc âm thanh ra ngoài thiết bị. Nội dung game canvas, video hoặc thành phần tùy chỉnh không có nhãn có thể không đọc được.
+Hai hàm hướng gốc sử dụng kích thước màn hình hiện tại và mã xoay Android 0/1/2/3. Chúng chuyển tọa độ giữa hệ trục tự nhiên của màn hình (ROTATION_0) và hệ trục logic đang hiển thị; không tự động thay đổi tọa độ của lệnh CHẠM/VUỐT. Thiết bị có hướng gốc ngang cũng được tính bằng kích thước hiện tại, không giả định mọi thiết bị đều tự nhiên ở dọc.
+
+Ví dụ:
+
+```text
+ĐẶT X: SỐ = TỌA_ĐỘ_X_VÙNG_AN_TOÀN(0.5)
+ĐẶT Y: SỐ = TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(0.5)
+ĐẶT TOA_DO_HIEN_TAI: DANH_SÁCH = TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(180, 420)
+CHẠM(X, Y)
+```
+
+## 9. Đọc văn bản giao diện qua Trợ năng
+
+AUTU-LIO kết hợp cây Android Accessibility với ML Kit chạy ngay trên thiết bị. OCR, cấu trúc văn bản, OCR theo vùng, nhãn ảnh, phát hiện vật thể, QR và mã vạch xử lý cục bộ; không tích hợp Gemini hoặc AI tạo sinh. Nội dung chỉ đọc được khi ứng dụng đích công khai qua Trợ năng hoặc có thể chụp màn hình. Ứng dụng đích có thể chặn chụp; ảnh chụp qua Accessibility yêu cầu Android 11/API 30 trở lên.
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Văn bản từ cây Trợ năng và OCR màn hình |
+| ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() | Khối/dòng văn bản kèm tọa độ bounds |
+| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("chuỗi") | Kiểm tra nhãn/văn bản có chứa chuỗi |
+| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("chuỗi") | Danh sách [X, Y] là tâm vị trí tìm thấy |
+| ĐỌC_VĂN_BẢN_VÙNG | ĐỌC_VĂN_BẢN_VÙNG(X, Y, RỘNG, CAO) | OCR văn bản trong vùng |
+| MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG | MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(CHUỖI, X, Y, RỘNG, CAO) | Kiểm tra chữ trong vùng |
+| TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG | TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG(CHUỖI, X, Y, RỘNG, CAO) | Tìm vị trí chữ trong vùng |
+| NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH | NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH() | Nhãn ảnh nhận diện được |
+| QUÉT_MÃ_QR_MÀN_HÌNH | QUÉT_MÃ_QR_MÀN_HÌNH() | Nội dung QR tìm thấy |
+| QUÉT_MÃ_VẠCH_MÀN_HÌNH | QUÉT_MÃ_VẠCH_MÀN_HÌNH() | Nội dung mã vạch tìm thấy |
+| PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH | PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH() | Danh sách vật thể và hộp giới hạn |
+| TÌM_TỌA_ĐỘ_VẬT_THỂ | TÌM_TỌA_ĐỘ_VẬT_THỂ(CHUỖI) | Tâm vật thể khớp nhãn |
+
+ML Kit được thực thi cục bộ trên thiết bị. Các hàm ảnh không tự gửi ảnh, văn bản hoặc âm thanh lên máy chủ. Cây Accessibility có thể không có nội dung của game canvas, video hoặc thành phần tùy chỉnh.
 
 ### Phân tích màu RGB trên màn hình
 
