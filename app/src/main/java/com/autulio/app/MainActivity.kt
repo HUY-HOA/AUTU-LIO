@@ -893,7 +893,7 @@ private fun MoreScreen(
                 "settings" -> {
                     SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
-                    SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Vai trò và quyền được xác minh từ máy chủ.", "Roles and permissions are verified by the server."))
+                    SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Vai trò được xác minh từ máy chủ; thông tin kỹ thuật thiết bị và kết nối được ghi nhận khi đăng nhập.", "Roles are verified by the server; basic device and network diagnostics are recorded at sign-in."))
                     SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
                 }
             }
