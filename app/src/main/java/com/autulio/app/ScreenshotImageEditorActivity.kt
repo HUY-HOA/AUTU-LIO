@@ -3,8 +3,11 @@ package com.autulio.app
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas as AndroidCanvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint as AndroidPaint
+import android.graphics.Rect as AndroidRect
 import android.graphics.Path as AndroidPath
 import android.os.Bundle
 import android.widget.Toast
@@ -66,7 +69,22 @@ import kotlin.math.roundToInt
 private data class ImagePoint(val x: Float, val y: Float)
 
 private enum class ImageEditTool {
-    PEN, RECTANGLE, CIRCLE, LINE, ARROW, TEXT
+    PEN, RECTANGLE, CIRCLE, LINE, ARROW, TEXT, REGION
+}
+
+private enum class RegionEffect {
+    BLUR, COVER
+}
+
+private data class ImageRegion(
+    val start: ImagePoint,
+    val end: ImagePoint
+) {
+    val left: Float get() = min(start.x, end.x)
+    val top: Float get() = min(start.y, end.y)
+    val right: Float get() = max(start.x, end.x)
+    val bottom: Float get() = max(start.y, end.y)
+    val isUsable: Boolean get() = (right - left) >= 0.01f && (bottom - top) >= 0.01f
 }
 
 private sealed interface ImageMark {
@@ -187,7 +205,9 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                         synchronized(generatedBitmaps) { generatedBitmaps += created }
                     },
                     onSave = ::saveEditedImage,
-                    onRecognize = ::analyzeImage
+                    onRecognize = ::analyzeImage,
+                    onApplyAdjustments = ::applyImageAdjustments,
+                    onApplyRegionEffect = ::applyRegionEffect
                 )
             }
         }
@@ -230,6 +250,116 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
             }.getOrNull()
             scaledBitmap?.recycle()
             runOnUiThread { onFinished(analysis) }
+        }
+    }
+
+    private fun applyImageAdjustments(
+        bitmap: Bitmap,
+        brightness: Float,
+        contrast: Float,
+        onFinished: (Bitmap?) -> Unit
+    ) {
+        saveExecutor.execute {
+            val adjusted = runCatching {
+                val output = Bitmap.createBitmap(
+                    bitmap.width,
+                    bitmap.height,
+                    Bitmap.Config.ARGB_8888
+                )
+                val contrastScaleBase = (contrast.coerceIn(-100f, 100f) + 100f) / 100f
+                val contrastScale = contrastScaleBase * contrastScaleBase
+                val offset = 128f * (1f - contrastScale) +
+                    brightness.coerceIn(-100f, 100f) * 2.55f
+                val matrix = ColorMatrix(
+                    floatArrayOf(
+                        contrastScale, 0f, 0f, 0f, offset,
+                        0f, contrastScale, 0f, 0f, offset,
+                        0f, 0f, contrastScale, 0f, offset,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                )
+                val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                    colorFilter = ColorMatrixColorFilter(matrix)
+                    isFilterBitmap = true
+                }
+                AndroidCanvas(output).drawBitmap(bitmap, 0f, 0f, paint)
+                output
+            }.getOrNull()
+            runOnUiThread {
+                if (isFinishing || isDestroyed) {
+                    adjusted?.recycle()
+                } else {
+                    onFinished(adjusted)
+                }
+            }
+        }
+    }
+
+    private fun applyRegionEffect(
+        bitmap: Bitmap,
+        region: ImageRegion,
+        effect: RegionEffect,
+        onFinished: (Bitmap?) -> Unit
+    ) {
+        saveExecutor.execute {
+            val edited = runCatching {
+                val output = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+                    ?: throw IllegalStateException("Không tạo được ảnh.")
+                val left = (region.left * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
+                val top = (region.top * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
+                val right = (region.right * bitmap.width).toInt().coerceIn(left + 1, bitmap.width)
+                val bottom = (region.bottom * bitmap.height).toInt().coerceIn(top + 1, bitmap.height)
+                val width = right - left
+                val height = bottom - top
+                val canvas = AndroidCanvas(output)
+                when (effect) {
+                    RegionEffect.COVER -> {
+                        val coverPaint = AndroidPaint().apply {
+                            color = android.graphics.Color.BLACK
+                            style = AndroidPaint.Style.FILL
+                        }
+                        canvas.drawRect(
+                            left.toFloat(), top.toFloat(),
+                            right.toFloat(), bottom.toFloat(),
+                            coverPaint
+                        )
+                    }
+                    RegionEffect.BLUR -> {
+                        val crop = Bitmap.createBitmap(bitmap, left, top, width, height)
+                        try {
+                            val reduced = Bitmap.createScaledBitmap(
+                                crop,
+                                max(1, width / 18),
+                                max(1, height / 18),
+                                true
+                            )
+                            try {
+                                val blurPaint = AndroidPaint(
+                                    AndroidPaint.ANTI_ALIAS_FLAG or AndroidPaint.FILTER_BITMAP_FLAG
+                                )
+                                canvas.drawBitmap(
+                                    reduced,
+                                    null,
+                                    AndroidRect(left, top, right, bottom),
+                                    blurPaint
+                                )
+                            } finally {
+                                if (reduced !== crop && !reduced.isRecycled) reduced.recycle()
+                            }
+                        } finally {
+                            if (!crop.isRecycled) crop.recycle()
+                        }
+                    }
+                }
+                output
+            }.getOrNull()
+            runOnUiThread {
+                if (isFinishing || isDestroyed) {
+                    edited?.recycle()
+                } else {
+                    onFinished(edited)
+                }
+            }
         }
     }
 
@@ -293,7 +423,9 @@ private fun ScreenshotImageEditorScreen(
     onBack: () -> Unit,
     onBitmapCreated: (Bitmap) -> Unit,
     onSave: (Bitmap, List<ImageMark>) -> Unit,
-    onRecognize: (Bitmap, (ScreenshotImageAnalysis?) -> Unit) -> Unit
+    onRecognize: (Bitmap, (ScreenshotImageAnalysis?) -> Unit) -> Unit,
+    onApplyAdjustments: (Bitmap, Float, Float, (Bitmap?) -> Unit) -> Unit,
+    onApplyRegionEffect: (Bitmap, ImageRegion, RegionEffect, (Bitmap?) -> Unit) -> Unit
 ) {
     var workingBitmap by remember(originalBitmap) {
         mutableStateOf(originalBitmap)
@@ -308,6 +440,22 @@ private fun ScreenshotImageEditorScreen(
     var statusMessage by remember { mutableStateOf("") }
     var isRecognizing by remember { mutableStateOf(false) }
     var recognitionResult by remember { mutableStateOf<ScreenshotImageAnalysis?>(null) }
+    var showAdjustments by rememberSaveable { mutableStateOf(false) }
+    var brightness by rememberSaveable { mutableFloatStateOf(0f) }
+    var contrast by rememberSaveable { mutableFloatStateOf(0f) }
+    var isApplyingImageEffect by remember { mutableStateOf(false) }
+    var selectedRegion by remember { mutableStateOf<ImageRegion?>(null) }
+
+    fun acceptProcessedBitmap(bitmap: Bitmap?, successMessage: String) {
+        isApplyingImageEffect = false
+        if (bitmap == null) {
+            statusMessage = "Không xử lý được ảnh. Hãy thử lại với vùng nhỏ hơn."
+        } else {
+            workingBitmap = bitmap
+            onBitmapCreated(bitmap)
+            statusMessage = successMessage
+        }
+    }
 
     fun replaceBitmap(
         matrix: Matrix,
@@ -405,6 +553,61 @@ private fun ScreenshotImageEditorScreen(
                 Spacer(Modifier.width(4.dp))
                 Text("Lật dọc")
             }
+            OutlinedButton(onClick = { showAdjustments = !showAdjustments }) {
+                Text(if (showAdjustments) "Ẩn điều chỉnh" else "Sáng / tương phản")
+            }
+        }
+
+        if (showAdjustments) {
+            Column(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Độ sáng: ${brightness.roundToInt()}", fontSize = 11.sp, modifier = Modifier.width(112.dp))
+                    Slider(
+                        value = brightness,
+                        onValueChange = { brightness = it },
+                        valueRange = -100f..100f,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tương phản: ${contrast.roundToInt()}", fontSize = 11.sp, modifier = Modifier.width(112.dp))
+                    Slider(
+                        value = contrast,
+                        onValueChange = { contrast = it },
+                        valueRange = -100f..100f,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Áp dụng sẽ tạo ảnh mới; ảnh gốc được giữ nguyên.",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        enabled = !isApplyingImageEffect && (brightness != 0f || contrast != 0f),
+                        onClick = {
+                            isApplyingImageEffect = true
+                            onApplyAdjustments(workingBitmap, brightness, contrast) { result ->
+                                acceptProcessedBitmap(result, "Đã áp dụng độ sáng và tương phản.")
+                                if (result != null) {
+                                    brightness = 0f
+                                    contrast = 0f
+                                }
+                            }
+                        }
+                    ) {
+                        Text(if (isApplyingImageEffect) "Đang xử lý" else "Áp dụng")
+                    }
+                }
+            }
         }
 
         Row(
@@ -428,6 +631,10 @@ private fun ScreenshotImageEditorScreen(
             }
             ImageToolChip("Chữ", activeTool == ImageEditTool.TEXT, Icons.Outlined.FormatColorText) {
                 activeTool = ImageEditTool.TEXT
+            }
+            ImageToolChip("Chọn vùng", activeTool == ImageEditTool.REGION, Icons.Outlined.CropSquare) {
+                activeTool = ImageEditTool.REGION
+                selectedRegion = null
             }
         }
 
@@ -483,11 +690,51 @@ private fun ScreenshotImageEditorScreen(
                 activeTool = activeTool,
                 activeColor = selectedColor,
                 brushWidth = brushWidth,
+                selectedRegion = selectedRegion,
+                onRegionSelected = { region -> selectedRegion = region },
                 onTextPosition = { position ->
                     textPosition = position
                     pendingText = ""
                     showTextDialog = true
                 }
+            )
+        }
+
+        if (selectedRegion != null) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Đã chọn vùng", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                OutlinedButton(
+                    enabled = !isApplyingImageEffect,
+                    onClick = {
+                        val region = selectedRegion ?: return@OutlinedButton
+                        isApplyingImageEffect = true
+                        onApplyRegionEffect(workingBitmap, region, RegionEffect.BLUR) { result ->
+                            acceptProcessedBitmap(result, "Đã làm mờ vùng đã chọn.")
+                            if (result != null) selectedRegion = null
+                        }
+                    }
+                ) { Text("Làm mờ vùng") }
+                Button(
+                    enabled = !isApplyingImageEffect,
+                    onClick = {
+                        val region = selectedRegion ?: return@Button
+                        isApplyingImageEffect = true
+                        onApplyRegionEffect(workingBitmap, region, RegionEffect.COVER) { result ->
+                            acceptProcessedBitmap(result, "Đã che kín vùng bằng màu đen.")
+                            if (result != null) selectedRegion = null
+                        }
+                    }
+                ) { Text("Che kín vùng") }
+                TextButton(onClick = { selectedRegion = null }) { Text("Bỏ chọn") }
+            }
+            Text(
+                "Lưu ý: làm mờ không bảo đảm che dữ liệu nhạy cảm; hãy dùng Che kín vùng.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp
             )
         }
 
@@ -635,13 +882,18 @@ private fun ImageAnnotationCanvas(
     activeTool: ImageEditTool,
     activeColor: Int,
     brushWidth: Float,
+    selectedRegion: ImageRegion?,
+    onRegionSelected: (ImageRegion?) -> Unit,
     onTextPosition: (ImagePoint) -> Unit
 ) {
     val image = remember(bitmap) { bitmap.asImageBitmap() }
     var activeMark by remember(bitmap) { mutableStateOf<ImageMark?>(null) }
+    var activeRegion by remember(bitmap) { mutableStateOf<ImageRegion?>(null) }
 
     Canvas(
-        Modifier.fillMaxSize().pointerInput(bitmap, activeTool, activeColor, brushWidth) {
+        Modifier.fillMaxSize().pointerInput(
+            bitmap, activeTool, activeColor, brushWidth, onRegionSelected
+        ) {
             val imageRect = fitImageRect(
                 size.width.toFloat(),
                 size.height.toFloat(),
@@ -662,40 +914,58 @@ private fun ImageAnnotationCanvas(
                     onDragStart = { position ->
                         if (imageRect.contains(position)) {
                             val point = normalized(position)
-                            activeMark = when (activeTool) {
-                                ImageEditTool.PEN -> ImageMark.Pen(
-                                    points = listOf(point),
-                                    color = activeColor,
-                                    widthRatio = brushWidth
-                                )
-                                ImageEditTool.RECTANGLE,
-                                ImageEditTool.CIRCLE,
-                                ImageEditTool.LINE,
-                                ImageEditTool.ARROW -> ImageMark.Shape(
-                                    tool = activeTool,
-                                    start = point,
-                                    end = point,
-                                    color = activeColor,
-                                    widthRatio = brushWidth
-                                )
-                                ImageEditTool.TEXT -> null
+                            if (activeTool == ImageEditTool.REGION) {
+                                activeRegion = ImageRegion(point, point)
+                            } else {
+                                activeMark = when (activeTool) {
+                                    ImageEditTool.PEN -> ImageMark.Pen(
+                                        points = listOf(point),
+                                        color = activeColor,
+                                        widthRatio = brushWidth
+                                    )
+                                    ImageEditTool.RECTANGLE,
+                                    ImageEditTool.CIRCLE,
+                                    ImageEditTool.LINE,
+                                    ImageEditTool.ARROW -> ImageMark.Shape(
+                                        tool = activeTool,
+                                        start = point,
+                                        end = point,
+                                        color = activeColor,
+                                        widthRatio = brushWidth
+                                    )
+                                    ImageEditTool.TEXT,
+                                    ImageEditTool.REGION -> null
+                                }
                             }
                         }
                     },
                     onDrag = { change, _ ->
                         change.consume()
                         val point = normalized(change.position)
-                        activeMark = when (val current = activeMark) {
-                            is ImageMark.Pen -> current.copy(points = current.points + point)
-                            is ImageMark.Shape -> current.copy(end = point)
-                            else -> current
+                        if (activeTool == ImageEditTool.REGION) {
+                            activeRegion = activeRegion?.copy(end = point)
+                        } else {
+                            activeMark = when (val current = activeMark) {
+                                is ImageMark.Pen -> current.copy(points = current.points + point)
+                                is ImageMark.Shape -> current.copy(end = point)
+                                else -> current
+                            }
                         }
                     },
                     onDragEnd = {
-                        activeMark?.let { marks.add(it) }
-                        activeMark = null
+                        if (activeTool == ImageEditTool.REGION) {
+                            val region = activeRegion
+                            onRegionSelected(region?.takeIf { it.isUsable })
+                            activeRegion = null
+                        } else {
+                            activeMark?.let { marks.add(it) }
+                            activeMark = null
+                        }
                     },
-                    onDragCancel = { activeMark = null }
+                    onDragCancel = {
+                        activeMark = null
+                        activeRegion = null
+                    }
                 )
             }
         }
@@ -708,6 +978,25 @@ private fun ImageAnnotationCanvas(
         )
         marks.forEach { mark -> drawImageMark(mark, imageRect) }
         activeMark?.let { drawImageMark(it, imageRect) }
+        fun drawRegion(region: ImageRegion, fill: Color, border: Color) {
+            val left = imageRect.left + region.left * imageRect.width
+            val top = imageRect.top + region.top * imageRect.height
+            val width = (region.right - region.left) * imageRect.width
+            val height = (region.bottom - region.top) * imageRect.height
+            drawRect(fill, topLeft = Offset(left, top), size = Size(width, height))
+            drawRect(
+                border,
+                topLeft = Offset(left, top),
+                size = Size(width, height),
+                style = Stroke(width = 2.dp.toPx())
+            )
+        }
+        selectedRegion?.let {
+            drawRegion(it, Color(0x332D9CDB), Color(0xFF39A9FF))
+        }
+        activeRegion?.let {
+            drawRegion(it, Color(0x442D9CDB), Color(0xFF7DD3FC))
+        }
     }
 }
 
