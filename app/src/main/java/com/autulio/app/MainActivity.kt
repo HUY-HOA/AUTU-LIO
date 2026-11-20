@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Build
+import android.net.Uri
 import android.util.DisplayMetrics
 import android.view.WindowInsets
 import android.provider.Settings
@@ -38,6 +39,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.util.Locale
 import com.autulio.app.access.AccessRole
@@ -48,6 +51,7 @@ import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptTemplate
 import com.autulio.app.script.ScriptTemplateCatalog
+import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScreenDisplayGeometry
 import com.autulio.app.runtime.ScreenInsets
 import com.autulio.app.runtime.ScreenCutoutBounds
@@ -1045,6 +1049,7 @@ private fun MoreScreen(
                     SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
                     SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Vai trò được xác minh từ máy chủ; thông tin kỹ thuật thiết bị và kết nối được ghi nhận khi đăng nhập.", "Roles are verified by the server; basic device and network diagnostics are recorded at sign-in."))
+                    DatabaseBackupControls()
                     SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
                 }
             }
@@ -1351,7 +1356,144 @@ private fun SettingsScreen(
         SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
         SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
+        DatabaseBackupControls()
         SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
+    }
+}
+
+@Composable
+private fun DatabaseBackupControls() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var working by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("") }
+    var restoreUri by remember { mutableStateOf<Uri?>(null) }
+
+    val createBackup = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        if (uri != null) scope.launch {
+            working = true
+            message = ""
+            try {
+                val metadata = withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                        val service = AutoClickAccessibilityService.current()
+                        if (service != null) {
+                            service.exportDatabaseBackup(output)
+                        } else {
+                            ScriptDatabaseStore(context).use { store ->
+                                store.exportBackupTo(output)
+                            }
+                        }
+                    } ?: throw java.io.IOException("Không mở được tệp đích để sao lưu.")
+                }
+                message = tr(
+                    "Sao lưu xong · ${metadata.databaseBytes} byte · schema ${metadata.schemaVersion} · SHA-256 ${metadata.sha256.take(12)}…",
+                    "Backup complete · ${metadata.databaseBytes} bytes · schema ${metadata.schemaVersion} · SHA-256 ${metadata.sha256.take(12)}…"
+                )
+            } catch (error: Exception) {
+                message = error.localizedMessage ?: tr("Không sao lưu được cơ sở dữ liệu.", "Database backup failed.")
+            } finally {
+                working = false
+            }
+        }
+    }
+
+    val openBackup = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> restoreUri = uri }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(tr("Sao lưu dữ liệu SQLite", "SQLite database backup"), fontWeight = FontWeight.SemiBold)
+        Text(
+            tr(
+                "Lưu bản sao lưu vào nơi bạn chọn. Khi khôi phục, dữ liệu SQLite hiện tại trên thiết bị sẽ được thay thế.",
+                "Save a backup to a location you choose. Restoring replaces the current SQLite database on this device."
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            lineHeight = 17.sp
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { createBackup.launch("AUTU-LIO-SQLite-${System.currentTimeMillis()}.autubak") },
+                enabled = !working,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Outlined.Save, contentDescription = null)
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Sao lưu", "Back up"))
+            }
+            OutlinedButton(
+                onClick = { openBackup.launch(arrayOf("*/*")) },
+                enabled = !working,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Outlined.Restore, contentDescription = null)
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Khôi phục", "Restore"))
+            }
+        }
+        if (working) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (message.isNotBlank()) {
+            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+        }
+    }
+
+    val selectedRestore = restoreUri
+    if (selectedRestore != null) {
+        AlertDialog(
+            onDismissRequest = { if (!working) restoreUri = null },
+            title = { Text(tr("Xác nhận khôi phục", "Confirm restore")) },
+            text = {
+                Text(
+                    tr(
+                        "Khôi phục sẽ thay thế cơ sở dữ liệu AUTU-LIO hiện tại bằng bản sao lưu đã chọn. Tệp sẽ được kiểm tra định dạng, tính toàn vẹn và SHA-256 trước khi thay thế. Tiếp tục?",
+                        "Restore replaces the current AUTU-LIO database with the selected backup. Format, integrity and SHA-256 are checked before replacement. Continue?"
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !working,
+                    onClick = {
+                        restoreUri = null
+                        scope.launch {
+                            working = true
+                            message = ""
+                            try {
+                                val metadata = withContext(Dispatchers.IO) {
+                                    context.contentResolver.openInputStream(selectedRestore)?.use { input ->
+                                        val service = AutoClickAccessibilityService.current()
+                                        if (service != null) {
+                                            service.restoreDatabaseBackup(input)
+                                        } else {
+                                            ScriptDatabaseStore(context).use { store ->
+                                                store.restoreBackupFrom(input)
+                                            }
+                                        }
+                                    } ?: throw java.io.IOException("Không mở được tệp sao lưu.")
+                                }
+                                message = tr(
+                                    "Khôi phục thành công · schema ${metadata.schemaVersion} · ${metadata.databaseBytes} byte.",
+                                    "Restore complete · schema ${metadata.schemaVersion} · ${metadata.databaseBytes} bytes."
+                                )
+                            } catch (error: Exception) {
+                                message = error.localizedMessage ?: tr("Không khôi phục được cơ sở dữ liệu.", "Database restore failed.")
+                            } finally {
+                                working = false
+                            }
+                        }
+                    }
+                ) { Text(tr("Khôi phục", "Restore")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { restoreUri = null }, enabled = !working) {
+                    Text(tr("Hủy", "Cancel"))
+                }
+            }
+        )
     }
 }
 

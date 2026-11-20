@@ -9,6 +9,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -121,6 +123,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private val scriptDatabaseStoreLazy = lazy { ScriptDatabaseStore(this) }
     private val scriptDatabaseStore by scriptDatabaseStoreLazy
 
+    private val databaseMaintenanceLock = Any()
+    @Volatile private var databaseMaintenanceActive = false
+    @Volatile private var closeDatabaseWhenMaintenanceEnds = false
     private val mainHandler = Handler(Looper.getMainLooper())
     private val screenshotExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "AUTU-LIO-Screenshot").apply { isDaemon = true }
@@ -217,8 +222,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         authorizationMonitorExecutor.shutdownNow()
         screenshotExecutor.shutdownNow()
         if (screenVisionEngineLazy.isInitialized()) runCatching { screenVisionEngine.close() }
-        if (scriptDatabaseStoreLazy.isInitialized()) {
-            scriptDatabaseStore.close()
+        synchronized(databaseMaintenanceLock) {
+            if (scriptDatabaseStoreLazy.isInitialized()) {
+                if (databaseMaintenanceActive) closeDatabaseWhenMaintenanceEnds = true
+                else scriptDatabaseStore.close()
+            }
         }
         removeFloatingWindow()
         screenAnnotationOverlay?.remove()
@@ -245,6 +253,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         }
 
+        if (databaseMaintenanceActive) return false
         if (executionEngine == null || !sessionVerified || sessionStore.read().isNullOrBlank()) {
             lockRunner()
             return false
@@ -2305,26 +2314,32 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     private fun onPrimaryAction() {
-        if (!sessionVerified || sessionStore.read().isNullOrBlank()) {
-            lockRunner()
-            return
-        }
-        val engine = executionEngine ?: return
-        when (engine.snapshot().state) {
-            ScriptExecutionState.RUNNING -> engine.pause()
-            ScriptExecutionState.PAUSED -> engine.resume()
-            ScriptExecutionState.STOPPING -> Unit
-            ScriptExecutionState.IDLE,
-            ScriptExecutionState.COMPLETED,
-            ScriptExecutionState.CANCELLED,
-            ScriptExecutionState.FAILED -> {
-                val program = pendingProgram
-                if (program == null) {
-                    statusLabel?.text = "Hãy mở Soạn mã và kiểm tra kịch bản trước khi chạy."
-                    return
+        synchronized(databaseMaintenanceLock) {
+            if (databaseMaintenanceActive) {
+                statusLabel?.text = "Đang sao lưu hoặc khôi phục cơ sở dữ liệu."
+                return
+            }
+            if (!sessionVerified || sessionStore.read().isNullOrBlank()) {
+                lockRunner()
+                return
+            }
+            val engine = executionEngine ?: return
+            when (engine.snapshot().state) {
+                ScriptExecutionState.RUNNING -> engine.pause()
+                ScriptExecutionState.PAUSED -> engine.resume()
+                ScriptExecutionState.STOPPING -> Unit
+                ScriptExecutionState.IDLE,
+                ScriptExecutionState.COMPLETED,
+                ScriptExecutionState.CANCELLED,
+                ScriptExecutionState.FAILED -> {
+                    val program = pendingProgram
+                    if (program == null) {
+                        statusLabel?.text = "Hãy mở Soạn mã và kiểm tra kịch bản trước khi chạy."
+                        return
+                    }
+                    setEditorVisible(false)
+                    engine.start(program)
                 }
-                setEditorVisible(false)
-                engine.start(program)
             }
         }
     }
@@ -2424,6 +2439,54 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
      * A running script is stopped first; its finally block is allowed to complete before
      * any annotations it creates are removed.
      */
+    private fun beginDatabaseMaintenance() {
+        synchronized(databaseMaintenanceLock) {
+            check(!databaseMaintenanceActive) {
+                "Một thao tác cơ sở dữ liệu AUTU khác đang chạy."
+            }
+            check(sessionVerified && !sessionStore.read().isNullOrBlank()) {
+                "Phiên đăng nhập chưa được xác minh để sao lưu hoặc khôi phục."
+            }
+            val state = executionEngine?.snapshot()?.state
+            check(
+                state != ScriptExecutionState.RUNNING &&
+                    state != ScriptExecutionState.PAUSED &&
+                    state != ScriptExecutionState.STOPPING
+            ) {
+                "Hãy dừng kịch bản trước khi sao lưu hoặc khôi phục cơ sở dữ liệu."
+            }
+            databaseMaintenanceActive = true
+        }
+    }
+
+    private fun endDatabaseMaintenance() {
+        synchronized(databaseMaintenanceLock) {
+            databaseMaintenanceActive = false
+            if (closeDatabaseWhenMaintenanceEnds && scriptDatabaseStoreLazy.isInitialized()) {
+                closeDatabaseWhenMaintenanceEnds = false
+                scriptDatabaseStore.close()
+            }
+        }
+    }
+
+    fun exportDatabaseBackup(output: OutputStream): com.autulio.app.runtime.ScriptDatabaseBackupCodec.Metadata {
+        beginDatabaseMaintenance()
+        return try {
+            scriptDatabaseStore.exportBackupTo(output)
+        } finally {
+            endDatabaseMaintenance()
+        }
+    }
+
+    fun restoreDatabaseBackup(input: InputStream): com.autulio.app.runtime.ScriptDatabaseBackupCodec.Metadata {
+        beginDatabaseMaintenance()
+        return try {
+            scriptDatabaseStore.restoreBackupFrom(input)
+        } finally {
+            endDatabaseMaintenance()
+        }
+    }
+
     fun lockRunner() {
         sessionVerified = false
         removeAnnotationsAfterStop = true
