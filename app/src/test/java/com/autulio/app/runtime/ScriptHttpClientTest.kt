@@ -82,7 +82,7 @@ class ScriptHttpClientTest {
 
         assertEquals(200, result["TRẠNG_THÁI"])
         assertEquals(true, result["THÀNH_CÔNG"])
-        assertEquals("PATCH", request.method())
+        assertEquals("PATCH", request.method)
         assertEquals(body, requestBodyText(request))
         assertEquals("application/json; charset=utf-8", request.header("Content-Type"))
     }
@@ -183,11 +183,12 @@ class ScriptHttpClientTest {
             requestLimited.request("POST", "https://api.example.com", "12345", emptyMap(), 1_000)
         }.isSuccess)
 
-        val responseLimited = ScriptHttpClient(
-            baseClient = clientWithResponse { request -> response(request, 200, "12345") },
+        val responseLimited = clientWithResponse(
             maxRequestBytes = 16,
             maxResponseBytes = 4
-        )
+        ) { request ->
+            response(request, 200, "12345")
+        }
         assertFalse(runCatching {
             responseLimited.request("GET", "https://api.example.com", null, emptyMap(), 1_000)
         }.isSuccess)
@@ -223,12 +224,21 @@ class ScriptHttpClientTest {
     }
 
     private fun clientWithResponse(
+        maxRequestBytes: Int = ScriptHttpClient.DEFAULT_MAX_BODY_BYTES,
+        maxResponseBytes: Int = ScriptHttpClient.DEFAULT_MAX_BODY_BYTES,
         responseFactory: (Request) -> Response
-    ): OkHttpClient = OkHttpClient.Builder()
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .addInterceptor(Interceptor { chain -> responseFactory(chain.request()) })
-        .build()
+    ): ScriptHttpClient {
+        val okHttpClient = OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .addInterceptor(Interceptor { chain -> responseFactory(chain.request()) })
+            .build()
+        return ScriptHttpClient(
+            baseClient = okHttpClient,
+            maxRequestBytes = maxRequestBytes,
+            maxResponseBytes = maxResponseBytes
+        )
+    }
 
     private fun response(request: Request, status: Int, body: String): Response =
         Response.Builder()
