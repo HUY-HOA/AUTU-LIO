@@ -75,7 +75,7 @@ data class ScriptCompileResult(val program: ScriptProgram?, val diagnostics: Lis
 }
 
 object ScriptCompiler {
-    const val LANGUAGE_VERSION = "1.21"
+    const val LANGUAGE_VERSION = "1.22"
     const val MAX_SOURCE_LENGTH = 32_768
     const val MAX_STATEMENTS = 1_000
     const val MAX_REPEAT_COUNT = 100
@@ -246,9 +246,9 @@ object ScriptCompiler {
 
     private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ")
     private val reservedWords = setOf(
-        "ĐẶT", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
+        "BIẾN", "ĐẶT", "HÀM", "ĐỊNH_NGHĨA_HÀM", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
         "LẶP", "LẶP_KHI", "LẶP_ĐẾN_KHI", "LẶP_MỖI", "TRONG", "CHỜ_ĐẾN_KHI",
-        "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "ĐỊNH_NGHĨA_HÀM", "TRẢ_VỀ", "THỬ", "BẮT_LỖI", "LUÔN_THỰC_HIỆN",
+        "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "TRẢ_VỀ", "THỬ", "BẮT_LỖI", "LUÔN_THỰC_HIỆN",
         "ĐÚNG", "SAI", "RỖNG", "VÀ", "HOẶC", "KHÔNG"
     )
 
@@ -504,7 +504,7 @@ object ScriptCompiler {
             val instructions = parseBlock(false, 0, 0)
             val unknown = functionCallTokens.firstOrNull { it.text !in functionNames }
             if (unknown != null) {
-                fail(unknown.line, unknown.column, "unknown_function", "Không tìm thấy hàm '" + unknown.text + "'. Hãy định nghĩa hàm bằng ĐỊNH_NGHĨA_HÀM trước khi dùng.", "Function '" + unknown.text + "' is not defined. Define it with ĐỊNH_NGHĨA_HÀM before use.")
+                fail(unknown.line, unknown.column, "unknown_function", "Không tìm thấy hàm '" + unknown.text + "'. Hãy khai báo hàm bằng HÀM trước khi dùng.", "Function '" + unknown.text + "' is not defined. Declare it with HÀM before use.")
             }
             return instructions
         }
@@ -531,14 +531,14 @@ object ScriptCompiler {
             requireUppercaseIdentifier(name, "lệnh hoặc tên biến")
             val keyword = name.text
             return when (keyword) {
-                "ĐẶT" -> parseVariableDeclaration(name)
+                "BIẾN", "ĐẶT" -> parseVariableDeclaration(name)
                 "NẾU" -> parseIf(name, depth, loopDepth)
                 "LẶP" -> parseRepeat(name, depth, loopDepth)
                 "LẶP_KHI" -> parseWhile(name, depth, loopDepth)
                 "LẶP_ĐẾN_KHI" -> parseUntil(name, depth, loopDepth)
                 "LẶP_MỖI" -> parseForEach(name, depth, loopDepth)
                 "CHỜ_ĐẾN_KHI" -> parseWaitUntil(name)
-                "ĐỊNH_NGHĨA_HÀM" -> parseFunctionDefinition(name, depth, loopDepth)
+                "HÀM", "ĐỊNH_NGHĨA_HÀM" -> parseFunctionDefinition(name, depth, loopDepth)
                 "THỬ" -> parseTryCatch(name, depth, loopDepth)
                 "TRẢ_VỀ" -> {
                     if (!insideFunction) fail(name.line, name.column, "return_outside_function", "TRẢ_VỀ chỉ được dùng bên trong hàm.", "TRẢ_VỀ can only be used inside a function.")
@@ -590,9 +590,9 @@ object ScriptCompiler {
 
         private fun parseFunctionDefinition(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.FunctionDefinition {
             if (depth != 0 || loopDepth != 0 || insideFunction) {
-                fail(name.line, name.column, "nested_function", "ĐỊNH_NGHĨA_HÀM chỉ được đặt ở cấp cao nhất, không đặt bên trong NẾU hoặc vòng lặp.", "ĐỊNH_NGHĨA_HÀM must be declared at the top level, not inside NẾU or a loop.")
+                fail(name.line, name.column, "nested_function", "HÀM chỉ được khai báo ở cấp cao nhất, không đặt bên trong NẾU hoặc vòng lặp.", "HÀM must be declared at the top level, not inside NẾU or a loop.")
             }
-            val functionName = expect(TokenType.IDENTIFIER, "expected_function_name", "Sau ĐỊNH_NGHĨA_HÀM cần có tên hàm viết HOA.", "Expected an uppercase function name after ĐỊNH_NGHĨA_HÀM.")
+            val functionName = expect(TokenType.IDENTIFIER, "expected_function_name", "Sau HÀM cần có tên hàm viết HOA.", "Expected an uppercase function name after HÀM.")
             requireUppercaseIdentifier(functionName, "tên hàm")
             if (functionName.text in reservedWords || functionName.text in commandAliases || functionName.text in builtinFunctionArities) {
                 fail(functionName.line, functionName.column, "reserved_function_name", "Tên hàm bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Function name conflicts with a keyword, command or built-in function.")
@@ -653,10 +653,10 @@ object ScriptCompiler {
         }
 
         private fun parseVariableDeclaration(name: Token): ScriptInstruction.SetVariable {
-            val variable = expect(TokenType.IDENTIFIER, "expected_variable_name", "Sau ĐẶT cần có tên biến viết HOA.", "Expected an uppercase variable name after ĐẶT.")
+            val variable = expect(TokenType.IDENTIFIER, "expected_variable_name", "Sau BIẾN cần có tên biến viết HOA.", "Expected an uppercase variable name after BIẾN.")
             requireUppercaseIdentifier(variable, "tên biến")
-            if (variable.text in reservedWords || variable.text in commandAliases) {
-                fail(variable.line, variable.column, "reserved_identifier", "Tên biến trùng với từ khóa hoặc lệnh đã dành riêng.", "Variable name is reserved.")
+            if (variable.text in reservedWords || variable.text in commandAliases || variable.text in builtinFunctionArities) {
+                fail(variable.line, variable.column, "reserved_identifier", "Tên biến trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Variable name conflicts with a keyword, command or built-in function.")
             }
             val declaredType = if (isSymbol(":")) {
                 advance()
