@@ -110,6 +110,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var executionEngine: ScriptExecutionEngine? = null
     private var windowManager: WindowManager? = null
     private var floatingWindow: LinearLayout? = null
+    private var screenAnnotationOverlay: ScreenAnnotationOverlay? = null
     private var statusLabel: TextView? = null
     private var primaryButton: TextView? = null
     private var stopButton: TextView? = null
@@ -161,6 +162,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             scriptDatabaseStore.close()
         }
         removeFloatingWindow()
+        screenAnnotationOverlay?.remove()
+        screenAnnotationOverlay = null
         pendingProgram = null
         if (activeInstance === this) activeInstance = null
         super.onDestroy()
@@ -338,6 +341,59 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "MÀN_HÌNH_SÁNG" -> {
                 val power = getSystemService(Context.POWER_SERVICE) as PowerManager
                 power.isInteractive
+            }
+            "HIỂN_THỊ_CHỮ" -> {
+                requireArgumentCount(name, arguments, 5)
+                val value = requireTextArgument(name, arguments[0])
+                require(value.isNotBlank() && value.length <= 300) {
+                    "Nội dung chữ phải có từ 1 đến 300 ký tự."
+                }
+                val x = requirePositiveOrZeroInt(name, arguments[1], "X")
+                val y = requirePositiveOrZeroInt(name, arguments[2], "Y")
+                val color = requireAnnotationColor(name, arguments[3])
+                val textSize = requirePositiveOrZeroInt(name, arguments[4], "CỠ_CHỮ")
+                require(textSize in 8..160) { "Cỡ chữ phải từ 8 đến 160 pixel." }
+                requireAnnotationPoint(name, x, y)
+                addScreenAnnotation(ScreenAnnotation.Text(value, x.toFloat(), y.toFloat(), textSize.toFloat(), color))
+            }
+            "VẼ_KHUNG" -> {
+                requireArgumentCount(name, arguments, 6)
+                val x = requirePositiveOrZeroInt(name, arguments[0], "X")
+                val y = requirePositiveOrZeroInt(name, arguments[1], "Y")
+                val width = requirePositiveOrZeroInt(name, arguments[2], "RỘNG")
+                val height = requirePositiveOrZeroInt(name, arguments[3], "CAO")
+                require(width > 0 && height > 0) { "Rộng và cao của khung phải lớn hơn 0." }
+                val color = requireAnnotationColor(name, arguments[4])
+                val stroke = requireAnnotationStroke(name, arguments[5])
+                requireAnnotationRect(name, x, y, width, height)
+                addScreenAnnotation(ScreenAnnotation.Rectangle(x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), color, stroke))
+            }
+            "VẼ_HÌNH_TRÒN" -> {
+                requireArgumentCount(name, arguments, 5)
+                val x = requirePositiveOrZeroInt(name, arguments[0], "TÂM_X")
+                val y = requirePositiveOrZeroInt(name, arguments[1], "TÂM_Y")
+                val radius = requirePositiveOrZeroInt(name, arguments[2], "BÁN_KÍNH")
+                require(radius > 0) { "Bán kính phải lớn hơn 0." }
+                val color = requireAnnotationColor(name, arguments[3])
+                val stroke = requireAnnotationStroke(name, arguments[4])
+                requireAnnotationCircle(name, x, y, radius)
+                addScreenAnnotation(ScreenAnnotation.Circle(x.toFloat(), y.toFloat(), radius.toFloat(), color, stroke))
+            }
+            "VẼ_ĐƯỜNG" -> {
+                requireArgumentCount(name, arguments, 6)
+                val x1 = requirePositiveOrZeroInt(name, arguments[0], "X1")
+                val y1 = requirePositiveOrZeroInt(name, arguments[1], "Y1")
+                val x2 = requirePositiveOrZeroInt(name, arguments[2], "X2")
+                val y2 = requirePositiveOrZeroInt(name, arguments[3], "Y2")
+                val color = requireAnnotationColor(name, arguments[4])
+                val stroke = requireAnnotationStroke(name, arguments[5])
+                requireAnnotationPoint(name, x1, y1)
+                requireAnnotationPoint(name, x2, y2)
+                addScreenAnnotation(ScreenAnnotation.Line(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), color, stroke))
+            }
+            "XÓA_ĐÁNH_DẤU_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 0)
+                clearScreenAnnotations()
             }
             "ỨNG_DỤNG_ĐÃ_CÀI" -> {
                 requireArgumentCount(name, arguments, 1)
@@ -974,6 +1030,71 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     } ?: emptyList()
 
+
+    private fun requireAnnotationColor(name: String, value: Any?): Int = when (value) {
+        is String -> runCatching { android.graphics.Color.parseColor(value) }.getOrElse {
+            throw IllegalArgumentException("Màu của '$name' không hợp lệ. Dùng #RRGGBB hoặc #AARRGGBB.")
+        }
+        is Number -> {
+            val numeric = value.toDouble()
+            require(numeric.isFinite() && numeric % 1.0 == 0.0 &&
+                numeric >= Int.MIN_VALUE.toDouble() && numeric <= 0xFFFFFFFFL.toDouble()
+            ) { "Màu của '$name' phải là mã màu nguyên hoặc chuỗi HEX." }
+            numeric.toLong().toInt()
+        }
+        else -> throw IllegalArgumentException("Màu của '$name' phải là chuỗi HEX hoặc số nguyên.")
+    }
+
+    private fun requireAnnotationStroke(name: String, value: Any?): Float {
+        val stroke = (value as? Number)?.toDouble()
+            ?: throw IllegalArgumentException("Độ dày nét của '$name' phải là số.")
+        require(stroke.isFinite() && stroke in 1.0..32.0) {
+            "Độ dày nét phải từ 1 đến 32 pixel."
+        }
+        return stroke.toFloat()
+    }
+
+    private fun requireAnnotationPoint(name: String, x: Int, y: Int) {
+        val metrics = readDisplayMetrics()
+        require(x < metrics.widthPixels && y < metrics.heightPixels) {
+            "Tọa độ đánh dấu nằm ngoài màn hình."
+        }
+    }
+
+    private fun requireAnnotationRect(name: String, x: Int, y: Int, width: Int, height: Int) {
+        val metrics = readDisplayMetrics()
+        require(
+            x.toLong() + width.toLong() <= metrics.widthPixels.toLong() &&
+                y.toLong() + height.toLong() <= metrics.heightPixels.toLong()
+        ) {
+            "Khung đánh dấu nằm ngoài màn hình."
+        }
+    }
+
+    private fun requireAnnotationCircle(name: String, x: Int, y: Int, radius: Int) {
+        val metrics = readDisplayMetrics()
+        require(
+            x - radius >= 0 && y - radius >= 0 &&
+                x.toLong() + radius.toLong() < metrics.widthPixels.toLong() &&
+                y.toLong() + radius.toLong() < metrics.heightPixels.toLong()
+        ) {
+            "Hình tròn đánh dấu nằm ngoài màn hình."
+        }
+    }
+
+    private fun addScreenAnnotation(annotation: ScreenAnnotation): Boolean =
+        callOnMainThread {
+            val overlay = screenAnnotationOverlay ?: ScreenAnnotationOverlay(
+                this,
+                windowManager ?: getSystemService(WINDOW_SERVICE) as WindowManager
+            ).also { screenAnnotationOverlay = it }
+            overlay.add(annotation)
+        } ?: false
+
+    private fun clearScreenAnnotations(): Boolean = callOnMainThread {
+        screenAnnotationOverlay?.clear()
+        true
+    } ?: false
 
     private fun requireTextArgument(name: String, value: Any?): String =
         value as? String ?: throw IllegalArgumentException("Hàm '$name' cần tham số dạng chuỗi.")
