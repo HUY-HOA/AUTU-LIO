@@ -1,6 +1,6 @@
-# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.19
+# AUTU-LIO — Ngôn ngữ lập trình tự động hóa AUTU Script 1.20
 
-**Phiên bản cú pháp:** `1.19`  
+**Phiên bản cú pháp:** `1.20`  
 **Quy tắc bắt buộc:** từ khóa, lệnh, hàm, kiểu và tên biến do người viết đặt đều phải viết HOA. Từ khóa tiếng Việt phải có đúng dấu. Không chấp nhận bí danh lệnh tiếng Anh hoặc cách viết thường.  
 **Bộ biên dịch:** `ScriptCompiler.kt`  
 **Bộ thực thi:** `ScriptExecutionEngine.kt`
@@ -215,7 +215,7 @@ CHẠM(X, Y)
 ĐẶT KHOẢNG_CÁCH: SỐ = DP_SANG_PIXEL(24)
 ```
 
-Dùng `MẬT_ĐỘ_MÀN_HÌNH()`, `DP_SANG_PIXEL(DP)`, `PIXEL_SANG_DP(PIXEL)`, `TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỶ_LỆ_X_THEO_TỌA_ĐỘ(X)` và `TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)`. Tỷ lệ 0–1 ánh xạ từ pixel đầu đến pixel cuối của màn hình. Chưa tự loại trừ status bar, navigation bar hoặc cutout.
+Dùng `MẬT_ĐỘ_MÀN_HÌNH()`, `DP_SANG_PIXEL(DP)`, `PIXEL_SANG_DP(PIXEL)`, `TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỶ_LỆ_X_THEO_TỌA_ĐỘ(X)` và `TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)`. Tỷ lệ 0–1 ánh xạ từ pixel đầu đến pixel cuối của màn hình. Từ phiên bản 1.20 có thêm `TỌA_ĐỘ_X_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỶ_LỆ_X_VÙNG_AN_TOÀN(X)` và `TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y)` để quy đổi trong vùng an toàn theo system bars/cutout mà Android xác định được. `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa hướng tự nhiên ROTATION_0 và hệ tọa độ logic hiện tại, bao gồm thiết bị có hướng gốc ngang. Tọa độ đầu vào và đầu ra của hai hàm này là pixel nguyên; chuyển đổi không tự thay tham số CHẠM/VUỐT.
 
 ## 6. Lệnh thao tác Android đã nối runtime
 
@@ -303,7 +303,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 
 Thông tin hãng/model, phiên bản Android và trạng thái Keyguard được đọc cục bộ tại thiết bị, không gửi lên máy chủ. Các hàm Keyguard chỉ đọc trạng thái, không mở khóa hoặc thay đổi thiết lập bảo mật. Các hàm DP dùng density hiện tại; tỷ lệ khung hình và hướng được suy ra từ kích thước pixel thực. Chỉ số xoay 0–3 là rotation Android, góc xoay là 0°/90°/180°/270°. Package foreground chỉ có khi AccessibilityService nhận được sự kiện cửa sổ, nên có thể rỗng khi dịch vụ chưa bật hoặc chưa nhận sự kiện.
  
-Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.19 bổ sung dữ liệu hiển thị theo DP, hướng/xoay màn hình và package foreground.
+Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.20 bổ sung dữ liệu hiển thị theo DP, hướng/xoay màn hình và package foreground.
 
 ## 8. Kết nối API qua HTTPS
 
