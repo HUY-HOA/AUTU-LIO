@@ -117,6 +117,11 @@ object EditorGuideCatalog {
                     "VẼ_ĐƯỜNG(40, 270, 340, 270, \"#FF0A84FF\", 3)"
                 ),
                 EditorGuideCommand(
+                    "VẼ_MŨI_TÊN(X1, Y1, X2, Y2, MÀU, ĐỘ_DÀY)",
+                    "Vẽ đường có đầu mũi tên để chỉ vào vị trí cần chú ý.",
+                    "VẼ_MŨI_TÊN(40, 270, 340, 270, \"#FF0A84FF\", 4)"
+                ),
+                EditorGuideCommand(
                     "XÓA_ĐÁNH_DẤU_MÀN_HÌNH()",
                     "Xóa toàn bộ chữ và hình đánh dấu do AUTU-LIO tạo."
                 )
