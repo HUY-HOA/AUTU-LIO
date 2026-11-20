@@ -186,6 +186,16 @@ private fun AuthScreen(
                         Spacer(Modifier.width(9.dp))
                         Text(tr("Đăng nhập bằng Google", "Continue with Google"))
                     }
+                    Text(
+                        tr(
+                            "Khi đăng nhập, AUTU-LIO gửi thông tin kỹ thuật cơ bản của thiết bị và trạng thái kết nối để bảo mật phiên, quản lý thiết bị và hỗ trợ tương thích. Không dùng chức năng này để đọc IMEI, số sê-ri hoặc vị trí GPS.",
+                            "At sign-in, AUTU-LIO sends basic device and connection diagnostics for session security, device management and compatibility. This feature does not read IMEI, serial numbers or GPS location."
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        textAlign = TextAlign.Center
+                    )
                     if (hasSavedSession) {
                         OutlinedButton(
                             onClick = onRetrySession,
