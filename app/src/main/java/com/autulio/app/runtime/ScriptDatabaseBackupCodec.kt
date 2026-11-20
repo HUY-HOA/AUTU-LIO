@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.FilterInputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
@@ -88,7 +89,7 @@ object ScriptDatabaseBackupCodec {
         var manifestBytes: ByteArray? = null
         var databaseBytes = 0L
 
-        ZipInputStream(BufferedInputStream(input)).use { zip ->
+        ZipInputStream(BufferedInputStream(LimitedInputStream(input, MAX_ARCHIVE_BYTES))).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
                 require(!entry.isDirectory) {
@@ -204,14 +205,39 @@ object ScriptDatabaseBackupCodec {
                 digest.update(buffer, 0, count)
             }
         }
+        val bytes = digest.digest()
         val hex = "0123456789abcdef"
-        return buildString(digest.digest().size * 2) {
-            // Digest once so the returned value is deterministic.
-            val bytes = digest.digest()
+        return buildString(bytes.size * 2) {
             bytes.forEach { byte ->
                 val value = byte.toInt() and 0xff
                 append(hex[value ushr 4])
                 append(hex[value and 0x0f])
+            }
+        }
+    }
+
+    private class LimitedInputStream(
+        input: InputStream,
+        private val maximumBytes: Long
+    ) : FilterInputStream(input) {
+        private var bytesRead = 0L
+
+        override fun read(): Int {
+            val value = super.read()
+            if (value >= 0) count(1L)
+            return value
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            val amount = super.read(buffer, offset, length)
+            if (amount > 0) count(amount.toLong())
+            return amount
+        }
+
+        private fun count(amount: Long) {
+            bytesRead += amount
+            require(bytesRead <= maximumBytes) {
+                "Tệp sao lưu vượt quá giới hạn $maximumBytes byte."
             }
         }
     }

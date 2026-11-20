@@ -4,6 +4,13 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import java.io.Closeable
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.Base64
 
 /**
@@ -34,18 +41,22 @@ class ScriptDatabaseStore(context: Context) : Closeable {
     )
 
     private val lock = Any()
-    private val database: SQLiteDatabase =
-        context.applicationContext.openOrCreateDatabase(DATABASE_NAME, Context.MODE_PRIVATE, null)
+    private val appContext = context.applicationContext
+    private var database: SQLiteDatabase = openDatabaseHandle()
     private var closed = false
 
     init {
-        database.setForeignKeyConstraintsEnabled(true)
-        database.setMaximumSize(MAX_DATABASE_BYTES)
         database.execSQL(MIGRATION_TABLE_CREATE_SQL)
         synchronized(lock) {
             readMigrationHistoryLocked()
         }
     }
+
+    private fun openDatabaseHandle(): SQLiteDatabase =
+        appContext.openOrCreateDatabase(DATABASE_NAME, Context.MODE_PRIVATE, null).apply {
+            setForeignKeyConstraintsEnabled(true)
+            setMaximumSize(MAX_DATABASE_BYTES)
+        }
 
     /** Returns the latest contiguous schema version, or zero before migration 1. */
     fun schemaVersion(): Int = synchronized(lock) {
@@ -162,9 +173,12 @@ class ScriptDatabaseStore(context: Context) : Closeable {
         "CHECKSUM" to checksum
     )
 
-    private fun readMigrationHistoryLocked(): List<AppliedMigration> {
+    private fun readMigrationHistoryLocked(): List<AppliedMigration> =
+        readMigrationHistory(database)
+
+    private fun readMigrationHistory(source: SQLiteDatabase): List<AppliedMigration> {
         val history = mutableListOf<AppliedMigration>()
-        database.rawQuery(
+        source.rawQuery(
             "SELECT version, checksum, applied_at FROM $MIGRATION_TABLE ORDER BY version ASC",
             null
         ).use { cursor ->
@@ -188,6 +202,142 @@ class ScriptDatabaseStore(context: Context) : Closeable {
             }
         }
         return history
+    }
+
+    /** Checkpoints and exports a verified, checksummed SQLite archive. */
+    fun exportBackupTo(output: OutputStream): ScriptDatabaseBackupCodec.Metadata =
+        synchronized(lock) {
+            ensureOpen()
+            checkpointWal(database)
+            val currentVersion = readMigrationHistory(database).lastOrNull()?.version ?: 0
+            validateDatabaseForRestore(database, currentVersion)
+            ScriptDatabaseBackupCodec.write(File(database.path), currentVersion, output)
+        }
+
+    /**
+     * Validates a staged database before replacing the live file. A synced
+     * rollback copy is retained until the new file passes all SQLite checks.
+     */
+    fun restoreBackupFrom(input: InputStream): ScriptDatabaseBackupCodec.Metadata =
+        synchronized(lock) {
+            ensureOpen()
+            val liveFile = File(database.path)
+            val parent = liveFile.parentFile
+                ?: throw IllegalStateException("Không xác định được thư mục cơ sở dữ liệu AUTU.")
+            val stagedFile = File.createTempFile(".autu-restore-", ".sqlite", parent)
+            val rollbackFile = File.createTempFile(".autu-rollback-", ".sqlite", parent)
+            var oldDatabaseClosed = false
+            var rollbackReady = false
+
+            try {
+                val metadata = ScriptDatabaseBackupCodec.read(input, stagedFile)
+                SQLiteDatabase.openDatabase(
+                    stagedFile.absolutePath,
+                    null,
+                    SQLiteDatabase.OPEN_READONLY
+                ).use { stagedDatabase ->
+                    validateDatabaseForRestore(stagedDatabase, metadata.schemaVersion)
+                }
+
+                checkpointWal(database)
+                copyAndSync(liveFile, rollbackFile)
+                rollbackReady = true
+
+                database.close()
+                oldDatabaseClosed = true
+                deleteSqliteSidecars(liveFile)
+                moveReplacing(stagedFile, liveFile)
+                database = openDatabaseHandle()
+                validateDatabaseForRestore(database, metadata.schemaVersion)
+
+                rollbackFile.delete()
+                rollbackReady = false
+                metadata
+            } catch (error: Exception) {
+                if (oldDatabaseClosed) {
+                    runCatching { if (database.isOpen) database.close() }
+                    deleteSqliteSidecars(liveFile)
+                    if (rollbackReady && rollbackFile.exists()) {
+                        moveReplacing(rollbackFile, liveFile)
+                    }
+                    database = openDatabaseHandle()
+                }
+                throw error
+            } finally {
+                stagedFile.delete()
+                if (rollbackFile.exists()) rollbackFile.delete()
+            }
+        }
+
+    private fun validateDatabaseForRestore(source: SQLiteDatabase, expectedSchemaVersion: Int) {
+        val messages = mutableListOf<String>()
+        source.rawQuery("PRAGMA integrity_check", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                require(messages.size < MAX_INTEGRITY_MESSAGES) {
+                    "SQLite trả về quá nhiều thông báo kiểm tra toàn vẹn."
+                }
+                messages += cursor.getString(0).orEmpty()
+            }
+        }
+        require(messages.size == 1 && messages.single() == "ok") {
+            "Cơ sở dữ liệu SQLite không vượt qua integrity_check."
+        }
+        source.rawQuery("PRAGMA foreign_key_check", null).use { cursor ->
+            require(!cursor.moveToNext()) {
+                "Cơ sở dữ liệu SQLite có lỗi khóa ngoại."
+            }
+        }
+        val version = readMigrationHistory(source).lastOrNull()?.version ?: 0
+        require(version == expectedSchemaVersion) {
+            "Phiên bản schema trong SQLite không khớp manifest sao lưu."
+        }
+    }
+
+    private fun checkpointWal(source: SQLiteDatabase) {
+        source.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { cursor ->
+            if (cursor.moveToFirst()) {
+                require(cursor.getInt(0) == 0) {
+                    "Không thể checkpoint WAL của cơ sở dữ liệu AUTU."
+                }
+            }
+        }
+    }
+
+    private fun copyAndSync(source: File, destination: File) {
+        FileInputStream(source).use { input ->
+            FileOutputStream(destination, false).use { output ->
+                input.copyTo(output, 8_192)
+                output.fd.sync()
+            }
+        }
+    }
+
+    private fun deleteSqliteSidecars(databaseFile: File) {
+        listOf("-wal", "-shm", "-journal").forEach { suffix ->
+            val sidecar = File(databaseFile.path + suffix)
+            if (sidecar.exists()) {
+                check(sidecar.delete()) {
+                    "Không thể xóa tệp phụ SQLite cũ khi khôi phục."
+                }
+            }
+        }
+    }
+
+    private fun moveReplacing(source: File, destination: File) {
+        try {
+            Files.move(
+                source.toPath(),
+                destination.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (_: Exception) {
+            Files.move(
+                source.toPath(),
+                destination.toPath(),
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        }
     }
 
     fun execute(sql: String, parameters: List<*>): Map<String, Any?> {

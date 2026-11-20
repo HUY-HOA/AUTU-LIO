@@ -2,8 +2,6 @@ package com.autulio.app.runtime
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.junit.Assert.assertEquals
@@ -31,7 +29,9 @@ class ScriptDatabaseBackupCodecTest {
         )
 
         assertEquals(7, written.schemaVersion)
+        assertEquals(source.length(), written.databaseBytes)
         assertEquals(written, read)
+        assertTrue(written.sha256.matches(Regex("^[a-f0-9]{64}$")))
         assertTrue(source.readBytes().contentEquals(restored.readBytes()))
     }
 
@@ -40,14 +40,18 @@ class ScriptDatabaseBackupCodecTest {
         val source = temporaryFolder.newFile("source.sqlite")
         source.writeBytes(ByteArray(4_096) { 7 })
         val archive = ByteArrayOutputStream()
-        ScriptDatabaseBackupCodec.write(source, 1, archive)
-
-        val changed = rewriteDatabaseEntry(archive.toByteArray()) { bytes ->
+        val metadata = ScriptDatabaseBackupCodec.write(source, 1, archive)
+        val changedBytes = source.readBytes().also { bytes ->
             bytes[bytes.lastIndex] = (bytes.last().toInt() xor 0x01).toByte()
         }
+        val tampered = makeArchive(
+            "manifest.txt" to manifest(metadata.schemaVersion, metadata.databaseBytes, metadata.sha256),
+            "database.sqlite" to changedBytes
+        )
+
         val destination = temporaryFolder.newFile("tampered.sqlite")
         assertFalse(runCatching {
-            ScriptDatabaseBackupCodec.read(ByteArrayInputStream(changed), destination)
+            ScriptDatabaseBackupCodec.read(ByteArrayInputStream(tampered), destination)
         }.isSuccess)
     }
 
@@ -93,20 +97,26 @@ class ScriptDatabaseBackupCodecTest {
 
     @Test
     fun rejectsDatabaseFilesLargerThanTheConfiguredLimit() {
-        val source = temporaryFolder.newFile("oversized.sqlite")
-        source.writeBytes(ByteArray(32))
-        val oversizedMetadata = manifest(
-            ScriptDatabaseBackupCodec.FORMAT_VERSION,
-            ScriptDatabaseStore.MAX_DATABASE_BYTES + 1,
-            "0".repeat(64)
-        )
         val archive = makeArchive(
-            "manifest.txt" to oversizedMetadata,
+            "manifest.txt" to manifest(
+                ScriptDatabaseBackupCodec.FORMAT_VERSION,
+                ScriptDatabaseStore.MAX_DATABASE_BYTES + 1,
+                "0".repeat(64)
+            ),
             "database.sqlite" to byteArrayOf(1)
         )
         val destination = temporaryFolder.newFile("oversized-restore.sqlite")
         assertFalse(runCatching {
             ScriptDatabaseBackupCodec.read(ByteArrayInputStream(archive), destination)
+        }.isSuccess)
+    }
+
+    @Test
+    fun rejectsAnArchiveWhoseRawInputExceedsTheLimit() {
+        val oversized = ByteArray(ScriptDatabaseBackupCodec.MAX_ARCHIVE_BYTES.toInt() + 1) { 1 }
+        val destination = temporaryFolder.newFile("too-large.sqlite")
+        assertFalse(runCatching {
+            ScriptDatabaseBackupCodec.read(ByteArrayInputStream(oversized), destination)
         }.isSuccess)
     }
 
@@ -134,30 +144,6 @@ class ScriptDatabaseBackupCodecTest {
                 zip.closeEntry()
             }
         }
-        return output.toByteArray()
-    }
-
-    private fun rewriteDatabaseEntry(
-        archiveBytes: ByteArray,
-        edit: (ByteArray) -> Unit
-    ): ByteArray {
-        val source = temporaryFolder.newFile("edit-source.sqlite")
-        val result = temporaryFolder.newFile("edit-result.sqlite")
-        // The test archive is small; the exact bytes of the database are the
-        // final ZIP entry written by the codec.
-        val original = ByteArray(32_768) { (it % 251).toByte() }
-        source.writeBytes(original)
-        edit(original)
-        val output = ByteArrayOutputStream()
-        ZipOutputStream(output).use { zip ->
-            zip.putNextEntry(ZipEntry("manifest.txt"))
-            zip.write(manifest(7, original.size.toLong(), ScriptDatabaseBackupCodec.write(source, 7, ByteArrayOutputStream()).sha256))
-            zip.closeEntry()
-            zip.putNextEntry(ZipEntry("database.sqlite"))
-            zip.write(original)
-            zip.closeEntry()
-        }
-        result.writeBytes(output.toByteArray())
         return output.toByteArray()
     }
 }
