@@ -57,7 +57,7 @@ class ScriptHttpClientTest {
         )
 
         assertEquals(201, result["TRẠNG_THÁI"])
-        assertEquals("POST", request.method())
+        assertEquals("POST", request.method)
         assertEquals(body, requestBodyText(request))
         assertEquals("application/json; charset=utf-8", request.header("Content-Type"))
         assertEquals("Bearer test-token", request.header("Authorization"))
