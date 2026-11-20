@@ -794,8 +794,7 @@ internal fun AdminPackagesScreen(
 @Composable
 internal fun CustomerPackagesScreen(
     accessToken: String?,
-    modifier: Modifier = Modifier,
-    onOpenDevices: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -845,14 +844,12 @@ internal fun CustomerPackagesScreen(
                 Icon(Icons.Outlined.Devices, null, tint = MaterialTheme.colorScheme.primary)
                 Text(tr("Chưa đăng ký thiết bị", "This device is not registered"), fontWeight = FontWeight.SemiBold)
                 Text(
-                    tr("Đăng ký thiết bị trong trang Thiết bị và giấy phép trước khi tải gói AUTU. Khóa riêng sẽ được giữ trong Android Keystore.",
-                        "Register this device on the Device and license page before downloading AUTUs. Its private key remains in Android Keystore."),
+                    tr("Hãy mở mục Thiết bị ở thanh điều hướng bên dưới để đăng ký thiết bị trước khi tải gói AUTU. Khóa riêng luôn được giữ trong Android Keystore.",
+                        "Use the Devices tab in the bottom navigation to register this device before downloading AUTUs. The private key stays in Android Keystore."),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
                 )
-                Button(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
-                    Text(tr("Mở Thiết bị và giấy phép", "Open Device and license"))
-                }
             }
         } else {
             if (loading && packages.isEmpty()) {
@@ -863,9 +860,12 @@ internal fun CustomerPackagesScreen(
             if (error.isNotBlank()) {
                 Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                 if (error.contains("thiết bị", ignoreCase = true) || error.contains("device", ignoreCase = true)) {
-                    OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
-                        Text(tr("Kiểm tra thiết bị và giấy phép", "Check device and license"))
-                    }
+                    Text(
+                        tr("Kiểm tra trạng thái đăng ký tại mục Thiết bị ở thanh điều hướng bên dưới.",
+                            "Check the registration status in the Devices tab in the bottom navigation."),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
                 }
             }
             if (notice.isNotBlank()) {
