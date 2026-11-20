@@ -50,6 +50,7 @@ data class CropRegion(
 class ScreenshotCropActivity : ComponentActivity() {
     companion object {
         const val EXTRA_ORIGINAL_PATH = "com.autulio.app.extra.SCREENSHOT_ORIGINAL_PATH"
+        const val EXTRA_RESTORE_FLOATING = "com.autulio.app.extra.RESTORE_FLOATING"
     }
 
     private val imageSaver = Executors.newSingleThreadExecutor()
@@ -136,7 +137,9 @@ class ScreenshotCropActivity : ComponentActivity() {
             imageSaver.execute { bitmapToRecycle.recycle() }
         }
         imageSaver.shutdown()
-        if (!isChangingConfigurations) {
+        if (!isChangingConfigurations &&
+            intent.getBooleanExtra(EXTRA_RESTORE_FLOATING, true)
+        ) {
             com.autulio.app.accessibility.AutoClickAccessibilityService.current()
                 ?.restoreFloatingControlsAfterExternalScreen()
         }
