@@ -6,6 +6,82 @@ import org.junit.Test
 
 class SafeScreenshotBitmapDecoderTest {
     @Test
+    fun mapsExifOrientationsToExpectedOutputDimensions() {
+        val normal = SafeScreenshotBitmapDecoder.orientationTransform(
+            android.media.ExifInterface.ORIENTATION_NORMAL, 400, 300
+        )
+        val rotate90 = SafeScreenshotBitmapDecoder.orientationTransform(
+            android.media.ExifInterface.ORIENTATION_ROTATE_90, 400, 300
+        )
+        val rotate270 = SafeScreenshotBitmapDecoder.orientationTransform(
+            android.media.ExifInterface.ORIENTATION_ROTATE_270, 400, 300
+        )
+        val transpose = SafeScreenshotBitmapDecoder.orientationTransform(
+            android.media.ExifInterface.ORIENTATION_TRANSPOSE, 400, 300
+        )
+        val transverse = SafeScreenshotBitmapDecoder.orientationTransform(
+            android.media.ExifInterface.ORIENTATION_TRANSVERSE, 400, 300
+        )
+
+        assertEquals(null, normal)
+        assertEquals(300, rotate90?.outputWidth)
+        assertEquals(400, rotate90?.outputHeight)
+        assertEquals(300, rotate270?.outputWidth)
+        assertEquals(400, rotate270?.outputHeight)
+        assertEquals(300, transpose?.outputWidth)
+        assertEquals(400, transpose?.outputHeight)
+        assertEquals(300, transverse?.outputWidth)
+        assertEquals(400, transverse?.outputHeight)
+    }
+
+    @Test
+    fun mapsExifMirroringAndRotationsToExpectedAffineMatrices() {
+        val horizontal = SafeScreenshotBitmapDecoder.orientationTransform(
+            android.media.ExifInterface.ORIENTATION_FLIP_HORIZONTAL, 400, 300
+        )
+        val vertical = SafeScreenshotBitmapDecoder.orientationTransform(
+            android.media.ExifInterface.ORIENTATION_FLIP_VERTICAL, 400, 300
+        )
+        val rotate180 = SafeScreenshotBitmapDecoder.orientationTransform(
+            android.media.ExifInterface.ORIENTATION_ROTATE_180, 400, 300
+        )
+        val rotate90 = SafeScreenshotBitmapDecoder.orientationTransform(
+            android.media.ExifInterface.ORIENTATION_ROTATE_90, 400, 300
+        )
+
+        org.junit.Assert.assertArrayEquals(
+            floatArrayOf(-1f, 0f, 400f, 0f, 1f, 0f, 0f, 0f, 1f),
+            horizontal?.matrixValues
+        )
+        org.junit.Assert.assertArrayEquals(
+            floatArrayOf(1f, 0f, 0f, 0f, -1f, 300f, 0f, 0f, 1f),
+            vertical?.matrixValues
+        )
+        org.junit.Assert.assertArrayEquals(
+            floatArrayOf(-1f, 0f, 400f, 0f, -1f, 300f, 0f, 0f, 1f),
+            rotate180?.matrixValues
+        )
+        org.junit.Assert.assertArrayEquals(
+            floatArrayOf(0f, -1f, 300f, 1f, 0f, 0f, 0f, 0f, 1f),
+            rotate90?.matrixValues
+        )
+    }
+
+    @Test
+    fun ignoresUnsupportedExifOrientationAndInvalidDimensions() {
+        assertEquals(
+            null,
+            SafeScreenshotBitmapDecoder.orientationTransform(0, 400, 300)
+        )
+        assertEquals(
+            null,
+            SafeScreenshotBitmapDecoder.orientationTransform(
+                android.media.ExifInterface.ORIENTATION_ROTATE_90, 0, 300
+            )
+        )
+    }
+
+    @Test
     fun keepsNormalPhoneScreenshotsAtOriginalResolution() {
         assertEquals(
             1,
