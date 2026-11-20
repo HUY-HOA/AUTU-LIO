@@ -121,7 +121,7 @@ class ScreenshotCropActivity : ComponentActivity() {
                     this,
                     result.fold(
                         { "Đã lưu ảnh cắt riêng trong kho AUTU-LIO." },
-                        { it.message ?: "Không lưu được ảnh đã cắt." }
+                        { "Không lưu được ảnh đã cắt. Hãy kiểm tra dung lượng trống rồi thử lại." }
                     ),
                     Toast.LENGTH_LONG
                 ).show()
