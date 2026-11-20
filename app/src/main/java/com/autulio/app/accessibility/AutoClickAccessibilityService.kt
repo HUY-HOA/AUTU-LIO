@@ -126,6 +126,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var editorVisible = false
     private var collapsed = true
     private var restoreFloatingExpandedAfterScreenshot = false
+    @Volatile private var removeAnnotationsAfterStop = false
     private var pendingProgram: ScriptProgram? = null
     private var latestSnapshot: ScriptExecutionSnapshot? = null
     @Volatile private var latestDisplayGeometry: ScreenDisplayGeometry? = null
@@ -137,9 +138,18 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         refreshDisplayGeometry()
         executionEngine = ScriptExecutionEngine(this) { snapshot ->
-            mainHandler.post { renderSnapshot(snapshot) }
+            mainHandler.post {
+                renderSnapshot(snapshot)
+                if (removeAnnotationsAfterStop &&
+                    snapshot.state != ScriptExecutionState.RUNNING &&
+                    snapshot.state != ScriptExecutionState.PAUSED &&
+                    snapshot.state != ScriptExecutionState.STOPPING
+                ) {
+                    removeRunnerAnnotations()
+                }
+            }
         }
-        showFloatingWindow()
+        // The runner window is opened only after the signed-in app prepares a program.
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -2252,6 +2262,36 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         collapsed = value
         root?.requestLayout()
         renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
+    }
+
+    /**
+     * Immediately removes runner controls on logout or when the saved session is rejected.
+     * A running script is stopped first; its finally block is allowed to complete before
+     * any annotations it creates are removed.
+     */
+    fun lockRunner() {
+        pendingProgram = null
+        removeAnnotationsAfterStop = true
+        executionEngine?.stop()
+
+        val removeControls = {
+            removeFloatingWindow()
+            val state = executionEngine?.snapshot()?.state
+            if (state != ScriptExecutionState.RUNNING &&
+                state != ScriptExecutionState.PAUSED &&
+                state != ScriptExecutionState.STOPPING
+            ) {
+                removeRunnerAnnotations()
+            }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) removeControls()
+        else mainHandler.post { removeControls() }
+    }
+
+    private fun removeRunnerAnnotations() {
+        screenAnnotationOverlay?.remove()
+        screenAnnotationOverlay = null
+        removeAnnotationsAfterStop = false
     }
 
     private fun removeFloatingWindow() {
