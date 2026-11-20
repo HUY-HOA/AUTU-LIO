@@ -96,16 +96,23 @@ class ScreenAnnotationOverlay(
     /** Temporarily hides annotations while AUTU-LIO opens its own editing screens. */
     fun hide() {
         if (!attached) return
-        runCatching { windowManager.removeView(view) }
-        attached = false
+        val removed = runCatching {
+            windowManager.removeView(view)
+            true
+        }.getOrDefault(false)
+        if (removed || view.parent == null) attached = false
     }
 
     /** Restores annotations after returning to another application. */
-    fun show() {
-        if (annotations.isEmpty()) return
-        if (!attached) attach()
-        view.setAnnotations(annotations.toList())
-    }
+    fun show(): Boolean = runCatching {
+        if (annotations.isEmpty()) {
+            true
+        } else {
+            if (!attached) attach()
+            view.setAnnotations(annotations.toList())
+            true
+        }
+    }.getOrDefault(false)
 
     fun remove() {
         hide()
