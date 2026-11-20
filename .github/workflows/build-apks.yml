@@ -3,6 +3,9 @@ name: AUTU-LIO Android APK
 run-name: AUTU-LIO Release APK - ${{ github.ref_name }}
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       build_variant:
@@ -23,7 +26,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK'))
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
