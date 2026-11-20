@@ -123,6 +123,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var floatingParams: WindowManager.LayoutParams? = null
     private var editorVisible = false
     private var collapsed = true
+    private var restoreFloatingExpandedAfterScreenshot = false
     private var pendingProgram: ScriptProgram? = null
     private var latestSnapshot: ScriptExecutionSnapshot? = null
     @Volatile private var latestDisplayGeometry: ScreenDisplayGeometry? = null
@@ -206,9 +207,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     fun stopExecution(): Boolean = executionEngine?.stop() == true
 
     fun restoreFloatingControlsAfterExternalScreen() {
+        val restoreExpanded = restoreFloatingExpandedAfterScreenshot
+        restoreFloatingExpandedAfterScreenshot = false
         val restore = {
             if (showFloatingWindow()) {
-                setCollapsed(true)
+                setCollapsed(!restoreExpanded)
                 renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
             }
         }
@@ -1170,6 +1173,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             return
         }
         statusLabel?.text = "Đang chụp màn hình..."
+        restoreFloatingExpandedAfterScreenshot = !collapsed
         removeFloatingWindow()
         screenshotExecutor.execute {
             val bitmap = captureDisplayBitmap()
