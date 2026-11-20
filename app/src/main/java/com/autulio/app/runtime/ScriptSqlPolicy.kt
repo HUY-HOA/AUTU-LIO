@@ -13,6 +13,7 @@ object ScriptSqlPolicy {
     const val MAX_QUERY_COLUMNS = 64
     const val MAX_CELL_TEXT_LENGTH = 4_096
     const val MAX_QUERY_RESULT_CHARS = 1_048_576
+    const val INTERNAL_MIGRATION_TABLE = "_AUTU_SCHEMA_MIGRATIONS"
 
     enum class Mode { QUERY, EXECUTE }
 
@@ -38,6 +39,9 @@ object ScriptSqlPolicy {
         }
         require(parameters.size <= MAX_PARAMETERS) {
             "SQL chỉ nhận tối đa " + MAX_PARAMETERS + " tham số."
+        }
+        require(!sql.contains(INTERNAL_MIGRATION_TABLE, ignoreCase = true)) {
+            "Bảng lịch sử di trú là dữ liệu nội bộ, không được truy cập trực tiếp."
         }
 
         val scan = scan(sql)

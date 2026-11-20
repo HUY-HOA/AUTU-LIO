@@ -103,6 +103,39 @@ GHI_JSON_TỆP("settings/config.json", TẠO_BẢN_ĐỒ("TÊN", "AUTU-LIO", "B�
 ĐẶT TÊN: CHUỖI = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "TÊN")
 ```
 
+### SQLite riêng và di trú schema có phiên bản
+
+AUTU-LIO lưu SQLite trong vùng riêng của ứng dụng. Script không được chọn đường dẫn cơ sở dữ liệu hoặc truy cập bảng lịch sử nội bộ. Hai hàm truy vấn/thực thi:
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| SQL_THỰC_THI | SQL_THỰC_THI(CÂU_SQL, THAM_SỐ) | BẢN_ĐỒ gồm SỐ_DÒNG và ID_MỚI |
+| SQL_TRUY_VẤN | SQL_TRUY_VẤN(CÂU_SQL, THAM_SỐ) | DANH_SÁCH các BẢN_ĐỒ dòng |
+| PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU | PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU() | Phiên bản schema lớn nhất đã áp dụng, ban đầu là 0 |
+| DI_TRÚ_CƠ_SỞ_DỮ_LIỆU | DI_TRÚ_CƠ_SỞ_DỮ_LIỆU(PHIÊN_BẢN, DANH_SÁCH_BẢN_ĐỒ) | Kết quả phiên bản, trạng thái áp dụng và checksum |
+
+Ví dụ tạo schema phiên bản 1:
+
+```text
+ĐẶT KẾT_QUẢ_DI_TRÚ: BẢN_ĐỒ = DI_TRÚ_CƠ_SỞ_DỮ_LIỆU(1, TẠO_DANH_SÁCH(
+    TẠO_BẢN_ĐỒ(
+        "SQL",
+        "CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
+    ),
+    TẠO_BẢN_ĐỒ(
+        "SQL",
+        "CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)"
+    )
+))
+ĐẶT PHIÊN_BẢN: SỐ = PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU()
+```
+
+Mỗi mục trong danh sách là BẢN_ĐỒ có khóa SQL bắt buộc dạng CHUỖI và khóa THAM_SỐ tùy chọn dạng DANH_SÁCH. Tham số được bind riêng, không ghép trực tiếp vào chuỗi SQL. Phiên bản bắt đầu từ 1 và phải tăng đúng từng bước; không được bỏ qua phiên bản. Tất cả câu SQL trong một phiên bản chạy trong cùng một transaction: nếu một câu lỗi, toàn bộ thay đổi của phiên bản đó bị rollback.
+
+Mỗi phiên bản đã áp dụng được lưu checksum SHA-256. Gọi lại đúng phiên bản với cùng nội dung là thao tác không làm thay đổi dữ liệu; dùng lại số phiên bản với nội dung khác sẽ báo lỗi. AUTU không cho script đọc, xóa hoặc sửa bảng nội bộ `_AUTU_SCHEMA_MIGRATIONS`.
+
+Giới hạn di trú: tối đa 64 câu SQL, 65.536 ký tự SQL tổng cộng và 256 tham số tổng cộng trong một phiên bản; từng câu vẫn tuân theo giới hạn SQL 8.192 ký tự và 64 tham số. SQL_THỰC_THI chỉ cho phép CREATE TABLE/INDEX, ALTER TABLE, DROP TABLE/INDEX, INSERT, UPDATE, DELETE hoặc REPLACE. SQL_TRUY_VẤN chỉ chấp nhận SELECT. Các giới hạn truy vấn, kiểu tham số và cấm nhiều câu SQL/chú thích/PRAGMA/ATTACH vẫn áp dụng. Tính năng di trú không thay thế backup/restore; các công cụ sao lưu và kiểm tra toàn vẹn chuyên biệt vẫn là hạng mục riêng.
+
 ### JSON và dữ liệu lồng nhau
 
 | Hàm / giá trị | Cú pháp | Kết quả |

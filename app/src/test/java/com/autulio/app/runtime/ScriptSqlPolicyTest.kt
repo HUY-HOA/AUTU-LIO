@@ -123,6 +123,25 @@ class ScriptSqlPolicyTest {
     }
 
     @Test
+    fun blocksDirectReadAndMutationOfTheInternalMigrationHistory() {
+        val forbidden = listOf(
+            "SELECT * FROM _AUTU_SCHEMA_MIGRATIONS",
+            "DROP TABLE _autu_schema_migrations",
+            "INSERT INTO \"_AUTU_SCHEMA_MIGRATIONS\"(version) VALUES (1)"
+        )
+        forbidden.forEach { sql ->
+            assertFalse("Should reject: " + sql, runCatching {
+                val mode = if (sql.startsWith("SELECT")) {
+                    ScriptSqlPolicy.Mode.QUERY
+                } else {
+                    ScriptSqlPolicy.Mode.EXECUTE
+                }
+                ScriptSqlPolicy.validate(sql, emptyList<Any?>(), mode)
+            }.isSuccess)
+        }
+    }
+
+    @Test
     fun enforcesSqlAndParameterLimits() {
         assertFalse(runCatching {
             ScriptSqlPolicy.validate(

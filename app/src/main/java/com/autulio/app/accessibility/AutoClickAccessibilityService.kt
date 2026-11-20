@@ -59,6 +59,7 @@ import com.autulio.app.runtime.ScreenInsets
 import com.autulio.app.runtime.ScreenCutoutBounds
 import com.autulio.app.runtime.ScreenDisplayGeometryStore
 import com.autulio.app.runtime.ScriptDatabaseStore
+import com.autulio.app.runtime.ScriptSchemaMigrationStatement
 import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptJsonCodec
 import com.autulio.app.script.ScriptCompiler
@@ -787,6 +788,37 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 val parameters = arguments[1] as? List<*>
                     ?: throw IllegalArgumentException("Tham số SQL phải là DANH_SÁCH.")
                 scriptDatabaseStore.query(sql, parameters)
+            }
+            "PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU" -> {
+                requireArgumentCount(name, arguments, 0)
+                scriptDatabaseStore.schemaVersion()
+            }
+            "DI_TRÚ_CƠ_SỞ_DỮ_LIỆU" -> {
+                requireArgumentCount(name, arguments, 2)
+                val version = requirePositiveOrZeroInt(name, arguments[0], "PHIÊN_BẢN")
+                require(version > 0) { "Phiên bản di trú phải lớn hơn 0." }
+                val entries = arguments[1] as? List<*>
+                    ?: throw IllegalArgumentException("Danh sách câu SQL di trú phải là DANH_SÁCH.")
+                val allowedKeys = setOf("SQL", "THAM_SỐ")
+                val statements = entries.mapIndexed { index, entry ->
+                    val fields = entry as? Map<*, *>
+                        ?: throw IllegalArgumentException("Mục di trú ${index + 1} phải là BẢN_ĐỒ.")
+                    val unknownKey = fields.keys.firstOrNull { it !in allowedKeys }
+                    require(unknownKey == null) {
+                        "Mục di trú ${index + 1} chứa khóa không hỗ trợ."
+                    }
+                    val sql = fields["SQL"] as? String
+                        ?: throw IllegalArgumentException("Mục di trú ${index + 1} thiếu SQL dạng CHUỖI.")
+                    val parameters = when (val raw = fields["THAM_SỐ"]) {
+                        null -> emptyList()
+                        is List<*> -> raw
+                        else -> throw IllegalArgumentException(
+                            "THAM_SỐ trong mục di trú ${index + 1} phải là DANH_SÁCH."
+                        )
+                    }
+                    ScriptSchemaMigrationStatement(sql, parameters)
+                }
+                scriptDatabaseStore.migrateSchema(version, statements)
             }
             "GỬI_YÊU_CẦU_HTTP" -> {
                 requireArgumentCount(name, arguments, 5)

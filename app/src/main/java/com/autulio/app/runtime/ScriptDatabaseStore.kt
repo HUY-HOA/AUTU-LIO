@@ -5,6 +5,7 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import java.io.Closeable
 import java.util.Base64
+import java.util.regex.Pattern
 
 /**
  * One app-private SQLite database for AUTU scripts.
@@ -16,7 +17,20 @@ class ScriptDatabaseStore(context: Context) : Closeable {
     companion object {
         const val DATABASE_NAME = "autu-script.db"
         const val MAX_DATABASE_BYTES = 8L * 1_024L * 1_024L
+        const val MIGRATION_TABLE = ScriptSqlPolicy.INTERNAL_MIGRATION_TABLE
+        private const val MIGRATION_TABLE_CREATE_SQL = """
+            CREATE TABLE IF NOT EXISTS _AUTU_SCHEMA_MIGRATIONS (
+                version INTEGER NOT NULL PRIMARY KEY,
+                checksum TEXT NOT NULL,
+                applied_at INTEGER NOT NULL
+            )
+        """
     }
+
+    private data class AppliedMigration(
+        val version: Int,
+        val checksum: String
+    )
 
     private val lock = Any()
     private val database: SQLiteDatabase =
@@ -26,6 +40,89 @@ class ScriptDatabaseStore(context: Context) : Closeable {
     init {
         database.setForeignKeyConstraintsEnabled(true)
         database.setMaximumSize(MAX_DATABASE_BYTES)
+        database.execSQL(MIGRATION_TABLE_CREATE_SQL)
+        synchronized(lock) {
+            readMigrationHistoryLocked()
+        }
+    }
+
+    /** Returns the latest contiguous schema version, or zero before migration 1. */
+    fun schemaVersion(): Int = synchronized(lock) {
+        ensureOpen()
+        readMigrationHistoryLocked().lastOrNull()?.version ?: 0
+    }
+
+    /**
+     * Applies one complete schema version atomically.
+     *
+     * Repeating an already-applied version with the same checksum is a no-op.
+     * Reusing a version with changed SQL/parameters or skipping a version fails.
+     */
+    fun migrateSchema(
+        version: Int,
+        statements: List<ScriptSchemaMigrationStatement>
+    ): Map<String, Any?> {
+        val migration = ScriptSchemaMigrationPolicy.validateStatements(statements)
+        synchronized(lock) {
+            ensureOpen()
+            database.beginTransaction()
+            try {
+                val history = readMigrationHistoryLocked()
+                val existing = history.firstOrNull { it.version == version }
+                if (existing != null) {
+                    check(existing.checksum == migration.checksum) {
+                        "Checksum của phiên bản di trú $version không khớp với bản đã áp dụng."
+                    }
+                    return migrationResult(version, applied = false, migration.checksum)
+                }
+
+                val currentVersion = history.lastOrNull()?.version ?: 0
+                ScriptSchemaMigrationPolicy.requireNextVersion(version, currentVersion)
+
+                migration.statements.forEach { statement ->
+                    database.execSQL(statement.sql, statement.arguments)
+                }
+                database.execSQL(
+                    "INSERT INTO $MIGRATION_TABLE(version, checksum, applied_at) VALUES (?, ?, ?)",
+                    arrayOf(version, migration.checksum, System.currentTimeMillis())
+                )
+                database.setTransactionSuccessful()
+                return migrationResult(version, applied = true, migration.checksum)
+            } finally {
+                database.endTransaction()
+            }
+        }
+    }
+
+    private fun migrationResult(
+        version: Int,
+        applied: Boolean,
+        checksum: String
+    ): Map<String, Any?> = linkedMapOf(
+        "PHIÊN_BẢN" to version,
+        "ĐÃ_ÁP_DỤNG" to applied,
+        "CHECKSUM" to checksum
+    )
+
+    private fun readMigrationHistoryLocked(): List<AppliedMigration> {
+        val history = mutableListOf<AppliedMigration>()
+        database.rawQuery(
+            "SELECT version, checksum FROM $MIGRATION_TABLE ORDER BY version ASC",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val version = cursor.getInt(0)
+                val checksum = cursor.getString(1).orEmpty()
+                require(version == history.size + 1) {
+                    "Lịch sử di trú SQLite bị thiếu hoặc sai thứ tự phiên bản."
+                }
+                require(checksum.matches(Regex("^[a-f0-9]{64}$"))) {
+                    "Checksum lịch sử di trú SQLite không hợp lệ."
+                }
+                history += AppliedMigration(version, checksum)
+            }
+        }
+        return history
     }
 
     fun execute(sql: String, parameters: List<*>): Map<String, Any?> {
