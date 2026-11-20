@@ -96,6 +96,10 @@ Trong Cài đặt → Tệp AUTU Script, người dùng có thể nhập một t
 | GHI_JSON_TỆP | GHI_JSON_TỆP("settings/config.json", GIÁ_TRỊ) | Chuyển giá trị thành JSON rồi ghi |
 | GỬI_TỆP_HTTP | GỬI_TỆP_HTTP(PHƯƠNG_THỨC, URL, TỆP, TÊN_TRƯỜNG, TÊN_TỆP, MIME, TIÊU_ĐỀ, THỜI_HẠN) | Upload tệp bằng multipart/form-data; trả metadata HTTP |
 | TẢI_TỆP_HTTP | TẢI_TỆP_HTTP(URL, ĐƯỜNG_DẪN_ĐÍCH, TIÊU_ĐỀ, THỜI_HẠN) | Tải GET HTTPS và lưu bytes khi phản hồi 2xx |
+| CHỌN_TỆP | CHỌN_TỆP(MIME) | Mở SAF; trả BẢN_ĐỒ có ĐƯỜNG_DẪN, DUNG_LƯỢNG, TÊN_TỆP hoặc RỖNG nếu hủy |
+| LƯU_TỆP | LƯU_TỆP(ĐƯỜNG_DẪN, TÊN_GỢI_Ý) | Mở SAF để người dùng chọn đích lưu; trả ĐÚNG nếu lưu, SAI nếu hủy |
+
+CHỌN_TỆP(MIME) mở bộ chọn Android ngay trong lúc kịch bản chạy; ví dụ MIME có thể là "text/csv", "application/json" hoặc "image/*". Tệp người dùng chọn được sao chép vào kho riêng `imports/` và hàm trả về BẢN_ĐỒ chứa đường dẫn, dung lượng và tên tệp. Nếu người dùng hủy, hàm trả RỖNG. LƯU_TỆP(ĐƯỜNG_DẪN, TÊN_GỢI_Ý) đọc tệp trong kho riêng rồi mở SAF để người dùng tự chọn nơi lưu; hủy trả SAI. Cả hai thao tác chờ tối đa 120 giây, có thể hủy bằng cách dừng kịch bản và không giữ quyền URI bên ngoài sau khi hoàn tất. Mỗi tệp tối đa 1 MiB.
 
 GỬI_TỆP_HTTP chỉ hỗ trợ POST, PUT hoặc PATCH; tệp nguồn phải nằm trong kho riêng. Tên trường, tên tệp và MIME được kiểm tra; tên tệp không được chứa đường dẫn; không được tự đặt Content-Type vì OkHttp tạo multipart boundary. TẢI_TỆP_HTTP dùng GET và chỉ ghi tệp khi phản hồi HTTP là 2xx. Tệp upload, multipart tổng và phản hồi download tối đa 1 MiB; URL chỉ HTTPS, không theo redirect, timeout 100..30.000 ms.
 

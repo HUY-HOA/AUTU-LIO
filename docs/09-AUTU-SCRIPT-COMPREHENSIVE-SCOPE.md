@@ -26,7 +26,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 | Ngôn ngữ lõi | Biến, kiểu, biểu thức, điều kiện, vòng lặp, hàm, danh sách, bản đồ | Đã có nền tảng |
 | Điều khiển luồng | THỬ/BẮT_LỖI/LUÔN_THỰC_HIỆN, hủy, thời hạn, luồng tác vụ | Đã có try/catch, hủy và timeout; chưa có đa luồng script |
 | Chuỗi và dữ liệu | Unicode, JSON lồng nhau, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Đã có Unicode, JSON lồng nhau và ngày giờ ISO 8601; regex/mã hóa còn thiếu |
-| Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI, multipart upload/download | Đã có SAF nhập/xuất tệp qua Cài đặt vào kho riêng, giới hạn 1 MiB; chưa có file picker khởi chạy trực tiếp trong script đang chạy |
+| Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI, multipart upload/download | Đã có SAF nhập/xuất từ Cài đặt và CHỌN_TỆP/LƯU_TỆP trực tiếp trong runtime; giới hạn 1 MiB và 120 giây |
 | Mạng | HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có HTTPS client giới hạn, multipart upload và download qua HTTPS; redirect bị chặn |
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema, toàn vẹn, backup/restore | Đã có SQLite nội bộ, SQL allow-list/bind tham số, transaction ghi, di trú tuần tự checksum SHA-256, integrity/foreign-key check và backup/restore ZIP qua SAF có checksum/rollback; còn thiếu nghiệm thu thiết bị thật |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
@@ -84,7 +84,7 @@ Các lệnh đã được nối vào AUTU Script:
 ### Tệp, dữ liệu và mạng
 - Đã có kho tệp UTF-8 riêng, JSON lồng nhau, CSV, HTTP multipart upload/download và SQLite nội bộ.
 - HTTP hỗ trợ HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header map, timeout, giới hạn payload/phản hồi và không tự theo redirect. Multipart upload dùng POST/PUT/PATCH; download dùng GET và chỉ lưu tệp khi HTTP 2xx.
-- Cài đặt đã có SAF nhập/xuất tệp tổng quát vào kho riêng; script sử dụng đường dẫn tương đối qua các hàm tệp hiện có. Chưa mở file picker trực tiếp từ runtime (không gọi Activity UI khi script đang chạy); backup/restore SQLite qua SAF có luồng riêng.
+- Cài đặt có SAF nhập/xuất tệp tổng quát; runtime có CHỌN_TỆP(MIME) và LƯU_TỆP(ĐƯỜNG_DẪN, TÊN_GỢI_Ý), chờ kết quả người dùng tối đa 120 giây, hỗ trợ dừng kịch bản, không lưu quyền URI lâu dài. Tệp được sao chép qua kho riêng và giới hạn 1 MiB; backup/restore SQLite qua SAF có luồng riêng.
 - API mạng phải có timeout, giới hạn kích thước, HTTPS mặc định, kiểm tra phản hồi và không ghi log bí mật.
 
 ### Tác vụ nền và sự kiện

@@ -63,6 +63,9 @@ import com.autulio.app.runtime.ScreenDisplayGeometryStore
 import com.autulio.app.runtime.ScriptDatabaseStore
 import com.autulio.app.runtime.ScriptSchemaMigrationStatement
 import com.autulio.app.runtime.ScriptFileStore
+import com.autulio.app.runtime.ScriptSafFileTransfer
+import com.autulio.app.runtime.ScriptFilePickerCoordinator
+import com.autulio.app.runtime.ScriptFilePickerResult
 import com.autulio.app.runtime.ScriptJsonCodec
 import com.autulio.app.runtime.ScriptCsvCodec
 import com.autulio.app.script.ScriptCompiler
@@ -396,8 +399,105 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     }
 
+    private fun awaitUserFilePicker(mode: String, mimeType: String? = null, relativePath: String? = null, suggestedName: String? = null): ScriptFilePickerResult {
+        if (!sessionVerified || sessionStore.read().isNullOrBlank()) throw IllegalStateException("Phiên đăng nhập không còn hợp lệ để chọn tệp.")
+        val requestId = ScriptFilePickerCoordinator.register()
+        val previousWindow = floatingWindow
+        val previousVisibility = previousWindow?.visibility
+        val launchFinished = CountDownLatch(1)
+        val launchAccepted = AtomicBoolean(false)
+        val launchError = AtomicReference<String?>(null)
+        val posted = mainHandler.post {
+            previousWindow?.visibility = View.GONE
+            screenAnnotationOverlay?.hide()
+            try {
+                val intent = Intent(this, com.autulio.app.ScriptFilePickerActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra(com.autulio.app.ScriptFilePickerActivity.EXTRA_REQUEST_ID, requestId)
+                    .putExtra(com.autulio.app.ScriptFilePickerActivity.EXTRA_MODE, mode)
+                mimeType?.let { intent.putExtra(com.autulio.app.ScriptFilePickerActivity.EXTRA_MIME_TYPE, it) }
+                relativePath?.let { intent.putExtra(com.autulio.app.ScriptFilePickerActivity.EXTRA_RELATIVE_PATH, it) }
+                suggestedName?.let { intent.putExtra(com.autulio.app.ScriptFilePickerActivity.EXTRA_SUGGESTED_NAME, it) }
+                startActivity(intent)
+                launchAccepted.set(true)
+            } catch (error: Exception) {
+                launchError.set(error.localizedMessage ?: "Không mở được bộ chọn tệp.")
+                ScriptFilePickerCoordinator.complete(requestId, ScriptFilePickerResult.Failed(launchError.get()!!))
+            } finally {
+                launchFinished.countDown()
+            }
+        }
+        if (!posted) {
+            ScriptFilePickerCoordinator.remove(requestId)
+            throw IllegalStateException("Không thể mở bộ chọn tệp trên luồng giao diện.")
+        }
+        try {
+            if (!launchFinished.await(5, TimeUnit.SECONDS)) throw java.util.concurrent.TimeoutException("Không khởi chạy được bộ chọn tệp.")
+            if (!launchAccepted.get() && launchError.get() == null) throw IllegalStateException("Không khởi chạy được bộ chọn tệp.")
+            return ScriptFilePickerCoordinator.await(requestId, 120_000L) {
+                val state = executionEngine?.snapshot()?.state
+                Thread.currentThread().isInterrupted ||
+                    state == ScriptExecutionState.STOPPING ||
+                    state == ScriptExecutionState.CANCELLED ||
+                    state == ScriptExecutionState.FAILED ||
+                    state == ScriptExecutionState.COMPLETED ||
+                    !sessionVerified
+            }
+        } catch (_: java.util.concurrent.TimeoutException) {
+            throw IllegalStateException("Đã hết thời gian chờ chọn hoặc lưu tệp (120 giây).")
+        } finally {
+            ScriptFilePickerCoordinator.remove(requestId)
+            mainHandler.post {
+                com.autulio.app.ScriptFilePickerActivity.cancelRequest(requestId)
+                if (sessionVerified && !sessionStore.read().isNullOrBlank() &&
+                    previousWindow != null && floatingWindow === previousWindow
+                ) {
+                    previousWindow.visibility = previousVisibility ?: View.VISIBLE
+                    screenAnnotationOverlay?.show()
+                    renderSnapshot(executionEngine?.snapshot())
+                }
+            }
+        }
+    }
+
     override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
         return when (name) {
+            "CHỌN_TỆP" -> {
+                requireArgumentCount(name, arguments, 1)
+                val mimeType = requireTextArgument(name, arguments[0]).trim()
+                require(mimeType.length in 1..127 &&
+                    mimeType.matches(Regex("^[A-Za-z0-9!#    override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
+        return when (name) {
+^_.+-]+/[A-Za-z0-9!#    override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
+        return when (name) {
+^_.+*-]+$"))
+                ) { "MIME phải có dạng hợp lệ như text/csv hoặc image/*." }
+                when (val result = awaitUserFilePicker("open", mimeType = mimeType)) {
+                    is ScriptFilePickerResult.Imported -> linkedMapOf(
+                        "ĐƯỜNG_DẪN" to result.relativePath,
+                        "DUNG_LƯỢNG" to result.bytes,
+                        "TÊN_TỆP" to result.displayName
+                    )
+                    ScriptFilePickerResult.Cancelled -> null
+                    is ScriptFilePickerResult.Failed -> throw IllegalStateException(result.message)
+                    is ScriptFilePickerResult.Exported -> throw IllegalStateException("Kết quả chọn tệp không hợp lệ.")
+                }
+            }
+            "LƯU_TỆP" -> {
+                requireArgumentCount(name, arguments, 2)
+                val relativePath = requireTextArgument(name, arguments[0])
+                val suggestedName = requireTextArgument(name, arguments[1]).trim()
+                require(suggestedName.isNotEmpty() &&
+                    suggestedName.length <= ScriptSafFileTransfer.MAX_FILE_NAME_LENGTH &&
+                    suggestedName.none { it == '/' || it == '\\' || Character.isISOControl(it) }
+                ) { "Tên tệp gợi ý phải từ 1 đến 128 ký tự và không chứa ký tự điều khiển hoặc dấu phân cách đường dẫn." }
+                when (val result = awaitUserFilePicker("save", relativePath = relativePath, suggestedName = suggestedName)) {
+                    is ScriptFilePickerResult.Exported -> true
+                    ScriptFilePickerResult.Cancelled -> false
+                    is ScriptFilePickerResult.Failed -> throw IllegalStateException(result.message)
+                    is ScriptFilePickerResult.Imported -> throw IllegalStateException("Kết quả lưu tệp không hợp lệ.")
+                }
+            }
             "HÃNG_SẢN_XUẤT" -> Build.MANUFACTURER.orEmpty()
             "MẪU_THIẾT_BỊ" -> Build.MODEL.orEmpty()
             "PHIÊN_BẢN_ANDROID" -> Build.VERSION.RELEASE.orEmpty()

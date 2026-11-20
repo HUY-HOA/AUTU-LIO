@@ -229,6 +229,8 @@ object ScriptCompiler {
         "GỬI_YÊU_CẦU_HTTP" to 5,
         "GỬI_TỆP_HTTP" to 8,
         "TẢI_TỆP_HTTP" to 4,
+        "CHỌN_TỆP" to 1,
+        "LƯU_TỆP" to 2,
         "SQL_THỰC_THI" to 2,
         "SQL_TRUY_VẤN" to 2,
         "DI_TRÚ_CƠ_SỞ_DỮ_LIỆU" to 2,

@@ -1036,4 +1036,19 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", nowWrong.diagnostics.first().code)
     }
 
+    @Test
+    fun compilesRuntimeSafPickerAndSaveFunctionsAndChecksArgumentCounts() {
+        val valid = ScriptCompiler.compile(
+            """
+            ĐẶT TỆP: BẢN_ĐỒ = CHỌN_TỆP("text/csv")
+            ĐẶT ĐÃ_LƯU: LUẬN_LÝ = LƯU_TỆP("imports/report.csv", "report-copy.csv")
+            """.trimIndent()
+        )
+        assertTrue(valid.diagnostics.toString(), valid.isSuccess)
+        val selectWrong = ScriptCompiler.compile("CHỌN_TỆP()")
+        val saveWrong = ScriptCompiler.compile("""LƯU_TỆP("imports/report.csv")""")
+        assertEquals("function_argument_count", selectWrong.diagnostics.first().code)
+        assertEquals("function_argument_count", saveWrong.diagnostics.first().code)
+    }
+
 }
