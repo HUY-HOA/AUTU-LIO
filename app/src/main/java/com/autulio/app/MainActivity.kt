@@ -1,6 +1,7 @@
 package com.autulio.app
 
 import android.app.Activity
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -77,6 +78,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Suppress("DEPRECATION")
+    @SuppressLint("NewApi")
     private fun cacheDisplayGeometry(insets: WindowInsets) {
         val metrics = DisplayMetrics()
         windowManager.defaultDisplay.getRealMetrics(metrics)
