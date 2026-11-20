@@ -701,13 +701,13 @@ class AuthRepository(context: Context) {
             .joinToString(" ").take(100)
     }
 
+    @Suppress("DEPRECATION")
     private fun collectDeviceTechnicalInfo(): JSONObject {
         val metrics = appContext.resources.displayMetrics
         val packageInfo = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
         val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.longVersionCode
         } else {
-            @Suppress("DEPRECATION")
             packageInfo.versionCode.toLong()
         }
 
