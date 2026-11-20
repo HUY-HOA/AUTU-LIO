@@ -132,7 +132,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     @Volatile private var authorizationMonitorTask: ScheduledFuture<*>? = null
     private var executionEngine: ScriptExecutionEngine? = null
     private var windowManager: WindowManager? = null
-    private var floatingWindow: LinearLayout? = null
+    @Volatile private var floatingWindow: LinearLayout? = null
     private var screenAnnotationOverlay: ScreenAnnotationOverlay? = null
     private var statusLabel: TextView? = null
     private var primaryButton: TextView? = null
@@ -185,16 +185,14 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             } else {
                 try {
                     runBlocking { authRepository.currentUser(token) }
+                    if (sessionStore.read() == token) sessionVerified = true
+                } catch (error: AuthApiException) {
                     if (sessionStore.read() == token) {
-                        sessionVerified = true
-                    } else {
+                        if (error.statusCode in 401..403) runCatching { sessionStore.clear() }
                         lockRunner()
                     }
-                } catch (error: AuthApiException) {
-                    if (error.statusCode in 401..403) runCatching { sessionStore.clear() }
-                    lockRunner()
                 } catch (_: Exception) {
-                    lockRunner()
+                    if (sessionStore.read() == token) lockRunner()
                 }
             }
         }, 60L, 60L, TimeUnit.SECONDS)
