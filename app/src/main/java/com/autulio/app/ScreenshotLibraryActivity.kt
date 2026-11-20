@@ -85,6 +85,15 @@ class ScreenshotLibraryActivity : ComponentActivity() {
                                     false
                                 )
                         )
+                    },
+                    onEditImage = { file ->
+                        startActivity(
+                            Intent(this, ScreenshotImageEditorActivity::class.java)
+                                .putExtra(
+                                    ScreenshotImageEditorActivity.EXTRA_IMAGE_PATH,
+                                    file.absolutePath
+                                )
+                        )
                     }
                 )
             }
@@ -175,7 +184,8 @@ private fun ScreenshotLibraryScreen(
     onBack: () -> Unit,
     onImport: (List<Uri>) -> Unit,
     onDelete: (File) -> Unit,
-    onOpenImage: (File) -> Unit
+    onOpenImage: (File) -> Unit,
+    onEditImage: (File) -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
@@ -297,6 +307,7 @@ private fun ScreenshotLibraryScreen(
                     ScreenshotLibraryRow(
                         entry = entry,
                         onOpen = { onOpenImage(entry.file) },
+                        onEdit = { onEditImage(entry.file) },
                         onDelete = { deleteTarget = entry.file }
                     )
                 }
@@ -329,6 +340,7 @@ private fun ScreenshotLibraryScreen(
 private fun ScreenshotLibraryRow(
     entry: ScreenshotLibraryEntry,
     onOpen: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val thumbnail = remember(entry.file.absolutePath, entry.file.lastModified()) {
@@ -382,8 +394,12 @@ private fun ScreenshotLibraryRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(
                         onClick = onOpen,
-                        contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)
-                    ) { Text("Mở / cắt") }
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) { Text("Cắt") }
+                    TextButton(
+                        onClick = onEdit,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) { Text("Sửa") }
                     TextButton(
                         onClick = onDelete,
                         contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)
