@@ -391,6 +391,18 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireAnnotationPoint(name, x2, y2)
                 addScreenAnnotation(ScreenAnnotation.Line(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), color, stroke))
             }
+            "VẼ_MŨI_TÊN" -> {
+                requireArgumentCount(name, arguments, 6)
+                val x1 = requirePositiveOrZeroInt(name, arguments[0], "X1")
+                val y1 = requirePositiveOrZeroInt(name, arguments[1], "Y1")
+                val x2 = requirePositiveOrZeroInt(name, arguments[2], "X2")
+                val y2 = requirePositiveOrZeroInt(name, arguments[3], "Y2")
+                val color = requireAnnotationColor(name, arguments[4])
+                val stroke = requireAnnotationStroke(name, arguments[5])
+                requireAnnotationPoint(name, x1, y1)
+                requireAnnotationPoint(name, x2, y2)
+                addScreenAnnotation(ScreenAnnotation.Arrow(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), color, stroke))
+            }
             "XÓA_ĐÁNH_DẤU_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
                 screenAnnotationOverlay?.remove()
@@ -1894,6 +1906,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "Vẽ khung đánh dấu" to "VẼ_KHUNG(40, 210, 300, 120, \"#FFFFC107\", 4)",
             "Vẽ hình tròn" to "VẼ_HÌNH_TRÒN(200, 300, 45, \"#FF30D158\", 4)",
             "Vẽ đường đánh dấu" to "VẼ_ĐƯỜNG(40, 270, 340, 270, \"#FF0A84FF\", 3)",
+            "Vẽ mũi tên" to "VẼ_MŨI_TÊN(40, 270, 340, 270, \"#FF0A84FF\", 4)",
             "Xóa đánh dấu màn hình" to "XÓA_ĐÁNH_DẤU_MÀN_HÌNH()"
         )
         val menu = PopupMenu(this, anchor)
