@@ -21,6 +21,8 @@ import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.tr
 import com.autulio.app.localizedErrorMessage
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -77,6 +79,38 @@ internal fun AuthenticatedAppHost() {
 
     LaunchedEffect(Unit) {
         restoreSession()
+    }
+
+    // Recheck server authorization periodically so a remotely revoked session
+    // cannot continue using the floating runner indefinitely.
+    LaunchedEffect(accessToken) {
+        val token = accessToken ?: return@LaunchedEffect
+        while (true) {
+            delay(60_000)
+            try {
+                val verifiedUser = repository.currentUser(token)
+                if (accessToken == token) user = verifiedUser
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                AutoClickAccessibilityService.current()?.lockRunner()
+                if (accessToken == token) {
+                    if (error is AuthApiException && error.statusCode in 401..403) {
+                        store.clear()
+                        hasSavedSession = false
+                        errorMessage = error.message.orEmpty()
+                    } else {
+                        hasSavedSession = !store.read().isNullOrBlank()
+                        errorMessage = tr(
+                            "Không thể xác minh phiên. Hãy kết nối mạng rồi xác minh lại trước khi sử dụng.",
+                            "The session could not be verified. Connect to the internet and verify again before using the app."
+                        )
+                    }
+                    accessToken = null
+                    user = null
+                }
+            }
+        }
     }
 
     fun signOut() {
