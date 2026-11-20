@@ -894,6 +894,18 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun supportsSqliteIntegrityCheckBuiltin() {
+        val valid = ScriptCompiler.compile(
+            "ĐẶT KIỂM_TRA: BẢN_ĐỒ = KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU()"
+        )
+        val invalid = ScriptCompiler.compile(
+            "ĐẶT KIỂM_TRA: BẢN_ĐỒ = KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU(1)"
+        )
+        assertTrue(valid.diagnostics.toString(), valid.isSuccess)
+        assertEquals("function_argument_count", invalid.diagnostics.first().code)
+    }
+
+    @Test
     fun validatesVersionedSqliteMigrationArgumentCounts() {
         val missingList = ScriptCompiler.compile(
             "ĐẶT X = DI_TRÚ_CƠ_SỞ_DỮ_LIỆU(1)"

@@ -113,6 +113,7 @@ AUTU-LIO lưu SQLite trong vùng riêng của ứng dụng. Script không đư�
 | SQL_TRUY_VẤN | SQL_TRUY_VẤN(CÂU_SQL, THAM_SỐ) | DANH_SÁCH các BẢN_ĐỒ dòng |
 | PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU | PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU() | Phiên bản schema lớn nhất đã áp dụng, ban đầu là 0 |
 | DI_TRÚ_CƠ_SỞ_DỮ_LIỆU | DI_TRÚ_CƠ_SỞ_DỮ_LIỆU(PHIÊN_BẢN, DANH_SÁCH_BẢN_ĐỒ) | Kết quả phiên bản, trạng thái áp dụng và checksum |
+| KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU | KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU() | Kết quả integrity_check, foreign_key_check và lịch sử di trú |
 
 Ví dụ tạo schema phiên bản 1:
 
@@ -134,7 +135,7 @@ Mỗi mục trong danh sách là BẢN_ĐỒ có khóa SQL bắt buộc dạng C
 
 Mỗi phiên bản đã áp dụng được lưu checksum SHA-256. Gọi lại đúng phiên bản với cùng nội dung là thao tác không làm thay đổi dữ liệu; dùng lại số phiên bản với nội dung khác sẽ báo lỗi. AUTU không cho script đọc, xóa hoặc sửa bảng nội bộ `_AUTU_SCHEMA_MIGRATIONS`.
 
-Giới hạn di trú: tối đa 64 câu SQL, 65.536 ký tự SQL tổng cộng và 256 tham số tổng cộng trong một phiên bản; từng câu vẫn tuân theo giới hạn SQL 8.192 ký tự và 64 tham số. SQL_THỰC_THI chỉ cho phép CREATE TABLE/INDEX, ALTER TABLE, DROP TABLE/INDEX, INSERT, UPDATE, DELETE hoặc REPLACE. SQL_TRUY_VẤN chỉ chấp nhận SELECT. Các giới hạn truy vấn, kiểu tham số và cấm nhiều câu SQL/chú thích/PRAGMA/ATTACH vẫn áp dụng. Tính năng di trú không thay thế backup/restore; các công cụ sao lưu và kiểm tra toàn vẹn chuyên biệt vẫn là hạng mục riêng.
+Giới hạn di trú: tối đa 64 câu SQL, 65.536 ký tự SQL tổng cộng và 256 tham số tổng cộng trong một phiên bản; từng câu vẫn tuân theo giới hạn SQL 8.192 ký tự và 64 tham số. SQL_THỰC_THI chỉ cho phép CREATE TABLE/INDEX, ALTER TABLE, DROP TABLE/INDEX, INSERT, UPDATE, DELETE hoặc REPLACE. SQL_TRUY_VẤN chỉ chấp nhận SELECT. Các giới hạn truy vấn, kiểu tham số và cấm nhiều câu SQL/chú thích/PRAGMA/ATTACH vẫn áp dụng. Lệnh KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU() chạy PRAGMA integrity_check và foreign_key_check nội bộ, đồng thời xác thực thứ tự/checksum/thời điểm của lịch sử di trú. Kết quả có giới hạn tối đa 64 thông báo integrity và 64 lỗi khóa ngoại; ĐẠT chỉ là ĐÚNG khi tất cả kiểm tra đều sạch và không bị cắt bớt. Tính năng này không thay thế backup/restore.
 
 ### JSON và dữ liệu lồng nhau
 

@@ -28,7 +28,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 | Chuỗi và dữ liệu | Unicode, JSON lồng nhau, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Đã có Unicode và JSON lồng nhau; regex/ngày giờ/mã hóa còn thiếu |
 | Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI người dùng | Đã có kho tệp riêng và JSON; CSV/chọn URI còn thiếu |
 | Mạng | HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn và PATCH; multipart/upload/download còn thiếu |
-| Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema | Đã có SQLite nội bộ, SQL allow-list/bind tham số, transaction ghi và di trú schema theo phiên bản có checksum SHA-256; kiểm tra toàn vẹn chuyên biệt và backup/restore còn thiếu |
+| Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema và toàn vẹn | Đã có SQLite nội bộ, SQL allow-list/bind tham số, transaction ghi, di trú schema tuần tự có checksum SHA-256 và lệnh integrity/foreign-key check; backup/restore còn thiếu |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
 | Văn bản giao diện | Đọc cây Trợ năng, tìm nhãn và trả tọa độ | Kết hợp cây Accessibility và OCR ML Kit; nhận diện nhãn ảnh/vật thể, QR/mã vạch trên thiết bị |
 
@@ -116,7 +116,7 @@ Một mô-đun chỉ được đánh dấu **Đã triển khai** khi có đủ:
 
 1. Hoàn thiện hiệu chỉnh vùng an toàn, tọa độ theo xoay màn hình, kéo-thả và đánh giá đa điểm theo khả năng Android.
 2. HTTP/API có timeout, HTTPS, giới hạn payload và chính sách dữ liệu.
-3. Bổ sung kiểm tra toàn vẹn dữ liệu và backup/restore cho SQLite nội bộ; di trú schema có phiên bản và checksum đã được triển khai.
+3. Hoàn thiện backup/restore có xác minh checksum và phục hồi an toàn cho SQLite nội bộ; di trú phiên bản và kiểm tra toàn vẹn đã có mã nguồn.
 4. Sự kiện, lịch, hàng đợi và tác vụ nền có thể hủy.
 5. Module/thư viện dùng chung và regex/ngày giờ.
 6. Trình soạn thảo: tô màu, autocomplete, định dạng và debugger từng bước.

@@ -226,6 +226,7 @@ object ScriptCompiler {
         "SQL_TRUY_VẤN" to 2,
         "DI_TRÚ_CƠ_SỞ_DỮ_LIỆU" to 2,
         "PHIÊN_BẢN_CƠ_SỞ_DỮ_LIỆU" to 0,
+        "KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU" to 0,
         "HIỂN_THỊ_CHỮ" to 5,
         "VẼ_KHUNG" to 6,
         "VẼ_HÌNH_TRÒN" to 5,

@@ -19,11 +19,13 @@ class ScriptDatabaseStore(context: Context) : Closeable {
         const val MIGRATION_TABLE = ScriptSqlPolicy.INTERNAL_MIGRATION_TABLE
         private const val MIGRATION_TABLE_CREATE_SQL = """
             CREATE TABLE IF NOT EXISTS _AUTU_SCHEMA_MIGRATIONS (
-                version INTEGER NOT NULL PRIMARY KEY,
-                checksum TEXT NOT NULL,
-                applied_at INTEGER NOT NULL
+                version INTEGER NOT NULL PRIMARY KEY CHECK(version BETWEEN 1 AND 100000),
+                checksum TEXT NOT NULL CHECK(length(checksum) = 64),
+                applied_at INTEGER NOT NULL CHECK(applied_at > 0)
             )
         """
+        private const val MAX_INTEGRITY_MESSAGES = 64
+        private const val MAX_FOREIGN_KEY_ISSUES = 64
     }
 
     private data class AppliedMigration(
@@ -45,10 +47,60 @@ class ScriptDatabaseStore(context: Context) : Closeable {
         }
     }
 
-    /** Returns the latest contiguous schema version, or zero before migration 1. */
-    fun schemaVersion(): Int = synchronized(lock) {
+    /**
+     * Runs SQLite's full integrity check, foreign-key check and AUTU migration
+     * history validation. Results are bounded so scripts cannot create a huge
+     * in-memory response from a damaged database.
+     */
+    fun integrityCheck(): Map<String, Any?> = synchronized(lock) {
         ensureOpen()
-        readMigrationHistoryLocked().lastOrNull()?.version ?: 0
+        val integrityMessages = mutableListOf<String>()
+        var truncated = false
+        database.rawQuery("PRAGMA integrity_check", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                val message = cursor.getString(0).orEmpty()
+                if (integrityMessages.size < MAX_INTEGRITY_MESSAGES) {
+                    integrityMessages += message
+                } else {
+                    truncated = true
+                }
+            }
+        }
+
+        val foreignKeyIssues = mutableListOf<Map<String, Any?>>()
+        database.rawQuery("PRAGMA foreign_key_check", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                if (foreignKeyIssues.size >= MAX_FOREIGN_KEY_ISSUES) {
+                    truncated = true
+                    continue
+                }
+                foreignKeyIssues += linkedMapOf(
+                    "BẢNG" to cursor.getString(0),
+                    "ROW_ID" to if (cursor.isNull(1)) null else cursor.getLong(1),
+                    "BẢNG_CHA" to cursor.getString(2),
+                    "ID_KHÓA" to cursor.getInt(3)
+                )
+            }
+        }
+
+        val historyResult = runCatching { readMigrationHistoryLocked() }
+        val history = historyResult.getOrNull()
+        val databaseIsValid =
+            !truncated &&
+                integrityMessages.size == 1 &&
+                integrityMessages.firstOrNull() == "ok" &&
+                foreignKeyIssues.isEmpty() &&
+                historyResult.isSuccess
+
+        linkedMapOf(
+            "ĐẠT" to databaseIsValid,
+            "PHIÊN_BẢN" to (history?.lastOrNull()?.version ?: 0),
+            "KẾT_QUẢ" to integrityMessages,
+            "LỖI_KHÓA_NGOẠI" to foreignKeyIssues,
+            "LỊCH_SỬ_DI_TRÚ_HỢP_LỆ" to historyResult.isSuccess,
+            "LỖI_LỊCH_SỬ_DI_TRÚ" to historyResult.exceptionOrNull()?.message,
+            "ĐÃ_CẮT_BỚT" to truncated
+        )
     }
 
     /**
@@ -107,17 +159,24 @@ class ScriptDatabaseStore(context: Context) : Closeable {
     private fun readMigrationHistoryLocked(): List<AppliedMigration> {
         val history = mutableListOf<AppliedMigration>()
         database.rawQuery(
-            "SELECT version, checksum FROM $MIGRATION_TABLE ORDER BY version ASC",
+            "SELECT version, checksum, applied_at FROM $MIGRATION_TABLE ORDER BY version ASC",
             null
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 val version = cursor.getInt(0)
                 val checksum = cursor.getString(1).orEmpty()
+                val appliedAt = cursor.getLong(2)
+                require(version in 1..ScriptSchemaMigrationPolicy.MAX_VERSION) {
+                    "Phiên bản trong lịch sử di trú SQLite vượt giới hạn."
+                }
                 require(version == history.size + 1) {
                     "Lịch sử di trú SQLite bị thiếu hoặc sai thứ tự phiên bản."
                 }
                 require(checksum.matches(Regex("^[a-f0-9]{64}$"))) {
                     "Checksum lịch sử di trú SQLite không hợp lệ."
+                }
+                require(appliedAt > 0L) {
+                    "Thời điểm áp dụng di trú SQLite không hợp lệ."
                 }
                 history += AppliedMigration(version, checksum)
             }

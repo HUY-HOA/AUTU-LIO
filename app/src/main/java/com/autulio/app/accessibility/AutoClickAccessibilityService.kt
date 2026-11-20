@@ -793,6 +793,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 scriptDatabaseStore.schemaVersion()
             }
+            "KIỂM_TRA_TOÀN_VẸN_CƠ_SỞ_DỮ_LIỆU" -> {
+                requireArgumentCount(name, arguments, 0)
+                scriptDatabaseStore.integrityCheck()
+            }
             "DI_TRÚ_CƠ_SỞ_DỮ_LIỆU" -> {
                 requireArgumentCount(name, arguments, 2)
                 val version = requirePositiveOrZeroInt(name, arguments[0], "PHIÊN_BẢN")
