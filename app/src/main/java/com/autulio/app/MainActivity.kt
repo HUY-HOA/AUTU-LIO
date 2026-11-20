@@ -203,9 +203,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
             when (page) {
                 "overview" -> OverviewScreen(
                     Modifier.padding(padding),
-                    accessToken = accessToken,
-                    onNavigate = { page = it },
-                    onCreate = { createDialog = true }
+                    accessToken = accessToken
                 )
                 "scripts" -> ScriptsScreen(
                     Modifier.padding(padding),
@@ -290,15 +288,11 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                 "home" -> CustomerHome(
                     modifier = Modifier.padding(padding),
                     email = email,
-                    accessToken = accessToken,
-                    onScripts = { page = "scripts" },
-                    onDevices = { page = "device" },
-
+                    accessToken = accessToken
                 )
                 "scripts" -> CustomerPackagesScreen(
                     accessToken = accessToken,
-                    modifier = Modifier.padding(padding),
-                    onOpenDevices = { page = "device" }
+                    modifier = Modifier.padding(padding)
                 )
                 "device" -> CustomerDeviceLicenseScreen(
                     accessToken = accessToken,
@@ -317,9 +311,7 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
 @Composable
 private fun OverviewScreen(
     modifier: Modifier,
-    accessToken: String?,
-    onNavigate: (String) -> Unit,
-    onCreate: () -> Unit
+    accessToken: String?
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -416,19 +408,6 @@ private fun OverviewScreen(
             }
         }
 
-        Text(tr("Truy cập nhanh", "Quick actions"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ActionTile(tr("Tạo AUTU", "Create AUTU"), Icons.Outlined.Add, Modifier.weight(1f), onCreate)
-            ActionTile(tr("Kịch bản", "Scripts"), Icons.Outlined.ListAlt, Modifier.weight(1f)) { onNavigate("scripts") }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ActionTile(tr("Khách hàng", "Customers"), Icons.Outlined.Group, Modifier.weight(1f)) { onNavigate("customers") }
-            ActionTile(tr("Thiết bị", "Devices"), Icons.Outlined.Smartphone, Modifier.weight(1f)) { onNavigate("devices") }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ActionTile(tr("Giấy phép", "Licenses"), Icons.Outlined.VerifiedUser, Modifier.weight(1f)) { onNavigate("licenses") }
-            ActionTile(tr("Phát hành gói", "Publish packages"), Icons.Outlined.CloudUpload, Modifier.weight(1f)) { onNavigate("packages") }
-        }
     }
 }
 
@@ -855,11 +834,6 @@ private fun MoreScreen(
                     }
                 }
             }
-            OutlinedButton(onClick = onTheme, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Outlined.Palette, null)
-                Spacer(Modifier.width(8.dp))
-                Text(tr("Chuyển giao diện sáng / tối", "Toggle light / dark mode"))
-            }
         } else {
             TextButton(onClick = { onSelect("more") }) {
                 Text(tr("← Quay lại", "← Back"))
@@ -947,9 +921,7 @@ private fun AdminModulePage(
 private fun CustomerHome(
     modifier: Modifier,
     email: String,
-    accessToken: String?,
-    onScripts: () -> Unit,
-    onDevices: () -> Unit
+    accessToken: String?
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -1013,8 +985,6 @@ private fun CustomerHome(
             fontSize = 12.sp,
             lineHeight = 18.sp
         )
-        Button(onClick = onScripts, modifier = Modifier.fillMaxWidth()) { Text(tr("Mở kho AUTU", "Open AUTU library")) }
-        OutlinedButton(onClick = onDevices, modifier = Modifier.fillMaxWidth()) { Text(tr("Thiết bị và giấy phép", "Devices and license")) }
         Text(email, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -1290,20 +1260,6 @@ private fun Metric(title: String, value: String, icon: ImageVector, modifier: Mo
     }
 }
 
-@Composable
-private fun ActionTile(title: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        shape = RoundedCornerShape(14.dp)
-    ) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-            Text(title, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-        }
-    }
-}
 
 @Composable
 internal fun EmptyState(icon: ImageVector, title: String, message: String) {
