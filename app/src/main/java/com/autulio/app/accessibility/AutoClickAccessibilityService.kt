@@ -1601,6 +1601,18 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
+        val floatingPreferences = getSharedPreferences(
+            "autu_lio_floating_window",
+            MODE_PRIVATE
+        )
+        val screenWidthDp = (resources.displayMetrics.widthPixels / density).toInt()
+        val maximumContentWidthDp = (screenWidthDp - 12).coerceAtLeast(266)
+        val floatingContentWidthDp = floatingPreferences
+            .getInt("content_width_dp", 280)
+            .coerceIn(266, maximumContentWidthDp)
+        val floatingEditorHeightDp = floatingPreferences
+            .getInt("editor_height_dp", 158)
+            .coerceIn(120, 280)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1617,7 +1629,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             setTextColor(0xFFE2E8F0.toInt())
             maxLines = 3
             setPadding(dp(4), dp(1), dp(4), dp(5))
-            layoutParams = LinearLayout.LayoutParams(dp(280), WindowManager.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams(
+                dp(floatingContentWidthDp),
+                WindowManager.LayoutParams.WRAP_CONTENT
+            )
         }
 
         val controls = LinearLayout(this).apply {
@@ -1730,7 +1745,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
         editorArea.addView(
             editor,
-            LinearLayout.LayoutParams(dp(280), dp(158))
+            LinearLayout.LayoutParams(
+                dp(floatingContentWidthDp),
+                dp(floatingEditorHeightDp)
+            )
         )
 
         val editorTools = LinearLayout(this).apply {
@@ -1761,7 +1779,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         editorTools.addView(prepareButton)
         editorArea.addView(
             editorTools,
-            LinearLayout.LayoutParams(dp(280), WindowManager.LayoutParams.WRAP_CONTENT)
+            LinearLayout.LayoutParams(
+                dp(floatingContentWidthDp),
+                WindowManager.LayoutParams.WRAP_CONTENT
+            )
         )
         root.addView(editorArea)
 
@@ -1770,12 +1791,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             insets
         }
 
-        val floatingPreferences = getSharedPreferences(
-            "autu_lio_floating_window",
-            MODE_PRIVATE
-        )
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(floatingContentWidthDp + 12),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -1791,6 +1808,58 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
         }
+
+        val sizeButton = panelButton("Kích cỡ") { anchor ->
+            val presets = listOf(
+                "Gọn · 280 × 130 dp" to (280 to 130),
+                "Vừa · 320 × 158 dp" to (320 to 158),
+                "Rộng · 360 × 220 dp" to (360 to 220)
+            ).filter { it.second.first <= maximumContentWidthDp }
+            val menu = PopupMenu(this, anchor)
+            presets.forEachIndexed { index, preset ->
+                menu.menu.add(0, index, index, preset.first)
+            }
+            menu.setOnMenuItemClickListener { item ->
+                val dimensions = presets.getOrNull(item.itemId)?.second
+                    ?: return@setOnMenuItemClickListener true
+                val contentWidth = dimensions.first
+                val editorHeight = dimensions.second
+                val screenWidth = resources.displayMetrics.widthPixels
+                val screenHeight = resources.displayMetrics.heightPixels
+                val anchorToRight = params.x + root.width / 2 > screenWidth / 2
+                val targetWindowWidth = dp(contentWidth + 12)
+
+                status.layoutParams = (status.layoutParams as LinearLayout.LayoutParams).apply {
+                    width = dp(contentWidth)
+                }
+                editor.layoutParams = (editor.layoutParams as LinearLayout.LayoutParams).apply {
+                    width = dp(contentWidth)
+                    height = dp(editorHeight)
+                }
+                editorTools.layoutParams =
+                    (editorTools.layoutParams as LinearLayout.LayoutParams).apply {
+                        width = dp(contentWidth)
+                    }
+                params.width = targetWindowWidth
+                val maxX = (screenWidth - targetWindowWidth).coerceAtLeast(0)
+                params.x = if (anchorToRight) maxX else params.x.coerceIn(0, maxX)
+                params.y = params.y.coerceIn(0, (screenHeight - root.height).coerceAtLeast(0))
+                runCatching { manager.updateViewLayout(root, params) }
+                floatingPreferences.edit()
+                    .putInt("content_width_dp", contentWidth)
+                    .putInt("editor_height_dp", editorHeight)
+                    .putInt("x", params.x)
+                    .putInt("y", params.y)
+                    .apply()
+                editorArea.requestLayout()
+                root.requestLayout()
+                statusLabel?.text = "Đã đổi kích thước bảng AUTU."
+                true
+            }
+            menu.show()
+        }
+        editorTools.addView(sizeButton)
+        editorTools.requestLayout()
 
         move.setOnTouchListener(object : View.OnTouchListener {
             private var startRawX = 0f
