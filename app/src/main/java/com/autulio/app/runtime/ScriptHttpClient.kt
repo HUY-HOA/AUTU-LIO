@@ -121,7 +121,7 @@ class ScriptHttpClient(
             val responseBytes = responseBody?.byteStream()?.use { readLimited(it, maxResponseBytes) }
                 ?: ByteArray(0)
             val charset = runCatching {
-                responseBody?.contentType?.charset(StandardCharsets.UTF_8) ?: StandardCharsets.UTF_8
+                responseBody?.contentType()?.charset(StandardCharsets.UTF_8) ?: StandardCharsets.UTF_8
             }.getOrDefault(StandardCharsets.UTF_8)
             val responseHeaders = linkedMapOf<String, Any?>()
             response.headers.toMultimap().forEach { (name, values) ->
