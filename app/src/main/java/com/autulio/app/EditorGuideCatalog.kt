@@ -92,6 +92,43 @@ object EditorGuideCatalog {
             )
         ),
         EditorGuideSection(
+            id = "overlay",
+            title = "Hiển thị chữ và đánh dấu trên màn hình",
+            summary = "Vẽ chữ, khung, hình tròn và đường đánh dấu trực tiếp trên ứng dụng đang mở. Lớp hiển thị không chặn thao tác chạm.",
+            commands = listOf(
+                EditorGuideCommand(
+                    "HIỂN_THỊ_CHỮ(NỘI_DUNG, X, Y, MÀU, CỠ_CHỮ)",
+                    "Hiển thị chữ đậm tại tọa độ X/Y. Y là đường cơ sở của chữ; màu dùng #RRGGBB hoặc #AARRGGBB.",
+                    "HIỂN_THỊ_CHỮ(\"ĐANG KIỂM TRA\", 80, 180, \"#FFFF3B30\", 32)"
+                ),
+                EditorGuideCommand(
+                    "VẼ_KHUNG(X, Y, RỘNG, CAO, MÀU, ĐỘ_DÀY)",
+                    "Vẽ hình chữ nhật viền màu tại vùng đã chọn.",
+                    "VẼ_KHUNG(40, 210, 300, 120, \"#FF30D158\", 4)"
+                ),
+                EditorGuideCommand(
+                    "VẼ_HÌNH_TRÒN(TÂM_X, TÂM_Y, BÁN_KÍNH, MÀU, ĐỘ_DÀY)",
+                    "Vẽ đường tròn viền quanh vị trí cần đánh dấu.",
+                    "VẼ_HÌNH_TRÒN(200, 300, 45, \"#FFFFC107\", 4)"
+                ),
+                EditorGuideCommand(
+                    "VẼ_ĐƯỜNG(X1, Y1, X2, Y2, MÀU, ĐỘ_DÀY)",
+                    "Vẽ đường thẳng nối hai tọa độ trên màn hình.",
+                    "VẼ_ĐƯỜNG(40, 270, 340, 270, \"#FF0A84FF\", 3)"
+                ),
+                EditorGuideCommand(
+                    "XÓA_ĐÁNH_DẤU_MÀN_HÌNH()",
+                    "Xóa toàn bộ chữ và hình đánh dấu do AUTU-LIO tạo."
+                )
+            ),
+            notes = listOf(
+                "Tọa độ và cỡ chữ tính bằng pixel trên toàn màn hình.",
+                "Màu hỗ trợ chuỗi HEX #RRGGBB hoặc #AARRGGBB.",
+                "Lớp đánh dấu trong suốt, không nhận thao tác chạm; thao tác vẫn đi tới ứng dụng bên dưới.",
+                "Tối đa 200 mục đánh dấu cho mỗi phiên. Các mục tồn tại đến khi xóa hoặc dịch vụ AUTU-LIO kết thúc."
+            )
+        ),
+        EditorGuideSection(
             id = "logic",
             title = "Biến, điều kiện và vòng lặp",
             summary = "Tổ chức kịch bản thành các bước có điều kiện, lặp lại, hàm dùng chung và xử lý lỗi.",
