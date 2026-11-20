@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.autulio.app.runtime.ScriptSafFileTransfer
 import com.autulio.app.runtime.ScriptFilePickerCoordinator
 import com.autulio.app.runtime.ScriptFilePickerResult
+import com.autulio.app.runtime.ScriptFilePickerMimePolicy
 import com.autulio.app.runtime.ScriptFileStore
 import java.io.File
 
@@ -81,7 +82,7 @@ class ScriptFilePickerActivity : ComponentActivity() {
                 when (mode) {
                     "open" -> {
                         val mime = intent.getStringExtra(EXTRA_MIME_TYPE)
-                            ?.takeIf { it.matches(Regex("^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+*-]+$")) }
+                            ?.takeIf(ScriptFilePickerMimePolicy::isValid)
                             ?: "*/*"
                         openDocumentLauncher.launch(arrayOf(mime))
                     }

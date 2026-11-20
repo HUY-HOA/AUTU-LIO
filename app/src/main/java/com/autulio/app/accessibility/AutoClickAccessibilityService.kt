@@ -66,6 +66,7 @@ import com.autulio.app.runtime.ScriptFileStore
 import com.autulio.app.runtime.ScriptSafFileTransfer
 import com.autulio.app.runtime.ScriptFilePickerCoordinator
 import com.autulio.app.runtime.ScriptFilePickerResult
+import com.autulio.app.runtime.ScriptFilePickerMimePolicy
 import com.autulio.app.runtime.ScriptJsonCodec
 import com.autulio.app.runtime.ScriptCsvCodec
 import com.autulio.app.script.ScriptCompiler
@@ -465,13 +466,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "CHỌN_TỆP" -> {
                 requireArgumentCount(name, arguments, 1)
                 val mimeType = requireTextArgument(name, arguments[0]).trim()
-                require(mimeType.length in 1..127 &&
-                    mimeType.matches(Regex("^[A-Za-z0-9!#    override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
-        return when (name) {
-^_.+-]+/[A-Za-z0-9!#    override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
-        return when (name) {
-^_.+*-]+$"))
-                ) { "MIME phải có dạng hợp lệ như text/csv hoặc image/*." }
+                require(ScriptFilePickerMimePolicy.isValid(mimeType)) {
+                    "MIME phải có dạng hợp lệ như text/csv hoặc image/*."
+                }
                 when (val result = awaitUserFilePicker("open", mimeType = mimeType)) {
                     is ScriptFilePickerResult.Imported -> linkedMapOf(
                         "ĐƯỜNG_DẪN" to result.relativePath,
