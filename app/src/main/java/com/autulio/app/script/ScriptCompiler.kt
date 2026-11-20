@@ -224,6 +224,8 @@ object ScriptCompiler {
         "PHÂN_TÍCH_CSV" to 2,
         "CHUYỂN_CSV" to 2,
         "GỬI_YÊU_CẦU_HTTP" to 5,
+        "GỬI_TỆP_HTTP" to 8,
+        "TẢI_TỆP_HTTP" to 4,
         "SQL_THỰC_THI" to 2,
         "SQL_TRUY_VẤN" to 2,
         "DI_TRÚ_CƠ_SỞ_DỮ_LIỆU" to 2,
