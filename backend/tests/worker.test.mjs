@@ -1000,7 +1000,9 @@ test("legacy APK download receives raw AES-GCM payload and RSA-OAEP SHA-1 wrappi
     }
   };
   const downloaded = await worker.fetch(
-    makeRequest("/api/customer/packages/" + packageInfo.id + "/download?deviceFingerprint=" + fingerprint),
+    makeRequest("/api/customer/packages/" + packageInfo.id + "/download?deviceFingerprint=" + fingerprint, {
+      headers: { Authorization: "Bearer " + "V".repeat(48) }
+    }),
     legacyEnv
   );
   const body = await json(downloaded);
