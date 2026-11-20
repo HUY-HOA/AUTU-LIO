@@ -156,6 +156,7 @@ class ScreenshotCropActivity : ComponentActivity() {
             }
             cropped?.recycle()
             runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
                 Toast.makeText(
                     this,
                     result.fold(
