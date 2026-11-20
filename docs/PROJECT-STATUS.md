@@ -28,12 +28,17 @@
 - Ứng dụng Kotlin/Jetpack Compose, một application ID.
 - Google Credential Manager lấy Google ID token; Worker xác minh chữ ký, issuer, audience, expiry, email đã xác minh và nonce.
 - Session lưu bằng Android Keystore; API kiểm tra vai trò và trạng thái tài khoản ở phía máy chủ.
+- Accessibility Service không tự mở bảng chạy khi vừa kết nối; chỉ chuẩn bị kịch bản sau khi phiên đã được xác minh.
+- Màn hình đăng nhập và Accessibility Service cùng theo dõi phiên; dịch vụ xác minh lại với máy chủ mỗi 60 giây, khóa bảng chạy khi phiên bị thu hồi hoặc không thể xác minh.
+- Đăng xuất/phiên bị từ chối xóa quyền chạy, dừng kịch bản và cho phép khối LUÔN_THỰC_HIỆN hoàn tất trước khi xóa lớp đánh dấu.
 - Admin Studio tải dữ liệu quản trị từ API; giao diện Customer có luồng tài khoản, package, thiết bị và cài đặt.
 
 ### AUTU Script và chạy tự động
 - Parser/compiler tạo AST, báo lỗi theo dòng/cột; có giới hạn mã nguồn, số lệnh và thời lượng.
-- Runtime chạy trên luồng riêng; có trạng thái chạy, tạm dừng, tiếp tục, dừng, hủy và lỗi.
+- Runtime chạy trên luồng riêng; có trạng thái chạy, tạm dừng, tiếp tục, dừng, hủy và lỗi; kiểm thử hồi quy bao gồm dừng trong lúc chạy và dừng khi đang tạm dừng để xác nhận khối LUÔN_THỰC_HIỆN.
 - Accessibility Service phát gesture Android, gọi hành động hệ thống được hỗ trợ và tạo cửa sổ điều khiển nổi.
+- AUTU Script 1.21 có chuyển đổi DP/pixel, tọa độ vùng an toàn và hướng xoay màn hình; thao tác thực tế theo pixel nguyên.
+- HTTP client dùng OkHttp, hỗ trợ HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, chặn redirect, giới hạn header/body/timeout và không trả các header xác thực nhạy cảm.
 - ML Kit được bật trong mọi Android build: OCR, QR/mã vạch, nhãn ảnh và phát hiện vật thể chạy cục bộ; không có Gemini.
 - Android source checks và Worker checks đều xanh trên mã nguồn mới nhất đã kiểm tra.
 - Unit tests hiện có cho parser/compiler và runtime; CI chạy unit tests và lint.
@@ -53,12 +58,13 @@
 
 ## 5. Việc cần hoàn thiện tiếp theo
 
-1. **Nghiệm thu tài khoản CUSTOMER:** đăng nhập bằng một Google account khác, xác nhận vai trò mặc định là CUSTOMER và không truy cập được Admin API.
-2. **Giấy phép và thiết bị:** OWNER tạo giấy phép; CUSTOMER đăng ký thiết bị; kiểm tra giới hạn số thiết bị, hết hạn, thu hồi và phiên đăng nhập.
-3. **Đóng gói AUTU:** OWNER tạo package, phát hành phiên bản, xác minh dữ liệu mã hóa; CUSTOMER tải package khi có giấy phép và thiết bị hợp lệ.
-4. **Runtime trên thiết bị thật:** kiểm tra CHẠM, NHẤN_GIỮ, VUỐT, CHỜ, mở ứng dụng, chạy nền có kiểm soát, tạm dừng/tiếp tục/dừng và lỗi quyền Trợ năng.
-5. **Độ ổn định Android:** kiểm tra trên Xiaomi/HyperOS và Android khác; xử lý tối ưu pin, service bị hệ thống dừng, đổi hướng màn hình và độ phân giải.
-6. **Chất lượng:** giữ Worker tests, Kotlin unit tests và lint xanh; kiểm tra bảo mật và không đưa secret vào APK/Git.
+1. **CUSTOMER — mã nguồn đã có, nghiệm thu thực tế còn thiếu:** đăng nhập bằng Google account khác, xác nhận vai trò mặc định là CUSTOMER và xác nhận Worker từ chối Admin API.
+2. **Giấy phép/thiết bị — API và màn hình đã có, nghiệm thu end-to-end còn thiếu:** OWNER tạo giấy phép; CUSTOMER đăng ký thiết bị; kiểm tra giới hạn thiết bị, ngày hết hạn, thu hồi và phiên đăng nhập.
+3. **Package — mã hóa và API đã có, nghiệm thu phát hành/tải xuống còn thiếu:** OWNER tạo và phát hành package; CUSTOMER tải, giải mã, kiểm tra hash và chạy package bằng giấy phép/thiết bị hợp lệ.
+4. **Runtime — mã nguồn và unit test đã có, kiểm thử thiết bị thật còn thiếu:** kiểm tra CHẠM, NHẤN_GIỮ, VUỐT, CHỜ, mở ứng dụng, pause/resume/stop, LUÔN_THỰC_HIỆN và lỗi quyền Trợ năng.
+5. **Độ ổn định Android — chưa nghiệm thu:** kiểm tra Xiaomi/HyperOS và Android khác; tối ưu pin, service bị hệ thống dừng, đổi hướng màn hình, khuyết màn hình và độ phân giải.
+6. **Chất lượng — kiểm tra tự động đang được duy trì:** giữ Worker tests, Kotlin unit tests và lint xanh; đối chiếu commit CI với main; kiểm tra bảo mật và không đưa secret vào APK/Git.
+7. **Phạm vi AUTU Script tiếp theo:** hoàn thiện di trú schema SQLite, CSV/chọn tệp qua SAF, multipart upload/download, sự kiện/tác vụ nền, regex/ngày giờ, module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md.
 
 ## 6. Quy tắc an toàn và phát hành
 
