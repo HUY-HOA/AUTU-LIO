@@ -23,6 +23,8 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.text.InputType
+import android.view.inputmethod.InputMethodManager
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
@@ -35,8 +37,12 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.LinearLayout
+import android.widget.EditText
+import android.widget.PopupMenu
 import android.widget.TextView
 import com.autulio.app.runtime.ScriptActionDispatcher
+import com.autulio.app.SecureScriptDraftStore
+import com.autulio.app.script.ScriptTemplateCatalog
 import com.autulio.app.runtime.ScriptExecutionEngine
 import com.autulio.app.runtime.ScriptExecutionSnapshot
 import com.autulio.app.runtime.ScriptExecutionState
@@ -105,7 +111,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var collapseButton: TextView? = null
     private var moveHandle: TextView? = null
     private var actionRow: LinearLayout? = null
-    private var collapsed = false
+    private var editorButton: TextView? = null
+    private var editorPanel: LinearLayout? = null
+    private var codeInput: EditText? = null
+    private var floatingParams: WindowManager.LayoutParams? = null
+    private var editorVisible = false
+    private var collapsed = true
     private var pendingProgram: ScriptProgram? = null
     private var latestSnapshot: ScriptExecutionSnapshot? = null
     @Volatile private var latestDisplayGeometry: ScreenDisplayGeometry? = null
@@ -119,6 +130,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         executionEngine = ScriptExecutionEngine(this) { snapshot ->
             mainHandler.post { renderSnapshot(snapshot) }
         }
+        showFloatingWindow()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -174,6 +186,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             pendingProgram = null
             return false
         }
+        setEditorVisible(false)
+        setCollapsed(false)
         renderSnapshot(executionEngine?.snapshot())
         return true
     }
@@ -1352,7 +1366,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(5), dp(4), dp(5), dp(4))
+            setPadding(dp(6), dp(5), dp(6), dp(5))
             background = GradientDrawable().apply {
                 setColor(0xE8172233.toInt())
                 cornerRadius = dp(13).toFloat()
@@ -1363,9 +1377,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val status = TextView(this).apply {
             textSize = 11f
             setTextColor(0xFFE2E8F0.toInt())
-            maxLines = 2
-            setPadding(dp(4), dp(1), dp(4), dp(4))
-            layoutParams = LinearLayout.LayoutParams(dp(224), WindowManager.LayoutParams.WRAP_CONTENT)
+            maxLines = 3
+            setPadding(dp(4), dp(1), dp(4), dp(5))
+            layoutParams = LinearLayout.LayoutParams(dp(280), WindowManager.LayoutParams.WRAP_CONTENT)
         }
 
         val controls = LinearLayout(this).apply {
@@ -1391,15 +1405,39 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 cornerRadius = dp(9).toFloat()
                 setStroke(dp(1), 0x805C708C.toInt())
             }
-            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply {
-                marginStart = dp(3)
-                marginEnd = dp(3)
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(38)).apply {
+                marginStart = dp(2)
+                marginEnd = dp(2)
             }
             setOnClickListener { onClick() }
         }
 
-        val move = controlButton("⠿", "Giữ và kéo để di chuyển cửa sổ", 0xFFE2E8F0.toInt()) {
-            statusLabel?.text = "Giữ nút di chuyển để kéo cửa sổ"
+        fun panelButton(label: String, onClick: (View) -> Unit): TextView =
+            TextView(this).apply {
+                text = label
+                textSize = 10f
+                maxLines = 1
+                gravity = Gravity.CENTER
+                setTextColor(0xFFE2E8F0.toInt())
+                isClickable = true
+                isFocusable = true
+                background = GradientDrawable().apply {
+                    setColor(0xF0212D40.toInt())
+                    cornerRadius = dp(7).toFloat()
+                    setStroke(dp(1), 0x805C708C.toInt())
+                }
+                layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply {
+                    marginStart = dp(2)
+                    marginEnd = dp(2)
+                }
+                setOnClickListener { onClick(this) }
+            }
+
+        val move = controlButton("A", "Mở bảng AUTU hoặc giữ để di chuyển", 0xFF7DD3FC.toInt()) {
+            if (collapsed) setCollapsed(false)
+        }
+        val edit = controlButton("✎", "Mở trình soạn mã nổi", 0xFFE2E8F0.toInt()) {
+            setEditorVisible(!editorVisible)
         }
         val primary = controlButton("▶", "Chạy kịch bản", 0xFF69A7FF.toInt()) {
             onPrimaryAction()
@@ -1407,22 +1445,84 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val stop = controlButton("■", "Dừng kịch bản", 0xFFFF7777.toInt()) {
             executionEngine?.stop()
         }
-        val collapse = controlButton("▾", "Thu gọn cửa sổ", 0xFFE2E8F0.toInt()) {
-            setCollapsed(!collapsed)
-        }
-        val close = controlButton("×", "Đóng cửa sổ và dừng kịch bản", 0xFFFFAAAA.toInt()) {
-            executionEngine?.stop()
-            pendingProgram = null
-            removeFloatingWindow()
+        val collapse = controlButton("▾", "Thu gọn thành nút AUTU", 0xFFE2E8F0.toInt()) {
+            setCollapsed(true)
         }
 
         controls.addView(move)
+        controls.addView(edit)
         controls.addView(primary)
         controls.addView(stop)
         controls.addView(collapse)
-        controls.addView(close)
         root.addView(status)
         root.addView(controls)
+
+        val editor = EditText(this).apply {
+            textSize = 12f
+            setTextColor(0xFFF1F5F9.toInt())
+            setHintTextColor(0xFF94A3B8.toInt())
+            hint = "Nhập mã AUTU tại đây..."
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            gravity = Gravity.TOP or Gravity.START
+            minLines = 5
+            maxLines = 7
+            setHorizontallyScrolling(false)
+            setPadding(dp(9), dp(8), dp(9), dp(8))
+            background = GradientDrawable().apply {
+                setColor(0xFF0B1220.toInt())
+                cornerRadius = dp(8).toFloat()
+                setStroke(dp(1), 0x805C708C.toInt())
+            }
+        }
+
+        val editorArea = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(0, dp(7), 0, 0)
+        }
+        editorArea.addView(
+            editor,
+            LinearLayout.LayoutParams(dp(280), dp(158))
+        )
+
+        val editorTools = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(5), 0, 0)
+        }
+
+        val actionButton = panelButton("Thao tác") { anchor ->
+            showFloatingActionMenu(anchor)
+        }
+        val templateButton = panelButton("Mẫu") { anchor ->
+            showFloatingTemplateMenu(anchor)
+        }
+        val saveButton = panelButton("Lưu") {
+            if (saveFloatingDraft()) {
+                statusLabel?.text = "Đã lưu bản nháp được mã hóa trên thiết bị."
+            } else {
+                statusLabel?.text = "Không lưu được bản nháp. Hãy thử lại."
+            }
+        }
+        val prepareButton = panelButton("Kiểm tra") {
+            prepareFloatingProgram()
+        }
+        editorTools.addView(actionButton)
+        editorTools.addView(templateButton)
+        editorTools.addView(saveButton)
+        editorTools.addView(prepareButton)
+        editorArea.addView(
+            editorTools,
+            LinearLayout.LayoutParams(dp(280), WindowManager.LayoutParams.WRAP_CONTENT)
+        )
+        root.addView(editorArea)
+
+        root.setOnApplyWindowInsetsListener { _, insets ->
+            captureDisplayGeometry(insets)
+            insets
+        }
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -1435,6 +1535,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             gravity = Gravity.TOP or Gravity.START
             x = dp(8)
             y = dp(100)
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -1481,34 +1582,169 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         })
 
-        root.setOnApplyWindowInsetsListener { _, insets ->
-            captureDisplayGeometry(insets)
-            insets
-        }
-
         try {
             manager.addView(root, params)
             floatingWindow = root
-            root.requestApplyInsets()
+            floatingParams = params
             statusLabel = status
             primaryButton = primary
             stopButton = stop
             collapseButton = collapse
             moveHandle = move
+            editorButton = edit
             actionRow = controls
-            collapsed = false
+            editorPanel = editorArea
+            codeInput = editor
+            editorVisible = false
+            collapsed = true
+            editor.setText(loadFloatingDraft())
+            root.requestApplyWindowInsets()
             renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
             return true
         } catch (_: RuntimeException) {
             floatingWindow = null
+            floatingParams = null
             statusLabel = null
             primaryButton = null
             stopButton = null
             collapseButton = null
             moveHandle = null
+            editorButton = null
             actionRow = null
+            editorPanel = null
+            codeInput = null
+            editorVisible = false
             return false
         }
+    }
+
+    private fun loadFloatingDraft(): String =
+        runCatching {
+            SecureScriptDraftStore(this).load().contents[FLOATING_DRAFT_NAME].orEmpty()
+        }.getOrDefault("")
+
+    private fun saveFloatingDraft(): Boolean = runCatching {
+        val code = codeInput?.text?.toString().orEmpty()
+        val store = SecureScriptDraftStore(this)
+        val snapshot = store.load()
+        val names = (snapshot.names + FLOATING_DRAFT_NAME)
+            .distinctBy { it.lowercase(Locale.ROOT) }
+        store.save(names, snapshot.contents + (FLOATING_DRAFT_NAME to code))
+        true
+    }.getOrDefault(false)
+
+    private fun appendFloatingCode(snippet: String) {
+        val field = codeInput ?: return
+        val editable = field.text ?: return
+        val rawStart = field.selectionStart.takeIf { it >= 0 } ?: editable.length
+        val rawEnd = field.selectionEnd.takeIf { it >= 0 } ?: rawStart
+        val start = minOf(rawStart, rawEnd).coerceIn(0, editable.length)
+        val end = maxOf(rawStart, rawEnd).coerceIn(start, editable.length)
+        val prefix = if (start > 0 && editable[start - 1] != '\n') "\n" else ""
+        val suffix = if (end == editable.length || editable[end] != '\n') "\n" else ""
+        val insertion = prefix + snippet.trim() + suffix
+        editable.replace(start, end, insertion)
+        field.setSelection((start + prefix.length + snippet.trim().length).coerceIn(0, editable.length))
+        field.requestFocus()
+    }
+
+    private fun showFloatingActionMenu(anchor: View) {
+        val actions = listOf(
+            "Chạm" to "CHẠM(200, 400)",
+            "Nhấn giữ" to "NHẤN_GIỮ(200, 400, 800)",
+            "Vuốt" to "VUỐT(360, 850, 360, 350, 450)",
+            "Chờ" to "CHỜ(500)",
+            "Mở ứng dụng" to "MỞ_ỨNG_DỤNG(\"com.example.app\")",
+            "Đọc chữ trên màn hình" to "ĐỌC_VĂN_BẢN_MÀN_HÌNH()",
+            "Tìm vị trí chữ" to "TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")",
+            "Đọc màu tại điểm" to "MÀU_TẠI(200, 400)"
+        )
+        val menu = PopupMenu(this, anchor)
+        actions.forEachIndexed { index, action -> menu.menu.add(0, index, index, action.first) }
+        menu.setOnMenuItemClickListener { item ->
+            actions.getOrNull(item.itemId)?.second?.let(::appendFloatingCode)
+            true
+        }
+        menu.show()
+    }
+
+    private fun showFloatingTemplateMenu(anchor: View) {
+        val templates = ScriptTemplateCatalog.templates
+        val menu = PopupMenu(this, anchor)
+        templates.forEachIndexed { index, template ->
+            menu.menu.add(0, index, index, template.nameVi)
+        }
+        menu.setOnMenuItemClickListener { item ->
+            templates.getOrNull(item.itemId)?.source?.let(::appendFloatingCode)
+            true
+        }
+        menu.show()
+    }
+
+    private fun prepareFloatingProgram() {
+        val source = codeInput?.text?.toString().orEmpty()
+        if (source.isBlank()) {
+            statusLabel?.text = "Chưa có mã. Hãy nhập mã hoặc chọn thao tác có sẵn."
+            return
+        }
+        val compilation = ScriptCompiler.compile(source)
+        if (!compilation.isSuccess) {
+            statusLabel?.text = compilation.diagnostics.take(3).joinToString(" · ") { diagnostic ->
+                "Dòng ${diagnostic.line}, cột ${diagnostic.column}: ${diagnostic.messageVi}"
+            }
+            return
+        }
+        if (!saveFloatingDraft()) {
+            statusLabel?.text = "Không lưu được bản nháp. Kịch bản chưa được chuẩn bị."
+            return
+        }
+        pendingProgram = compilation.program
+        setEditorVisible(false)
+        setCollapsed(false)
+        statusLabel?.text = "Kịch bản đã kiểm tra. Nhấn Chạy để bắt đầu."
+        renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
+        statusLabel?.text = "Kịch bản đã kiểm tra. Nhấn Chạy để bắt đầu."
+    }
+
+    private fun setEditorVisible(value: Boolean) {
+        val panel = editorPanel ?: return
+        if (value && collapsed) setCollapsed(false)
+        if (editorVisible == value) return
+
+        if (value) {
+            codeInput?.setText(loadFloatingDraft())
+            panel.visibility = View.VISIBLE
+            val params = floatingParams
+            val root = floatingWindow
+            if (params != null && root != null) {
+                params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                runCatching { windowManager?.updateViewLayout(root, params) }
+            }
+            editorVisible = true
+            codeInput?.requestFocus()
+            codeInput?.post {
+                val keyboard = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                codeInput?.let { keyboard.showSoftInput(it, InputMethodManager.SHOW_IMPLICIT) }
+            }
+        } else {
+            if (editorVisible) saveFloatingDraft()
+            val field = codeInput
+            if (field != null) {
+                val keyboard = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                runCatching { keyboard.hideSoftInputFromWindow(field.windowToken, 0) }
+                field.clearFocus()
+            }
+            panel.visibility = View.GONE
+            val params = floatingParams
+            val root = floatingWindow
+            if (params != null && root != null) {
+                params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                runCatching { windowManager?.updateViewLayout(root, params) }
+            }
+            editorVisible = false
+        }
+        floatingWindow?.requestLayout()
     }
 
     private fun onPrimaryAction() {
@@ -1521,7 +1757,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             ScriptExecutionState.COMPLETED,
             ScriptExecutionState.CANCELLED,
             ScriptExecutionState.FAILED -> {
-                val program = pendingProgram ?: return
+                val program = pendingProgram
+                if (program == null) {
+                    statusLabel?.text = "Hãy mở Soạn mã và kiểm tra kịch bản trước khi chạy."
+                    return
+                }
+                setEditorVisible(false)
                 engine.start(program)
             }
         }
@@ -1533,12 +1774,16 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val primary = primaryButton ?: return
         val stop = stopButton ?: return
         val collapse = collapseButton ?: return
+        val move = moveHandle ?: return
         val current = snapshot ?: latestSnapshot
         val state = current?.state ?: ScriptExecutionState.IDLE
 
         status.text = when (state) {
-            ScriptExecutionState.IDLE ->
+            ScriptExecutionState.IDLE -> if (pendingProgram == null) {
+                "AUTU sẵn sàng · Nhấn A để mở bảng công cụ"
+            } else {
                 "Sẵn sàng · Chuyển sang ứng dụng cần thao tác rồi nhấn Chạy"
+            }
             ScriptExecutionState.RUNNING ->
                 "Đang chạy · ${current?.completedInstructions ?: 0}/${current?.totalInstructions ?: 0}"
             ScriptExecutionState.PAUSED ->
@@ -1564,26 +1809,47 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         stop.visibility = if (!collapsed && (running || paused || stopping)) View.VISIBLE else View.GONE
         primary.visibility = if (collapsed) View.GONE else View.VISIBLE
         status.visibility = if (collapsed) View.GONE else View.VISIBLE
-        collapse.text = if (collapsed) "▴" else "▾"
-        collapse.contentDescription = if (collapsed) "Mở rộng cửa sổ" else "Thu gọn cửa sổ"
+        move.text = if (collapsed) "A" else "⠿"
+        move.contentDescription = if (collapsed) {
+            "Mở bảng AUTU hoặc giữ để di chuyển"
+        } else {
+            "Giữ và kéo để di chuyển cửa sổ"
+        }
+        editorButton?.visibility =
+            if (!collapsed && !running && !paused && !stopping) View.VISIBLE else View.GONE
+        collapse.visibility = if (collapsed) View.GONE else View.VISIBLE
+        editorPanel?.visibility = if (!collapsed && editorVisible) View.VISIBLE else View.GONE
+        actionRow?.visibility = View.VISIBLE
     }
 
     private fun setCollapsed(value: Boolean) {
+        if (value && editorVisible) setEditorVisible(false)
         collapsed = value
         renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
     }
 
     private fun removeFloatingWindow() {
         val root = floatingWindow ?: return
+        setEditorVisible(false)
         val manager = windowManager
         if (manager != null) runCatching { manager.removeView(root) }
         floatingWindow = null
+        floatingParams = null
         statusLabel = null
         primaryButton = null
         stopButton = null
         collapseButton = null
         moveHandle = null
+        editorButton = null
         actionRow = null
-        collapsed = false
+        editorPanel = null
+        codeInput = null
+        editorVisible = false
+        collapsed = true
     }
+
+    private companion object {
+        const val FLOATING_DRAFT_NAME = "Kịch bản nổi"
+    }
+
 }
