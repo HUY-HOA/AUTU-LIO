@@ -84,7 +84,7 @@ class ScriptDatabaseStore(context: Context) : Closeable {
                 }
                 database.execSQL(
                     "INSERT INTO $MIGRATION_TABLE(version, checksum, applied_at) VALUES (?, ?, ?)",
-                    arrayOf(version, migration.checksum, System.currentTimeMillis())
+                    arrayOf<Any?>(version, migration.checksum, System.currentTimeMillis())
                 )
                 database.setTransactionSuccessful()
                 return migrationResult(version, applied = true, migration.checksum)

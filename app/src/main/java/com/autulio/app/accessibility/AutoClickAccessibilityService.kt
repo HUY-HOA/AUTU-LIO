@@ -810,7 +810,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     val sql = fields["SQL"] as? String
                         ?: throw IllegalArgumentException("Mục di trú ${index + 1} thiếu SQL dạng CHUỖI.")
                     val parameters = when (val raw = fields["THAM_SỐ"]) {
-                        null -> emptyList()
+                        null -> emptyList<Any?>()
                         is List<*> -> raw
                         else -> throw IllegalArgumentException(
                             "THAM_SỐ trong mục di trú ${index + 1} phải là DANH_SÁCH."
