@@ -157,7 +157,8 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                     onBitmapCreated = { created ->
                         synchronized(generatedBitmaps) { generatedBitmaps += created }
                     },
-                    onSave = ::saveEditedImage
+                    onSave = ::saveEditedImage,
+                    onRecognize = ::analyzeImage
                 )
             }
         }
