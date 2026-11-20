@@ -59,7 +59,7 @@ class ScriptHttpClientTest {
         assertEquals(201, result["TRẠNG_THÁI"])
         assertEquals("POST", request.method)
         assertEquals(body, requestBodyText(request))
-        assertEquals("application/json; charset=utf-8", request.header("Content-Type"))
+        assertEquals("application/json; charset=utf-8", request.body?.contentType()?.toString())
         assertEquals("Bearer test-token", request.header("Authorization"))
     }
 
@@ -142,7 +142,7 @@ class ScriptHttpClientTest {
         val headers = result["TIÊU_ĐỀ"] as Map<String, List<String>>
 
         assertFalse(headers.keys.any { it.equals("Set-Cookie", ignoreCase = true) })
-        assertEquals(listOf("yes"), headers["X-Visible"])
+        assertEquals(listOf("yes"), headers.entries.firstOrNull { it.key.equals("X-Visible", ignoreCase = true) }?.value)
     }
 
     @Test
