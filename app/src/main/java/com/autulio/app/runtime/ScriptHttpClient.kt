@@ -80,7 +80,7 @@ class ScriptHttpClient(
             val contentType = safeHeaders.entries
                 .firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }
                 ?.value
-                ?.let(MediaType::parse)
+                ?.let { MediaType.parse(it) }
                 ?: MediaType.parse("application/json; charset=utf-8")
             RequestBody.create(contentType, bytes)
         }
@@ -116,8 +116,9 @@ class ScriptHttpClient(
             val responseBody = response.body()
             val responseBytes = responseBody?.byteStream()?.use { readLimited(it, maxResponseBytes) }
                 ?: ByteArray(0)
-            val charset = responseBody?.contentType()?.charset(StandardCharsets.UTF_8)
-                ?: StandardCharsets.UTF_8
+            val charset = runCatching {
+                responseBody?.contentType()?.charset(StandardCharsets.UTF_8) ?: StandardCharsets.UTF_8
+            }.getOrDefault(StandardCharsets.UTF_8)
             val responseHeaders = linkedMapOf<String, Any?>()
             response.headers().names().forEach { name ->
                 if (name.lowercase(Locale.ROOT) !in hiddenResponseHeaders) {
