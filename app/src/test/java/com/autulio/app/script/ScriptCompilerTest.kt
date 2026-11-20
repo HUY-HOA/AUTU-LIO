@@ -602,6 +602,40 @@ class ScriptCompilerTest {
     }
 
     @Test
+    fun supportsSafeAreaAndNaturalOrientationCoordinateBuiltins() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT X_AN_TOAN: SỐ = TỌA_ĐỘ_X_VÙNG_AN_TOÀN(0.5)
+            ĐẶT Y_AN_TOAN: SỐ = TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(0.75)
+            ĐẶT TY_LE_X: SỐ = TỶ_LỆ_X_VÙNG_AN_TOÀN(X_AN_TOAN)
+            ĐẶT TY_LE_Y: SỐ = TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y_AN_TOAN)
+            ĐẶT TOA_DO_HIEN_TAI: DANH_SÁCH = TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(100, 200)
+            ĐẶT TOA_DO_GOC: DANH_SÁCH = TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(
+                LẤY_PHẦN_TỬ(TOA_DO_HIEN_TAI, 0),
+                LẤY_PHẦN_TỬ(TOA_DO_HIEN_TAI, 1)
+            )
+            CHẠM(LẤY_PHẦN_TỬ(TOA_DO_HIEN_TAI, 0), LẤY_PHẦN_TỬ(TOA_DO_HIEN_TAI, 1))
+            """.trimIndent()
+        )
+
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+        assertEquals("1.19", result.program?.languageVersion)
+    }
+
+    @Test
+    fun validatesSafeAreaAndRotationFunctionArgumentCounts() {
+        val safeX = ScriptCompiler.compile("ĐẶT X = TỌA_ĐỘ_X_VÙNG_AN_TOÀN()")
+        val safeY = ScriptCompiler.compile("ĐẶT Y = TỶ_LỆ_Y_VÙNG_AN_TOÀN(1, 2)")
+        val natural = ScriptCompiler.compile("ĐẶT P = TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(1)")
+        val current = ScriptCompiler.compile("ĐẶT P = TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(1, 2, 3)")
+
+        assertEquals("function_argument_count", safeX.diagnostics.first().code)
+        assertEquals("function_argument_count", safeY.diagnostics.first().code)
+        assertEquals("function_argument_count", natural.diagnostics.first().code)
+        assertEquals("function_argument_count", current.diagnostics.first().code)
+    }
+
+    @Test
     fun supportsStructuredAccessibilityTextBuiltin() {
         val result = ScriptCompiler.compile(
             """
