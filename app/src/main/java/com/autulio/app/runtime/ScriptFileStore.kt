@@ -32,8 +32,10 @@ class ScriptFileStore(
         require(isDirectory) { "Vùng lưu trữ AUTU không phải thư mục." }
     }
 
-    fun writeText(relativePath: String, text: String): Boolean {
-        val bytes = text.toByteArray(StandardCharsets.UTF_8)
+    fun writeText(relativePath: String, text: String): Boolean =
+        writeBytes(relativePath, text.toByteArray(StandardCharsets.UTF_8))
+
+    fun writeBytes(relativePath: String, bytes: ByteArray): Boolean {
         require(bytes.size <= maxFileBytes) {
             "Tệp vượt quá giới hạn $maxFileBytes byte."
         }
@@ -73,12 +75,15 @@ class ScriptFileStore(
         return true
     }
 
-    fun readText(relativePath: String): String {
+    fun readBytes(relativePath: String): ByteArray {
         val file = resolve(relativePath)
         require(file.exists() && file.isFile) { "Không tìm thấy tệp '$relativePath'." }
         require(file.length() <= maxFileBytes) { "Tệp vượt quá giới hạn $maxFileBytes byte." }
-        return file.readBytes().toString(StandardCharsets.UTF_8)
+        return file.readBytes()
     }
+
+    fun readText(relativePath: String): String =
+        readBytes(relativePath).toString(StandardCharsets.UTF_8)
 
     fun exists(relativePath: String): Boolean {
         val file = resolve(relativePath)
