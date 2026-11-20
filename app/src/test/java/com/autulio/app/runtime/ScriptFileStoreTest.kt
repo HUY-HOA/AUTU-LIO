@@ -21,6 +21,22 @@ class ScriptFileStoreTest {
     }
 
     @Test
+    fun writesAndReadsRawBytesWithoutTextEncodingChanges() = withTemporaryStore { store, _ ->
+        val bytes = byteArrayOf(0, 1, 2, 0xff.toByte(), 0)
+        assertTrue(store.writeBytes("data/raw.bin", bytes))
+        assertTrue(bytes.contentEquals(store.readBytes("data/raw.bin")))
+    }
+
+    @Test
+    fun rejectsOversizedBinaryWritesWithoutReplacingExistingData() = withTemporaryStore(maxBytes = 4) { store, _ ->
+        store.writeBytes("data/raw.bin", byteArrayOf(1, 2, 3))
+        assertFalse(runCatching {
+            store.writeBytes("data/raw.bin", byteArrayOf(1, 2, 3, 4, 5))
+        }.isSuccess)
+        assertTrue(byteArrayOf(1, 2, 3).contentEquals(store.readBytes("data/raw.bin")))
+    }
+
+    @Test
     fun atomicallyReplacesAnExistingFile() = withTemporaryStore { store, _ ->
         assertTrue(store.writeText("state.txt", "old"))
         assertTrue(store.writeText("state.txt", "new value"))
