@@ -121,7 +121,7 @@ class ScreenshotLibraryActivity : ComponentActivity() {
             }.getOrDefault(false)
 
             if (!directoryReady) {
-                runOnUiThread { onFinished(0, uris.size) }
+                postImportResult(onFinished, 0, uris.size)
                 return@execute
             }
 
@@ -168,7 +168,18 @@ class ScreenshotLibraryActivity : ComponentActivity() {
                     failed++
                 }
             }
-            runOnUiThread { onFinished(imported, failed) }
+            postImportResult(onFinished, imported, failed)
+        }
+    }
+
+    private fun postImportResult(
+        onFinished: (Int, Int) -> Unit,
+        imported: Int,
+        failed: Int
+    ) {
+        if (isFinishing || isDestroyed) return
+        runOnUiThread {
+            if (!isFinishing && !isDestroyed) onFinished(imported, failed)
         }
     }
 
