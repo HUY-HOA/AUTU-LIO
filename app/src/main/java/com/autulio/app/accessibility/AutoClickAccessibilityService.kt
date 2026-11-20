@@ -1504,9 +1504,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val stop = controlButton("■", "Dừng kịch bản", 0xFFFF7777.toInt()) {
             executionEngine?.stop()
         }
-        val stop = controlButton("■", "Dừng kịch bản", 0xFFFF7777.toInt()) {
-            executionEngine?.stop()
-        }
         val camera = controlButton("▣", "Chụp màn hình và chọn vùng cần giữ", 0xFF7DD3FC.toInt()) {
             captureAndOpenCropEditor()
         }
