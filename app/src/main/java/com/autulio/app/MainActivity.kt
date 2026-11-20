@@ -717,10 +717,12 @@ private fun EditorScreen(
                     ScriptTemplateCatalog.templates.forEach { template ->
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                onCodeChange(template.source)
+                                val existingCode = code.trimEnd()
+                                val separator = if (existingCode.isBlank()) "" else "\n\n"
+                                onCodeChange(existingCode + separator + template.source.trim())
                                 validationText = ""
                                 validationSucceeded = null
-                                showTemplates = false
+                                onMessage("Đã thêm mẫu vào cuối mã. Bạn có thể chọn thêm mẫu khác.")
                             },
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
