@@ -1,6 +1,8 @@
 package com.autulio.app
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -23,7 +25,7 @@ class SafeScreenshotBitmapDecoderTest {
             android.media.ExifInterface.ORIENTATION_TRANSVERSE, 400, 300
         )
 
-        assertEquals(null, normal)
+        assertNull(normal)
         assertEquals(300, rotate90?.outputWidth)
         assertEquals(400, rotate90?.outputHeight)
         assertEquals(300, rotate270?.outputWidth)
@@ -49,32 +51,32 @@ class SafeScreenshotBitmapDecoderTest {
             android.media.ExifInterface.ORIENTATION_ROTATE_90, 400, 300
         )
 
-        org.junit.Assert.assertArrayEquals(
+        assertArrayEquals(
             floatArrayOf(-1f, 0f, 400f, 0f, 1f, 0f, 0f, 0f, 1f),
-            horizontal?.matrixValues
+            horizontal!!.matrixValues,
+            0f
         )
-        org.junit.Assert.assertArrayEquals(
+        assertArrayEquals(
             floatArrayOf(1f, 0f, 0f, 0f, -1f, 300f, 0f, 0f, 1f),
-            vertical?.matrixValues
+            vertical!!.matrixValues,
+            0f
         )
-        org.junit.Assert.assertArrayEquals(
+        assertArrayEquals(
             floatArrayOf(-1f, 0f, 400f, 0f, -1f, 300f, 0f, 0f, 1f),
-            rotate180?.matrixValues
+            rotate180!!.matrixValues,
+            0f
         )
-        org.junit.Assert.assertArrayEquals(
+        assertArrayEquals(
             floatArrayOf(0f, -1f, 300f, 1f, 0f, 0f, 0f, 0f, 1f),
-            rotate90?.matrixValues
+            rotate90!!.matrixValues,
+            0f
         )
     }
 
     @Test
     fun ignoresUnsupportedExifOrientationAndInvalidDimensions() {
-        assertEquals(
-            null,
-            SafeScreenshotBitmapDecoder.orientationTransform(0, 400, 300)
-        )
-        assertEquals(
-            null,
+        assertNull(SafeScreenshotBitmapDecoder.orientationTransform(0, 400, 300))
+        assertNull(
             SafeScreenshotBitmapDecoder.orientationTransform(
                 android.media.ExifInterface.ORIENTATION_ROTATE_90, 0, 300
             )
