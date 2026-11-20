@@ -2330,11 +2330,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
      */
     fun lockRunner() {
         sessionVerified = false
-        pendingProgram = null
         removeAnnotationsAfterStop = true
         executionEngine?.stop()
 
         val removeControls = {
+            pendingProgram = null
             removeFloatingWindow()
             val state = executionEngine?.snapshot()?.state
             if (state != ScriptExecutionState.RUNNING &&
