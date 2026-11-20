@@ -1,9 +1,10 @@
 package com.autulio.app.runtime
 
-import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.URI
@@ -80,13 +81,13 @@ class ScriptHttpClient(
             val contentType = safeHeaders.entries
                 .firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }
                 ?.value
-                ?.let { MediaType.parse(it) }
-                ?: MediaType.parse("application/json; charset=utf-8")
-            RequestBody.create(contentType, bytes)
+                ?.let { it.toMediaTypeOrNull() }
+                ?: "application/json; charset=utf-8".toMediaType()
+            bytes.toRequestBody(contentType)
         }
 
         val requestBuilder = Request.Builder()
-            .url(target)
+            .url(target.toURL())
             .header(
                 "Accept",
                 safeHeaders.entries.firstOrNull { it.key.equals("Accept", ignoreCase = true) }?.value
@@ -113,25 +114,24 @@ class ScriptHttpClient(
             .build()
 
         requestClient.newCall(requestBuilder.build()).execute().use { response ->
-            val responseBody = response.body()
+            val responseBody = response.body
             val responseBytes = responseBody?.byteStream()?.use { readLimited(it, maxResponseBytes) }
                 ?: ByteArray(0)
             val charset = runCatching {
                 responseBody?.contentType()?.charset(StandardCharsets.UTF_8) ?: StandardCharsets.UTF_8
             }.getOrDefault(StandardCharsets.UTF_8)
             val responseHeaders = linkedMapOf<String, Any?>()
-            response.headers().names().forEach { name ->
-                if (name.lowercase(Locale.ROOT) !in hiddenResponseHeaders) {
-                    val values = response.headers(name)
-                    if (values.isNotEmpty()) responseHeaders[name] = values.toList()
+            response.headers.toMultimap().forEach { (name, values) ->
+                if (name.lowercase(Locale.ROOT) !in hiddenResponseHeaders && values.isNotEmpty()) {
+                    responseHeaders[name] = values.toList()
                 }
             }
             return linkedMapOf(
-                "TRẠNG_THÁI" to response.code(),
+                "TRẠNG_THÁI" to response.code,
                 "THÀNH_CÔNG" to response.isSuccessful,
                 "NỘI_DUNG" to String(responseBytes, charset),
                 "TIÊU_ĐỀ" to responseHeaders,
-                "URL" to response.request().url().toString()
+                "URL" to response.request.url.toString()
             )
         }
     }
@@ -175,7 +175,7 @@ class ScriptHttpClient(
                     "Giá trị tiêu đề '$name' phải là chuỗi, số hoặc luận lý."
                 )
             }
-            require(value.none { it == '\\r' || it == '\\n' || it == '\\u0000' }) {
+            require(value.none { it == '\r' || it == '\n' || it == '\u0000' }) {
                 "Giá trị tiêu đề '$name' chứa ký tự xuống dòng không hợp lệ."
             }
             totalChars += name.length + value.length
