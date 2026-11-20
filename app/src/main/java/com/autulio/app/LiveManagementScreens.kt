@@ -96,7 +96,7 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                                 Text(customer.email, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                             Text(
-                                if (customer.status == "ACTIVE") tr("Hoạt động", "Active") else customer.status,
+                                statusText(customer.status),
                                 color = if (customer.status == "ACTIVE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -109,7 +109,7 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                         )
                         if (customer.licenseId != null) {
                             Text(
-                                "${customer.planCode ?: "—"} · ${customer.licenseStatus ?: "—"}",
+                                "${customer.planCode?.let(::planText) ?: "—"} · ${customer.licenseStatus?.let(::statusText) ?: "—"}",
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 13.sp
                             )
@@ -222,7 +222,7 @@ internal fun LicensesAdminScreen(accessToken: String?, modifier: Modifier = Modi
             else licenses.forEach { license ->
                 CardBox {
                     Text(license.email, fontWeight = FontWeight.SemiBold)
-                    Text("${license.planCode} · ${license.status}", fontSize = 13.sp)
+                    Text("${planText(license.planCode)} · ${statusText(license.status)}", fontSize = 13.sp)
                     Text(
                         tr("Thời hạn: ${formatEpoch(license.startsAt)} – ${formatEpoch(license.expiresAt)}", "Period: ${formatEpoch(license.startsAt)} – ${formatEpoch(license.expiresAt)}"),
                         fontSize = 12.sp,
@@ -349,7 +349,7 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
                             Text(device.email, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                         }
                         Text(
-                            device.status,
+                            statusText(device.status),
                             color = if (device.status == "ACTIVE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
@@ -440,7 +440,7 @@ internal fun CustomerDeviceLicenseScreen(
                     if (current.license == null) {
                         Text(tr("Chưa được cấp giấy phép", "No license has been issued"), color = MaterialTheme.colorScheme.error)
                     } else {
-                        Text("${current.license.planCode} · ${current.license.effectiveStatus}", fontWeight = FontWeight.SemiBold)
+                        Text("${planText(current.license.planCode)} · ${statusText(current.license.effectiveStatus)}", fontWeight = FontWeight.SemiBold)
                         Text(
                             tr("Có hiệu lực: ${formatEpoch(current.license.startsAt)} – ${formatEpoch(current.license.expiresAt)}", "Valid: ${formatEpoch(current.license.startsAt)} – ${formatEpoch(current.license.expiresAt)}"),
                             fontSize = 12.sp,
@@ -467,7 +467,7 @@ internal fun CustomerDeviceLicenseScreen(
                         Text(device.label.ifBlank { "${device.manufacturer} ${device.model}".trim() }, fontWeight = FontWeight.SemiBold)
                         Text("${device.manufacturer} ${device.model}", fontSize = 12.sp)
                         Text(
-                            "${device.status} · ${tr("Lần cuối", "Last seen")}: ${formatEpoch(device.lastSeenAt)}",
+                            "${statusText(device.status)} · ${tr("Lần cuối", "Last seen")}: ${formatEpoch(device.lastSeenAt)}",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
@@ -760,7 +760,7 @@ internal fun AdminPackagesScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(item.name, fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    "v${item.latestVersion} · AUTU Script ${item.languageVersion} · ${item.status}",
+                                    "v${item.latestVersion} · Ngôn ngữ AUTU ${item.languageVersion} · ${statusText(item.status)}",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp
                                 )
@@ -901,7 +901,7 @@ internal fun CustomerPackagesScreen(
                         Text(item.description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                     Text(
-                        "AUTU Script ${item.languageVersion}",
+                        "Ngôn ngữ AUTU ${item.languageVersion}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp
                     )
