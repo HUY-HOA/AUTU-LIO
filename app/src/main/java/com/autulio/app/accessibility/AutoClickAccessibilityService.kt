@@ -205,6 +205,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     fun stopExecution(): Boolean = executionEngine?.stop() == true
 
+    fun restoreFloatingControlsAfterExternalScreen() {
+        val restore = {
+            if (showFloatingWindow()) {
+                setCollapsed(true)
+                renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
+            }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) restore()
+        else mainHandler.post { restore() }
+    }
+
     override fun tap(x: Int, y: Int): Boolean =
         dispatchPointGesture(x, y, TAP_DURATION_MS)
 
@@ -1197,8 +1208,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         original.absolutePath
                     )
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                removeFloatingWindow()
                 runCatching { startActivity(intent) }
                     .onFailure {
+                        showFloatingWindow()
+                        setCollapsed(false)
                         statusLabel?.text = "Đã lưu ảnh gốc nhưng không mở được màn hình cắt ảnh."
                     }
             }
