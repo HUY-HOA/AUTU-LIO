@@ -834,6 +834,74 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 }
                 scriptDatabaseStore.migrateSchema(version, statements)
             }
+            "GỬI_TỆP_HTTP" -> {
+                requireArgumentCount(name, arguments, 8)
+                val method = requireTextArgument(name, arguments[0])
+                val url = requireTextArgument(name, arguments[1])
+                val sourcePath = requireTextArgument(name, arguments[2])
+                val fieldName = requireTextArgument(name, arguments[3])
+                val fileName = requireTextArgument(name, arguments[4])
+                val mimeType = requireTextArgument(name, arguments[5])
+                val rawHeaders = arguments[6] as? Map<*, *>
+                    ?: throw IllegalArgumentException("Tiêu đề HTTP phải là BẢN_ĐỒ.")
+                val headers = linkedMapOf<String, Any?>()
+                rawHeaders.forEach { (key, value) ->
+                    val headerName = key as? String
+                        ?: throw IllegalArgumentException("Tên tiêu đề HTTP phải là chuỗi.")
+                    headers[headerName] = value
+                }
+                val timeoutValue = arguments[7] as? Number
+                    ?: throw IllegalArgumentException("Thời hạn HTTP phải là số.")
+                val timeoutMs = timeoutValue.toInt()
+                require(timeoutValue.toDouble() == timeoutMs.toDouble()) {
+                    "Thời hạn HTTP phải là số nguyên mili giây."
+                }
+                scriptHttpClient.uploadFile(
+                    method = method,
+                    urlText = url,
+                    fieldName = fieldName,
+                    fileName = fileName,
+                    mimeTypeText = mimeType,
+                    fileBytes = scriptFileStore.readBytes(sourcePath),
+                    headers = headers,
+                    timeoutMs = timeoutMs
+                )
+            }
+            "TẢI_TỆP_HTTP" -> {
+                requireArgumentCount(name, arguments, 4)
+                val url = requireTextArgument(name, arguments[0])
+                val destinationPath = requireTextArgument(name, arguments[1])
+                val rawHeaders = arguments[2] as? Map<*, *>
+                    ?: throw IllegalArgumentException("Tiêu đề HTTP phải là BẢN_ĐỒ.")
+                val headers = linkedMapOf<String, Any?>()
+                rawHeaders.forEach { (key, value) ->
+                    val headerName = key as? String
+                        ?: throw IllegalArgumentException("Tên tiêu đề HTTP phải là chuỗi.")
+                    headers[headerName] = value
+                }
+                val timeoutValue = arguments[3] as? Number
+                    ?: throw IllegalArgumentException("Thời hạn HTTP phải là số.")
+                val timeoutMs = timeoutValue.toInt()
+                require(timeoutValue.toDouble() == timeoutMs.toDouble()) {
+                    "Thời hạn HTTP phải là số nguyên mili giây."
+                }
+                val response = scriptHttpClient.downloadFile(url, headers, timeoutMs)
+                val savedPath = if (response.isSuccessful) {
+                    scriptFileStore.writeBytes(destinationPath, response.bytes)
+                    destinationPath
+                } else {
+                    null
+                }
+                linkedMapOf(
+                    "TRẠNG_THÁI" to response.statusCode,
+                    "THÀNH_CÔNG" to response.isSuccessful,
+                    "DUNG_LƯỢNG" to response.bytes.size,
+                    "LOẠI_NỘI_DUNG" to response.contentType,
+                    "ĐƯỜNG_DẪN" to savedPath,
+                    "TIÊU_ĐỀ" to response.responseHeaders,
+                    "URL" to response.responseUrl
+                )
+            }
             "GỬI_YÊU_CẦU_HTTP" -> {
                 requireArgumentCount(name, arguments, 5)
                 val method = requireTextArgument(name, arguments[0])
