@@ -224,6 +224,23 @@ object ScriptTemplateCatalog {
             descriptionVi = "Bật chế độ chia đôi nếu Android cung cấp thao tác này.",
             descriptionEn = "Toggle split screen when Android exposes the action.",
             source = "BẬT_TẮT_CHIA_MÀN_HÌNH()"
+        ),
+        ScriptTemplate(
+            id = "show_colored_text",
+            nameVi = "Hiển thị chữ có màu",
+            nameEn = "Show colored text",
+            descriptionVi = "Hiển thị chữ đậm tại tọa độ đã chọn trên màn hình ứng dụng.",
+            descriptionEn = "Draw bold colored text at a selected screen coordinate.",
+            source = """HIỂN_THỊ_CHỮ("AUTU-LIO", 80, 180, "#FF00C8FF", 36)"""
+        ),
+        ScriptTemplate(
+            id = "mark_screen_region",
+            nameVi = "Đánh dấu vùng trên màn hình",
+            nameEn = "Mark a screen region",
+            descriptionVi = "Vẽ khung và đường đánh dấu; dùng lệnh xóa khi không cần hiển thị nữa.",
+            descriptionEn = "Draw a rectangle and guide line; clear the annotation when no longer needed.",
+            source = """VẼ_KHUNG(40, 210, 300, 120, "#FFFFC107", 4)
+VẼ_ĐƯỜNG(40, 270, 340, 270, "#FF30D158", 3)"""
         )
     )
 }
