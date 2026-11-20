@@ -1929,13 +1929,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         })
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.R
-        ) {
-            root.setOnApplyWindowInsetsListener { _, insets ->
-                captureDisplayGeometry(insets)
-                insets
-            }
+        root.setOnApplyWindowInsetsListener { _, insets ->
+            // System-bar insets are useful on older Android versions too.
+            // captureDisplayGeometry marks cutout detection as unknown before Android 9.
+            captureDisplayGeometry(insets)
+            insets
         }
 
         try {
@@ -1974,12 +1972,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             collapsed = true
             editor.setText(loadFloatingDraft())
             root.requestApplyInsets()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-                Build.VERSION.SDK_INT < Build.VERSION_CODES.R
-            ) {
-                root.post {
-                    root.rootWindowInsets?.let(::captureDisplayGeometry)
-                }
+            root.post {
+                root.rootWindowInsets?.let(::captureDisplayGeometry)
             }
             renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
             return true
