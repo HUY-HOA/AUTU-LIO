@@ -384,17 +384,25 @@ private fun resizeCropRegion(
     var bottom = current.bottom
 
     when (mode) {
-        CropDragMode.LEFT, CropDragMode.TOP_LEFT, CropDragMode.BOTTOM_LEFT ->
-            left = (left + dx).coerceIn(0f, right - minimum)
-        CropDragMode.RIGHT, CropDragMode.TOP_RIGHT, CropDragMode.BOTTOM_RIGHT ->
-            right = (right + dx).coerceIn(left + minimum, 1f)
+        CropDragMode.LEFT, CropDragMode.TOP_LEFT, CropDragMode.BOTTOM_LEFT -> {
+            val maximumLeft = (right - minimum).coerceAtLeast(0f)
+            left = (left + dx).coerceIn(0f, maximumLeft)
+        }
+        CropDragMode.RIGHT, CropDragMode.TOP_RIGHT, CropDragMode.BOTTOM_RIGHT -> {
+            val minimumRight = (left + minimum).coerceAtMost(1f)
+            right = (right + dx).coerceIn(minimumRight, 1f)
+        }
         else -> Unit
     }
     when (mode) {
-        CropDragMode.TOP, CropDragMode.TOP_LEFT, CropDragMode.TOP_RIGHT ->
-            top = (top + dy).coerceIn(0f, bottom - minimum)
-        CropDragMode.BOTTOM, CropDragMode.BOTTOM_LEFT, CropDragMode.BOTTOM_RIGHT ->
-            bottom = (bottom + dy).coerceIn(top + minimum, 1f)
+        CropDragMode.TOP, CropDragMode.TOP_LEFT, CropDragMode.TOP_RIGHT -> {
+            val maximumTop = (bottom - minimum).coerceAtLeast(0f)
+            top = (top + dy).coerceIn(0f, maximumTop)
+        }
+        CropDragMode.BOTTOM, CropDragMode.BOTTOM_LEFT, CropDragMode.BOTTOM_RIGHT -> {
+            val minimumBottom = (top + minimum).coerceAtMost(1f)
+            bottom = (bottom + dy).coerceIn(minimumBottom, 1f)
+        }
         else -> Unit
     }
     return CropRegion(left, top, right, bottom)
