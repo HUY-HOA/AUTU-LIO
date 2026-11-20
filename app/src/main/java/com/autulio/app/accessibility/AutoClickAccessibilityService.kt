@@ -393,7 +393,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
             "XÓA_ĐÁNH_DẤU_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
-                clearScreenAnnotations()
+                screenAnnotationOverlay?.remove()
+                screenAnnotationOverlay = null
+                true
             }
             "ỨNG_DỤNG_ĐÃ_CÀI" -> {
                 requireArgumentCount(name, arguments, 1)
@@ -1074,7 +1076,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private fun requireAnnotationCircle(name: String, x: Int, y: Int, radius: Int) {
         val metrics = readDisplayMetrics()
         require(
-            x - radius >= 0 && y - radius >= 0 &&
+            x.toLong() - radius.toLong() >= 0L &&
+                y.toLong() - radius.toLong() >= 0L &&
                 x.toLong() + radius.toLong() < metrics.widthPixels.toLong() &&
                 y.toLong() + radius.toLong() < metrics.heightPixels.toLong()
         ) {
@@ -1886,7 +1889,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "Mở ứng dụng" to "MỞ_ỨNG_DỤNG(\"com.example.app\")",
             "Đọc chữ trên màn hình" to "ĐỌC_VĂN_BẢN_MÀN_HÌNH()",
             "Tìm vị trí chữ" to "TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")",
-            "Đọc màu tại điểm" to "MÀU_TẠI(200, 400)"
+            "Đọc màu tại điểm" to "MÀU_TẠI(200, 400)",
+            "Hiển thị chữ có màu" to "HIỂN_THỊ_CHỮ(\"AUTU-LIO\", 80, 180, \"#FF00C8FF\", 36)",
+            "Vẽ khung đánh dấu" to "VẼ_KHUNG(40, 210, 300, 120, \"#FFFFC107\", 4)",
+            "Vẽ hình tròn" to "VẼ_HÌNH_TRÒN(200, 300, 45, \"#FF30D158\", 4)",
+            "Vẽ đường đánh dấu" to "VẼ_ĐƯỜNG(40, 270, 340, 270, \"#FF0A84FF\", 3)",
+            "Xóa đánh dấu màn hình" to "XÓA_ĐÁNH_DẤU_MÀN_HÌNH()"
         )
         val menu = PopupMenu(this, anchor)
         actions.forEachIndexed { index, action -> menu.menu.add(0, index, index, action.first) }
