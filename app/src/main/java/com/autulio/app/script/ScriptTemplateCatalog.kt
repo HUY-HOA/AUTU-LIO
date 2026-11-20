@@ -237,10 +237,11 @@ object ScriptTemplateCatalog {
             id = "mark_screen_region",
             nameVi = "Đánh dấu vùng trên màn hình",
             nameEn = "Mark a screen region",
-            descriptionVi = "Vẽ khung và đường đánh dấu; dùng lệnh xóa khi không cần hiển thị nữa.",
-            descriptionEn = "Draw a rectangle and guide line; clear the annotation when no longer needed.",
+            descriptionVi = "Vẽ khung, đường và mũi tên đánh dấu; dùng lệnh xóa khi không cần hiển thị nữa.",
+            descriptionEn = "Draw a rectangle, line and arrow; clear the annotation when no longer needed.",
             source = """VẼ_KHUNG(40, 210, 300, 120, "#FFFFC107", 4)
-VẼ_ĐƯỜNG(40, 270, 340, 270, "#FF30D158", 3)"""
+VẼ_ĐƯỜNG(40, 270, 340, 270, "#FF30D158", 3)
+VẼ_MŨI_TÊN(340, 270, 300, 270, "#FF0A84FF", 4)"""
         )
     )
 }
