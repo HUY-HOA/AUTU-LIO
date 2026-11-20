@@ -1770,6 +1770,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             insets
         }
 
+        val floatingPreferences = getSharedPreferences(
+            "autu_lio_floating_window",
+            MODE_PRIVATE
+        )
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -1779,8 +1783,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dp(8)
-            y = dp(100)
+            x = floatingPreferences.getInt("x", dp(8)).coerceAtLeast(0)
+            y = floatingPreferences.getInt("y", dp(100)).coerceAtLeast(0)
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode =
@@ -1819,7 +1823,25 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         return true
                     }
                     MotionEvent.ACTION_UP -> {
-                        if (!moved) view.performClick()
+                        if (moved) {
+                            val screenWidth = resources.displayMetrics.widthPixels
+                            val screenHeight = resources.displayMetrics.heightPixels
+                            val maxX = (screenWidth - root.width).coerceAtLeast(0)
+                            val maxY = (screenHeight - root.height).coerceAtLeast(0)
+                            params.x = if (params.x + root.width / 2 <= screenWidth / 2) {
+                                0
+                            } else {
+                                maxX
+                            }
+                            params.y = params.y.coerceIn(0, maxY)
+                            runCatching { manager.updateViewLayout(root, params) }
+                            floatingPreferences.edit()
+                                .putInt("x", params.x)
+                                .putInt("y", params.y)
+                                .apply()
+                        } else {
+                            view.performClick()
+                        }
                         return true
                     }
                     MotionEvent.ACTION_CANCEL -> return true
@@ -1830,6 +1852,23 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         try {
             manager.addView(root, params)
+            root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                val screenWidth = resources.displayMetrics.widthPixels
+                val screenHeight = resources.displayMetrics.heightPixels
+                val maxX = (screenWidth - root.width).coerceAtLeast(0)
+                val maxY = (screenHeight - root.height).coerceAtLeast(0)
+                val clampedX = params.x.coerceIn(0, maxX)
+                val clampedY = params.y.coerceIn(0, maxY)
+                if (clampedX != params.x || clampedY != params.y) {
+                    params.x = clampedX
+                    params.y = clampedY
+                    runCatching { manager.updateViewLayout(root, params) }
+                    floatingPreferences.edit()
+                        .putInt("x", params.x)
+                        .putInt("y", params.y)
+                        .apply()
+                }
+            }
             floatingWindow = root
             floatingParams = params
             statusLabel = status
