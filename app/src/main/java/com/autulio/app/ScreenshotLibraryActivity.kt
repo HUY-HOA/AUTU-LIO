@@ -43,24 +43,29 @@ private data class ScreenshotLibraryEntry(
 
 class ScreenshotLibraryActivity : ComponentActivity() {
     private val importExecutor = Executors.newSingleThreadExecutor()
+    private val refreshVersion = mutableIntStateOf(0)
+
+    override fun onResume() {
+        super.onResume()
+        refreshVersion.intValue++
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val screenshotRoot = File(filesDir, "screenshots")
         setContent {
-            var refreshVersion by remember { mutableIntStateOf(0) }
             var statusMessage by remember { mutableStateOf("") }
 
             AppTheme(dark = true) {
                 ScreenshotLibraryScreen(
                     rootDirectory = screenshotRoot,
-                    refreshVersion = refreshVersion,
+                    refreshVersion = refreshVersion.intValue,
                     statusMessage = statusMessage,
                     onBack = { finish() },
                     onImport = { uris ->
                         statusMessage = "Đang nhập ${uris.size} ảnh..."
                         importSelectedImages(uris) { imported, failed ->
-                            refreshVersion++
+                            refreshVersion.intValue++
                             statusMessage = when {
                                 imported > 0 && failed == 0 -> "Đã nhập $imported ảnh vào kho AUTU-LIO."
                                 imported > 0 -> "Đã nhập $imported ảnh; $failed ảnh không nhập được."
@@ -70,7 +75,7 @@ class ScreenshotLibraryActivity : ComponentActivity() {
                     },
                     onDelete = { file ->
                         val deleted = runCatching { file.delete() }.getOrDefault(false)
-                        refreshVersion++
+                        refreshVersion.intValue++
                         statusMessage = if (deleted) "Đã xóa ảnh." else "Không xóa được ảnh."
                     },
                     onOpenImage = { file ->
@@ -205,6 +210,7 @@ private fun ScreenshotLibraryScreen(
             "originals" -> entry.file.parentFile?.name == "originals"
             "cropped" -> entry.file.parentFile?.name == "cropped"
             "imported" -> entry.file.parentFile?.name == "imported"
+            "edited" -> entry.file.parentFile?.name == "edited"
             else -> true
         }
         val matchesQuery = query.isBlank() ||
@@ -251,14 +257,15 @@ private fun ScreenshotLibraryScreen(
         )
 
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             listOf(
                 "all" to "Tất cả",
                 "originals" to "Ảnh gốc",
                 "cropped" to "Ảnh đã cắt",
-                "imported" to "Ảnh nhập"
+                "imported" to "Ảnh nhập",
+                "edited" to "Ảnh đã sửa"
             ).forEach { (key, label) ->
                 FilterChip(
                     selected = filter == key,
@@ -428,6 +435,7 @@ private fun listScreenshotFiles(root: File): List<ScreenshotLibraryEntry> {
                     "originals" -> "Ảnh chụp gốc"
                     "cropped" -> "Ảnh đã cắt"
                     "imported" -> "Ảnh nhập từ điện thoại"
+                    "edited" -> "Ảnh đã chỉnh sửa"
                     else -> "Ảnh trong kho AUTU-LIO"
                 }
                 ScreenshotLibraryEntry(file, source)
