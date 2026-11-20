@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.autulio.app.accessibility.MlKitScreenVisionEngine
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.Executors
@@ -94,6 +95,13 @@ private sealed interface ImageMark {
     ) : ImageMark
 }
 
+private data class ScreenshotImageAnalysis(
+    val recognizedText: String,
+    val imageLabels: List<String>,
+    val detectedObjects: List<String>,
+    val barcodeValues: List<String>
+)
+
 private val imageEditorPalette = listOf(
     0xFFFFFFFF.toInt(),
     0xFFFF3B30.toInt(),
@@ -111,6 +119,9 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
     }
 
     private val saveExecutor = Executors.newSingleThreadExecutor()
+    private val visionEngineLazy = lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        MlKitScreenVisionEngine()
+    }
     private val generatedBitmaps = mutableListOf<Bitmap>()
     private var originalBitmap: Bitmap? = null
 
@@ -152,6 +163,46 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
         }
     }
 
+    private fun analyzeImage(
+        bitmap: Bitmap,
+        onFinished: (ScreenshotImageAnalysis?) -> Unit
+    ) {
+        saveExecutor.execute {
+            var scaledBitmap: Bitmap? = null
+            val analysis = runCatching {
+                val largestSide = max(bitmap.width, bitmap.height)
+                val input = if (largestSide > MAX_ANALYSIS_SIDE) {
+                    val scale = MAX_ANALYSIS_SIDE.toFloat() / largestSide
+                    scaledBitmap = Bitmap.createScaledBitmap(
+                        bitmap,
+                        max(1, (bitmap.width * scale).roundToInt()),
+                        max(1, (bitmap.height * scale).roundToInt()),
+                        true
+                    )
+                    scaledBitmap ?: bitmap
+                } else {
+                    bitmap
+                }
+                val engine = visionEngineLazy.value
+                val text = runCatching { engine.readText(input).take(MAX_RECOGNIZED_TEXT_CHARS) }
+                    .getOrDefault("")
+                val labels = runCatching { engine.recognizeScreenImageLabels(input).take(12) }
+                    .getOrDefault(emptyList())
+                val objects = runCatching {
+                    engine.recognizeScreenObjects(input).take(8).mapNotNull(::describeRecognizedObject)
+                }.getOrDefault(emptyList())
+                val barcodes = runCatching {
+                    engine.scanScreenBarcodeDetails(input, false)
+                        .take(16)
+                        .mapNotNull(::describeRecognizedBarcode)
+                }.getOrDefault(emptyList())
+                ScreenshotImageAnalysis(text, labels, objects, barcodes)
+            }.getOrNull()
+            scaledBitmap?.recycle()
+            runOnUiThread { onFinished(analysis) }
+        }
+    }
+
     private fun saveEditedImage(bitmap: Bitmap, marks: List<ImageMark>) {
         saveExecutor.execute {
             val saved = runCatching {
@@ -188,6 +239,9 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (visionEngineLazy.isInitialized()) {
+            saveExecutor.execute { runCatching { visionEngineLazy.value.close() } }
+        }
         val bitmaps = synchronized(generatedBitmaps) {
             (generatedBitmaps.toList() + listOfNotNull(originalBitmap)).distinct()
         }
@@ -200,6 +254,38 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
         saveExecutor.shutdown()
         super.onDestroy()
     }
+
+    private companion object {
+        const val MAX_ANALYSIS_SIDE = 2_000
+        const val MAX_RECOGNIZED_TEXT_CHARS = 3_000
+
+        fun describeRecognizedObject(value: Any?): String? {
+            val objectData = value as? Map<*, *> ?: return null
+            val labelMaps = objectData["NHÃN"] as? List<*> ?: emptyList<Any?>()
+            val label = labelMaps.firstNotNullOfOrNull { item ->
+                (item as? Map<*, *>)?.get("TÊN") as? String
+            }?.takeIf { it.isNotBlank() } ?: "Vật thể"
+            val x = (objectData["X"] as? Number)?.toInt()
+            val y = (objectData["Y"] as? Number)?.toInt()
+            val width = (objectData["RỘNG"] as? Number)?.toInt()
+            val height = (objectData["CAO"] as? Number)?.toInt()
+            return if (x != null && y != null && width != null && height != null) {
+                "$label · X=$x, Y=$y, rộng $width, cao $height"
+            } else {
+                label
+            }
+        }
+
+        fun describeRecognizedBarcode(value: Any?): String? {
+            val barcode = value as? Map<*, *> ?: return null
+            val content = (
+                barcode["GIÁ_TRỊ_HIỂN_THỊ"] as? String
+                    ?: barcode["GIÁ_TRỊ_GỐC"] as? String
+                )?.takeIf { it.isNotBlank() } ?: return null
+            val format = barcode["ĐỊNH_DẠNG"] as? String ?: "Mã"
+            return "$format · $content"
+        }
+    }
 }
 
 @Composable
@@ -207,7 +293,8 @@ private fun ScreenshotImageEditorScreen(
     originalBitmap: Bitmap,
     onBack: () -> Unit,
     onBitmapCreated: (Bitmap) -> Unit,
-    onSave: (Bitmap, List<ImageMark>) -> Unit
+    onSave: (Bitmap, List<ImageMark>) -> Unit,
+    onRecognize: (Bitmap, (ScreenshotImageAnalysis?) -> Unit) -> Unit
 ) {
     var workingBitmap by remember(originalBitmap) {
         mutableStateOf(originalBitmap)
@@ -220,6 +307,8 @@ private fun ScreenshotImageEditorScreen(
     var pendingText by rememberSaveable { mutableStateOf("") }
     var textPosition by remember { mutableStateOf(ImagePoint(0.5f, 0.5f)) }
     var statusMessage by remember { mutableStateOf("") }
+    var isRecognizing by remember { mutableStateOf(false) }
+    var recognitionResult by remember { mutableStateOf<ScreenshotImageAnalysis?>(null) }
 
     fun replaceBitmap(
         matrix: Matrix,
@@ -407,14 +496,86 @@ private fun ScreenshotImageEditorScreen(
             Text(statusMessage, color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
         }
 
-        Button(
-            onClick = { onSave(workingBitmap, marks.toList()) },
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Outlined.Check, contentDescription = null)
-            Spacer(Modifier.width(6.dp))
-            Text("Lưu thành ảnh mới")
+            OutlinedButton(
+                onClick = {
+                    isRecognizing = true
+                    recognitionResult = null
+                    onRecognize(workingBitmap) { result ->
+                        isRecognizing = false
+                        recognitionResult = result ?: ScreenshotImageAnalysis(
+                            recognizedText = "",
+                            imageLabels = emptyList(),
+                            detectedObjects = emptyList(),
+                            barcodeValues = emptyList()
+                        )
+                    }
+                },
+                enabled = !isRecognizing,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(if (isRecognizing) "Đang nhận diện..." else "Nhận diện ảnh")
+            }
+            Button(
+                onClick = { onSave(workingBitmap, marks.toList()) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Outlined.Check, contentDescription = null)
+                Spacer(Modifier.width(5.dp))
+                Text("Lưu ảnh mới")
+            }
         }
+    }
+
+    if (recognitionResult != null) {
+        AlertDialog(
+            onDismissRequest = { recognitionResult = null },
+            title = { Text("Kết quả nhận diện ảnh") },
+            text = {
+                Column(
+                    Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    val result = recognitionResult
+                    if (result == null ||
+                        (result.recognizedText.isBlank() &&
+                            result.imageLabels.isEmpty() &&
+                            result.detectedObjects.isEmpty() &&
+                            result.barcodeValues.isEmpty())
+                    ) {
+                        Text("Không tìm thấy chữ, nhãn, vật thể hoặc mã trong ảnh.")
+                    } else {
+                        if (result.recognizedText.isNotBlank()) {
+                            Text("Văn bản nhận diện", fontWeight = FontWeight.SemiBold)
+                            Text(result.recognizedText, fontSize = 12.sp, lineHeight = 17.sp)
+                        }
+                        if (result.imageLabels.isNotEmpty()) {
+                            Text("Nhãn hình ảnh", fontWeight = FontWeight.SemiBold)
+                            Text(result.imageLabels.joinToString(" · "), fontSize = 12.sp)
+                        }
+                        if (result.detectedObjects.isNotEmpty()) {
+                            Text("Vật thể và vị trí", fontWeight = FontWeight.SemiBold)
+                            result.detectedObjects.forEach { Text("• " + it, fontSize = 12.sp) }
+                        }
+                        if (result.barcodeValues.isNotEmpty()) {
+                            Text("Mã QR và mã vạch", fontWeight = FontWeight.SemiBold)
+                            result.barcodeValues.forEach { Text("• " + it, fontSize = 12.sp) }
+                        }
+                    }
+                    Text(
+                        "Ảnh được phân tích trực tiếp trên thiết bị. Kết quả có thể không đầy đủ với ảnh mờ hoặc nội dung quá nhỏ.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { recognitionResult = null }) { Text("Đóng") }
+            }
+        )
     }
 
     if (showTextDialog) {
