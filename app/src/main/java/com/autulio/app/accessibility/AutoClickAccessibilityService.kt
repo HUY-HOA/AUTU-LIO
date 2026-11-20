@@ -78,6 +78,18 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         @Volatile
         private var activeInstance: AutoClickAccessibilityService? = null
 
+        @Volatile
+        private var sessionVerified = false
+
+        fun markSessionVerified() {
+            sessionVerified = true
+        }
+
+        fun invalidateSession() {
+            sessionVerified = false
+            activeInstance?.lockRunner()
+        }
+
         private const val TAP_DURATION_MS = 80
         private const val GESTURE_TIMEOUT_GRACE_MS = 3_000L
         private const val MAX_SCREEN_COLOR_SAMPLES = 262_144
@@ -169,10 +181,15 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         authorizationMonitorTask = authorizationMonitorExecutor.scheduleWithFixedDelay({
             val token = runCatching { sessionStore.read() }.getOrNull()
             if (token.isNullOrBlank()) {
-                if (floatingWindow != null) lockRunner()
+                if (sessionVerified || floatingWindow != null) lockRunner()
             } else {
                 try {
                     runBlocking { authRepository.currentUser(token) }
+                    if (sessionStore.read() == token) {
+                        sessionVerified = true
+                    } else {
+                        lockRunner()
+                    }
                 } catch (error: AuthApiException) {
                     if (error.statusCode in 401..403) runCatching { sessionStore.clear() }
                     lockRunner()
@@ -229,7 +246,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         }
 
-        if (executionEngine == null || sessionStore.read().isNullOrBlank()) {
+        if (executionEngine == null || !sessionVerified || sessionStore.read().isNullOrBlank()) {
             lockRunner()
             return false
         }
@@ -2124,6 +2141,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     private fun prepareFloatingProgram() {
+        if (!sessionVerified || sessionStore.read().isNullOrBlank()) {
+            lockRunner()
+            return
+        }
         val source = codeInput?.text?.toString().orEmpty()
         if (source.isBlank()) {
             statusLabel?.text = "Chưa có mã. Hãy nhập mã hoặc chọn thao tác có sẵn."
@@ -2190,6 +2211,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     private fun onPrimaryAction() {
+        if (!sessionVerified || sessionStore.read().isNullOrBlank()) {
+            lockRunner()
+            return
+        }
         val engine = executionEngine ?: return
         when (engine.snapshot().state) {
             ScriptExecutionState.RUNNING -> engine.pause()
@@ -2306,6 +2331,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
      * any annotations it creates are removed.
      */
     fun lockRunner() {
+        sessionVerified = false
         pendingProgram = null
         removeAnnotationsAfterStop = true
         executionEngine?.stop()
