@@ -62,6 +62,7 @@ import com.autulio.app.script.ScriptProgram
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -103,6 +104,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private val scriptDatabaseStore by scriptDatabaseStoreLazy
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val screenshotExecutor = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "AUTU-LIO-Screenshot").apply { isDaemon = true }
+    }
     private var executionEngine: ScriptExecutionEngine? = null
     private var windowManager: WindowManager? = null
     private var floatingWindow: LinearLayout? = null
@@ -111,6 +115,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var stopButton: TextView? = null
     private var collapseButton: TextView? = null
     private var moveHandle: TextView? = null
+    private var captureButton: TextView? = null
     private var actionRow: LinearLayout? = null
     private var editorButton: TextView? = null
     private var editorPanel: LinearLayout? = null
@@ -148,6 +153,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     override fun onDestroy() {
         executionEngine?.close()
         executionEngine = null
+        screenshotExecutor.shutdownNow()
         if (screenVisionEngineLazy.isInitialized()) runCatching { screenVisionEngine.close() }
         if (scriptDatabaseStoreLazy.isInitialized()) {
             scriptDatabaseStore.close()
@@ -1446,6 +1452,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val stop = controlButton("■", "Dừng kịch bản", 0xFFFF7777.toInt()) {
             executionEngine?.stop()
         }
+        val stop = controlButton("■", "Dừng kịch bản", 0xFFFF7777.toInt()) {
+            executionEngine?.stop()
+        }
+        val camera = controlButton("▣", "Chụp màn hình và chọn vùng cần giữ", 0xFF7DD3FC.toInt()) {
+            captureAndOpenCropEditor()
+        }
         val collapse = controlButton("▾", "Thu gọn thành nút AUTU", 0xFFE2E8F0.toInt()) {
             setCollapsed(true)
         }
@@ -1454,6 +1466,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         controls.addView(edit)
         controls.addView(primary)
         controls.addView(stop)
+        controls.addView(camera)
         controls.addView(collapse)
         root.addView(status)
         root.addView(controls)
@@ -1592,6 +1605,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             stopButton = stop
             collapseButton = collapse
             moveHandle = move
+            captureButton = camera
             editorButton = edit
             actionRow = controls
             editorPanel = editorArea
@@ -1610,6 +1624,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             stopButton = null
             collapseButton = null
             moveHandle = null
+            captureButton = null
             editorButton = null
             actionRow = null
             editorPanel = null
@@ -1818,6 +1833,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
         editorButton?.visibility =
             if (!collapsed && !running && !paused && !stopping) View.VISIBLE else View.GONE
+        captureButton?.visibility = if (collapsed) View.GONE else View.VISIBLE
         collapse.visibility = if (collapsed) View.GONE else View.VISIBLE
         editorPanel?.visibility = if (!collapsed && editorVisible) View.VISIBLE else View.GONE
         actionRow?.visibility = View.VISIBLE
@@ -1841,6 +1857,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         stopButton = null
         collapseButton = null
         moveHandle = null
+        captureButton = null
         editorButton = null
         actionRow = null
         editorPanel = null
