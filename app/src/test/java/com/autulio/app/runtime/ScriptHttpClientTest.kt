@@ -119,7 +119,7 @@ class ScriptHttpClientTest {
             headers = mapOf("Authorization" to "Bearer upload-token"),
             timeoutMs = 5_000
         )
-        val requestContentType = request.header("Content-Type").orEmpty()
+        val requestContentType = request.body?.contentType()?.toString().orEmpty()
         val body = requestBodyText(request)
 
         assertEquals(201, result["TRẠNG_THÁI"])
