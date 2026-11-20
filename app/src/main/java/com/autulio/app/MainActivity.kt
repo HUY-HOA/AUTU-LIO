@@ -38,6 +38,7 @@ import org.json.JSONArray
 import java.util.Locale
 import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
+import com.autulio.app.auth.AuthApiException
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
@@ -122,6 +123,18 @@ private fun RolePreviewChooser(
 }
 @Suppress("UNUSED_PARAMETER")
 internal fun tr(vi: String, en: String): String = vi
+
+internal fun localizedErrorMessage(error: Throwable?, fallback: String): String {
+    val message = error?.message?.trim().orEmpty()
+    if (message.isBlank()) return fallback
+    if (error is AuthApiException) return message
+    val hasVietnamese = message.any { character ->
+        "ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ".contains(
+            character.lowercaseChar()
+        )
+    }
+    return if (hasVietnamese) message else fallback
+}
 
 internal fun statusText(value: String): String = when (value.trim().uppercase(Locale.ROOT)) {
     "ACTIVE" -> "Đang hoạt động"
@@ -364,8 +377,7 @@ private fun OverviewScreen(
                 packages = packagesRequest.await()
             }
         } catch (exception: Exception) {
-            error = exception.message?.takeIf { it.isNotBlank() }
-                ?: tr("Không tải được số liệu tổng quan.", "Could not load dashboard data.")
+            error = localizedErrorMessage(exception, tr("Không tải được số liệu tổng quan.", "Could not load dashboard data."))
         } finally {
             loading = false
         }
@@ -960,7 +972,7 @@ private fun CustomerHome(
             try {
                 account = repository.customerAccount(accessToken)
             } catch (exception: Exception) {
-                error = exception.message ?: tr("Không tải được trạng thái tài khoản.", "Could not load account status.")
+                error = localizedErrorMessage(exception, tr("Không tải được trạng thái tài khoản.", "Could not load account status."))
             } finally {
                 loading = false
             }
