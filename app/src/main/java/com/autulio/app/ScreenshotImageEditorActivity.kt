@@ -27,6 +27,9 @@ import androidx.compose.material.icons.outlined.ArrowRightAlt
 import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CropSquare
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.HorizontalRule
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Flip
 import androidx.compose.material.icons.outlined.FormatColorText
 import androidx.compose.material.icons.outlined.Redo
@@ -63,7 +66,7 @@ import kotlin.math.roundToInt
 private data class ImagePoint(val x: Float, val y: Float)
 
 private enum class ImageEditTool {
-    PEN, RECTANGLE, ARROW, TEXT
+    PEN, RECTANGLE, CIRCLE, LINE, ARROW, TEXT
 }
 
 private sealed interface ImageMark {
@@ -276,7 +279,7 @@ private fun ScreenshotImageEditorScreen(
                 Icon(Icons.Outlined.Undo, contentDescription = "Hoàn tác")
             }
             IconButton(onClick = { marks.clear() }) {
-                Icon(Icons.Outlined.Redo, contentDescription = "Xóa nét vẽ")
+                Icon(Icons.Outlined.Delete, contentDescription = "Xóa nét vẽ")
             }
         }
 
@@ -326,6 +329,12 @@ private fun ScreenshotImageEditorScreen(
             }
             ImageToolChip("Khung", activeTool == ImageEditTool.RECTANGLE, Icons.Outlined.CropSquare) {
                 activeTool = ImageEditTool.RECTANGLE
+            }
+            ImageToolChip("Tròn", activeTool == ImageEditTool.CIRCLE, Icons.Outlined.RadioButtonUnchecked) {
+                activeTool = ImageEditTool.CIRCLE
+            }
+            ImageToolChip("Đường", activeTool == ImageEditTool.LINE, Icons.Outlined.HorizontalRule) {
+                activeTool = ImageEditTool.LINE
             }
             ImageToolChip("Mũi tên", activeTool == ImageEditTool.ARROW, Icons.Outlined.ArrowRightAlt) {
                 activeTool = ImageEditTool.ARROW
@@ -505,6 +514,8 @@ private fun ImageAnnotationCanvas(
                                     widthRatio = brushWidth
                                 )
                                 ImageEditTool.RECTANGLE,
+                                ImageEditTool.CIRCLE,
+                                ImageEditTool.LINE,
                                 ImageEditTool.ARROW -> ImageMark.Shape(
                                     tool = activeTool,
                                     start = point,
@@ -588,27 +599,31 @@ private fun DrawScope.drawImageMark(
         is ImageMark.Shape -> {
             val start = point(mark.start)
             val end = point(mark.end)
-            if (mark.tool == ImageEditTool.RECTANGLE) {
-                drawRect(
-                    color,
-                    topLeft = Offset(min(start.x, end.x), min(start.y, end.y)),
-                    size = Size(kotlin.math.abs(end.x - start.x), kotlin.math.abs(end.y - start.y)),
-                    style = Stroke(width = stroke)
-                )
-            } else {
-                drawLine(color, start, end, stroke)
-                val angle = kotlin.math.atan2(end.y - start.y, end.x - start.x)
-                val head = stroke * 5f
-                val first = Offset(
-                    end.x - head * kotlin.math.cos(angle - 0.55f),
-                    end.y - head * kotlin.math.sin(angle - 0.55f)
-                )
-                val second = Offset(
-                    end.x - head * kotlin.math.cos(angle + 0.55f),
-                    end.y - head * kotlin.math.sin(angle + 0.55f)
-                )
-                drawLine(color, end, first, stroke)
-                drawLine(color, end, second, stroke)
+            val boundsTopLeft = Offset(min(start.x, end.x), min(start.y, end.y))
+            val boundsSize = Size(kotlin.math.abs(end.x - start.x), kotlin.math.abs(end.y - start.y))
+            when (mark.tool) {
+                ImageEditTool.RECTANGLE ->
+                    drawRect(color, topLeft = boundsTopLeft, size = boundsSize, style = Stroke(width = stroke))
+                ImageEditTool.CIRCLE ->
+                    drawOval(color, topLeft = boundsTopLeft, size = boundsSize, style = Stroke(width = stroke))
+                ImageEditTool.LINE ->
+                    drawLine(color, start, end, stroke)
+                ImageEditTool.ARROW -> {
+                    drawLine(color, start, end, stroke)
+                    val angle = kotlin.math.atan2(end.y - start.y, end.x - start.x)
+                    val head = stroke * 5f
+                    val first = Offset(
+                        end.x - head * kotlin.math.cos(angle - 0.55f),
+                        end.y - head * kotlin.math.sin(angle - 0.55f)
+                    )
+                    val second = Offset(
+                        end.x - head * kotlin.math.cos(angle + 0.55f),
+                        end.y - head * kotlin.math.sin(angle + 0.55f)
+                    )
+                    drawLine(color, end, first, stroke)
+                    drawLine(color, end, second, stroke)
+                }
+                else -> Unit
             }
         }
         is ImageMark.Text -> {
@@ -669,23 +684,28 @@ private fun drawMarksToBitmap(
                 val top = min(y(mark.start), y(mark.end))
                 val right = max(x(mark.start), x(mark.end))
                 val bottom = max(y(mark.start), y(mark.end))
-                if (mark.tool == ImageEditTool.RECTANGLE) {
-                    canvas.drawRect(left, top, right, bottom, paint)
-                } else {
-                    canvas.drawLine(x(mark.start), y(mark.start), x(mark.end), y(mark.end), paint)
-                    val angle = kotlin.math.atan2(
-                        y(mark.end) - y(mark.start),
-                        x(mark.end) - x(mark.start)
-                    )
-                    val head = paint.strokeWidth * 5f
-                    val endX = x(mark.end)
-                    val endY = y(mark.end)
-                    val firstX = endX - head * kotlin.math.cos(angle - 0.55f)
-                    val firstY = endY - head * kotlin.math.sin(angle - 0.55f)
-                    val secondX = endX - head * kotlin.math.cos(angle + 0.55f)
-                    val secondY = endY - head * kotlin.math.sin(angle + 0.55f)
-                    canvas.drawLine(endX, endY, firstX, firstY, paint)
-                    canvas.drawLine(endX, endY, secondX, secondY, paint)
+                when (mark.tool) {
+                    ImageEditTool.RECTANGLE -> canvas.drawRect(left, top, right, bottom, paint)
+                    ImageEditTool.CIRCLE -> canvas.drawOval(left, top, right, bottom, paint)
+                    ImageEditTool.LINE ->
+                        canvas.drawLine(x(mark.start), y(mark.start), x(mark.end), y(mark.end), paint)
+                    ImageEditTool.ARROW -> {
+                        canvas.drawLine(x(mark.start), y(mark.start), x(mark.end), y(mark.end), paint)
+                        val angle = kotlin.math.atan2(
+                            y(mark.end) - y(mark.start),
+                            x(mark.end) - x(mark.start)
+                        )
+                        val head = paint.strokeWidth * 5f
+                        val endX = x(mark.end)
+                        val endY = y(mark.end)
+                        val firstX = endX - head * kotlin.math.cos(angle - 0.55f)
+                        val firstY = endY - head * kotlin.math.sin(angle - 0.55f)
+                        val secondX = endX - head * kotlin.math.cos(angle + 0.55f)
+                        val secondY = endY - head * kotlin.math.sin(angle + 0.55f)
+                        canvas.drawLine(endX, endY, firstX, firstY, paint)
+                        canvas.drawLine(endX, endY, secondX, secondY, paint)
+                    }
+                    else -> Unit
                 }
             }
             is ImageMark.Text -> {
