@@ -47,8 +47,7 @@ internal fun AdminAuditLogsScreen(
         try {
             logs = repository.listAdminAuditLogs(token, 100)
         } catch (exception: Exception) {
-            error = exception.message?.takeIf { it.isNotBlank() }
-                ?: tr("Không tải được nhật ký hệ thống.", "Could not load system activity.")
+            error = localizedErrorMessage(exception, tr("Không tải được nhật ký hệ thống.", "Could not load system activity."))
         } finally {
             loading = false
         }
