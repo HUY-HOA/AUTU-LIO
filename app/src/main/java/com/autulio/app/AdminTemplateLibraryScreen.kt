@@ -33,8 +33,10 @@ internal fun AdminTemplateLibraryScreen(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("all") }
+    var detailTemplateId by rememberSaveable { mutableStateOf<String?>(null) }
 
     val templates = ScriptTemplateCatalog.templates
+    val selectedTemplate = templates.firstOrNull { it.id == detailTemplateId }
     val filtered = templates.filter { template ->
         val matchesCategory = category == "all" || templateCategory(template.id) == category
         val text = listOf(
@@ -138,38 +140,81 @@ internal fun AdminTemplateLibraryScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Text(
-                            tr(template.descriptionVi, template.descriptionEn),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp
-                        )
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(9.dp)
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
-                            Text(
-                                template.source,
-                                modifier = Modifier.fillMaxWidth().padding(10.dp),
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp,
-                                maxLines = 5,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        Button(
-                            onClick = { onOpenTemplate(template) },
-                            enabled = result.isSuccess,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(tr("Mở và chỉnh sửa mẫu", "Open and edit template"))
-                            Spacer(Modifier.width(7.dp))
-                            Icon(Icons.Outlined.ArrowForward, contentDescription = null)
+                            TextButton(
+                                onClick = { detailTemplateId = template.id },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp)
+                            ) {
+                                Text("Chi tiết")
+                            }
+                            Spacer(Modifier.weight(1f))
+                            Button(
+                                onClick = { onOpenTemplate(template) },
+                                enabled = result.isSuccess,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)
+                            ) {
+                                Text("Mở để chỉnh sửa")
+                                Spacer(Modifier.width(5.dp))
+                                Icon(Icons.Outlined.ArrowForward, contentDescription = null)
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (selectedTemplate != null) {
+        val result = remember(selectedTemplate.id) { ScriptCompiler.compile(selectedTemplate.source) }
+        AlertDialog(
+            onDismissRequest = { detailTemplateId = null },
+            title = { Text(selectedTemplate.nameVi) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Text(selectedTemplate.descriptionVi)
+                    Text(
+                        if (result.isSuccess) "Mẫu hợp lệ với ngôn ngữ AUTU ${ScriptCompiler.LANGUAGE_VERSION}."
+                        else "Mẫu đang có lỗi cú pháp.",
+                        color = if (result.isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
+                    )
+                    Text("Mã mẫu", fontWeight = FontWeight.SemiBold)
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(9.dp)
+                    ) {
+                        Text(
+                            selectedTemplate.source,
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { detailTemplateId = null }) { Text("Đóng") }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        detailTemplateId = null
+                        onOpenTemplate(selectedTemplate)
+                    },
+                    enabled = result.isSuccess
+                ) {
+                    Text("Mở để chỉnh sửa")
+                }
+            }
+        )
     }
 }
 
