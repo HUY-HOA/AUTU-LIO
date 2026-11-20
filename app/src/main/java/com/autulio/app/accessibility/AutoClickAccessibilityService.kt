@@ -565,7 +565,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 1)
                 val geometry = readDisplayGeometry()
                 ScreenCoordinateConverter.pixelToSafeRatio(
-                    requireNonNegativeFiniteNumber(name, arguments[0], "X"),
+                    requirePositiveOrZeroInt(name, arguments[0], "X").toDouble(),
                     geometry.safeInsets.left,
                     geometry.safeWidthPx
                 )
@@ -574,7 +574,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 1)
                 val geometry = readDisplayGeometry()
                 ScreenCoordinateConverter.pixelToSafeRatio(
-                    requireNonNegativeFiniteNumber(name, arguments[0], "Y"),
+                    requirePositiveOrZeroInt(name, arguments[0], "Y").toDouble(),
                     geometry.safeInsets.top,
                     geometry.safeHeightPx
                 )
@@ -583,25 +583,25 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 2)
                 val metrics = readDisplayMetrics()
                 val point = ScreenCoordinateConverter.naturalToCurrent(
-                    requireNonNegativeFiniteNumber(name, arguments[0], "X"),
-                    requireNonNegativeFiniteNumber(name, arguments[1], "Y"),
+                    requirePositiveOrZeroInt(name, arguments[0], "X").toDouble(),
+                    requirePositiveOrZeroInt(name, arguments[1], "Y").toDouble(),
                     metrics.widthPixels,
                     metrics.heightPixels,
                     readDisplayRotation()
                 )
-                listOf(point.first, point.second)
+                listOf(point.first.toInt(), point.second.toInt())
             }
             "TỌA_ĐỘ_VỀ_HƯỚNG_GỐC" -> {
                 requireArgumentCount(name, arguments, 2)
                 val metrics = readDisplayMetrics()
                 val point = ScreenCoordinateConverter.currentToNatural(
-                    requireNonNegativeFiniteNumber(name, arguments[0], "X"),
-                    requireNonNegativeFiniteNumber(name, arguments[1], "Y"),
+                    requirePositiveOrZeroInt(name, arguments[0], "X").toDouble(),
+                    requirePositiveOrZeroInt(name, arguments[1], "Y").toDouble(),
                     metrics.widthPixels,
                     metrics.heightPixels,
                     readDisplayRotation()
                 )
-                listOf(point.first, point.second)
+                listOf(point.first.toInt(), point.second.toInt())
             }
             "CHIỀU_RỘNG_MÀN_HÌNH" -> readDisplayMetrics().widthPixels
             "CHIỀU_CAO_MÀN_HÌNH" -> readDisplayMetrics().heightPixels
