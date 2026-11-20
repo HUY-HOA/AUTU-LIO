@@ -243,6 +243,7 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
                         synchronized(generatedBitmaps) { generatedBitmaps += created }
                     },
                     onBitmapSuperseded = ::recycleSupersededBitmap,
+                    onTransformBitmap = ::transformImage,
                     onSave = ::saveEditedImage,
                     onRecognize = ::analyzeImage,
                     onApplyAdjustments = ::applyImageAdjustments,
@@ -289,6 +290,33 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
             }.getOrNull()
             scaledBitmap?.recycle()
             runOnUiThread { onFinished(analysis) }
+        }
+    }
+
+    private fun transformImage(
+        bitmap: Bitmap,
+        matrix: Matrix,
+        onFinished: (Bitmap?) -> Unit
+    ) {
+        saveExecutor.execute {
+            val transformed = runCatching {
+                Bitmap.createBitmap(
+                    bitmap,
+                    0,
+                    0,
+                    bitmap.width,
+                    bitmap.height,
+                    matrix,
+                    true
+                )
+            }.getOrNull()
+            runOnUiThread {
+                if (isFinishing || isDestroyed) {
+                    transformed?.recycle()
+                } else {
+                    onFinished(transformed)
+                }
+            }
         }
     }
 
@@ -487,6 +515,7 @@ private fun ScreenshotImageEditorScreen(
     onBack: () -> Unit,
     onBitmapCreated: (Bitmap) -> Unit,
     onBitmapSuperseded: (Bitmap) -> Unit,
+    onTransformBitmap: (Bitmap, Matrix, (Bitmap?) -> Unit) -> Unit,
     onSave: (Bitmap, List<ImageMark>) -> Unit,
     onRecognize: (Bitmap, (ScreenshotImageAnalysis?) -> Unit) -> Unit,
     onApplyAdjustments: (Bitmap, Float, Float, (Bitmap?) -> Unit) -> Unit,
@@ -530,39 +559,33 @@ private fun ScreenshotImageEditorScreen(
         matrix: Matrix,
         transformPoint: (ImagePoint) -> ImagePoint
     ) {
+        if (isApplyingImageEffect || isRecognizing) return
         val current = workingBitmap
-        val transformed = runCatching {
-            Bitmap.createBitmap(
-                current,
-                0,
-                0,
-                current.width,
-                current.height,
-                matrix,
-                true
-            )
-        }.getOrNull()
-        if (transformed != null) {
-            workingBitmap = transformed
-            onBitmapCreated(transformed)
-            if (current !== originalBitmap && current !== transformed) {
-                onBitmapSuperseded(current)
-            }
-            val transformedMarks = marks.map { mark ->
-                when (mark) {
-                    is ImageMark.Pen -> mark.copy(points = mark.points.map(transformPoint))
-                    is ImageMark.Shape -> mark.copy(
-                        start = transformPoint(mark.start),
-                        end = transformPoint(mark.end)
-                    )
-                    is ImageMark.Text -> mark.copy(position = transformPoint(mark.position))
+        isApplyingImageEffect = true
+        onTransformBitmap(current, matrix) { transformed ->
+            isApplyingImageEffect = false
+            if (transformed == null) {
+                statusMessage = "Không thực hiện được thay đổi ảnh."
+            } else {
+                workingBitmap = transformed
+                onBitmapCreated(transformed)
+                if (current !== originalBitmap && current !== transformed) {
+                    onBitmapSuperseded(current)
                 }
+                val transformedMarks = marks.map { mark ->
+                    when (mark) {
+                        is ImageMark.Pen -> mark.copy(points = mark.points.map(transformPoint))
+                        is ImageMark.Shape -> mark.copy(
+                            start = transformPoint(mark.start),
+                            end = transformPoint(mark.end)
+                        )
+                        is ImageMark.Text -> mark.copy(position = transformPoint(mark.position))
+                    }
+                }
+                marks.clear()
+                marks.addAll(transformedMarks)
+                statusMessage = "Đã cập nhật hướng ảnh."
             }
-            marks.clear()
-            marks.addAll(transformedMarks)
-            statusMessage = "Đã cập nhật hướng ảnh."
-        } else {
-            statusMessage = "Không thực hiện được thay đổi ảnh."
         }
     }
 
@@ -594,7 +617,9 @@ private fun ScreenshotImageEditorScreen(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            OutlinedButton(onClick = {
+            OutlinedButton(
+                enabled = !isApplyingImageEffect && !isRecognizing,
+                onClick = {
                 replaceBitmap(Matrix().apply { setRotate(90f) }) {
                     ImagePoint(1f - it.y, it.x)
                 }
@@ -603,7 +628,9 @@ private fun ScreenshotImageEditorScreen(
                 Spacer(Modifier.width(4.dp))
                 Text("Xoay 90°")
             }
-            OutlinedButton(onClick = {
+            OutlinedButton(
+                enabled = !isApplyingImageEffect && !isRecognizing,
+                onClick = {
                 replaceBitmap(Matrix().apply {
                     setScale(-1f, 1f, workingBitmap.width / 2f, workingBitmap.height / 2f)
                 }) {
@@ -614,7 +641,9 @@ private fun ScreenshotImageEditorScreen(
                 Spacer(Modifier.width(4.dp))
                 Text("Lật ngang")
             }
-            OutlinedButton(onClick = {
+            OutlinedButton(
+                enabled = !isApplyingImageEffect && !isRecognizing,
+                onClick = {
                 replaceBitmap(Matrix().apply {
                     setScale(1f, -1f, workingBitmap.width / 2f, workingBitmap.height / 2f)
                 }) {
@@ -664,7 +693,8 @@ private fun ScreenshotImageEditorScreen(
                         modifier = Modifier.weight(1f)
                     )
                     Button(
-                        enabled = !isApplyingImageEffect && (brightness != 0f || contrast != 0f),
+                        enabled = !isApplyingImageEffect && !isRecognizing &&
+                            (brightness != 0f || contrast != 0f),
                         onClick = {
                             isApplyingImageEffect = true
                             onApplyAdjustments(workingBitmap, brightness, contrast) { result ->
@@ -780,7 +810,7 @@ private fun ScreenshotImageEditorScreen(
             ) {
                 Text("Đã chọn vùng", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                 OutlinedButton(
-                    enabled = !isApplyingImageEffect,
+                    enabled = !isApplyingImageEffect && !isRecognizing,
                     onClick = {
                         val region = selectedRegion ?: return@OutlinedButton
                         isApplyingImageEffect = true
@@ -843,12 +873,13 @@ private fun ScreenshotImageEditorScreen(
                         )
                     }
                 },
-                enabled = !isRecognizing,
+                enabled = !isRecognizing && !isApplyingImageEffect,
                 modifier = Modifier.weight(1f)
             ) {
                 Text(if (isRecognizing) "Đang nhận diện..." else "Nhận diện ảnh")
             }
             Button(
+                enabled = !isApplyingImageEffect && !isRecognizing,
                 onClick = { onSave(workingBitmap, marks.toList()) },
                 modifier = Modifier.weight(1f)
             ) {
