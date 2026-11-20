@@ -754,6 +754,62 @@ class AuthRepository(context: Context) {
             )
     }
 
+    private fun localizedApiError(code: String, status: Int): String = when (code) {
+        "rate_limit_not_configured", "rate_limit_client_unavailable", "rate_limit_unavailable" ->
+            "Dịch vụ bảo mật đăng nhập hiện chưa sẵn sàng. Vui lòng thử lại sau."
+        "rate_limited" -> "Bạn thao tác quá nhanh. Vui lòng chờ một lúc rồi thử lại."
+        "invalid_json", "missing_sign_in_fields", "body_too_large" ->
+            "Dữ liệu gửi lên không hợp lệ. Vui lòng thử lại."
+        "google_auth_not_configured" -> "Đăng nhập Google chưa được cấu hình."
+        "invalid_id_token", "unknown_signing_key", "invalid_signature",
+        "invalid_token_audience", "invalid_authorized_party", "expired_id_token",
+        "nonce_mismatch", "unverified_google_account", "invalid_challenge",
+        "invalid_challenge_nonce" -> "Không thể xác minh tài khoản Google. Vui lòng đăng nhập lại."
+        "google_keys_unavailable" -> "Không thể kết nối dịch vụ xác minh Google. Vui lòng thử lại."
+        "challenge_already_used" -> "Yêu cầu đăng nhập này đã được sử dụng. Vui lòng đăng nhập lại."
+        "google_identity_conflict" -> "Email này đã được liên kết với một tài khoản Google khác."
+        "owner_already_provisioned" -> "Tài khoản chủ sở hữu đã được thiết lập."
+        "authentication_required", "invalid_session" ->
+            "Phiên đăng nhập đã hết hạn hoặc không còn hiệu lực. Vui lòng đăng nhập lại."
+        "insufficient_permissions" -> "Tài khoản hiện tại không có quyền thực hiện thao tác này."
+        "account_inactive" -> "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ chủ ứng dụng."
+        "invalid_customer_id", "customer_not_found" -> "Không tìm thấy tài khoản khách hàng."
+        "invalid_plan_code" -> "Mã gói sử dụng không hợp lệ."
+        "invalid_license_period", "license_not_current" -> "Thời hạn giấy phép không hợp lệ."
+        "invalid_device_limit" -> "Giới hạn số thiết bị không hợp lệ."
+        "customer_inactive" -> "Không thể cấp giấy phép cho tài khoản đã bị vô hiệu hóa."
+        "active_license_exists" -> "Khách hàng đã có giấy phép đang hoạt động."
+        "invalid_license_id", "license_not_found" -> "Không tìm thấy giấy phép."
+        "invalid_license_status" -> "Trạng thái giấy phép không hợp lệ."
+        "license_update_conflict" -> "Giấy phép vừa được thay đổi. Vui lòng tải lại rồi thử lại."
+        "active_license_required", "license_not_current" -> "Tài khoản cần có giấy phép còn hiệu lực để sử dụng chức năng này."
+        "invalid_device_id", "device_not_found" -> "Không tìm thấy thiết bị."
+        "invalid_device_public_key", "weak_device_public_key" -> "Khóa bảo mật của thiết bị không hợp lệ."
+        "invalid_device_proof", "invalid_device_challenge", "invalid_device_signature",
+        "device_challenge_already_used" -> "Không thể xác minh thiết bị. Vui lòng thử đăng ký lại."
+        "device_revoked" -> "Thiết bị này đã bị chủ ứng dụng thu hồi quyền."
+        "device_limit_reached" -> "Đã đạt giới hạn số thiết bị của giấy phép."
+        "device_key_already_registered" -> "Thiết bị này đã được đăng ký bằng một tài khoản khác."
+        "active_device_required", "invalid_device_fingerprint" ->
+            "Hãy đăng ký thiết bị này trước khi sử dụng kho AUTU."
+        "package_encryption_key_version_invalid", "package_encryption_not_configured",
+        "package_encryption_key_invalid", "package_key_wrap_failed", "device_key_not_supported" ->
+            "Máy chủ chưa thể chuẩn bị khóa bảo mật cho gói AUTU. Vui lòng thử lại sau."
+        "invalid_package_name", "invalid_package_description", "invalid_package_source",
+        "unsupported_language_version" -> "Thông tin hoặc mã nguồn gói AUTU không hợp lệ."
+        "invalid_package_id", "package_not_found" -> "Không tìm thấy gói AUTU."
+        "package_archived" -> "Gói AUTU đã được lưu trữ và không thể phát hành phiên bản mới."
+        "package_name_immutable" -> "Không thể đổi tên gói khi phát hành phiên bản mới."
+        "invalid_package_version", "package_version_conflict" ->
+            "Phiên bản gói đã thay đổi. Vui lòng tải lại rồi thử lại."
+        "invalid_package_status" -> "Trạng thái gói AUTU không hợp lệ."
+        "package_name_exists" -> "Tên gói AUTU này đã được sử dụng."
+        "invalid_audit_limit" -> "Số lượng nhật ký yêu cầu không hợp lệ."
+        "route_not_found" -> "Không tìm thấy chức năng được yêu cầu."
+        "internal_error" -> "Máy chủ đang gặp sự cố. Vui lòng thử lại sau."
+        else -> "Yêu cầu chưa thực hiện được (mã HTTP $status). Vui lòng thử lại."
+    }
+
     private fun ensureConfigured() {
         if (!isConfigured) {
             throw IOException("Chưa cấu hình địa chỉ Auth API và Google Server Client ID.")
@@ -803,9 +859,8 @@ class AuthRepository(context: Context) {
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             val json = if (text.isBlank()) JSONObject() else JSONObject(text)
             if (status !in 200..299) {
-                val message = json.optString("message")
-                    .ifBlank { "Máy chủ từ chối yêu cầu (HTTP $status)." }
-                throw AuthApiException(status, message)
+                val errorCode = json.optString("error")
+                throw AuthApiException(status, localizedApiError(errorCode, status))
             }
             json
         } finally {
