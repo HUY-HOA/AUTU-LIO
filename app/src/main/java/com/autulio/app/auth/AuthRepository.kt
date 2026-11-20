@@ -470,7 +470,7 @@ class AuthRepository(context: Context) {
         require(deviceFingerprint.matches(Regex("^[a-fA-F0-9]{64}$")))
         val encodedFingerprint = URLEncoder.encode(deviceFingerprint.lowercase(Locale.ROOT), "UTF-8")
         val result = apiRequest(
-            "/api/customer/packages/$packageId/download?deviceFingerprint=$encodedFingerprint",
+            "/api/customer/packages/$packageId/download?deviceFingerprint=$encodedFingerprint&keyWrapping=RSA-OAEP-SHA256&compression=GZIP",
             "GET",
             bearerToken = accessToken
         )

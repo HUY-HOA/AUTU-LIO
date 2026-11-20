@@ -906,7 +906,7 @@ test("customer package download decrypts the server envelope and wraps the data 
     }
   };
   const downloaded = await worker.fetch(
-    makeRequest("/api/customer/packages/" + packageInfo.id + "/download?deviceFingerprint=" + fingerprint, {
+    makeRequest("/api/customer/packages/" + packageInfo.id + "/download?deviceFingerprint=" + fingerprint + "&keyWrapping=RSA-OAEP-SHA256&compression=GZIP", {
       headers: { Authorization: "Bearer " + "O".repeat(48) }
     }),
     customerEnv
@@ -943,7 +943,88 @@ test("customer package download decrypts the server envelope and wraps the data 
 });
 
 
-test("customer without an active license cannot list published AUTUs", async () => {
+
+test("legacy APK download receives raw AES-GCM payload and RSA-OAEP SHA-1 wrapping", async () => {
+  const masterKey = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
+  const { env: ownerEnv } = createEnv({ session: ownerSession });
+  ownerEnv.PACKAGE_MASTER_KEY_V1 = masterKey;
+  let inserts = [];
+  ownerEnv.DB.batch = async batch => {
+    inserts = batch;
+    return batch.map(() => ({ meta: { changes: 1 } }));
+  };
+  const source = "ĐẶT legacy = 1\\nCHẠM(10, 20)";
+  const published = await worker.fetch(
+    makeRequest("/api/admin/packages", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + "V".repeat(48), "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Legacy fallback", description: "", languageVersion: "1.22", source })
+    }),
+    ownerEnv
+  );
+  assert.equal(published.status, 201);
+  const packageInfo = (await json(published)).package;
+  const values = inserts.find(statement => statement.sql.includes("INSERT INTO script_package_versions")).values;
+  const deviceKeys = await crypto.subtle.generateKey(
+    { name: "RSA-OAEP", modulusLength: 3072, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-1" },
+    true,
+    ["encrypt", "decrypt"]
+  );
+  const publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey("spki", deviceKeys.publicKey));
+  const publicKeySpki = Buffer.from(publicKeyBytes).toString("base64url");
+  const fingerprint = Buffer.from(await crypto.subtle.digest("SHA-256", publicKeyBytes)).toString("hex");
+  const now = Math.floor(Date.now() / 1000);
+  const license = { id: "legacy-license", user_id: customerSession.user_id, plan_code: "MONTHLY", status: "ACTIVE", starts_at: now - 60, expires_at: now + 86400, max_devices: 1 };
+  const item = {
+    id: packageInfo.id, name: packageInfo.name, description: "", status: "ACTIVE",
+    version: values[2], language_version: values[3], ciphertext: values[4], content_iv: values[5],
+    encrypted_data_key: values[6], key_iv: values[7], key_version: values[8], source_sha256: values[9]
+  };
+  const legacyEnv = {
+    PACKAGE_MASTER_KEY_V1: masterKey,
+    DB: {
+      prepare(sql) {
+        return {
+          bind() { return this; },
+          async first() {
+            if (sql.includes("FROM sessions s JOIN users u")) return customerSession;
+            if (sql.includes("FROM licenses WHERE user_id = ? AND status = 'ACTIVE'")) return license;
+            if (sql.includes("FROM devices WHERE user_id = ? AND public_key_fingerprint = ?")) return { id: "legacy-device", public_key_spki: publicKeySpki };
+            if (sql.includes("FROM script_packages p JOIN script_package_versions")) return item;
+            return null;
+          },
+          async run() { return { meta: { changes: 1 } }; },
+          async all() { return { results: [] }; }
+        };
+      }
+    }
+  };
+  const downloaded = await worker.fetch(
+    makeRequest("/api/customer/packages/" + packageInfo.id + "/download?deviceFingerprint=" + fingerprint),
+    legacyEnv
+  );
+  const body = await json(downloaded);
+  assert.equal(downloaded.status, 200);
+  assert.equal(body.package.keyWrapping, "RSA-OAEP-SHA1");
+  assert.equal(body.package.ciphertext.startsWith("GZ1."), false);
+  const wrappedDataKey = await crypto.subtle.decrypt(
+    { name: "RSA-OAEP" }, deviceKeys.privateKey, Buffer.from(body.package.wrappedKey, "base64url")
+  );
+  const contentKey = await crypto.subtle.importKey("raw", wrappedDataKey, { name: "AES-GCM" }, false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: Buffer.from(body.package.contentIv, "base64url"),
+      additionalData: new TextEncoder().encode("AUTU-LIO|PACKAGE|" + packageInfo.id + "|v1"),
+      tagLength: 128
+    },
+    contentKey,
+    Buffer.from(body.package.ciphertext, "base64url")
+  );
+  assert.equal(new TextDecoder().decode(plain), source);
+});
+
+test("customer without an active license cannot list published AUTUs", async () => {test("customer without an active license cannot list published AUTUs", async () => {
   const { env, queries } = createEnv({ session: customerSession });
   const response = await worker.fetch(
     makeRequest("/api/customer/packages?deviceFingerprint=" + "a".repeat(64), {

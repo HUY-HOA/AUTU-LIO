@@ -889,42 +889,35 @@ async function encryptPackageSource(env, packageId, version, source) {
   }
 }
 
-async function wrapPackageKeyForDevice(env, packageId, version, encryptedDataKey, keyIv, keyVersion, publicKeySpki) {
+
+async function wrapPackageKeyForDevice(
+  env, packageId, version, encryptedDataKey, keyIv, keyVersion, publicKeySpki,
+  hashAlgorithm = "SHA-1"
+) {
+  if (!["SHA-1", "SHA-256"].includes(hashAlgorithm)) {
+    throw new HttpError(400, "invalid_key_wrapping", "The requested device key wrapping algorithm is not supported.");
+  }
   const masterKey = await packageMasterKey(env, keyVersion);
   const context = packageContext(packageId, version);
   let dataKeyBytes;
   try {
     dataKeyBytes = new Uint8Array(await crypto.subtle.decrypt(
-      {
-        name: "AES-GCM",
-        iv: base64UrlDecode(keyIv),
-        additionalData: encoder.encode(context + "|DATA_KEY"),
-        tagLength: 128
-      },
+      { name: "AES-GCM", iv: base64UrlDecode(keyIv), additionalData: encoder.encode(context + "|DATA_KEY"), tagLength: 128 },
       masterKey,
       base64UrlDecode(encryptedDataKey)
     ));
   } catch {
     throw new HttpError(503, "package_key_wrap_failed", "The package key could not be prepared for this device.");
   }
-
   try {
     const publicKey = await crypto.subtle.importKey(
-      "spki",
-      base64UrlDecode(publicKeySpki),
-      { name: "RSA-OAEP", hash: "SHA-256" },
-      false,
-      ["encrypt"]
+      "spki", base64UrlDecode(publicKeySpki), { name: "RSA-OAEP", hash: hashAlgorithm }, false, ["encrypt"]
     );
     if (dataKeyBytes.length !== 32 || !Number.isInteger(publicKey.algorithm?.modulusLength) ||
         publicKey.algorithm.modulusLength < 3072) {
       throw new HttpError(403, "device_key_not_supported", "This registered device does not have a supported RSA-3072 package key.");
     }
-    const wrappedKey = await crypto.subtle.encrypt(
-      { name: "RSA-OAEP" },
-      publicKey,
-      dataKeyBytes
-    );
+    const wrappedKey = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, dataKeyBytes);
     return base64UrlEncode(new Uint8Array(wrappedKey));
   } catch (error) {
     if (error instanceof HttpError) throw error;
@@ -933,6 +926,54 @@ async function wrapPackageKeyForDevice(env, packageId, version, encryptedDataKey
     dataKeyBytes.fill(0);
   }
 }
+
+async function createLegacyPackagePayload(env, item) {
+  if (!String(item.ciphertext).startsWith("GZ1.")) {
+    return { ciphertext: item.ciphertext, contentIv: item.content_iv };
+  }
+  const context = packageContext(item.id, item.version);
+  const masterKey = await packageMasterKey(env, item.key_version);
+  let dataKeyBytes;
+  let compressedBytes;
+  let sourceBytes;
+  let legacyCiphertextBytes;
+  const legacyIv = randomBytes(12);
+  try {
+    dataKeyBytes = new Uint8Array(await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: base64UrlDecode(item.key_iv), additionalData: encoder.encode(context + "|DATA_KEY"), tagLength: 128 },
+      masterKey,
+      base64UrlDecode(item.encrypted_data_key)
+    ));
+    const contentKey = await crypto.subtle.importKey("raw", dataKeyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+    compressedBytes = new Uint8Array(await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: base64UrlDecode(item.content_iv), additionalData: encoder.encode(context), tagLength: 128 },
+      contentKey,
+      base64UrlDecode(String(item.ciphertext).slice(4))
+    ));
+    sourceBytes = new Uint8Array(gunzipSync(compressedBytes, { maxOutputLength: 262144 }));
+    const digest = await sha256Bytes(sourceBytes);
+    if (digest.toLowerCase() !== String(item.source_sha256).toLowerCase()) {
+      throw new HttpError(500, "package_integrity_failed", "The AUTU source hash does not match.");
+    }
+    const legacyKey = await crypto.subtle.importKey("raw", dataKeyBytes, { name: "AES-GCM" }, false, ["encrypt"]);
+    legacyCiphertextBytes = new Uint8Array(await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: legacyIv, additionalData: encoder.encode(context), tagLength: 128 },
+      legacyKey,
+      sourceBytes
+    ));
+    return { ciphertext: base64UrlEncode(legacyCiphertextBytes), contentIv: base64UrlEncode(legacyIv) };
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(500, "package_compatibility_conversion_failed", "The legacy AUTU package could not be prepared.");
+  } finally {
+    dataKeyBytes?.fill(0);
+    compressedBytes?.fill(0);
+    sourceBytes?.fill(0);
+    legacyCiphertextBytes?.fill(0);
+    legacyIv.fill(0);
+  }
+}
+
 
 function validatePackageMetadata(body) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -1225,8 +1266,17 @@ async function downloadCustomerPackage(request, env, session, packageId) {
     "WHERE p.id = ? AND p.status = 'ACTIVE'"
   ).bind(packageId).first();
   if (!item) throw new HttpError(404, "package_not_found", "Published AUTU package was not found.");
+  const requestedWrapping = url.searchParams.get("keyWrapping") || "RSA-OAEP-SHA1";
+  if (!["RSA-OAEP-SHA1", "RSA-OAEP-SHA256"].includes(requestedWrapping)) {
+    throw new HttpError(400, "invalid_key_wrapping", "The requested key wrapping mode is not supported.");
+  }
+  const useCompressedPayload = url.searchParams.get("compression") === "GZIP";
+  const keyHash = requestedWrapping === "RSA-OAEP-SHA256" ? "SHA-256" : "SHA-1";
+  const payload = useCompressedPayload
+    ? { ciphertext: item.ciphertext, contentIv: item.content_iv }
+    : await createLegacyPackagePayload(env, item);
   const wrappedKey = await wrapPackageKeyForDevice(
-    env, item.id, item.version, item.encrypted_data_key, item.key_iv, item.key_version, device.public_key_spki
+    env, item.id, item.version, item.encrypted_data_key, item.key_iv, item.key_version, device.public_key_spki, keyHash
   );
   await env.DB.prepare(
     "UPDATE devices SET last_seen_at = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
@@ -1241,9 +1291,10 @@ async function downloadCustomerPackage(request, env, session, packageId) {
       description: item.description,
       version: item.version,
       languageVersion: item.language_version,
-      ciphertext: item.ciphertext,
-      contentIv: item.content_iv,
+      ciphertext: payload.ciphertext,
+      contentIv: payload.contentIv,
       wrappedKey,
+      keyWrapping: requestedWrapping,
       sourceSha256: item.source_sha256
     }
   }, 200, env);

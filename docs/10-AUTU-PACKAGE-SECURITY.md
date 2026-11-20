@@ -18,8 +18,8 @@
 
 ## Định dạng và tương thích
 
-- `GZ1.` ở đầu ciphertext cho biết payload sau AES-GCM được nén GZIP; ciphertext không có marker là định dạng raw cũ.
-- Gói cũ vẫn giải mã được sau nâng cấp vì dữ liệu lưu cũ không thay đổi. Khi tải sau nâng cấp, Worker sử dụng OAEP SHA-256 cho khóa riêng của thiết bị.
+- `GZ1.` ở đầu ciphertext cho biết payload sau AES-GCM được nén GZIP; ciphertext không có marker là định dạng raw cũ. Client mới yêu cầu `compression=GZIP`; client cũ nhận bản raw được Worker giải nén và mã hóa lại trong bộ nhớ.
+- Gói cũ vẫn giải mã được sau nâng cấp vì dữ liệu lưu cũ không thay đổi. Client mới yêu cầu OAEP SHA-256; client cũ mặc định được Worker dùng OAEP SHA-1 tương thích. Cả hai đều yêu cầu khóa RSA tối thiểu 3072-bit.
 - Không thay đổi D1 schema hoặc các secrets hiện hữu.
 - Giới hạn source đầu vào vẫn là 32.768 ký tự. Ứng dụng giới hạn kích thước sau giải nén ở mức 262.144 byte để tránh payload nén bất thường.
 
