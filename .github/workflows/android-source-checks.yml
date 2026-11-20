@@ -65,9 +65,9 @@ jobs:
       - name: Verify Maven repositories
         run: |
           set -e
+          # The Gradle build below validates Maven Central through real dependency resolution.
           urls=(
             "https://plugins.gradle.org/m2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.4.21/org.jetbrains.kotlin.android.gradle.plugin-2.4.21.pom"
-            "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.11.1/asm-9.11.1.pom"
             "https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/9.3.1/gradle-9.3.1.pom"
           )
           for url in "${urls[@]}"; do
