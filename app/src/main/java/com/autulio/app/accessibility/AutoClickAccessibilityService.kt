@@ -76,6 +76,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         private const val GESTURE_TIMEOUT_GRACE_MS = 3_000L
         private const val MAX_SCREEN_COLOR_SAMPLES = 262_144
         private const val MAX_REGION_COLOR_SAMPLES = 65_536
+        private const val FLOATING_DRAFT_NAME = "Kịch bản nổi"
 
         fun current(): AutoClickAccessibilityService? = activeInstance
     }
@@ -1846,10 +1847,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         codeInput = null
         editorVisible = false
         collapsed = true
-    }
-
-    private companion object {
-        const val FLOATING_DRAFT_NAME = "Kịch bản nổi"
     }
 
 }
