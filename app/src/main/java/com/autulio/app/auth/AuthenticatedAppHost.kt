@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.autulio.app.AdminApp
 import com.autulio.app.CustomerApp
 import com.autulio.app.access.AccessRole
+import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.tr
 import com.autulio.app.localizedErrorMessage
 import kotlinx.coroutines.launch
@@ -43,6 +44,7 @@ internal fun AuthenticatedAppHost() {
         val savedToken = store.read()
         hasSavedSession = !savedToken.isNullOrBlank()
         if (savedToken.isNullOrBlank()) {
+            AutoClickAccessibilityService.current()?.lockRunner()
             accessToken = null
             user = null
             restoring = false
@@ -55,12 +57,14 @@ internal fun AuthenticatedAppHost() {
             hasSavedSession = true
         } catch (error: Exception) {
             if (error is AuthApiException && error.statusCode in 401..403) {
+                AutoClickAccessibilityService.current()?.lockRunner()
                 store.clear()
                 accessToken = null
                 user = null
                 hasSavedSession = false
                 errorMessage = error.message.orEmpty()
             } else {
+                AutoClickAccessibilityService.current()?.lockRunner()
                 errorMessage = tr(
                     "Không thể xác minh phiên vì máy chủ đang ngoại tuyến. Hãy kết nối mạng rồi thử lại.",
                     "The saved session could not be verified because the server is unavailable. Connect to the internet and retry."
@@ -77,6 +81,7 @@ internal fun AuthenticatedAppHost() {
 
     fun signOut() {
         val currentToken = accessToken
+        AutoClickAccessibilityService.current()?.lockRunner()
         scope.launch {
             if (!currentToken.isNullOrBlank()) repository.signOut(currentToken)
             store.clear()
