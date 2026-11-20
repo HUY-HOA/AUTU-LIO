@@ -4,6 +4,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
+import android.util.DisplayMetrics
+import android.view.WindowInsets
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -44,13 +47,78 @@ import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptTemplate
 import com.autulio.app.script.ScriptTemplateCatalog
+import com.autulio.app.runtime.ScreenDisplayGeometry
+import com.autulio.app.runtime.ScreenInsets
+import com.autulio.app.runtime.ScreenCutoutBounds
+import com.autulio.app.runtime.ScreenDisplayGeometryStore
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        prepareDisplayGeometryCapture()
         setContent {
             AutuLioAppEntry()
         }
+    }
+
+    private fun prepareDisplayGeometryCapture() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+        val decor = window.decorView
+        decor.setOnApplyWindowInsetsListener { _, insets ->
+            cacheDisplayGeometry(insets)
+            insets
+        }
+        decor.post { decor.requestApplyInsets() }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun cacheDisplayGeometry(insets: WindowInsets) {
+        val metrics = DisplayMetrics()
+        windowManager.defaultDisplay.getRealMetrics(metrics)
+        val cutoutKnown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+        val systemInsets: ScreenInsets
+        val cutoutInsets: ScreenInsets
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bars = insets.getInsets(WindowInsets.Type.systemBars())
+            val cutout = insets.getInsets(WindowInsets.Type.displayCutout())
+            systemInsets = ScreenInsets(bars.left, bars.top, bars.right, bars.bottom)
+            cutoutInsets = ScreenInsets(cutout.left, cutout.top, cutout.right, cutout.bottom)
+        } else {
+            systemInsets = ScreenInsets(
+                insets.systemWindowInsetLeft,
+                insets.systemWindowInsetTop,
+                insets.systemWindowInsetRight,
+                insets.systemWindowInsetBottom
+            )
+            val cutout = if (cutoutKnown) insets.displayCutout else null
+            cutoutInsets = if (cutout == null) ScreenInsets() else ScreenInsets(
+                cutout.safeInsetLeft,
+                cutout.safeInsetTop,
+                cutout.safeInsetRight,
+                cutout.safeInsetBottom
+            )
+        }
+
+        val cutout = if (cutoutKnown) insets.displayCutout else null
+        val bounds = cutout?.boundingRects.orEmpty().map { rect ->
+            ScreenCutoutBounds(rect.left, rect.top, rect.right, rect.bottom)
+        }
+        ScreenDisplayGeometryStore.publish(
+            ScreenDisplayGeometry(
+                widthPx = metrics.widthPixels,
+                heightPx = metrics.heightPixels,
+                systemInsets = systemInsets,
+                cutoutSafeInsets = cutoutInsets,
+                cutoutDetectionKnown = cutoutKnown,
+                cutoutBounds = bounds
+            )
+        )
     }
 }
 
