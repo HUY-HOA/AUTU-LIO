@@ -897,6 +897,49 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun evaluatesIsoDateTimeBuiltinsInsideScripts() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                ĐẶT MỐC: SỐ = PHÂN_TÍCH_THỜI_GIAN_ISO("2026-11-20T14:30:00+07:00")
+                ĐẶT NĂM: CHUỖI = ĐỊNH_DẠNG_THỜI_GIAN(MỐC, "yyyy")
+                NẾU (NĂM == "2026" VÀ ĐỘ_DÀI(THỜI_GIAN_ISO()) > 0) {
+                    CHẠM(40, 50)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(listOf("tap:40,50"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+    @Test
+    fun rejectsIsoDateTimeWithoutAnExplicitOffsetAtRuntime() {
+        val failed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(RecordingDispatcher()) {
+            if (it.state == ScriptExecutionState.FAILED) failed.countDown()
+        }
+        try {
+            val program = compile(
+                """ĐẶT MỐC = PHÂN_TÍCH_THỜI_GIAN_ISO("2026-11-20T14:30:00")"""
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(failed.await(3, TimeUnit.SECONDS))
+            assertEquals("invalid_datetime", engine.snapshot().errorCode)
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun compile(source: String): ScriptProgram {
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)

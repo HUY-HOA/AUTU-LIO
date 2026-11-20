@@ -25,9 +25,9 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 |---|---|---|
 | Ngôn ngữ lõi | Biến, kiểu, biểu thức, điều kiện, vòng lặp, hàm, danh sách, bản đồ | Đã có nền tảng |
 | Điều khiển luồng | THỬ/BẮT_LỖI/LUÔN_THỰC_HIỆN, hủy, thời hạn, luồng tác vụ | Đã có try/catch, hủy và timeout; chưa có đa luồng script |
-| Chuỗi và dữ liệu | Unicode, JSON lồng nhau, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Đã có Unicode và JSON lồng nhau; regex/ngày giờ/mã hóa còn thiếu |
-| Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI, multipart upload/download | Đã có kho tệp riêng, JSON/CSV, SAF backup/restore SQLite và multipart file HTTP có giới hạn; chọn URI tổng quát còn thiếu |
-| Mạng | HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có client HTTPS có giới hạn và PATCH; multipart/upload/download còn thiếu |
+| Chuỗi và dữ liệu | Unicode, JSON lồng nhau, biểu thức chính quy, ngày giờ, mã hóa dữ liệu | Đã có Unicode, JSON lồng nhau và ngày giờ ISO 8601; regex/mã hóa còn thiếu |
+| Tệp | Đọc/ghi tệp riêng, thư mục, JSON, CSV, chọn URI, multipart upload/download | Đã có kho tệp riêng, JSON/CSV, SAF backup/restore SQLite và multipart HTTP có giới hạn; chọn URI tổng quát còn thiếu |
+| Mạng | HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header, timeout, giới hạn payload và phản hồi | Đã có HTTPS client giới hạn, multipart upload và download qua HTTPS; redirect bị chặn |
 | Cơ sở dữ liệu | SQLite, giao dịch, truy vấn tham số, di trú schema, toàn vẹn, backup/restore | Đã có SQLite nội bộ, SQL allow-list/bind tham số, transaction ghi, di trú tuần tự checksum SHA-256, integrity/foreign-key check và backup/restore ZIP qua SAF có checksum/rollback; còn thiếu nghiệm thu thiết bị thật |
 | Trợ năng | Đọc cây giao diện, tìm text/resource ID, click/scroll/set text | Đã có các thao tác text/ID/scroll; chưa có lọc theo mọi thuộc tính node |
 | Văn bản giao diện | Đọc cây Trợ năng, tìm nhãn và trả tọa độ | Kết hợp cây Accessibility và OCR ML Kit; nhận diện nhãn ảnh/vật thể, QR/mã vạch trên thiết bị |
@@ -82,9 +82,9 @@ Các lệnh đã được nối vào AUTU Script:
 - Không giả định ứng dụng bên ngoài cho phép đọc hoặc thao tác mọi thành phần.
 
 ### Tệp, dữ liệu và mạng
-- Đã có kho tệp UTF-8 riêng, JSON lồng nhau và HTTP(S) client giới hạn payload.
-- HTTP hiện hỗ trợ HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header map, timeout, response map; không theo redirect tự động. Thân request cho phép POST/PUT/PATCH/DELETE.
-- Còn thiếu multipart upload/download, API file picker có SAF và SQLite.
+- Đã có kho tệp UTF-8 riêng, JSON lồng nhau, CSV, HTTP multipart upload/download và SQLite nội bộ.
+- HTTP hỗ trợ HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, header map, timeout, giới hạn payload/phản hồi và không tự theo redirect. Multipart upload dùng POST/PUT/PATCH; download dùng GET và chỉ lưu tệp khi HTTP 2xx.
+- Còn thiếu API chọn URI tổng quát qua SAF để người dùng cấp quyền chọn tệp CSV/tệp khác; backup/restore SQLite qua SAF đã có.
 - API mạng phải có timeout, giới hạn kích thước, HTTPS mặc định, kiểm tra phản hồi và không ghi log bí mật.
 
 ### Tác vụ nền và sự kiện
@@ -118,7 +118,7 @@ Một mô-đun chỉ được đánh dấu **Đã triển khai** khi có đủ:
 2. HTTP/API có timeout, HTTPS, giới hạn payload và chính sách dữ liệu.
 3. Backup/restore SQLite đã có mã nguồn/CI; kiểm thử trên thiết bị thật với WAL, SAF và lỗi giữa chừng còn thiếu.
 4. Sự kiện, lịch, hàng đợi và tác vụ nền có thể hủy.
-5. Module/thư viện dùng chung và regex/ngày giờ.
+5. Module/thư viện dùng chung; regex an toàn vẫn còn thiếu. Ngày giờ ISO 8601 đã có mã nguồn và unit tests.
 6. Trình soạn thảo: tô màu, autocomplete, định dạng và debugger từng bước.
 7. Kiểm thử thiết bị thật: Xiaomi/HyperOS, Android nhiều API, quyền, vòng đời service, pin và độ phân giải.
 8. Rà soát bảo mật, hiệu năng, khả năng tiếp cận và tương thích trước phát hành.

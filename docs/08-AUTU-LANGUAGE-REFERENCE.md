@@ -161,6 +161,24 @@ Parser hỗ trợ dấu nháy kép, dấu phẩy/dấu phân cách nằm trong �
 
 Giới hạn: tối đa 1.048.576 ký tự đầu vào/đầu ra, 64 dòng, 64 cột mỗi dòng, 512 ô tổng cộng và 16.384 ký tự mỗi ô. Bộ chuyển đổi chỉ nhận CHUỖI, SỐ hữu hạn, LUẬN_LÝ hoặc RỖNG; BẢN_ĐỒ và DANH_SÁCH lồng nhau không được tự chuyển thành CSV.
 
+### Ngày giờ — ISO 8601
+
+| Hàm | Cú pháp | Kết quả |
+|---|---|---|
+| THỜI_GIAN_ISO | THỜI_GIAN_ISO() | Chuỗi ngày giờ ISO 8601 hiện tại, kèm độ lệch múi giờ của thiết bị |
+| PHÂN_TÍCH_THỜI_GIAN_ISO | PHÂN_TÍCH_THỜI_GIAN_ISO(CHUỖI) | Epoch milliseconds dạng số nguyên 64-bit |
+| ĐỊNH_DẠNG_THỜI_GIAN | ĐỊNH_DẠNG_THỜI_GIAN(EPOCH_MS, MẪU) | Chuỗi theo mẫu định dạng |
+
+Ví dụ:
+
+~~~text
+ĐẶT MỐC: SỐ = PHÂN_TÍCH_THỜI_GIAN_ISO("2026-11-20T14:30:00+07:00")
+ĐẶT HIỂN_THỊ: CHUỖI = ĐỊNH_DẠNG_THỜI_GIAN(MỐC, "dd/MM/yyyy HH:mm:ss")
+ĐẶT HIỆN_TẠI: CHUỖI = THỜI_GIAN_ISO()
+~~~
+
+Bộ phân tích chỉ nhận ISO 8601 có múi giờ rõ ràng (Z hoặc độ lệch UTC); chuỗi không có múi giờ bị từ chối để tránh diễn giải sai. Hàm định dạng dùng múi giờ và ngôn ngữ hiện tại của thiết bị, theo mẫu DateTimeFormatter; mẫu tối đa 128 ký tự và kết quả tối đa 256 ký tự. Các hàm xử lý tại thiết bị, không gọi mạng.
+
 ### JSON và dữ liệu lồng nhau
 
 | Hàm / giá trị | Cú pháp | Kết quả |

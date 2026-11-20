@@ -642,6 +642,37 @@ class ScriptExecutionEngine(
         runId: Long,
         callDepth: Int
     ): Any? = when (name) {
+        "THỜI_GIAN_ISO" -> {
+            requireArgs(name, args, 0)
+            ScriptDateTimeCodec.currentIso()
+        }
+        "PHÂN_TÍCH_THỜI_GIAN_ISO" -> {
+            requireArgs(name, args, 1)
+            val value = args[0] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "PHÂN_TÍCH_THỜI_GIAN_ISO cần một chuỗi.")
+            try {
+                ScriptDateTimeCodec.parseIsoEpochMillis(value)
+            } catch (error: IllegalArgumentException) {
+                throw ScriptRuntimeFailure("invalid_datetime", error.message ?: "Thời gian ISO không hợp lệ.")
+            }
+        }
+        "ĐỊNH_DẠNG_THỜI_GIAN" -> {
+            requireArgs(name, args, 2)
+            val timestamp = args[0] as? Number
+                ?: throw ScriptRuntimeFailure("invalid_argument", "ĐỊNH_DẠNG_THỜI_GIAN cần epoch milliseconds dạng số.")
+            val epochMillis = runCatching {
+                java.math.BigDecimal(timestamp.toString()).longValueExact()
+            }.getOrElse {
+                throw ScriptRuntimeFailure("invalid_datetime", "Epoch milliseconds phải là số nguyên nằm trong giới hạn 64-bit.")
+            }
+            val pattern = args[1] as? String
+                ?: throw ScriptRuntimeFailure("invalid_argument", "Mẫu định dạng thời gian phải là chuỗi.")
+            try {
+                ScriptDateTimeCodec.formatEpochMillis(epochMillis, pattern)
+            } catch (error: IllegalArgumentException) {
+                throw ScriptRuntimeFailure("invalid_datetime_pattern", error.message ?: "Mẫu định dạng thời gian không hợp lệ.")
+            }
+        }
         "PHÂN_TÍCH_JSON" -> {
             requireArgs(name, args, 1)
             val source = args[0] as? String

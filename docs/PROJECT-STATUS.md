@@ -47,7 +47,7 @@
 - Backup/restore SQLite đã có mã nguồn: archive ZIP `.autubak` gồm manifest và database, SHA-256, giới hạn database 8 MiB/archive 8 MiB + 128 KiB; restore kiểm tra định dạng, hash, integrity, khóa ngoại và schema version trước khi thay thế, có bản rollback nếu kiểm tra database mới thất bại.
 - Cài đặt OWNER/CUSTOMER có nút Sao lưu/Khôi phục qua Android SAF; thao tác bị từ chối khi runtime đang chạy/tạm dừng và yêu cầu phiên đã xác minh nếu dùng Accessibility Service.
 - ML Kit được bật trong mọi Android build: OCR, QR/mã vạch, nhãn ảnh và phát hiện vật thể chạy cục bộ; không có Gemini.
-- Android source checks run 44682290716 đã xanh trên commit 6b630c64 (compile, Kotlin unit tests và lint; gồm codec backup/restore và giao diện SAF). Worker checks run 44676593746 đã xanh trên commit backend a3192286; backend không thay đổi trong các commit Android sau đó.
+- Android source checks run 44696987580 đã xanh trên commit 45fefc70 (biên dịch Kotlin, unit tests và lint; gồm HTTP multipart upload/download). Worker checks run 44676593746 đã xanh trên commit backend a3192286; backend không thay đổi trong các commit Android sau đó.
 - Unit tests hiện có cho parser/compiler, runtime, HTTP/multipart, binary file store, CSV, di trú SQLite, integrity policy và codec backup/restore; CI chạy unit tests và lint. Chưa có kiểm thử Android instrumented/device cho luồng đổi file SQLite khi restore.
 - Mã nguồn có tính năng không đồng nghĩa đã nghiệm thu trên thiết bị thật. Cần kiểm tra độ chính xác gesture, vòng đời service, quyền Trợ năng, overlay và khả năng dừng trong các tình huống thực tế.
 
@@ -72,7 +72,7 @@
 5. **Sao lưu/khôi phục SQLite — mã nguồn và CI đã có, thiết bị thật còn thiếu:** thử xuất qua SAF, thử khôi phục đúng/sai checksum, file hỏng, thiếu dung lượng, đang chạy kịch bản và tình huống rollback; xác nhận database mở lại và dữ liệu giữ nguyên.
 6. **Độ ổn định Android — chưa nghiệm thu:** kiểm tra Xiaomi/HyperOS và Android khác; tối ưu pin, service bị hệ thống dừng, đổi hướng màn hình, khuyết màn hình và độ phân giải.
 7. **Chất lượng — kiểm tra tự động đang được duy trì:** giữ Worker tests, Kotlin unit tests và lint xanh; đối chiếu commit CI với main; kiểm tra bảo mật và không đưa secret vào APK/Git.
-8. **Phạm vi AUTU Script tiếp theo:** chọn tệp người dùng qua SAF cho thao tác CSV/tổng quát; sự kiện/tác vụ nền; regex/ngày giờ; module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md. Multipart upload/download đã có mã nguồn/unit tests, cần xác nhận CI; SQLite migration, integrity check và backup/restore đã có mã nguồn/unit-level checks nhưng chưa nghiệm thu trên thiết bị thật.
+8. **Phạm vi AUTU Script tiếp theo:** chọn tệp người dùng qua SAF cho thao tác CSV/tổng quát; sự kiện/tác vụ nền; regex; module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md. Ngày giờ ISO 8601 đã được bổ sung mã nguồn/unit tests; multipart upload/download đã có CI xanh; SQLite migration, integrity check và backup/restore vẫn cần nghiệm thu trên thiết bị thật.
 
 ## 6. Quy tắc an toàn và phát hành
 

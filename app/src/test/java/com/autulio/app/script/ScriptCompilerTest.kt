@@ -1013,4 +1013,27 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", download.diagnostics.first().code)
     }
 
+    @Test
+    fun compilesIsoDateTimeBuiltinsAndValidatesTheirArgumentCounts() {
+        val valid = ScriptCompiler.compile(
+            """
+            ĐẶT HIỆN_TẠI: CHUỖI = THỜI_GIAN_ISO()
+            ĐẶT MỐC: SỐ = PHÂN_TÍCH_THỜI_GIAN_ISO("2026-11-20T14:30:00+07:00")
+            ĐẶT NHÃN: CHUỖI = ĐỊNH_DẠNG_THỜI_GIAN(MỐC, "dd/MM/yyyy HH:mm:ss")
+            """.trimIndent()
+        )
+        assertTrue(valid.diagnostics.toString(), valid.isSuccess)
+
+        val parseWrong = ScriptCompiler.compile(
+            """ĐẶT MỐC = PHÂN_TÍCH_THỜI_GIAN_ISO()"""
+        )
+        val formatWrong = ScriptCompiler.compile(
+            """ĐẶT NHÃN = ĐỊNH_DẠNG_THỜI_GIAN(0)"""
+        )
+        val nowWrong = ScriptCompiler.compile("THỜI_GIAN_ISO(1)")
+        assertEquals("function_argument_count", parseWrong.diagnostics.first().code)
+        assertEquals("function_argument_count", formatWrong.diagnostics.first().code)
+        assertEquals("function_argument_count", nowWrong.diagnostics.first().code)
+    }
+
 }
