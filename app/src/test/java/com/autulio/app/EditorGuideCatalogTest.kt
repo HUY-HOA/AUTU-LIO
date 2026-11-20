@@ -43,6 +43,7 @@ class EditorGuideCatalogTest {
             VẼ_KHUNG(40, 210, 300, 120, "#FF30D158", 4)
             VẼ_HÌNH_TRÒN(200, 300, 45, "#FFFFC107", 4)
             VẼ_ĐƯỜNG(40, 270, 340, 270, "#FF0A84FF", 3)
+            VẼ_MŨI_TÊN(40, 270, 340, 270, "#FF0A84FF", 4)
             XÓA_ĐÁNH_DẤU_MÀN_HÌNH()
         """.trimIndent()
 
