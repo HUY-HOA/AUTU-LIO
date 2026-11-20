@@ -208,8 +208,14 @@ private fun ScreenshotLibraryScreen(
         if (uris.isNotEmpty()) onImport(uris)
     }
 
-    val entries = remember(rootDirectory, refreshVersion) {
-        listScreenshotFiles(rootDirectory)
+    val entries by produceState(
+        initialValue = emptyList<ScreenshotLibraryEntry>(),
+        key1 = rootDirectory,
+        key2 = refreshVersion
+    ) {
+        value = withContext(Dispatchers.IO) {
+            listScreenshotFiles(rootDirectory)
+        }
     }
     val filteredEntries = entries.filter { entry ->
         val matchesFilter = filter == "all" || when (filter) {
