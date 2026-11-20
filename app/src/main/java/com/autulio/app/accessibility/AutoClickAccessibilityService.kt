@@ -1792,7 +1792,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
 
         val params = WindowManager.LayoutParams(
-            dp(floatingContentWidthDp + 12),
+            if (collapsed) dp(50) else dp(floatingContentWidthDp + 12),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -2190,7 +2190,32 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private fun setCollapsed(value: Boolean) {
         if (value && editorVisible) setEditorVisible(false)
+        val root = floatingWindow
+        val params = floatingParams
+        val manager = windowManager
+        if (root != null && params != null && manager != null) {
+            val density = resources.displayMetrics.density
+            val screenWidth = resources.displayMetrics.widthPixels
+            val anchorToRight = params.x + root.width / 2 > screenWidth / 2
+            val contentWidthDp = getSharedPreferences(
+                "autu_lio_floating_window",
+                MODE_PRIVATE
+            ).getInt("content_width_dp", 280).coerceAtLeast(266)
+            val targetWidth = (
+                (if (value) 50 else contentWidthDp + 12) * density
+            ).toInt()
+            params.width = targetWidth
+            val maxX = (screenWidth - targetWidth).coerceAtLeast(0)
+            params.x = if (anchorToRight) maxX else params.x.coerceIn(0, maxX)
+            runCatching { manager.updateViewLayout(root, params) }
+            getSharedPreferences("autu_lio_floating_window", MODE_PRIVATE)
+                .edit()
+                .putInt("x", params.x)
+                .putInt("y", params.y)
+                .apply()
+        }
         collapsed = value
+        root?.requestLayout()
         renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
     }
 
