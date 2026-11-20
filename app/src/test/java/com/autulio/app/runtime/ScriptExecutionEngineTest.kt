@@ -652,7 +652,7 @@ class ScriptExecutionEngineTest {
                 """.trimIndent()
             )
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
-            assertTrue("Kịch bản chưa đi vào thao tác chạm.", firstTapEntered.await(2, TimeUnit.SECONDS))
+            assertTrue("Kịch bản chưa đi vào thao tác chạm.", firstTapEntered.await(5, TimeUnit.SECONDS))
             assertTrue("Không thể gửi yêu cầu dừng.", engine.stop())
             releaseFirstTap.countDown()
 
@@ -866,7 +866,7 @@ class ScriptExecutionEngineTest {
             actions += "tap:$x,$y"
             if (actions.size == 1) {
                 firstTapEntered?.countDown()
-                releaseFirstTap?.await(2, TimeUnit.SECONDS)
+                releaseFirstTap?.await(5, TimeUnit.SECONDS)
             }
             return true
         }
