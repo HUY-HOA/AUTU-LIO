@@ -984,4 +984,33 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", serializeWrong.diagnostics.first().code)
     }
 
+    @Test
+    fun compilesMultipartUploadAndFileDownloadFunctions() {
+        val result = ScriptCompiler.compile(
+            """
+            ĐẶT TẢI_LÊN: BẢN_ĐỒ = GỬI_TỆP_HTTP(
+                "POST", "https://api.example.com/upload", "data/report.csv",
+                "file", "report.csv", "text/csv", TẠO_BẢN_ĐỒ(), 10000
+            )
+            ĐẶT TẢI_VỀ: BẢN_ĐỒ = TẢI_TỆP_HTTP(
+                "https://api.example.com/report.csv", "data/result.csv",
+                TẠO_BẢN_ĐỒ(), 10000
+            )
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
+    @Test
+    fun validatesMultipartUploadAndFileDownloadArgumentCounts() {
+        val upload = ScriptCompiler.compile(
+            """ĐẶT KQ = GỬI_TỆP_HTTP("POST", "https://api.example.com", "a")"""
+        )
+        val download = ScriptCompiler.compile(
+            """ĐẶT KQ = TẢI_TỆP_HTTP("https://api.example.com", "a")"""
+        )
+        assertEquals("function_argument_count", upload.diagnostics.first().code)
+        assertEquals("function_argument_count", download.diagnostics.first().code)
+    }
+
 }
