@@ -99,7 +99,7 @@ class ScreenCoordinateConverterTest {
             100.0, 200.0, currentWidthPx = 1080, currentHeightPx = 2400, rotation = 1
         )
         assertEquals(200.0, current.first, 0.0)
-        assertEquals(2399.0, current.second, 0.0)
+        assertEquals(2299.0, current.second, 0.0)
         val natural = ScreenCoordinateConverter.currentToNatural(
             current.first, current.second, 1080, 2400, 1
         )
