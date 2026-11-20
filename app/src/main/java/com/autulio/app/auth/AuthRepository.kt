@@ -775,7 +775,7 @@ class AuthRepository(context: Context) {
         "account_inactive" -> "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ chủ ứng dụng."
         "invalid_customer_id", "customer_not_found" -> "Không tìm thấy tài khoản khách hàng."
         "invalid_plan_code" -> "Mã gói sử dụng không hợp lệ."
-        "invalid_license_period", "license_not_current" -> "Thời hạn giấy phép không hợp lệ."
+        "invalid_license_period" -> "Thời hạn giấy phép không hợp lệ."
         "invalid_device_limit" -> "Giới hạn số thiết bị không hợp lệ."
         "customer_inactive" -> "Không thể cấp giấy phép cho tài khoản đã bị vô hiệu hóa."
         "active_license_exists" -> "Khách hàng đã có giấy phép đang hoạt động."
