@@ -494,7 +494,7 @@ private fun decodeScreenshotThumbnail(file: File): android.graphics.Bitmap? =
     )?.bitmap
 
 private const val THUMBNAIL_MAX_SIDE = 256
-private const val THUMBNAIL_MAX_PIXELS = THUMBNAIL_MAX_SIDE.toLong() * THUMBNAIL_MAX_SIDE
+private const val THUMBNAIL_MAX_PIXELS = 65_536L
 
 private fun formatImageBytes(bytes: Long): String = when {
     bytes < 1024L -> "$bytes B"
