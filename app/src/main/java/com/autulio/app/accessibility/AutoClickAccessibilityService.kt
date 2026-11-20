@@ -1170,10 +1170,13 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             return
         }
         statusLabel?.text = "Đang chụp màn hình..."
+        removeFloatingWindow()
         screenshotExecutor.execute {
             val bitmap = captureDisplayBitmap()
             if (bitmap == null) {
                 mainHandler.post {
+                    showFloatingWindow()
+                    setCollapsed(false)
                     statusLabel?.text = "Không chụp được màn hình. Hãy kiểm tra quyền Trợ năng của AUTU-LIO."
                 }
                 return@execute
@@ -1198,8 +1201,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             mainHandler.post {
                 val original = savedOriginal.getOrNull()
                 if (original == null) {
-                    statusLabel?.text = savedOriginal.exceptionOrNull()?.message
-                        ?: "Không lưu được ảnh chụp."
+                    showFloatingWindow()
+                    setCollapsed(false)
+                    statusLabel?.text = "Không lưu được ảnh chụp. Hãy kiểm tra dung lượng trống rồi thử lại."
                     return@post
                 }
                 val intent = Intent(this, com.autulio.app.ScreenshotCropActivity::class.java)
@@ -1208,7 +1212,6 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         original.absolutePath
                     )
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                removeFloatingWindow()
                 runCatching { startActivity(intent) }
                     .onFailure {
                         showFloatingWindow()
