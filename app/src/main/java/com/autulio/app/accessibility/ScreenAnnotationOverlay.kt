@@ -10,6 +10,11 @@ import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.sin
 
 sealed interface ScreenAnnotation {
     val color: Int
@@ -43,6 +48,15 @@ sealed interface ScreenAnnotation {
     ) : ScreenAnnotation
 
     data class Line(
+        val startX: Float,
+        val startY: Float,
+        val endX: Float,
+        val endY: Float,
+        override val color: Int,
+        override val strokeWidthPx: Float
+    ) : ScreenAnnotation
+
+    data class Arrow(
         val startX: Float,
         val startY: Float,
         val endX: Float,
@@ -183,6 +197,34 @@ private class ScreenAnnotationView(context: Context) : View(context) {
                         item.endY,
                         paint
                     )
+                }
+                is ScreenAnnotation.Arrow -> {
+                    paint.reset()
+                    paint.isAntiAlias = true
+                    paint.style = Paint.Style.STROKE
+                    paint.strokeWidth = item.strokeWidthPx
+                    paint.strokeCap = Paint.Cap.ROUND
+                    paint.strokeJoin = Paint.Join.ROUND
+                    paint.color = item.color
+                    canvas.drawLine(
+                        item.startX,
+                        item.startY,
+                        item.endX,
+                        item.endY,
+                        paint
+                    )
+                    val angle = atan2(
+                        (item.endY - item.startY).toDouble(),
+                        (item.endX - item.startX).toDouble()
+                    )
+                    val headLength = max(item.strokeWidthPx * 4f, 12f)
+                    val backAngle = angle + PI
+                    val leftX = item.endX + headLength * cos(backAngle - PI / 6.0).toFloat()
+                    val leftY = item.endY + headLength * sin(backAngle - PI / 6.0).toFloat()
+                    val rightX = item.endX + headLength * cos(backAngle + PI / 6.0).toFloat()
+                    val rightY = item.endY + headLength * sin(backAngle + PI / 6.0).toFloat()
+                    canvas.drawLine(item.endX, item.endY, leftX, leftY, paint)
+                    canvas.drawLine(item.endX, item.endY, rightX, rightY, paint)
                 }
             }
         }
