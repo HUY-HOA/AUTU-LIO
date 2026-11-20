@@ -1,25 +1,28 @@
 package com.autulio.app.runtime
 
+import okhttp3.MediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
 import java.io.ByteArrayOutputStream
-import java.io.IOException
 import java.io.InputStream
-import java.net.HttpURLConnection
 import java.net.URI
-import java.net.URL
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 /**
  * Bounded HTTPS client used by AUTU scripts.
  *
- * It intentionally does not follow redirects, so an HTTPS request cannot be
- * redirected to clear-text HTTP or to an unexpected host without script logic.
+ * OkHttp is used because HttpURLConnection rejects PATCH on the Android/JVM
+ * implementations supported by this application. Redirects and cookies stay disabled.
  */
 class ScriptHttpClient(
-    private val connectionFactory: (URL) -> HttpURLConnection = {
-        it.openConnection() as HttpURLConnection
-    },
+    private val baseClient: OkHttpClient = OkHttpClient.Builder()
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .build(),
     private val maxRequestBytes: Int = DEFAULT_MAX_BODY_BYTES,
     private val maxResponseBytes: Int = DEFAULT_MAX_BODY_BYTES
 ) {
@@ -31,6 +34,7 @@ class ScriptHttpClient(
         const val MAX_HEADER_CHARS = 16_384
 
         private val allowedMethods = setOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD")
+        private val bodyMethods = setOf("POST", "PUT", "PATCH", "DELETE")
         private val forbiddenRequestHeaders = setOf(
             "host", "content-length", "connection", "transfer-encoding",
             "proxy-authorization", "proxy-connection"
@@ -61,69 +65,77 @@ class ScriptHttpClient(
         require(timeoutMs in MIN_TIMEOUT_MS..MAX_TIMEOUT_MS) {
             "Thời hạn HTTP phải từ $MIN_TIMEOUT_MS đến $MAX_TIMEOUT_MS mili giây."
         }
+
         val target = validateUrl(urlText)
         val bodyBytes = body?.toByteArray(StandardCharsets.UTF_8)
         require(bodyBytes == null || bodyBytes.size <= maxRequestBytes) {
             "Dữ liệu gửi vượt quá giới hạn $maxRequestBytes byte."
         }
-        require(bodyBytes == null || normalizedMethod in setOf("POST", "PUT", "PATCH", "DELETE")) {
+        require(bodyBytes == null || normalizedMethod in bodyMethods) {
             "$normalizedMethod không nhận phần thân yêu cầu trong AUTU."
         }
-        val safeHeaders = validateHeaders(headers)
-        val connection = connectionFactory(target)
-        try {
-            connection.requestMethod = normalizedMethod
-            connection.connectTimeout = timeoutMs
-            connection.readTimeout = timeoutMs
-            connection.instanceFollowRedirects = false
-            connection.useCaches = false
-            connection.setRequestProperty("Accept", safeHeaders.entries.firstOrNull { it.key.equals("Accept", ignoreCase = true) }?.value ?: "application/json, text/plain, */*")
-            connection.setRequestProperty("Accept-Encoding", "identity")
-            safeHeaders.forEach { (name, value) ->
-                if (!name.equals("Accept", ignoreCase = true) &&
-                    !name.equals("Accept-Encoding", ignoreCase = true)
-                ) {
-                    connection.setRequestProperty(name, value)
-                }
-            }
-            if (bodyBytes != null) {
-                if (safeHeaders.keys.none { it.equals("Content-Type", ignoreCase = true) }) {
-                    connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                }
-                connection.doOutput = true
-                connection.outputStream.use { output ->
-                    output.write(bodyBytes)
-                    output.flush()
-                }
-            }
 
-            val status = connection.responseCode
-            val responseStream = if (status >= HttpURLConnection.HTTP_BAD_REQUEST) {
-                connection.errorStream
-            } else {
-                connection.inputStream
+        val safeHeaders = validateHeaders(headers)
+        val requestBody = bodyBytes?.let { bytes ->
+            val contentType = safeHeaders.entries
+                .firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }
+                ?.value
+                ?.let(MediaType::parse)
+                ?: MediaType.parse("application/json; charset=utf-8")
+            RequestBody.create(contentType, bytes)
+        }
+
+        val requestBuilder = Request.Builder()
+            .url(target)
+            .header(
+                "Accept",
+                safeHeaders.entries.firstOrNull { it.key.equals("Accept", ignoreCase = true) }?.value
+                    ?: "application/json, text/plain, */*"
+            )
+            .header("Accept-Encoding", "identity")
+
+        safeHeaders.forEach { (name, value) ->
+            if (!name.equals("Accept", ignoreCase = true) &&
+                !name.equals("Accept-Encoding", ignoreCase = true)
+            ) {
+                requestBuilder.header(name, value)
             }
-            val responseBytes = responseStream?.use { readLimited(it, maxResponseBytes) } ?: ByteArray(0)
-            val charset = responseCharset(connection.contentType)
+        }
+        requestBuilder.method(normalizedMethod, requestBody)
+
+        val requestClient = baseClient.newBuilder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .connectTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .readTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .writeTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .callTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .build()
+
+        requestClient.newCall(requestBuilder.build()).execute().use { response ->
+            val responseBody = response.body()
+            val responseBytes = responseBody?.byteStream()?.use { readLimited(it, maxResponseBytes) }
+                ?: ByteArray(0)
+            val charset = responseBody?.contentType()?.charset(StandardCharsets.UTF_8)
+                ?: StandardCharsets.UTF_8
             val responseHeaders = linkedMapOf<String, Any?>()
-            connection.headerFields.forEach { (name, values) ->
-                if (name != null && name.lowercase(Locale.ROOT) !in hiddenResponseHeaders && !values.isNullOrEmpty()) {
-                    responseHeaders[name] = values.toList()
+            response.headers().names().forEach { name ->
+                if (name.lowercase(Locale.ROOT) !in hiddenResponseHeaders) {
+                    val values = response.headers(name)
+                    if (values.isNotEmpty()) responseHeaders[name] = values.toList()
                 }
             }
             return linkedMapOf(
-                "TRẠNG_THÁI" to status,
-                "THÀNH_CÔNG" to (status in 200..299),
+                "TRẠNG_THÁI" to response.code(),
+                "THÀNH_CÔNG" to response.isSuccessful,
                 "NỘI_DUNG" to String(responseBytes, charset),
                 "TIÊU_ĐỀ" to responseHeaders,
-                "URL" to urlText
+                "URL" to response.request().url().toString()
             )
-        } finally {
-            connection.disconnect()
         }
     }
 
-    private fun validateUrl(value: String): URL {
+    private fun validateUrl(value: String): URI {
         require(value.length <= 4_096) { "URL vượt quá 4.096 ký tự." }
         val uri = try {
             URI(value).normalize()
@@ -136,14 +148,17 @@ class ScriptHttpClient(
         require(uri.rawUserInfo.isNullOrEmpty()) {
             "URL không được nhúng tên người dùng hoặc mật khẩu."
         }
-        require(!uri.host.isNullOrBlank() && uri.host.length <= 253) { "URL thiếu tên máy chủ hợp lệ." }
-        require(uri.fragment == null) { "URL không được chứa fragment."
+        require(!uri.host.isNullOrBlank() && uri.host.length <= 253) {
+            "URL thiếu tên máy chủ hợp lệ."
         }
-        return uri.toURL()
+        require(uri.fragment == null) { "URL không được chứa fragment." }
+        return uri
     }
 
     private fun validateHeaders(headers: Map<String, Any?>): Map<String, String> {
-        require(headers.size <= MAX_HEADERS) { "Một yêu cầu chỉ được có tối đa $MAX_HEADERS tiêu đề." }
+        require(headers.size <= MAX_HEADERS) {
+            "Một yêu cầu chỉ được có tối đa $MAX_HEADERS tiêu đề."
+        }
         val result = linkedMapOf<String, String>()
         var totalChars = 0
         headers.forEach { (name, rawValue) ->
@@ -155,27 +170,20 @@ class ScriptHttpClient(
                 is String -> rawValue
                 is Number -> rawValue.toString()
                 is Boolean -> rawValue.toString()
-                else -> throw IllegalArgumentException("Giá trị tiêu đề '$name' phải là chuỗi, số hoặc luận lý.")
+                else -> throw IllegalArgumentException(
+                    "Giá trị tiêu đề '$name' phải là chuỗi, số hoặc luận lý."
+                )
             }
-            require(value.none { it == '\r' || it == '\n' || it == '\u0000' }) {
+            require(value.none { it == '\\r' || it == '\\n' || it == '\\u0000' }) {
                 "Giá trị tiêu đề '$name' chứa ký tự xuống dòng không hợp lệ."
             }
             totalChars += name.length + value.length
-            require(totalChars <= MAX_HEADER_CHARS) { "Tổng tiêu đề HTTP vượt quá $MAX_HEADER_CHARS ký tự." }
+            require(totalChars <= MAX_HEADER_CHARS) {
+                "Tổng tiêu đề HTTP vượt quá $MAX_HEADER_CHARS ký tự."
+            }
             result[name] = value
         }
         return result
-    }
-
-    private fun responseCharset(contentType: String?): Charset {
-        val charsetName = contentType
-            ?.split(';')
-            ?.firstOrNull { it.trim().startsWith("charset=", ignoreCase = true) }
-            ?.substringAfter('=')
-            ?.trim()
-            ?.trim('"', '\'')
-        return runCatching { if (charsetName.isNullOrBlank()) StandardCharsets.UTF_8 else Charset.forName(charsetName) }
-            .getOrDefault(StandardCharsets.UTF_8)
     }
 
     private fun readLimited(input: InputStream, limit: Int): ByteArray {
