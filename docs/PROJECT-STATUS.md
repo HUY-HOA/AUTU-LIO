@@ -29,7 +29,8 @@
 - Google Credential Manager lấy Google ID token; Worker xác minh chữ ký, issuer, audience, expiry, email đã xác minh và nonce.
 - Session lưu bằng Android Keystore; API kiểm tra vai trò và trạng thái tài khoản ở phía máy chủ.
 - Accessibility Service không tự mở bảng chạy khi vừa kết nối; chỉ chuẩn bị kịch bản sau khi phiên đã được xác minh.
-- Màn hình đăng nhập và Accessibility Service cùng theo dõi phiên; dịch vụ xác minh lại với máy chủ mỗi 60 giây, khóa bảng chạy khi phiên bị thu hồi hoặc không thể xác minh.
+- Màn hình đăng nhập và Accessibility Service cùng theo dõi phiên; dịch vụ xác minh lại với máy chủ mỗi 60 giây. Với CUSTOMER, dịch vụ còn kiểm tra kho package bằng fingerprint để xác nhận giấy phép và thiết bị hiện tại vẫn ACTIVE; bị từ chối quyền sẽ khóa runner nhưng không xóa phiên Google chỉ vì giấy phép/thiết bị bị thu hồi. OWNER không bị áp dụng điều kiện giấy phép CUSTOMER.
+- Cửa sổ soạn mã nổi, lưu bản nháp và chuẩn bị script tự tạo chỉ dành cho OWNER. CUSTOMER chỉ nhận điều khiển chạy/tạm dừng/dừng package đã tải và xác minh từ máy chủ.
 - Đăng xuất/phiên bị từ chối xóa quyền chạy, dừng kịch bản và cho phép khối LUÔN_THỰC_HIỆN hoàn tất trước khi xóa lớp đánh dấu.
 - Admin Studio tải dữ liệu quản trị từ API; giao diện Customer có luồng tài khoản, package, thiết bị và cài đặt.
 
