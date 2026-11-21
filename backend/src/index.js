@@ -645,7 +645,7 @@ async function getCustomerAccount(request, env, session) {
     devices: result.results || [],
     activeDeviceCount,
     canRegisterDevice: licenseState === "ACTIVE" && activeDeviceCount < (license?.max_devices || 0),
-    canRun: licenseState === "ACTIVE"
+    canRun: licenseState === "ACTIVE" && activeDeviceCount > 0
   }, 200, env);
 }
 

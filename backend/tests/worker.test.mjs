@@ -30,7 +30,9 @@ function createEnv({
   allowedOrigins = "",
   auditRows = [],
   challengeLimitSuccess = true,
-  loginLimitSuccess = true
+  loginLimitSuccess = true,
+  accountLicense = null,
+  accountDevices = []
 } = {}) {
   const queries = [];
   const DB = {
@@ -45,10 +47,14 @@ function createEnv({
         },
         async first() {
           if (sql.includes("FROM sessions s JOIN users u")) return session;
+          if (sql.includes("FROM licenses") && sql.includes("ORDER BY created_at DESC LIMIT 1")) return accountLicense;
           return null;
         },
         async all() {
           if (sql.includes("FROM audit_logs")) return { results: auditRows };
+          if (sql.includes("FROM devices WHERE user_id = ? ORDER BY registered_at DESC")) {
+            return { results: accountDevices };
+          }
           return { results: [] };
         },
         async run() {
@@ -312,6 +318,53 @@ test("customer account endpoint returns the signed-in account and empty license/
   assert.deepEqual(body.devices, []);
   assert.equal(body.canRun, false);
   assert.equal(body.canRegisterDevice, false);
+});
+
+test("customer run eligibility requires an active license and at least one active device", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const accountLicense = {
+    id: "license-123",
+    plan_code: "MONTHLY",
+    status: "ACTIVE",
+    starts_at: now - 60,
+    expires_at: now + 3600,
+    max_devices: 1
+  };
+
+  const noDevice = createEnv({ session: customerSession, accountLicense });
+  const noDeviceResponse = await worker.fetch(
+    makeRequest("/api/customer/account", {
+      headers: { Authorization: `Bearer ${"N".repeat(48)}` }
+    }),
+    noDevice.env
+  );
+  const noDeviceBody = await json(noDeviceResponse);
+  assert.equal(noDeviceResponse.status, 200);
+  assert.equal(noDeviceBody.canRun, false);
+  assert.equal(noDeviceBody.canRegisterDevice, true);
+
+  const activeDevice = {
+    id: "device-123",
+    label: "Android",
+    status: "ACTIVE",
+    registered_at: now - 30,
+    last_seen_at: now - 10
+  };
+  const withDevice = createEnv({
+    session: customerSession,
+    accountLicense,
+    accountDevices: [activeDevice]
+  });
+  const withDeviceResponse = await worker.fetch(
+    makeRequest("/api/customer/account", {
+      headers: { Authorization: `Bearer ${"A".repeat(48)}` }
+    }),
+    withDevice.env
+  );
+  const withDeviceBody = await json(withDeviceResponse);
+  assert.equal(withDeviceResponse.status, 200);
+  assert.equal(withDeviceBody.canRun, true);
+  assert.equal(withDeviceBody.canRegisterDevice, false);
 });
 
 test("owner can read live customer, license and device directories", async () => {

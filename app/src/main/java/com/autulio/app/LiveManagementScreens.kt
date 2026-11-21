@@ -571,6 +571,7 @@ internal fun AdminPackagesScreen(
     var drafts by remember { mutableStateOf(draftStore.load()) }
     var packages by remember { mutableStateOf<List<AutuPackageRecord>>(emptyList()) }
     var selectedDraft by remember(initialDraftName) { mutableStateOf<String?>(initialDraftName) }
+    var draftSelectionInitialized by remember(initialDraftName) { mutableStateOf(false) }
     var description by remember { mutableStateOf("") }
     var sourceInfo by remember { mutableStateOf<com.autulio.app.auth.AdminPackageSourceInfo?>(null) }
     var sourceViewMode by remember { mutableStateOf("SOURCE") }
@@ -582,8 +583,11 @@ internal fun AdminPackagesScreen(
 
     suspend fun refresh() {
         drafts = draftStore.load()
-        if (selectedDraft !in drafts.names) {
+        if (!draftSelectionInitialized) {
             selectedDraft = initialDraftName?.takeIf { it in drafts.names } ?: drafts.names.lastOrNull()
+            draftSelectionInitialized = true
+        } else if (selectedDraft != null && selectedDraft !in drafts.names) {
+            selectedDraft = drafts.names.lastOrNull()
         }
         if (accessToken.isNullOrBlank()) return
         loading = true
@@ -737,7 +741,7 @@ internal fun AdminPackagesScreen(
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !publishing && selectedDraft != null && selectedCode.isNotBlank()
+                        enabled = !publishing && !loading && error.isBlank() && selectedDraft != null && selectedCode.isNotBlank()
                     ) {
                         if (publishing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         else Icon(Icons.Outlined.PlayArrow, null)
