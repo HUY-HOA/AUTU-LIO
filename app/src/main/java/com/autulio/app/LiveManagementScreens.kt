@@ -741,7 +741,7 @@ internal fun AdminPackagesScreen(
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !publishing && selectedDraft != null && selectedCode.isNotBlank()
+                        enabled = !publishing && !loading && error.isBlank() && selectedDraft != null && selectedCode.isNotBlank()
                     ) {
                         if (publishing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         else Icon(Icons.Outlined.PlayArrow, null)
