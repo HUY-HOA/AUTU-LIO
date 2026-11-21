@@ -7,19 +7,15 @@ import org.junit.Test
 class LocalizationTest {
 
     @Test
-    fun usesVietnameseWhenSystemLanguageIsVietnamese() {
+    fun alwaysUsesVietnameseForEverySystemLanguage() {
         withDefaultLocale(Locale("vi", "VN")) {
             assertEquals("Xin chào", tr("Xin chào", "Hello"))
         }
-    }
-
-    @Test
-    fun usesEnglishForEnglishAndOtherSystemLanguages() {
         withDefaultLocale(Locale.US) {
-            assertEquals("Hello", tr("Xin chào", "Hello"))
+            assertEquals("Xin chào", tr("Xin chào", "Hello"))
         }
         withDefaultLocale(Locale.JAPAN) {
-            assertEquals("Hello", tr("Xin chào", "Hello"))
+            assertEquals("Xin chào", tr("Xin chào", "Hello"))
         }
     }
 
