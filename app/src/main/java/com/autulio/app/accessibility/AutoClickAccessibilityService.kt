@@ -44,8 +44,10 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.SecureScriptDraftStore
+import com.autulio.app.access.AccessRole
 import com.autulio.app.auth.AuthApiException
 import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.SecureDeviceIdentityStore
 import com.autulio.app.auth.SecureSessionStore
 import com.autulio.app.script.ScriptTemplateCatalog
 import kotlinx.coroutines.runBlocking
@@ -194,12 +196,28 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             if (token.isNullOrBlank()) {
                 if (sessionVerified || floatingWindow != null) lockRunner()
             } else {
+                var accountVerified = false
                 try {
-                    runBlocking { authRepository.currentUser(token) }
+                    val verifiedUser = runBlocking { authRepository.currentUser(token) }
+                    accountVerified = true
+                    if (verifiedUser.role == AccessRole.CUSTOMER) {
+                        val identity = SecureDeviceIdentityStore(this).getExistingIdentity()
+                            ?: throw java.io.IOException("Thiết bị không còn khóa đăng ký AUTU.")
+                        // This endpoint verifies both the active license and this device's
+                        // active registration, not just that the Google session still exists.
+                        runBlocking {
+                            authRepository.listCustomerPackages(token, identity.fingerprintSha256)
+                        }
+                    }
                     if (sessionStore.read() == token) sessionVerified = true
                 } catch (error: AuthApiException) {
                     if (sessionStore.read() == token) {
-                        if (error.statusCode in 401..403) runCatching { sessionStore.clear() }
+                        // A revoked login is an authentication failure. A 403 from the
+                        // package catalog is an entitlement/device denial, so keep the
+                        // customer signed in while locking the runner.
+                        if (error.statusCode == 401 || (!accountVerified && error.statusCode == 403)) {
+                            runCatching { sessionStore.clear() }
+                        }
                         lockRunner()
                     }
                 } catch (_: Exception) {
