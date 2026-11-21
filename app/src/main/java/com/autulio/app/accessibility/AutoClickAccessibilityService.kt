@@ -95,8 +95,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         private var sessionRole: AccessRole? = null
 
         fun markSessionVerified(role: AccessRole) {
+            val previousRole = sessionRole
             sessionRole = role
-            sessionVerified = true
+            when (role) {
+                AccessRole.OWNER -> sessionVerified = true
+                // CUSTOMER access is granted only by the service after it also
+                // verifies an active license and this device's active registration.
+                // UI session refreshes must never re-enable a runner denied by that check.
+                AccessRole.CUSTOMER -> {
+                    if (previousRole != AccessRole.CUSTOMER) sessionVerified = false
+                }
+            }
         }
 
         fun invalidateSession() {
@@ -230,7 +239,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     if (sessionStore.read() == token) lockRunner()
                 }
             }
-        }, 60L, 60L, TimeUnit.SECONDS)
+        }, 0L, 60L, TimeUnit.SECONDS)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
