@@ -47,7 +47,6 @@ import java.util.Locale
 import java.io.File
 import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
-import com.autulio.app.auth.AuthApiException
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
