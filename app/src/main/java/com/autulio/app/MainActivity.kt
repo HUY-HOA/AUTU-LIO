@@ -1470,7 +1470,7 @@ private fun ScriptFileControls() {
             singleLine = true,
             enabled = !working,
             label = { Text(tr("Đường dẫn tệp trong AUTU", "AUTU file path")) },
-            placeholder = { Text("imports/baocao.csv") }
+            placeholder = { Text("nhap/baocao.csv") }
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
