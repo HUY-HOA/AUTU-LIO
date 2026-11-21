@@ -1,59 +1,87 @@
-# AUTU-LIO — Định hướng thiết kế giao diện
+# AUTU-LIO — Thiết kế giao diện và trạng thái triển khai
 
-## 1. Phạm vi
-- Sản phẩm chỉ phát triển cho Android.
-- Prototype giao diện Android bằng Kotlin/Jetpack Compose đã được triển khai để kiểm tra bố cục và điều hướng; Google OAuth, Cloudflare, thanh toán và backend chưa được tích hợp.
-- Chưa build APK trong giai đoạn duyệt thiết kế.
-- Ngôn ngữ mặc định: tiếng Việt. Nếu ngôn ngữ thiết bị là tiếng Anh thì dùng tiếng Anh; ngôn ngữ khác dùng tiếng Anh.
+**Cập nhật:** 21/11/2026
 
-## 2. Cấu trúc ứng dụng đề xuất
-Dùng chung một APK, bộ nhận diện và thành phần giao diện. Các khu vực Admin và AutoClick được hiển thị theo vai trò tài khoản đã được máy chủ xác minh; bản Debug chỉ có bộ chọn preview để kiểm tra bố cục.
-- **AUTU-LIO Admin Studio:** dành cho chủ ứng dụng/quản trị viên; có quản lý, trình soạn thảo và phát hành kịch bản.
-- **AUTU-LIO AutoClick:** dành cho khách hàng; chỉ chạy các kịch bản và tính năng đã được chủ ứng dụng phát hành. Không có trình lập trình, không xem hoặc sửa mã nguồn.
+## 1. Phạm vi sản phẩm
 
-## 3. Phong cách giao diện
-- Hiện đại, gọn, rõ ràng, tối ưu cho màn hình điện thoại.
-- Thiết kế dark mode trước; bố cục và màu sắc phải hỗ trợ light mode.
-- Thẻ thông tin, nút chính/phụ và trạng thái có phân cấp thị giác rõ.
-- Chữ dễ đọc, vùng chạm đủ lớn, không nhồi quá nhiều thông tin vào một màn hình.
-- Có trạng thái loading, empty, error, success và disabled cho các thao tác.
-- Không dùng hiệu ứng hoặc màu RGB gây rối mắt; hiệu ứng chỉ dùng khi giúp nhận biết trạng thái.
+- AUTU-LIO là ứng dụng Android native viết bằng Kotlin và Jetpack Compose, dùng một APK với application ID `com.autulio.app`.
+- Cloudflare Worker và D1 là backend REST/API của ứng dụng; đây không phải website hay web dashboard.
+- Cùng một APK phục vụ hai vai trò: OWNER và CUSTOMER. Vai trò do máy chủ xác minh, không do người dùng chọn trong bản Release.
+- Bản Debug có bộ chọn giao diện xem trước để kiểm tra bố cục; bộ chọn này không đăng nhập và không cấp quyền thật.
 
-## 4. Danh sách màn hình Admin Studio
-1. Tổng quan: số khách hàng, thiết bị, giấy phép, kịch bản và trạng thái hệ thống.
-2. Kịch bản: danh sách, tìm kiếm, phân loại, tạo mới và chỉnh sửa.
-3. Trình soạn thảo: khu vực viết mã, danh sách hàm/thư viện, kiểm tra và chạy thử.
-4. Thư viện: quản lý hàm, thành phần và tài nguyên dùng chung.
-5. Phát hành: phiên bản, ghi chú cập nhật, phạm vi phát hành và quay lại phiên bản trước.
-6. Khách hàng: hồ sơ, trạng thái và lịch sử giấy phép.
-7. Thiết bị: model máy, phiên bản Android/app, số máy trên tài khoản và lần hoạt động gần nhất.
-8. Giấy phép: gói, thời hạn, giới hạn thiết bị, gia hạn và thu hồi.
-9. Nhật ký: sự kiện, lỗi và báo cáo kỹ thuật.
-10. Cài đặt: ngôn ngữ, giao diện, bảo mật và thông tin ứng dụng.
+## 2. Điều hướng hiện tại
 
-## 5. Danh sách màn hình AutoClick
-1. Đăng nhập / kích hoạt.
-2. Trang chủ và trạng thái dịch vụ trợ năng.
-3. Kịch bản đã phát hành.
-4. Chi tiết kịch bản và hướng dẫn sử dụng.
-5. Bảng điều khiển chạy, tạm dừng và dừng.
-6. Kịch bản đã tải và cập nhật.
-7. Thiết bị và giấy phép.
-8. Hỗ trợ, nhật ký lỗi được phép gửi và cài đặt.
+### OWNER
 
-## 6. Thứ tự triển khai
-1. Đã dựng prototype trang Tổng quan Admin và thanh điều hướng.
-2. Đã dựng prototype quản lý kịch bản và trình soạn thảo.
-3. Đã dựng các trang quản trị Khách hàng, Thiết bị, Giấy phép, Thư viện, Phát hành, Nhật ký và Cài đặt.
-4. Đã dựng luồng xem trước khách hàng gồm Trang chủ, danh sách/chi tiết kịch bản mẫu, Thiết bị/Giấy phép và Cài đặt.
-5. Tiếp theo: kiểm thử build APK debug, sửa lỗi giao diện theo phản hồi trên thiết bị thật.
-6. Sau khi prototype ổn định, triển khai dữ liệu cục bộ, backend, xác thực, giấy phép và runtime theo từng giai đoạn.
+Thanh điều hướng chính gồm:
 
-## 7. Nguyên tắc bảo mật và quyền riêng tư
-- Giao diện khách hàng không cung cấp đường vào Admin Studio hoặc trình soạn thảo.
-- Chỉ hiển thị dữ liệu quản lý cần thiết và đã thông báo cho người dùng.
-- Không thiết kế chức năng thu thập IMEI, số sê-ri, MAC, GPS, nội dung màn hình hoặc dữ liệu riêng tư không cần thiết.
-- Các thao tác khóa tài khoản, thu hồi giấy phép và phát hành phiên bản phải có xác nhận phù hợp.
+1. **Tổng quan:** số liệu khách hàng, thiết bị, giấy phép và gói AUTU, tải từ API quản trị.
+2. **Kịch bản:** danh sách bản nháp cục bộ và đường vào trình soạn thảo AUTU Script.
+3. **Khách hàng:** màn hình quản lý khách hàng, giấy phép và thiết bị.
+4. **Thêm:** thư viện mẫu AUTU, gói AUTU đã phát hành, nhật ký quản trị và cài đặt.
 
-## 8. Trạng thái hiện tại
-Prototype giao diện Android đã được viết bằng Kotlin/Jetpack Compose. Một số trang hiện mới có bố cục và trạng thái rỗng, chưa đọc/ghi dữ liệu thật. Các thao tác Chạy thử trên màn hình khách hàng chỉ là mô phỏng giao diện; chưa có engine Auto Click. Chi tiết tiến độ và phần chưa triển khai được ghi tại docs/PROJECT-STATUS.md.
+Trong khu vực quản lý truy cập, OWNER có thể tìm kiếm và lọc khách hàng/giấy phép/thiết bị; cấp, gia hạn, tạm dừng, kích hoạt lại hoặc thu hồi giấy phép; thu hồi thiết bị; xem trạng thái và lần hoạt động gần nhất.
+
+### CUSTOMER
+
+Thanh điều hướng chính gồm:
+
+1. **Trang chủ:** thông tin tài khoản, giấy phép và số thiết bị hoạt động.
+2. **Kịch bản:** kho AUTU đã phát hành, cho phép tải, giải mã, xác minh và chuẩn bị chạy nếu giấy phép cùng thiết bị hợp lệ.
+3. **Thiết bị:** xem giấy phép, đăng ký thiết bị hiện tại và gỡ thiết bị khỏi tài khoản.
+4. **Cài đặt:** giao diện, thông tin ứng dụng, sao lưu/khôi phục và tệp AUTU Script.
+
+CUSTOMER không có đường truy cập Admin Studio hoặc trình soạn thảo tạo mã của OWNER.
+
+## 3. Trình soạn thảo và runtime
+
+- Trình soạn thảo hỗ trợ tạo/lưu bản nháp, kiểm tra mã, xem hướng dẫn cú pháp và chèn mẫu.
+- AUTU Script hiện ở phiên bản ngôn ngữ 1.22.
+- Runtime sử dụng Android Accessibility Service và cửa sổ điều khiển nổi để chạy, tạm dừng, tiếp tục và dừng kịch bản.
+- Trạng thái phiên đăng nhập được kiểm tra lại định kỳ; phiên mất hiệu lực sẽ khóa trình chạy.
+- Một số thao tác phụ thuộc quyền Trợ năng, API Android, ứng dụng đích và khả năng của thiết bị; giao diện không được diễn giải việc chuẩn bị kịch bản là bằng chứng thao tác đã chạy thành công.
+
+## 4. Phát hành AUTU
+
+- OWNER lưu bản nháp riêng trên thiết bị, sau đó chuyển sang màn hình gói AUTU để phát hành.
+- Ứng dụng kiểm tra cú pháp và phiên bản ngôn ngữ trước khi gửi mã nguồn qua HTTPS.
+- Worker nén khi có lợi, mã hóa AES-256-GCM và lưu ciphertext cùng metadata; khóa dữ liệu được bọc riêng cho khóa công khai của thiết bị CUSTOMER.
+- CUSTOMER chỉ nhận package khi tài khoản, giấy phép và thiết bị đáp ứng điều kiện ở máy chủ.
+- OWNER có thể xem mã gốc và phong bì mã hóa của package. Việc xem mã gốc chỉ qua API quản trị dành cho OWNER và có ghi audit event.
+
+Đây là mã hóa khi lưu trữ và phân phối có kiểm soát, không phải mã hóa đầu-cuối. Source vẫn phải được giải mã trong bộ nhớ để biên dịch và chạy; thiết bị đã root/debug/instrument có thể trích xuất dữ liệu trong lúc thực thi.
+
+## 5. Quy chuẩn giao diện
+
+- Tối ưu cho màn hình điện thoại, bố cục gọn, chữ dễ đọc và vùng chạm đủ lớn.
+- Hỗ trợ giao diện sáng/tối.
+- Ngôn ngữ theo hệ thống: tiếng Việt khi ngôn ngữ hệ thống là tiếng Việt; tiếng Anh với ngôn ngữ hệ thống khác.
+- Các màn hình tải dữ liệu cần phân biệt trạng thái đang tải, rỗng, lỗi và thành công.
+- Không hiển thị dữ liệu quản trị cho CUSTOMER; không thu thập IMEI, số sê-ri, MAC, GPS hoặc dữ liệu riêng tư không cần thiết.
+
+## 6. Những phần chỉ dùng để xem trước
+
+- Bộ chọn OWNER/CUSTOMER trong bản Debug chỉ chuyển giao diện để kiểm tra bố cục, không tạo phiên đăng nhập hay quyền máy chủ.
+- Các mẫu trong thư viện mẫu là mã nguồn tham khảo; không mặc nhiên là package đã phát hành cho CUSTOMER.
+- Không dùng dữ liệu mẫu hoặc màn hình xem trước để báo cáo rằng luồng giấy phép, tải package hay chạy tự động đã được nghiệm thu.
+
+## 7. Phần còn thiếu hoặc cần hoàn thiện
+
+- Lập lịch chạy, hàng đợi nhiều kịch bản và tác vụ nền theo sự kiện.
+- Thư viện module dùng chung và cơ chế import/version cho module.
+- Form giao diện tương tác do AUTU tạo.
+- Regex an toàn, autocomplete/định dạng mã đầy đủ và debugger từng bước.
+- Nghiệm thu toàn luồng CUSTOMER: cấp giấy phép, đăng ký thiết bị, tải package, giải mã và thực thi.
+- Kiểm tra gesture, vòng đời Accessibility Service, overlay, quyền, pin và tương thích trên Xiaomi/HyperOS cùng các thiết bị Android khác.
+- Kiểm tra backup/restore SQLite thực tế, bao gồm lỗi file, thiếu dung lượng và rollback.
+
+## 8. Tiêu chí nghiệm thu
+
+Một tính năng chỉ được coi là nghiệm thu khi:
+1. Có mã nguồn thực thi, không chỉ có nút hoặc bố cục.
+2. API và phân quyền phía máy chủ được kiểm tra khi có liên quan.
+3. Có kiểm thử tự động phù hợp và CI thành công.
+4. Các luồng phụ thuộc phần cứng/quyền Android được thử trên thiết bị thật.
+5. Ghi rõ giới hạn Android hoặc ứng dụng đích không cho phép thao tác.
+
+Xem [trạng thái phát triển](PROJECT-STATUS.md), [phạm vi AUTU Script](09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md) và [bảo mật package](10-AUTU-PACKAGE-SECURITY.md) để biết chi tiết kỹ thuật.
