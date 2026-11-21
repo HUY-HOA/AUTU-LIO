@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - build-apk/once-20261121-2040-autu
   workflow_dispatch:
     inputs:
       build_variant:
@@ -26,7 +27,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK'))
+    if: (github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK'))) || (github.ref == 'refs/heads/build-apk/once-20261121-2040-autu' && github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK')
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
