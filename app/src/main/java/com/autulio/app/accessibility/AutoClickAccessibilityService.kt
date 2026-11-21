@@ -91,12 +91,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         @Volatile
         private var sessionVerified = false
 
-        fun markSessionVerified() {
+        @Volatile
+        private var sessionRole: AccessRole? = null
+
+        fun markSessionVerified(role: AccessRole) {
+            sessionRole = role
             sessionVerified = true
         }
 
         fun invalidateSession() {
             sessionVerified = false
+            sessionRole = null
             activeInstance?.lockRunner()
         }
 
@@ -200,6 +205,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 try {
                     val verifiedUser = runBlocking { authRepository.currentUser(token) }
                     accountVerified = true
+                    sessionRole = verifiedUser.role
                     if (verifiedUser.role == AccessRole.CUSTOMER) {
                         val identity = SecureDeviceIdentityStore(this).getExistingIdentity()
                             ?: throw java.io.IOException("Thiết bị không còn khóa đăng ký AUTU.")
@@ -277,7 +283,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
 
         if (databaseMaintenanceActive) return false
-        if (executionEngine == null || !sessionVerified || sessionStore.read().isNullOrBlank()) {
+        if (executionEngine == null || !sessionVerified || sessionRole == null || sessionStore.read().isNullOrBlank()) {
             lockRunner()
             return false
         }
@@ -1999,6 +2005,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             }
         }
 
+        val ownerMode = sessionRole == AccessRole.OWNER
+
         val status = TextView(this).apply {
             textSize = 11f
             setTextColor(0xFFE2E8F0.toInt())
@@ -2084,7 +2092,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
 
         controls.addView(move)
-        controls.addView(edit)
+        if (ownerMode) controls.addView(edit)
         controls.addView(primary)
         controls.addView(stop)
         controls.addView(camera)
@@ -2159,7 +2167,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 WindowManager.LayoutParams.WRAP_CONTENT
             )
         )
-        root.addView(editorArea)
+        if (ownerMode) root.addView(editorArea)
 
         root.setOnApplyWindowInsetsListener { _, insets ->
             captureDisplayGeometry(insets)
@@ -2339,10 +2347,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             moveHandle = move
             captureButton = camera
             galleryButton = gallery
-            editorButton = edit
+            editorButton = edit.takeIf { ownerMode }
             actionRow = controls
-            editorPanel = editorArea
-            codeInput = editor
+            editorPanel = editorArea.takeIf { ownerMode }
+            codeInput = editor.takeIf { ownerMode }
             editorVisible = false
             collapsed = true
             editor.setText(loadFloatingDraft())
@@ -2371,20 +2379,25 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
     }
 
-    private fun loadFloatingDraft(): String =
-        runCatching {
+    private fun loadFloatingDraft(): String {
+        if (sessionRole != AccessRole.OWNER) return ""
+        return runCatching {
             SecureScriptDraftStore(this).load().contents[FLOATING_DRAFT_NAME].orEmpty()
         }.getOrDefault("")
+    }
 
-    private fun saveFloatingDraft(): Boolean = runCatching {
-        val code = codeInput?.text?.toString().orEmpty()
-        val store = SecureScriptDraftStore(this)
-        val snapshot = store.load()
-        val names = (snapshot.names + FLOATING_DRAFT_NAME)
-            .distinctBy { it.lowercase(Locale.ROOT) }
-        store.save(names, snapshot.contents + (FLOATING_DRAFT_NAME to code))
-        true
-    }.getOrDefault(false)
+    private fun saveFloatingDraft(): Boolean {
+        if (sessionRole != AccessRole.OWNER) return false
+        return runCatching {
+            val code = codeInput?.text?.toString().orEmpty()
+            val store = SecureScriptDraftStore(this)
+            val snapshot = store.load()
+            val names = (snapshot.names + FLOATING_DRAFT_NAME)
+                .distinctBy { it.lowercase(Locale.ROOT) }
+            store.save(names, snapshot.contents + (FLOATING_DRAFT_NAME to code))
+            true
+        }.getOrDefault(false)
+    }
 
     private fun appendFloatingCode(snippet: String) {
         val field = codeInput ?: return
@@ -2441,6 +2454,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     private fun prepareFloatingProgram() {
+        if (sessionRole != AccessRole.OWNER) {
+            statusLabel?.text = "Chỉ chủ sở hữu được tạo và kiểm tra kịch bản."
+            return
+        }
         if (!sessionVerified || sessionStore.read().isNullOrBlank()) {
             lockRunner()
             return
@@ -2470,6 +2487,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     }
 
     private fun setEditorVisible(value: Boolean) {
+        if (value && sessionRole != AccessRole.OWNER) return
         val panel = editorPanel ?: return
         if (value && collapsed) setCollapsed(false)
         if (editorVisible == value) return
