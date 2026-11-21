@@ -1,6 +1,6 @@
 # AUTU-LIO — Trạng thái phát triển ứng dụng Android
 
-**Cập nhật:** 20/11/2026  
+**Cập nhật:** 21/11/2026  
 **Repository:** `HUY-HOA/AUTU-LIO`  
 **Nhánh tích hợp:** `main`
 
