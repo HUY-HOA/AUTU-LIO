@@ -199,13 +199,12 @@ private fun RolePreviewChooser(
         }
     }
 }
-internal fun tr(vi: String, en: String): String =
-    if (Locale.getDefault().language.equals("vi", ignoreCase = true)) vi else en
+@Suppress("UNUSED_PARAMETER")
+internal fun tr(vi: String, en: String): String = vi
 
 internal fun localizedErrorMessage(error: Throwable?, fallback: String): String {
     val message = error?.message?.trim().orEmpty()
     if (message.isBlank()) return fallback
-    if (error is AuthApiException) return message
     val hasVietnamese = message.any { character ->
         "ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ".contains(
             character.lowercaseChar()
@@ -236,7 +235,7 @@ internal fun planText(value: String): String = when (value.trim().uppercase(Loca
     "YEARLY", "ANNUAL" -> "Theo năm"
     "LIFETIME" -> "Trọn đời"
     "TRIAL" -> "Dùng thử"
-    else -> value.trim().ifBlank { "Chưa xác định" }
+    else -> "Gói khác"
 }
 
 @Composable
