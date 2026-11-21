@@ -60,8 +60,8 @@
 
 ## 4. Bản Release hiện có
 
-- GitHub Actions đã hoàn tất workflow Release APK run `44486235658`; bước ký và xác minh chữ ký APK thành công, artifact `AUTU-LIO-Release` đã tải lên.
-- Bản ứng dụng người dùng đang mở hiển thị v0.1.12.
+- GitHub Actions đã hoàn tất workflow Release APK run `44791724413` trên commit `eaad93232c9765750a76da4e3b1ed7383c5ec840`; build Release thành công, APK đã được ký, xác minh chữ ký và tải artifact `AUTU-LIO-Release` lên GitHub Actions.
+- Bản Release đã xác minh gần nhất là v0.1.37 (APK chưa được nghiệm thu cài đặt/chạy trên điện thoại thật trong lần build này).
 - Không build APK mới nếu chưa nhận đúng lệnh `BUILD APK`.
 - Sửa tài liệu hoặc chạy source checks không đồng nghĩa tạo APK; workflow source checks không đóng gói APK.
 
