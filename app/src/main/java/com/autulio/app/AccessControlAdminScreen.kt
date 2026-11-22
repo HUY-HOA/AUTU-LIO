@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.*
@@ -269,19 +272,33 @@ internal fun AccessControlAdminScreen(
                                         Text(device.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Text(
-                                        if (device.status == "ACTIVE") "Đang hoạt động" else "Quyền thiết bị đã thu hồi",
+                                        if (device.status == "ACTIVE") "Đã cấp quyền" else "Đã thu hồi quyền",
                                         color = if (device.status == "ACTIVE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
-                                Text("${device.manufacturer} ${device.model} · Android ${device.androidVersion}", fontSize = 12.sp)
-                                Text("AUTU-LIO ${device.appVersion} · Lần hoạt động: ${accessDate(device.lastSeenAt)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(
-                                    "Tài khoản: ${statusText(device.customerStatus)} · Giấy phép: ${device.licenseStatus?.let(::statusText) ?: "Chưa có"} · Thiết bị: ${device.activeDeviceCount}/${device.maxDevices ?: 0}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    AdminIconValue(
+                                        Icons.Outlined.PhoneAndroid,
+                                        "Thiết bị Android",
+                                        "${device.manufacturer} ${device.model} · Android ${device.androidVersion}"
+                                    )
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    AdminIconValue(Icons.Outlined.Apps, "Phiên bản AUTU", "AUTU-LIO ${device.appVersion}")
+                                    AdminIconValue(Icons.Outlined.AccessTime, "Lần sử dụng", accessDate(device.lastSeenAt))
+                                }
+                                AdminPresenceInfo(device.presenceSeenAt, device.appForegroundAt, device.runtimeState)
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    AdminIconValue(Icons.Outlined.Group, "Tài khoản", statusText(device.customerStatus))
+                                    AdminIconValue(
+                                        Icons.Outlined.VerifiedUser,
+                                        "Giấy phép",
+                                        device.licenseStatus?.let(::statusText) ?: "Chưa có"
+                                    )
+                                    AdminIconValue(Icons.Outlined.Devices, "Thiết bị", "${device.activeDeviceCount}/${device.maxDevices ?: 0}")
+                                }
                                 if (device.status == "REVOKED") {
                                     val reasonText = when (device.revokedReason) {
                                         "OWNER_REVOKED" -> "Chủ ứng dụng đã thu hồi"
@@ -343,18 +360,18 @@ internal fun AccessControlAdminScreen(
                                     details = customer.googleSignIn,
                                     title = "Dữ liệu Google và lần đăng nhập gần nhất"
                                 )
-                                Text(
+                                AdminIconValue(
+                                    Icons.Outlined.VerifiedUser,
+                                    "Giấy phép",
                                     customer.licenseId?.let {
-                                        "${customer.planCode?.let(::planText) ?: "Gói sử dụng"} · ${customer.licenseStatus?.let(::statusText) ?: "Chưa rõ"} · Hết hạn ${accessDate(customer.licenseExpiresAt)}"
-                                    } ?: "Chưa có giấy phép sử dụng",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        "${customer.planCode?.let(::planText) ?: "Gói sử dụng"} · ${customer.licenseStatus?.let(::statusText) ?: "Chưa rõ"} · ${accessDate(customer.licenseExpiresAt)}"
+                                    } ?: "Chưa có"
                                 )
-                                Text(
-                                    "Thiết bị: ${customer.activeDeviceCount}/${customer.maxDevices ?: 0} · Đăng nhập gần nhất: ${accessDate(customer.lastLoginAt)}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    AdminIconValue(Icons.Outlined.Devices, "Số thiết bị", "${customer.activeDeviceCount}/${customer.maxDevices ?: 0}")
+                                    AdminIconValue(Icons.Outlined.AccessTime, "Đăng nhập gần nhất", accessDate(customer.lastLoginAt))
+                                }
+                                AdminPresenceInfo(customer.presenceSeenAt, customer.appForegroundAt, customer.runtimeState)
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     if ((customer.licenseId == null || customer.licenseStatus == "REVOKED") && customer.status == "ACTIVE") {
                                         OutlinedButton(
