@@ -21,6 +21,8 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 
 Only OWNER can manage customers, licenses, devices and AUTU packages; CUSTOMER accounts are limited to their own licensed devices and packages.
 
+When an account is explicitly revoked, its active devices are marked `ACCOUNT_REVOKED` along with its licenses. After the owner reactivates the account and issues a current license, the customer may re-enroll one of those same devices by signing a fresh one-time challenge with its existing Android Keystore private key, subject to the current device limit. A device individually revoked by the owner (`OWNER_REVOKED`) or marked as a legacy revocation still requires owner-controlled restoration.
+
 ## D1
 
 Database name: `autu_lio_auth`
