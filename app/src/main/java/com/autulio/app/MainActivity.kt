@@ -34,6 +34,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -653,6 +658,43 @@ private fun EditorScreen(
     var guideSearch by rememberSaveable { mutableStateOf("") }
     var templateDetailId by rememberSaveable { mutableStateOf<String?>(null) }
     var guideSectionDetailId by rememberSaveable { mutableStateOf<String?>(null) }
+    var editorValue by remember {
+        mutableStateOf(TextFieldValue(text = code, selection = TextRange(code.length)))
+    }
+    var showQuickKeys by rememberSaveable { mutableStateOf(true) }
+    val editorFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(code) {
+        if (editorValue.text != code) {
+            editorValue = TextFieldValue(text = code, selection = TextRange(code.length))
+        }
+    }
+    val quickKeys = remember {
+        listOf(
+            EditorQuickKey("_", "_"),
+            EditorQuickKey("()", "()", 1),
+            EditorQuickKey("{}", "{}", 1),
+            EditorQuickKey("\"\"", "\"\"", 1),
+            EditorQuickKey("//", "//"),
+            EditorQuickKey(",", ","),
+            EditorQuickKey(":", ":"),
+            EditorQuickKey(";", ";"),
+            EditorQuickKey("=", "="),
+            EditorQuickKey("==", "=="),
+            EditorQuickKey("!=", "!="),
+            EditorQuickKey(">=", ">="),
+            EditorQuickKey("<=", "<="),
+            EditorQuickKey("+", "+"),
+            EditorQuickKey("-", "-"),
+            EditorQuickKey("*", "*"),
+            EditorQuickKey("/", "/"),
+            EditorQuickKey("%", "%"),
+            EditorQuickKey("^", "^"),
+            EditorQuickKey(">", ">"),
+            EditorQuickKey("<", "<"),
+            EditorQuickKey(".", ".")
+        )
+    }
     val selectedTemplate = ScriptTemplateCatalog.templates.firstOrNull { it.id == templateDetailId }
     val selectedGuideSection = EditorGuideCatalog.sections
         .firstOrNull { it.id == guideSectionDetailId }
@@ -709,14 +751,69 @@ private fun EditorScreen(
             fontSize = 12.sp
         )
         SyntaxHighlightLegend()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                tr("Phím tắt ký tự", "Quick symbols"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            TextButton(
+                onClick = { showQuickKeys = !showQuickKeys },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+            ) {
+                Text(
+                    if (showQuickKeys) tr("Ẩn ▲", "Hide ▲") else tr("Hiện ▼", "Show ▼"),
+                    fontSize = 11.sp
+                )
+            }
+        }
+        if (showQuickKeys) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                quickKeys.forEach { quickKey ->
+                    OutlinedButton(
+                        onClick = {
+                            editorValue = insertEditorQuickText(
+                                editorValue,
+                                quickKey.insertion,
+                                quickKey.cursorOffset
+                            )
+                            onCodeChange(editorValue.text)
+                            validationText = ""
+                            validationSucceeded = null
+                            editorFocusRequester.requestFocus()
+                            keyboardController?.show()
+                        },
+                        modifier = Modifier.heightIn(min = 34.dp),
+                        contentPadding = PaddingValues(horizontal = 11.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            quickKey.label,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        }
         OutlinedTextField(
-            value = code,
+            value = editorValue,
             onValueChange = {
-                onCodeChange(it)
+                editorValue = it
+                onCodeChange(it.text)
                 validationText = ""
                 validationSucceeded = null
             },
-            modifier = Modifier.fillMaxWidth().weight(1f),
+            modifier = Modifier.fillMaxWidth().weight(1f).focusRequester(editorFocusRequester),
             minLines = 8,
             textStyle = TextStyle(
                 fontFamily = FontFamily.Monospace,
