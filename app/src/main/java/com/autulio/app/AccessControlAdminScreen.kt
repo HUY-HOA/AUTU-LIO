@@ -360,7 +360,7 @@ internal fun AccessControlAdminScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    if (customer.licenseId == null && customer.status == "ACTIVE") {
+                                    if ((customer.licenseId == null || customer.licenseStatus == "REVOKED") && customer.status == "ACTIVE") {
                                         OutlinedButton(
                                             onClick = {
                                                 createFor = customer
