@@ -309,7 +309,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `LẤY_TỶ_LỆ_KHUNG_HÌNH()` | 0 | Tỷ lệ chiều rộng pixel / chiều cao pixel |
 | `LẤY_HƯỚNG_MÀN_HÌNH()` | 0 | `NGANG`, `DỌC` hoặc `VUÔNG` |
 | `LẤY_XOAY_MÀN_HÌNH()` | 0 | Chỉ số rotation Android 0–3 |
-| `LẤY_GÓC_LẤY_XOAY_MÀN_HÌNH()` | 0 | Góc xoay 0°, 90°, 180° hoặc 270° |
+| `LẤY_GÓC_XOAY_MÀN_HÌNH()` | 0 | Góc xoay 0°, 90°, 180° hoặc 270° |
 | `LẤY_GÓI_ỨNG_DỤNG_ĐANG_MỞ()` | 0 | Package foreground gần nhất được gửi từ sự kiện Trợ năng |
 | `LẤY_HÃNG_SẢN_XUẤT()` / `LẤY_MẪU_THIẾT_BỊ()` | 0 | Nhà sản xuất và model thiết bị |
 | `LẤY_PHIÊN_BẢN_ANDROID()` / `LẤY_MỨC_API_ANDROID()` | 0 | Chuỗi phiên bản và mức API Android |
