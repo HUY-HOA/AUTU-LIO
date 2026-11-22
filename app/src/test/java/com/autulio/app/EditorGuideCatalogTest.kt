@@ -27,6 +27,39 @@ class EditorGuideCatalogTest {
     }
 
     @Test
+    fun everyCommandDeclaresSupportedAndroidMinimum() {
+        EditorGuideCatalog.sections.flatMap { it.commands }.forEach { command ->
+            assertTrue(command.minAndroidApi >= 26)
+            assertTrue(command.androidRequirement.isNotBlank())
+        }
+    }
+
+    @Test
+    fun elevatedAndroidRequirementsMatchRuntimeGuards() {
+        fun apiFor(prefix: String) = EditorGuideCatalog.sections
+            .flatMap { it.commands }
+            .first { it.syntax.startsWith(prefix) }
+            .minAndroidApi
+
+        assertEquals(28, apiFor("KHÓA_MÀN_HÌNH"))
+        assertEquals(30, apiFor("BẬT_TẮT_CHIA_MÀN_HÌNH"))
+        assertEquals(30, apiFor("ĐỌC_VĂN_BẢN_MÀN_HÌNH"))
+        assertEquals(30, apiFor("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH"))
+        assertEquals(30, apiFor("MÀU_TẠI"))
+        assertEquals(28, apiFor("CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH"))
+    }
+
+    @Test
+    fun accessibilityTextFallbackDocumentsPartialSupportOnOlderAndroid() {
+        val command = EditorGuideCatalog.sections
+            .flatMap { it.commands }
+            .first { it.syntax.startsWith("MÀN_HÌNH_CHỨA_CHỮ(") }
+
+        assertEquals(26, command.minAndroidApi)
+        assertTrue(command.androidNote.orEmpty().contains("Android 11.0 (API 30)"))
+    }
+
+    @Test
     fun templatesExposeUniqueNamesAndValidSource() {
         val identifiers = com.autulio.app.script.ScriptTemplateCatalog.templates.map { it.id }
         assertEquals(identifiers.size, identifiers.distinct().size)

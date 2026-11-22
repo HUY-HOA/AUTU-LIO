@@ -3,8 +3,18 @@ package com.autulio.app
 data class EditorGuideCommand(
     val syntax: String,
     val description: String,
-    val example: String? = null
-)
+    val example: String? = null,
+    val minAndroidApi: Int = 26,
+    val androidNote: String? = null
+) {
+    val androidRequirement: String
+        get() = when (minAndroidApi) {
+            26 -> "Android 8.0 (API 26) trở lên"
+            28 -> "Android 9.0 (API 28) trở lên"
+            30 -> "Android 11.0 (API 30) trở lên"
+            else -> "Android API $minAndroidApi trở lên"
+        }
+}
 
 data class EditorGuideSection(
     val id: String,
@@ -49,8 +59,8 @@ object EditorGuideCatalog {
                 EditorGuideCommand("MỞ_THANH_THÔNG_BÁO()", "Mở ngăn thông báo."),
                 EditorGuideCommand("MỞ_BẢNG_CÀI_ĐẶT_NHANH()", "Mở bảng cài đặt nhanh."),
                 EditorGuideCommand("MỞ_HỘP_THOẠI_NGUỒN()", "Mở hộp thoại nguồn nếu hệ thống cho phép."),
-                EditorGuideCommand("KHÓA_MÀN_HÌNH()", "Yêu cầu Android khóa màn hình; cần quyền và phiên bản hệ thống phù hợp."),
-                EditorGuideCommand("BẬT_TẮT_CHIA_MÀN_HÌNH()", "Yêu cầu Android chuyển chế độ chia màn hình nếu thiết bị hỗ trợ.")
+                EditorGuideCommand("KHÓA_MÀN_HÌNH()", "Yêu cầu Android khóa màn hình; cần quyền và phiên bản hệ thống phù hợp.", minAndroidApi = 28),
+                EditorGuideCommand("BẬT_TẮT_CHIA_MÀN_HÌNH()", "Yêu cầu Android chuyển chế độ chia màn hình nếu thiết bị hỗ trợ.", minAndroidApi = 30)
             ),
             notes = listOf(
                 "Một số lệnh hệ thống có thể bị Android, ROM của nhà sản xuất hoặc chính sách quản trị chặn.",
@@ -81,13 +91,13 @@ object EditorGuideCatalog {
             title = "4. OCR và tìm chữ trên màn hình",
             summary = "Đọc văn bản trong ảnh chụp màn hình, kiểm tra chữ có xuất hiện hay tìm vị trí chữ theo toàn màn hình hoặc một vùng.",
             commands = listOf(
-                EditorGuideCommand("ĐỌC_VĂN_BẢN_MÀN_HÌNH()", "Đọc văn bản OCR nhận diện được trên màn hình.", "BIẾN NOI_DUNG: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()"),
-                EditorGuideCommand("ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()", "Đọc kết quả OCR có cấu trúc và thông tin vị trí."),
-                EditorGuideCommand("MÀN_HÌNH_CHỨA_CHỮ(\"nội dung\")", "Kiểm tra một đoạn chữ có xuất hiện trên màn hình không."),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")", "Tìm vị trí của đoạn chữ được OCR nhận diện."),
-                EditorGuideCommand("ĐỌC_VĂN_BẢN_VÙNG(x, y, rộng, cao)", "Chỉ đọc OCR bên trong vùng màn hình đã chọn."),
-                EditorGuideCommand("MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(\"chữ\", x, y, rộng, cao)", "Kiểm tra chữ trong một vùng giới hạn."),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG(\"chữ\", x, y, rộng, cao)", "Tìm vị trí chữ chỉ trong vùng giới hạn.")
+                EditorGuideCommand("ĐỌC_VĂN_BẢN_MÀN_HÌNH()", "Đọc văn bản OCR nhận diện được trên màn hình.", "BIẾN NOI_DUNG: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()", minAndroidApi = 30),
+                EditorGuideCommand("ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()", "Đọc kết quả OCR có cấu trúc và thông tin vị trí.", minAndroidApi = 30),
+                EditorGuideCommand("MÀN_HÌNH_CHỨA_CHỮ(\"nội dung\")", "Kiểm tra một đoạn chữ có xuất hiện trên màn hình không.", minAndroidApi = 26, androidNote = "OCR trực tiếp từ ảnh màn hình cần Android 11.0 (API 30) trở lên; Android 8–10 chỉ tìm trong cây Trợ năng."),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")", "Tìm vị trí của đoạn chữ được OCR nhận diện.", minAndroidApi = 26, androidNote = "OCR trực tiếp từ ảnh màn hình cần Android 11.0 (API 30) trở lên; Android 8–10 chỉ tìm trong cây Trợ năng."),
+                EditorGuideCommand("ĐỌC_VĂN_BẢN_VÙNG(x, y, rộng, cao)", "Chỉ đọc OCR bên trong vùng màn hình đã chọn.", minAndroidApi = 30),
+                EditorGuideCommand("MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(\"chữ\", x, y, rộng, cao)", "Kiểm tra chữ trong một vùng giới hạn.", minAndroidApi = 30),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG(\"chữ\", x, y, rộng, cao)", "Tìm vị trí chữ chỉ trong vùng giới hạn.", minAndroidApi = 30)
             ),
             notes = listOf(
                 "OCR phụ thuộc quyền chụp màn hình, chất lượng ảnh, cỡ chữ và độ tương phản.",
@@ -99,16 +109,16 @@ object EditorGuideCatalog {
             title = "5. Nhận diện hình ảnh, QR và vật thể",
             summary = "Nhận diện nhãn hình ảnh, mã QR, mã vạch và vật thể trên màn hình.",
             commands = listOf(
-                EditorGuideCommand("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()", "Trả về các nhãn mô tả nội dung hình ảnh."),
-                EditorGuideCommand("MÀN_HÌNH_CHỨA_NHÃN_ẢNH(\"nhãn\")", "Kiểm tra nhãn hình ảnh có trong kết quả nhận diện."),
-                EditorGuideCommand("CHI_TIẾT_MÃ_QR_MÀN_HÌNH()", "Đọc thông tin chi tiết của mã QR nhận diện được."),
-                EditorGuideCommand("CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()", "Đọc thông tin chi tiết của mã vạch nhận diện được."),
-                EditorGuideCommand("QUÉT_MÃ_QR_MÀN_HÌNH()", "Quét mã QR đang hiển thị trên màn hình."),
-                EditorGuideCommand("QUÉT_MÃ_VẠCH_MÀN_HÌNH()", "Quét mã vạch đang hiển thị trên màn hình."),
-                EditorGuideCommand("PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()", "Phát hiện các vật thể mà mô hình nhận diện hỗ trợ."),
-                EditorGuideCommand("MÀN_HÌNH_CÓ_VẬT_THỂ(\"nhãn\")", "Kiểm tra một loại vật thể có xuất hiện không."),
-                EditorGuideCommand("TÌM_TỌA_ĐỘ_VẬT_THỂ(\"nhãn\")", "Tìm vị trí của vật thể theo nhãn."),
-                EditorGuideCommand("ĐẾM_VẬT_THỂ_MÀN_HÌNH()", "Đếm số vật thể nhận diện được.")
+                EditorGuideCommand("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()", "Trả về các nhãn mô tả nội dung hình ảnh.", minAndroidApi = 30),
+                EditorGuideCommand("MÀN_HÌNH_CHỨA_NHÃN_ẢNH(\"nhãn\")", "Kiểm tra nhãn hình ảnh có trong kết quả nhận diện.", minAndroidApi = 30),
+                EditorGuideCommand("CHI_TIẾT_MÃ_QR_MÀN_HÌNH()", "Đọc thông tin chi tiết của mã QR nhận diện được.", minAndroidApi = 30),
+                EditorGuideCommand("CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()", "Đọc thông tin chi tiết của mã vạch nhận diện được.", minAndroidApi = 30),
+                EditorGuideCommand("QUÉT_MÃ_QR_MÀN_HÌNH()", "Quét mã QR đang hiển thị trên màn hình.", minAndroidApi = 30),
+                EditorGuideCommand("QUÉT_MÃ_VẠCH_MÀN_HÌNH()", "Quét mã vạch đang hiển thị trên màn hình.", minAndroidApi = 30),
+                EditorGuideCommand("PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()", "Phát hiện các vật thể mà mô hình nhận diện hỗ trợ.", minAndroidApi = 30),
+                EditorGuideCommand("MÀN_HÌNH_CÓ_VẬT_THỂ(\"nhãn\")", "Kiểm tra một loại vật thể có xuất hiện không.", minAndroidApi = 30),
+                EditorGuideCommand("TÌM_TỌA_ĐỘ_VẬT_THỂ(\"nhãn\")", "Tìm vị trí của vật thể theo nhãn.", minAndroidApi = 30),
+                EditorGuideCommand("ĐẾM_VẬT_THỂ_MÀN_HÌNH()", "Đếm số vật thể nhận diện được.", minAndroidApi = 30)
             ),
             notes = listOf(
                 "Nhận diện phụ thuộc quyền chụp màn hình và khả năng mô hình trên thiết bị.",
@@ -120,10 +130,10 @@ object EditorGuideCatalog {
             title = "6. Phân tích màu sắc",
             summary = "Đọc màu pixel, tìm vùng có màu gần đúng và ước lượng tỷ lệ màu trong vùng.",
             commands = listOf(
-                EditorGuideCommand("MÀU_TẠI(x, y)", "Đọc màu tại một điểm trên màn hình.", "BIẾN MAU: BẢN_ĐỒ = MÀU_TẠI(200, 400)"),
-                EditorGuideCommand("MÀN_HÌNH_CÓ_MÀU(đỏ, xanh_lá, xanh_dương, sai_số)", "Kiểm tra màu mục tiêu có xuất hiện trong màn hình."),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_MÀU(đỏ, xanh_lá, xanh_dương, sai_số)", "Tìm tọa độ có màu gần giá trị RGB mục tiêu."),
-                EditorGuideCommand("TỶ_LỆ_MÀU_TRONG_VÙNG(đỏ, xanh_lá, xanh_dương, sai_số, x, y, rộng, cao)", "Ước lượng tỷ lệ pixel gần màu mục tiêu trong vùng.")
+                EditorGuideCommand("MÀU_TẠI(x, y)", "Đọc màu tại một điểm trên màn hình.", "BIẾN MAU: BẢN_ĐỒ = MÀU_TẠI(200, 400)", minAndroidApi = 30),
+                EditorGuideCommand("MÀN_HÌNH_CÓ_MÀU(đỏ, xanh_lá, xanh_dương, sai_số)", "Kiểm tra màu mục tiêu có xuất hiện trong màn hình.", minAndroidApi = 30),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_MÀU(đỏ, xanh_lá, xanh_dương, sai_số)", "Tìm tọa độ có màu gần giá trị RGB mục tiêu.", minAndroidApi = 30),
+                EditorGuideCommand("TỶ_LỆ_MÀU_TRONG_VÙNG(đỏ, xanh_lá, xanh_dương, sai_số, x, y, rộng, cao)", "Ước lượng tỷ lệ pixel gần màu mục tiêu trong vùng.", minAndroidApi = 30)
             ),
             notes = listOf(
                 "Các thành phần màu RGB và sai số phải nằm trong phạm vi mà hàm quy định.",
@@ -149,7 +159,7 @@ object EditorGuideCatalog {
                 EditorGuideCommand("THỜI_GIAN_MS()", "Lấy thời gian hiện tại dạng mili giây.")
             ),
             notes = listOf(
-                "Một số thông tin ứng dụng có thể bị giới hạn theo phiên bản Android và quyền truy cập gói.",
+                "Trên Android 11.0 (API 30) trở lên, quy tắc package visibility có thể giới hạn các gói mà ỨNG_DỤNG_ĐÃ_CÀI() truy vấn được.",
                 "Trạng thái mạng không thay thế việc kiểm tra phản hồi thực tế từ máy chủ."
             )
         ),
@@ -167,11 +177,17 @@ object EditorGuideCatalog {
                 EditorGuideCommand("TỶ_LỆ_X_THEO_TỌA_ĐỘ(x) / TỶ_LỆ_Y_THEO_TỌA_ĐỘ(y)", "Đổi tọa độ pixel thành tỷ lệ màn hình."),
                 EditorGuideCommand("TỌA_ĐỘ_X_VÙNG_AN_TOÀN(tỷ_lệ) / TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(tỷ_lệ)", "Tính tọa độ bên trong vùng thao tác an toàn."),
                 EditorGuideCommand("TỶ_LỆ_X_VÙNG_AN_TOÀN(x) / TỶ_LỆ_Y_VÙNG_AN_TOÀN(y)", "Đổi tọa độ vùng an toàn thành tỷ lệ."),
-                EditorGuideCommand("TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(x, y) / TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(x, y)", "Quy đổi tọa độ theo hướng màn hình gốc.")
+                EditorGuideCommand("TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(x, y) / TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(x, y)", "Quy đổi tọa độ theo hướng màn hình gốc."),
+                EditorGuideCommand("CHIỀU_RỘNG_VÙNG_AN_TOÀN() / CHIỀU_CAO_VÙNG_AN_TOÀN()", "Lấy kích thước vùng an toàn sau khi trừ lề hệ thống và vùng khuyết."),
+                EditorGuideCommand("LỀ_AN_TOÀN_TRÁI() / LỀ_AN_TOÀN_TRÊN() / LỀ_AN_TOÀN_PHẢI() / LỀ_AN_TOÀN_DƯỚI()", "Lấy các lề an toàn theo pixel."),
+                EditorGuideCommand("CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH()", "Kiểm tra Android có cung cấp dữ liệu để xác định vùng khuyết; Android 8 có thể trả về SAI.", minAndroidApi = 28),
+                EditorGuideCommand("CÓ_VÙNG_KHUYẾT_MÀN_HÌNH() / SỐ_VÙNG_KHUYẾT_MÀN_HÌNH()", "Kiểm tra có vùng khuyết và lấy số lượng vùng khuyết.", minAndroidApi = 28),
+                EditorGuideCommand("TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH()", "Lấy các hình chữ nhật vùng khuyết theo thứ tự trái, trên, phải, dưới.", minAndroidApi = 28),
             ),
             notes = listOf(
                 "Tọa độ thao tác tính bằng pixel; nên dùng hàm quy đổi khi cần hỗ trợ nhiều kích thước màn hình.",
-                "Vùng an toàn giúp tránh lề hệ thống và các vùng khuyết được Android cung cấp."
+                "Vùng an toàn giúp tránh lề hệ thống và các vùng khuyết được Android cung cấp.",
+                "Dữ liệu vùng khuyết (DisplayCutout) cần Android 9.0 (API 28) trở lên; trên Android cũ, hàm xác định vùng khuyết có thể trả về SAI.",
             )
         ),
         EditorGuideSection(
