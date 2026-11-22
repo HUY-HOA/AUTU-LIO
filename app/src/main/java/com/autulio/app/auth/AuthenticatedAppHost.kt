@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.autulio.app.AdminApp
+import com.autulio.app.AppBackHandler
 import com.autulio.app.CustomerApp
 import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
@@ -144,6 +145,7 @@ internal fun AuthenticatedAppHost() {
         return
     }
 
+    AppBackHandler(onNavigateBack = { false })
     AuthScreen(
         isConfigured = repository.isConfigured,
         restoring = restoring,

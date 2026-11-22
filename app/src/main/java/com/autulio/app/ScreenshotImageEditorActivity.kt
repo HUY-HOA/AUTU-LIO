@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowRightAlt
 import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.Check
@@ -238,7 +237,6 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
             PreferredAppTheme(this@ScreenshotImageEditorActivity) {
                 ScreenshotImageEditorScreen(
                     originalBitmap = bitmap,
-                    onBack = { finish() },
                     onBitmapCreated = { created ->
                         synchronized(generatedBitmaps) { generatedBitmaps += created }
                     },
@@ -515,7 +513,6 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
 @Composable
 private fun ScreenshotImageEditorScreen(
     originalBitmap: Bitmap,
-    onBack: () -> Unit,
     onBitmapCreated: (Bitmap) -> Unit,
     onBitmapSuperseded: (Bitmap) -> Unit,
     onTransformBitmap: (Bitmap, Matrix, (Bitmap?) -> Unit) -> Unit,
@@ -597,9 +594,6 @@ private fun ScreenshotImageEditorScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = "Quay lại")
-            }
             Column(Modifier.weight(1f)) {
                 Text("Chỉnh sửa ảnh", fontWeight = FontWeight.Bold, fontSize = 19.sp)
                 Text(

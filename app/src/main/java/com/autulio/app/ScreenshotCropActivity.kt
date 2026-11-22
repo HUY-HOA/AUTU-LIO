@@ -11,7 +11,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Crop
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
@@ -122,7 +121,6 @@ class ScreenshotCropActivity : ComponentActivity() {
             PreferredAppTheme(this@ScreenshotCropActivity) {
                 ScreenshotCropScreen(
                     bitmap = bitmap,
-                    onBack = { finish() },
                     onSave = ::saveCroppedImage
                 )
             }
@@ -189,7 +187,6 @@ class ScreenshotCropActivity : ComponentActivity() {
 @Composable
 private fun ScreenshotCropScreen(
     bitmap: Bitmap,
-    onBack: () -> Unit,
     onSave: (CropRegion) -> Unit
 ) {
     val image = remember(bitmap) { bitmap.asImageBitmap() }
@@ -205,9 +202,6 @@ private fun ScreenshotCropScreen(
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = "Quay lại")
-            }
             Column(Modifier.weight(1f)) {
                 Text("Cắt ảnh chụp", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                 Text(

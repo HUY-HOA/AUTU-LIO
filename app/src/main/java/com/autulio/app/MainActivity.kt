@@ -12,6 +12,7 @@ import android.view.WindowInsets
 import android.provider.Settings
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -167,6 +168,7 @@ private fun AutuLioAppEntry() {
             if (!BuildConfig.DEBUG) {
                 AuthenticatedAppHost()
             } else if (previewRole == null) {
+                AppBackHandler(onNavigateBack = { false })
                 RolePreviewChooser(onOpenRole = { previewRole = it.name })
             } else {
                 BackHandler { previewRole = null }
@@ -231,6 +233,41 @@ private fun RolePreviewChooser(
 }
 internal fun tr(vi: String, en: String): String =
     if (Locale.getDefault().language.equals("vi", ignoreCase = true)) vi else en
+
+@Composable
+internal fun AppBackHandler(onNavigateBack: () -> Boolean) {
+    val activity = LocalActivity.current
+    var showExitConfirmation by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler {
+        if (!onNavigateBack()) {
+            showExitConfirmation = true
+        }
+    }
+
+    if (showExitConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirmation = false },
+            title = { Text(tr("Thoát ứng dụng?", "Exit app?")) },
+            text = { Text(tr("Bạn có muốn thoát ứng dụng không?", "Do you want to exit the app?")) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showExitConfirmation = false
+                        activity?.finish()
+                    }
+                ) {
+                    Text(tr("Có", "Yes"))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitConfirmation = false }) {
+                    Text(tr("Không", "No"))
+                }
+            }
+        )
+    }
+}
 
 internal fun localizedErrorMessage(error: Throwable?, fallback: String): String {
     val message = error?.message?.trim().orEmpty()
@@ -314,6 +351,13 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
     val draftStore = remember(context) { SecureScriptDraftStore(context) }
     val initialDrafts = remember(draftStore) { draftStore.load() }
     var page by rememberSaveable { mutableStateOf("overview") }
+    var backStack by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    fun navigateTo(destination: String) {
+        if (destination != page) {
+            backStack = backStack + page
+            page = destination
+        }
+    }
     var createDialog by remember { mutableStateOf(false) }
     var publishDraftName by rememberSaveable { mutableStateOf<String?>(null) }
     val scripts = remember(initialDrafts) {
@@ -335,11 +379,20 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
             draftContents.putAll(updated.contents)
             if (result.data?.getBooleanExtra("com.autulio.app.extra.OPEN_PACKAGE_PUBLISH", false) == true) {
                 publishDraftName = result.data?.getStringExtra("com.autulio.app.extra.PUBLISH_DRAFT_NAME")
-                page = "packages"
+                navigateTo("packages")
             }
         }
     }
     AppTheme(dark = LocalUiThemeMode.current.isDark(isSystemInDarkTheme())) {
+        AppBackHandler(onNavigateBack = {
+            if (backStack.isNotEmpty()) {
+                page = backStack.last()
+                backStack = backStack.dropLast(1)
+                true
+            } else {
+                false
+            }
+        })
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(host) },
@@ -348,7 +401,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     adminTabs.forEach { tab ->
                         NavigationBarItem(
                             selected = page == tab.key || (page !in adminTabs.map { it.key } && tab.key == "more"),
-                            onClick = { page = tab.key },
+                            onClick = { navigateTo(tab.key) },
                             icon = { Icon(tab.icon, contentDescription = tr(tab.vi, tab.en)) },
                             label = { Text(tr(tab.vi, tab.en), fontSize = 10.sp) }
                         )
@@ -381,7 +434,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                 else -> MoreScreen(
                     Modifier.padding(padding),
                     page,
-                    onSelect = { page = it },
+                    onSelect = { navigateTo(it) },
                     onLogout = onLogout,
                     accessToken = accessToken,
                     initialDraftName = publishDraftName,
@@ -411,7 +464,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     scripts.add(name)
                     draftContents[name] = ""
                     draftStore.save(scripts.toList(), draftContents.toMap())
-                    page = "scripts"
+                    navigateTo("scripts")
                     createDialog = false
                     editorLauncher.launch(ScriptEditorActivity.intent(context, name))
                 }
@@ -423,8 +476,24 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 @Composable
 internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit) {
     var page by rememberSaveable { mutableStateOf("home") }
+    var backStack by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    fun navigateTo(destination: String) {
+        if (destination != page) {
+            backStack = backStack + page
+            page = destination
+        }
+    }
 
     AppTheme(dark = LocalUiThemeMode.current.isDark(isSystemInDarkTheme())) {
+        AppBackHandler(onNavigateBack = {
+            if (backStack.isNotEmpty()) {
+                page = backStack.last()
+                backStack = backStack.dropLast(1)
+                true
+            } else {
+                false
+            }
+        })
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
@@ -432,7 +501,7 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                     customerTabs.forEach { tab ->
                         NavigationBarItem(
                             selected = page == tab.key,
-                            onClick = { page = tab.key },
+                            onClick = { navigateTo(tab.key) },
                             icon = { Icon(tab.icon, contentDescription = tr(tab.vi, tab.en)) },
                             label = { Text(tr(tab.vi, tab.en), fontSize = 10.sp) }
                         )
@@ -709,7 +778,6 @@ private fun EditorScreen(
     code: String,
     onCodeChange: (String) -> Unit,
     modifier: Modifier,
-    onBack: () -> Unit,
     onMessage: (String) -> Unit,
     onSaveDraft: () -> Unit,
     onPublishDraft: () -> Unit,
@@ -804,7 +872,6 @@ private fun EditorScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-        TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(
             tr(
@@ -1314,7 +1381,6 @@ private fun MoreScreen(
         AdminPackagesScreen(
             accessToken = accessToken,
             modifier = modifier,
-            onBack = { onSelect("more") },
             initialDraftName = initialDraftName
         )
         return
@@ -1322,7 +1388,6 @@ private fun MoreScreen(
     if (page == "library") {
         AdminTemplateLibraryScreen(
             modifier = modifier,
-            onBack = { onSelect("more") },
             onOpenTemplate = onOpenTemplate
         )
         return
@@ -1356,9 +1421,6 @@ private fun MoreScreen(
                 }
             }
         } else {
-            TextButton(onClick = { onSelect("more") }) {
-                Text(tr("← Quay lại", "← Back"))
-            }
             Heading(
                 selected?.second ?: tr("Quản lý", "Management"),
                 when (page) {
@@ -1380,8 +1442,7 @@ private fun MoreScreen(
                 }
                 "packages" -> AdminPackagesScreen(
                     accessToken = accessToken,
-                    modifier = Modifier.fillMaxSize(),
-                    onBack = { onSelect("more") }
+                    modifier = Modifier.fillMaxSize()
                 )
                 "logs" -> AdminAuditLogsScreen(accessToken = accessToken)
 
@@ -1404,15 +1465,13 @@ private fun AdminModulePage(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    details: List<String>,
-    onBack: () -> Unit
+    details: List<String>
 ) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         BrandHeader(admin = true)
-        TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Heading(title, subtitle)
         CardBox {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1578,7 +1637,6 @@ private fun CustomerScriptsScreen(modifier: Modifier, onOpen: () -> Unit) {
 @Composable
 private fun CustomerScriptDetail(
     modifier: Modifier,
-    onBack: () -> Unit,
     onPreviewAction: () -> Unit
 ) {
     Column(
@@ -1586,7 +1644,6 @@ private fun CustomerScriptDetail(
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         BrandHeader(admin = false)
-        TextButton(onClick = onBack) { Text(tr("← Quay lại danh sách", "← Back to scripts")) }
         Heading(tr("Kịch bản minh họa", "Sample script"), tr("Chi tiết bản xem trước", "Preview details"))
         CardBox {
             Surface(
@@ -2218,10 +2275,6 @@ class ScriptEditorActivity : ComponentActivity() {
                             setResult(Activity.RESULT_OK)
                         },
                         modifier = Modifier.padding(padding),
-                        onBack = {
-                            setResult(Activity.RESULT_OK)
-                            finish()
-                        },
                         onMessage = { message ->
                             scope.launch { host.showSnackbar(message) }
                         },
