@@ -158,8 +158,8 @@ object EditorGuideCatalog {
                 EditorGuideCommand("THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()", "Kiểm tra thiết bị có cấu hình bảo mật khóa màn hình."),
                 EditorGuideCommand("THỜI_GIAN_MS()", "Lấy thời gian hiện tại dạng mili giây."),
                 EditorGuideCommand("LẤY_ÂM_LƯỢNG() / LẤY_ĐỘ_SÁNG()", "Đọc âm lượng media và độ sáng màn hình hiện tại."),
-                EditorGuideCommand("ĐẶT_LẤY_ÂM_LƯỢNG(phần_trăm)", "Đặt âm lượng media từ 0 đến 100%."),
-                EditorGuideCommand("ĐẶT_LẤY_ĐỘ_SÁNG(phần_trăm)", "Đặt độ sáng từ 0 đến 100%; cần cấp quyền sửa đổi cài đặt hệ thống."),
+                EditorGuideCommand("ĐẶT_ÂM_LƯỢNG(phần_trăm)", "Đặt âm lượng media từ 0 đến 100%."),
+                EditorGuideCommand("ĐẶT_ĐỘ_SÁNG(phần_trăm)", "Đặt độ sáng từ 0 đến 100%; cần cấp quyền sửa đổi cài đặt hệ thống."),
                 EditorGuideCommand("RUNG(mili_giây)", "Rung thiết bị từ 1 đến 5.000 ms nếu thiết bị có bộ rung.")
             ),
             notes = listOf(
@@ -250,7 +250,7 @@ object EditorGuideCatalog {
                 EditorGuideCommand("THÊM_PHẦN_TỬ_VÀO_DANH_SÁCH(danh_sách, giá_trị)", "Thêm phần tử vào cuối danh sách."),
                 EditorGuideCommand("ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, chỉ_số, giá_trị)", "Thay giá trị tại một chỉ số."),
                 EditorGuideCommand("XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH(danh_sách, chỉ_số)", "Xóa phần tử theo chỉ số."),
-                EditorGuideCommand("KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị) / TÌM_VỊ_TRÍ_TRONG_CHUỖI_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị)", "Kiểm tra phần tử hoặc tìm chỉ số đầu tiên; không thấy trả về -1."),
+                EditorGuideCommand("KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị) / TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị)", "Kiểm tra phần tử hoặc tìm chỉ số đầu tiên; không thấy trả về -1."),
                 EditorGuideCommand("SẮP_XẾP_DANH_SÁCH(danh_sách)", "Tạo danh sách mới đã sắp xếp tăng dần; chỉ nhận toàn số hoặc toàn chuỗi."),
                 EditorGuideCommand("ĐẢO_NGƯỢC_DANH_SÁCH(danh_sách)", "Tạo danh sách mới theo thứ tự ngược, không sửa danh sách gốc."),
                 EditorGuideCommand("LỌC_DANH_SÁCH(danh_sách, tên_hàm)", "Lọc phần tử bằng hàm tự định nghĩa nhận một phần tử và trả về ĐÚNG/SAI."),
@@ -369,7 +369,7 @@ object EditorGuideCatalog {
             title = "18. Chụp và lưu ảnh màn hình",
             summary = "Chụp màn hình qua AccessibilityService và lưu JPEG vào vùng dữ liệu riêng AUTU.",
             commands = listOf(
-                EditorGuideCommand("CHỤP_ẢNH_MÀN_HÌNH(đường_dẫn) / CHỤP_ẢNH_MÀN_HÌNH(đường_dẫn)", "Chụp và lưu JPEG; trả về bản đồ gồm đường dẫn, kích thước và dung lượng.", minAndroidApi = 30)
+                EditorGuideCommand("CHỤP_ẢNH_MÀN_HÌNH(đường_dẫn)", "Chụp và lưu JPEG; trả về bản đồ gồm đường dẫn, kích thước và dung lượng.", minAndroidApi = 30)
             ),
             notes = listOf(
                 "Cần bật AccessibilityService cho AUTU-LIO và Android 11.0 (API 30) trở lên.",
