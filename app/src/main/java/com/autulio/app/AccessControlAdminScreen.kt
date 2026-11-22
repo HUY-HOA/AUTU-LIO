@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.*
@@ -19,7 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.autulio.app.auth.AuthRepository
-import com.autulio.app.auth.AuthenticatedUser
 import com.autulio.app.auth.CustomerRecord
 import com.autulio.app.auth.DeviceRecord
 import com.autulio.app.auth.LicenseRecord
@@ -46,7 +46,6 @@ internal fun AccessControlAdminScreen(
     val scope = rememberCoroutineScope()
     var section by remember(initialSection) { mutableStateOf(initialSection) }
     var customers by remember { mutableStateOf<List<CustomerRecord>>(emptyList()) }
-    var ownerUser by remember { mutableStateOf<AuthenticatedUser?>(null) }
     var licenses by remember { mutableStateOf<List<LicenseRecord>>(emptyList()) }
     var devices by remember { mutableStateOf<List<DeviceRecord>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
@@ -63,6 +62,8 @@ internal fun AccessControlAdminScreen(
     var createDeviceLimit by remember { mutableStateOf("1") }
     var extendDays by remember { mutableStateOf("30") }
     var editDeviceLimit by remember { mutableStateOf("1") }
+    var customerInfo by remember { mutableStateOf<CustomerRecord?>(null) }
+    var deviceInfo by remember { mutableStateOf<DeviceRecord?>(null) }
 
     suspend fun refresh() {
         val token = accessToken ?: return
@@ -78,7 +79,6 @@ internal fun AccessControlAdminScreen(
             customers = result.first
             licenses = result.second
             devices = result.third
-            ownerUser = runCatching { repository.currentUser(token) }.getOrNull()
         } catch (exception: Exception) {
             error = localizedErrorMessage(exception, "Không tải được dữ liệu quản lý.")
         } finally {
@@ -110,13 +110,6 @@ internal fun AccessControlAdminScreen(
         if (accessToken.isNullOrBlank()) {
             EmptyState(Icons.Outlined.VerifiedUser, "Chưa có phiên quản trị", "Đăng nhập bằng tài khoản chủ sở hữu để quản lý khách hàng, giấy phép và thiết bị.")
         } else {
-            ownerUser?.let { currentOwner ->
-                GoogleSignInDetailsCard(
-                    details = currentOwner.googleSignIn,
-                    title = "Thông tin đăng nhập Google của chủ ứng dụng"
-                )
-            }
-
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(7.dp)
@@ -258,71 +251,77 @@ internal fun AccessControlAdminScreen(
                         if (filtered.isEmpty()) {
                             EmptyState(Icons.Outlined.Devices, "Không có thiết bị phù hợp", "Thiết bị chỉ xuất hiện sau khi khách hàng đăng ký thiết bị bằng khóa bảo mật.")
                         } else filtered.forEach { device ->
+                            val deviceName = device.label.ifBlank {
+                                listOf(device.manufacturer, device.model)
+                                    .filter { it.isNotBlank() }
+                                    .joinToString(" ")
+                                    .ifBlank { "Thiết bị Android" }
+                            }
+                            val canRestore = device.customerStatus == "ACTIVE" &&
+                                device.licenseStatus == "ACTIVE" &&
+                                device.activeDeviceCount < (device.maxDevices ?: 0)
                             CardBox {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        Text(device.label.ifBlank { "${device.manufacturer} ${device.model}".trim().ifBlank { device.email } }, fontWeight = FontWeight.SemiBold)
+                                        Text(deviceName, fontWeight = FontWeight.SemiBold)
                                         Text(device.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Text(statusText(device.status), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 }
-                                Text("${device.manufacturer} ${device.model} · Android ${device.androidVersion}", fontSize = 12.sp)
-                                Text("AUTU-LIO ${device.appVersion} · Lần hoạt động: ${accessDate(device.lastSeenAt)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(
-                                    "Tài khoản: ${statusText(device.customerStatus)} · Giấy phép: ${device.licenseStatus?.let(::statusText) ?: "Chưa có"} · Thiết bị: ${device.activeDeviceCount}/${device.maxDevices ?: 0}",
+                                    "Đang dùng ${device.activeDeviceCount}/${device.maxDevices ?: "—"} khe thiết bị",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                if (device.status == "REVOKED") {
-                                    val reasonText = when (device.revokedReason) {
-                                        "OWNER_REVOKED" -> "Chủ ứng dụng đã thu hồi"
-                                        "ACCOUNT_REVOKED" -> "Tài khoản đã thu hồi"
-                                        "CUSTOMER_REMOVED" -> "Khách hàng tự gỡ"
-                                        "LEGACY_REVOKED" -> "Thu hồi từ phiên bản cũ"
-                                        else -> "Không rõ lý do"
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    TextButton(onClick = { deviceInfo = device }) {
+                                        Icon(Icons.Outlined.Info, contentDescription = null)
+                                        Text("Thông tin")
                                     }
-                                    Text("Lý do: $reasonText", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
-                                    val canRestore = device.customerStatus == "ACTIVE" &&
-                                        device.licenseStatus == "ACTIVE" &&
-                                        device.activeDeviceCount < (device.maxDevices ?: 0)
-                                    TextButton(
-                                        enabled = canRestore,
-                                        onClick = {
-                                            val token = accessToken ?: return@TextButton
-                                            pendingConfirmation = AccessAdminConfirmation(
-                                                title = "Mở lại thiết bị?",
-                                                message = "Thiết bị sẽ được kích hoạt lại bằng khóa bảo mật đã đăng ký trước đây. Cần tài khoản đang hoạt động, giấy phép còn hiệu lực và còn chỗ trong giới hạn thiết bị.",
-                                                confirmLabel = "Mở lại thiết bị",
-                                                destructive = false
-                                            ) {
-                                                repository.updateCustomerDeviceStatus(token, device.id, "ACTIVE")
-                                                notice = "Đã mở lại thiết bị."
+                                    if (device.status == "REVOKED") {
+                                        OutlinedButton(
+                                            enabled = canRestore,
+                                            onClick = {
+                                                val token = accessToken ?: return@OutlinedButton
+                                                pendingConfirmation = AccessAdminConfirmation(
+                                                    title = "Cho phép lại thiết bị?",
+                                                    message = "Thiết bị sẽ được kích hoạt lại bằng khóa bảo mật đã đăng ký trước đây. Cần tài khoản đang hoạt động, giấy phép còn hiệu lực và còn chỗ trong giới hạn thiết bị.",
+                                                    confirmLabel = "Cho phép lại",
+                                                    destructive = false
+                                                ) {
+                                                    repository.updateCustomerDeviceStatus(token, device.id, "ACTIVE")
+                                                    notice = "Đã cho phép thiết bị sử dụng lại."
+                                                }
                                             }
+                                        ) { Text("Cho phép lại", fontSize = 11.sp) }
+                                        if (!canRestore) {
+                                            val blocked = when {
+                                                device.customerStatus != "ACTIVE" -> "Cần kích hoạt tài khoản trước"
+                                                device.licenseStatus != "ACTIVE" -> "Cần giấy phép còn hiệu lực"
+                                                else -> "Đã đủ số thiết bị; gỡ thiết bị khác hoặc tăng giới hạn"
+                                            }
+                                            Text(blocked, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
-                                    ) { Text("Mở lại thiết bị") }
-                                    if (!canRestore) {
-                                        val blocked = when {
-                                            device.customerStatus != "ACTIVE" -> "Cần kích hoạt tài khoản trước"
-                                            device.licenseStatus != "ACTIVE" -> "Cần cấp giấy phép còn hiệu lực trước"
-                                            else -> "Đã hết giới hạn thiết bị; hãy thu hồi thiết bị khác hoặc tăng giới hạn"
-                                        }
-                                        Text(blocked, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    } else {
+                                        TextButton(
+                                            onClick = {
+                                                val token = accessToken ?: return@TextButton
+                                                pendingConfirmation = AccessAdminConfirmation(
+                                                    title = "Gỡ quyền sử dụng thiết bị?",
+                                                    message = "Thiết bị sẽ không chạy AUTU và một khe trong giới hạn sẽ được giải phóng. Hồ sơ được giữ trong lịch sử kiểm soát; thao tác này không xóa vật lý dữ liệu thiết bị.",
+                                                    confirmLabel = "Gỡ thiết bị"
+                                                ) {
+                                                    repository.revokeCustomerDevice(token, device.id)
+                                                    notice = "Đã gỡ quyền sử dụng thiết bị."
+                                                }
+                                            },
+                                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                        ) { Text("Gỡ thiết bị", fontSize = 11.sp) }
                                     }
-                                } else {
-                                    TextButton(
-                                        onClick = {
-                                            val token = accessToken ?: return@TextButton
-                                            pendingConfirmation = AccessAdminConfirmation(
-                                                title = "Thu hồi thiết bị?",
-                                                message = "Thiết bị sẽ mất quyền chạy các gói AUTU. Bạn có thể chủ động mở lại thiết bị sau này, nếu tài khoản, giấy phép và giới hạn thiết bị cho phép.",
-                                                confirmLabel = "Thu hồi thiết bị"
-                                            ) {
-                                                repository.revokeCustomerDevice(token, device.id)
-                                                notice = "Đã thu hồi thiết bị."
-                                            }
-                                        },
-                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                    ) { Text("Thu hồi thiết bị") }
                                 }
                             }
                         }
@@ -343,10 +342,6 @@ internal fun AccessControlAdminScreen(
                                     }
                                     Text(statusText(customer.status), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 }
-                                GoogleSignInDetailsCard(
-                                    details = customer.googleSignIn,
-                                    title = "Dữ liệu Google và lần đăng nhập gần nhất"
-                                )
                                 Text(
                                     customer.licenseId?.let {
                                         "${customer.planCode?.let(::planText) ?: "Gói sử dụng"} · ${customer.licenseStatus?.let(::statusText) ?: "Chưa rõ"} · Hết hạn ${accessDate(customer.licenseExpiresAt)}"
@@ -359,7 +354,11 @@ internal fun AccessControlAdminScreen(
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(onClick = { customerInfo = customer }) {
+                                        Icon(Icons.Outlined.Info, contentDescription = null)
+                                        Text("Thông tin")
+                                    }
                                     if ((customer.licenseId == null || customer.licenseStatus == "REVOKED") && customer.status == "ACTIVE") {
                                         OutlinedButton(
                                             onClick = {
@@ -431,6 +430,88 @@ internal fun AccessControlAdminScreen(
                 LinearProgressIndicator(Modifier.fillMaxWidth())
             }
         }
+    }
+
+    customerInfo?.let { customer ->
+        AlertDialog(
+            onDismissRequest = { customerInfo = null },
+            title = { Text(customer.displayName ?: customer.email) },
+            text = {
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    AccessInfoLine("Email", customer.email)
+                    AccessInfoLine("Trạng thái tài khoản", statusText(customer.status))
+                    AccessInfoLine("Tạo tài khoản", customer.createdAt.takeIf { it > 0L }?.let { accessDate(it) })
+                    AccessInfoLine("Đăng nhập gần nhất", customer.lastLoginAt?.takeIf { it > 0L }?.let { accessDate(it) })
+                    AccessInfoLine(
+                        "Giấy phép",
+                        customer.licenseId?.let {
+                            "${customer.planCode?.let(::planText) ?: "Giấy phép"} · ${customer.licenseStatus?.let(::statusText) ?: "Chưa rõ"}"
+                        }
+                    )
+                    AccessInfoLine("Hết hạn", customer.licenseExpiresAt?.takeIf { it > 0L }?.let { accessDate(it) })
+                    AccessInfoLine(
+                        "Thiết bị đang hoạt động",
+                        "${customer.activeDeviceCount}/${customer.maxDevices ?: "—"}"
+                    )
+                    val customerDevices = devices.filter { it.userId == customer.userId }
+                    Text("Thiết bị đã liên kết (${customerDevices.size})", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    customerDevices.forEach { device ->
+                        val name = device.label.ifBlank {
+                            listOf(device.manufacturer, device.model).filter { it.isNotBlank() }.joinToString(" ")
+                                .ifBlank { "Thiết bị Android" }
+                        }
+                        Text(
+                            "$name · ${statusText(device.status)}",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    GoogleSignInDetailsButton(
+                        customer.googleSignIn,
+                        title = "Thông tin đăng nhập và thiết bị"
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { customerInfo = null }) { Text("Đóng") } }
+        )
+    }
+
+    deviceInfo?.let { device ->
+        val reason = when (device.revokedReason) {
+            "OWNER_REVOKED" -> "Chủ ứng dụng đã gỡ quyền"
+            "ACCOUNT_REVOKED" -> "Tài khoản đã bị thu hồi"
+            "CUSTOMER_REMOVED" -> "Khách hàng tự gỡ thiết bị"
+            "LEGACY_REVOKED" -> "Trạng thái thu hồi từ phiên bản cũ"
+            else -> null
+        }
+        AlertDialog(
+            onDismissRequest = { deviceInfo = null },
+            title = { Text(device.label.ifBlank { listOf(device.manufacturer, device.model).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Thiết bị Android" } }) },
+            text = {
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    AccessInfoLine("Tài khoản", device.email)
+                    AccessInfoLine("Trạng thái thiết bị", statusText(device.status))
+                    AccessInfoLine("Nhà sản xuất", device.manufacturer)
+                    AccessInfoLine("Mẫu máy", device.model)
+                    AccessInfoLine("Phiên bản Android", device.androidVersion)
+                    AccessInfoLine("Phiên bản AUTU-LIO", device.appVersion)
+                    AccessInfoLine("Đăng ký lúc", device.registeredAt.takeIf { it > 0L }?.let { accessDate(it) })
+                    AccessInfoLine("Hoạt động gần nhất", device.lastSeenAt.takeIf { it > 0L }?.let { accessDate(it) })
+                    AccessInfoLine("Gỡ lúc", device.revokedAt?.takeIf { it > 0L }?.let { accessDate(it) })
+                    AccessInfoLine("Lý do gỡ", reason)
+                    AccessInfoLine("Trạng thái tài khoản", statusText(device.customerStatus))
+                    AccessInfoLine("Trạng thái giấy phép", device.licenseStatus?.let(::statusText))
+                    AccessInfoLine("Số thiết bị đang hoạt động", "${device.activeDeviceCount}/${device.maxDevices ?: "—"}")
+                }
+            },
+            confirmButton = { TextButton(onClick = { deviceInfo = null }) { Text("Đóng") } }
+        )
     }
 
     pendingConfirmation?.let { confirmation ->
@@ -571,4 +652,15 @@ private fun accessDate(value: Long?): String {
         java.text.DateFormat.SHORT,
         java.text.DateFormat.SHORT
     ).format(java.util.Date(value * 1000L))
+}
+
+
+@Composable
+private fun AccessInfoLine(label: String, value: String?) {
+    if (value.isNullOrBlank()) return
+    Text(
+        "$label: $value",
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
