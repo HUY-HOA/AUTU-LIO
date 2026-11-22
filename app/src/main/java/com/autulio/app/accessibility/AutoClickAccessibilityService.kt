@@ -583,6 +583,124 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
         return when (name) {
+            "GHI_NHẬT_KÝ" -> {
+                require(arguments.size in 1..2) { "GHI_NHẬT_KÝ nhận 1 hoặc 2 tham số." }
+                val level = if (arguments.size == 2) requireTextArgument(name, arguments[0]).uppercase(Locale.ROOT) else "INFO"
+                val message = requireTextArgument(name, arguments.last()).take(2_000)
+                val priority = when (level) {
+                    "DEBUG" -> android.util.Log.DEBUG
+                    "WARN", "WARNING" -> android.util.Log.WARN
+                    "ERROR" -> android.util.Log.ERROR
+                    else -> android.util.Log.INFO
+                }
+                val normalizedLevel = when (priority) {
+                    android.util.Log.DEBUG -> "DEBUG"
+                    android.util.Log.WARN -> "WARN"
+                    android.util.Log.ERROR -> "ERROR"
+                    else -> "INFO"
+                }
+                val logPath = "logs/script.log"
+                val previous = if (scriptFileStore.exists(logPath)) scriptFileStore.readText(logPath) else ""
+                val entry = System.currentTimeMillis().toString() + " [" + normalizedLevel + "] " + message + "\n"
+                scriptFileStore.writeText(logPath, (previous + entry).takeLast(256 * 1024))
+                android.util.Log.println(priority, "AUTU-LIO-Script", message)
+                true
+            }
+            "IN" -> {
+                requireArgumentCount(name, arguments, 1)
+                android.util.Log.i("AUTU-LIO-Script", requireTextArgument(name, arguments[0]).take(2_000))
+                true
+            }
+            "THÔNG_BÁO" -> {
+                requireArgumentCount(name, arguments, 1)
+                val message = requireTextArgument(name, arguments[0]).take(500)
+                mainHandler.post {
+                    android.widget.Toast.makeText(applicationContext, message, android.widget.Toast.LENGTH_LONG).show()
+                }
+                true
+            }
+            "RUNG" -> {
+                requireArgumentCount(name, arguments, 1)
+                val duration = requirePositiveOrZeroInt(name, arguments[0], "THỜI_LƯỢNG")
+                require(duration in 1..5_000) { "RUNG cần thời lượng từ 1 đến 5.000 ms." }
+                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    getSystemService(android.os.VibratorManager::class.java)?.defaultVibrator
+                } else {
+                    getSystemService(android.os.Vibrator::class.java)
+                } ?: throw IllegalStateException("Thiết bị không cung cấp bộ rung.")
+                require(vibrator.hasVibrator()) { "Thiết bị không có phần cứng rung." }
+                vibrator.vibrate(android.os.VibrationEffect.createOneShot(duration.toLong(), android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                true
+            }
+            "ÂM_LƯỢNG" -> {
+                requireArgumentCount(name, arguments, 0)
+                val audio = getSystemService(android.media.AudioManager::class.java)
+                    ?: throw IllegalStateException("Không đọc được âm lượng hệ thống.")
+                val maximum = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                if (maximum <= 0) 0.0 else audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) * 100.0 / maximum
+            }
+            "ĐẶT_ÂM_LƯỢNG" -> {
+                requireArgumentCount(name, arguments, 1)
+                val percent = requireNonNegativeFiniteNumber(name, arguments[0], "PHẦN_TRĂM")
+                require(percent <= 100.0) { "ĐẶT_ÂM_LƯỢNG chỉ nhận giá trị từ 0 đến 100." }
+                val audio = getSystemService(android.media.AudioManager::class.java)
+                    ?: throw IllegalStateException("Không điều khiển được âm lượng hệ thống.")
+                val maximum = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                val target = (maximum * percent / 100.0).toInt().coerceIn(0, maximum)
+                audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, target, 0)
+                true
+            }
+            "ĐỘ_SÁNG" -> {
+                requireArgumentCount(name, arguments, 0)
+                val value = android.provider.Settings.System.getInt(
+                    contentResolver,
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS,
+                    -1
+                )
+                if (value < 0) null else value.coerceIn(0, 255) * 100.0 / 255.0
+            }
+            "ĐẶT_ĐỘ_SÁNG" -> {
+                requireArgumentCount(name, arguments, 1)
+                val percent = requireNonNegativeFiniteNumber(name, arguments[0], "PHẦN_TRĂM")
+                require(percent <= 100.0) { "ĐẶT_ĐỘ_SÁNG chỉ nhận giá trị từ 0 đến 100." }
+                require(android.provider.Settings.System.canWrite(this)) {
+                    "Cần cấp quyền 'Cho phép sửa đổi cài đặt hệ thống' cho AUTU-LIO trước khi đổi độ sáng."
+                }
+                val raw = (percent * 255.0 / 100.0).toInt().coerceIn(0, 255)
+                android.provider.Settings.System.putInt(
+                    contentResolver,
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS,
+                    raw
+                )
+            }
+            "CHỤP_ẢNH_MÀN_HÌNH", "LƯU_ẢNH_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 1)
+                val relativePath = requireTextArgument(name, arguments[0]).trim()
+                require(relativePath.lowercase(Locale.ROOT).endsWith(".jpg") ||
+                    relativePath.lowercase(Locale.ROOT).endsWith(".jpeg")) {
+                    "Đường dẫn ảnh cần có phần mở rộng .jpg hoặc .jpeg."
+                }
+                withRequiredCapturedScreen { bitmap ->
+                    var encoded: ByteArray? = null
+                    for (quality in listOf(90, 80, 70, 60, 50)) {
+                        val output = java.io.ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, output)
+                        val candidate = output.toByteArray()
+                        if (candidate.size <= ScriptFileStore.DEFAULT_MAX_FILE_BYTES) {
+                            encoded = candidate
+                            break
+                        }
+                    }
+                    val bytes = encoded ?: throw IllegalStateException("Ảnh vượt giới hạn 1 MB ngay cả sau khi nén. Hãy chụp vùng nhỏ hơn hoặc dùng ảnh có ít chi tiết hơn.")
+                    scriptFileStore.writeBytes(relativePath, bytes)
+                    linkedMapOf(
+                        "ĐƯỜNG_DẪN" to relativePath,
+                        "RỘNG" to bitmap.width,
+                        "CAO" to bitmap.height,
+                        "DUNG_LƯỢNG" to bytes.size
+                    )
+                }
+            }
             "CHỌN_TỆP" -> {
                 requireArgumentCount(name, arguments, 1)
                 val mimeType = requireTextArgument(name, arguments[0]).trim()
