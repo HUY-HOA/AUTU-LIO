@@ -781,6 +781,134 @@ test("customer cannot self-reactivate a device revoked by the owner", async () =
   assert.equal((await json(response)).error, "device_revoked");
 });
 
+test("owner can restore a revoked device after the account and license are active", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const statements = [];
+  const basePrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = basePrepare(sql);
+    if (sql.includes("SELECT id, user_id, status, revoked_reason FROM devices WHERE id = ?")) {
+      statement.first = async () => ({
+        id: "123e4567-e89b-42d3-a456-426614174002",
+        user_id: customerSession.user_id,
+        status: "REVOKED",
+        revoked_reason: "LEGACY_REVOKED"
+      });
+    } else if (sql.includes("SELECT status FROM users WHERE id = ? AND role = 'CUSTOMER'")) {
+      statement.first = async () => ({ status: "ACTIVE" });
+    } else if (sql.includes("FROM licenses") && sql.includes("status = 'ACTIVE'")) {
+      statement.first = async () => ({
+        id: "license-active",
+        user_id: customerSession.user_id,
+        max_devices: 2,
+        status: "ACTIVE",
+        starts_at: Math.floor(Date.now() / 1000) - 60,
+        expires_at: Math.floor(Date.now() / 1000) + 86400
+      });
+    }
+    const originalRun = statement.run.bind(statement);
+    statement.run = async () => {
+      statements.push(sql);
+      return originalRun();
+    };
+    return statement;
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/devices/123e4567-e89b-42d3-a456-426614174002", {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer " + "E".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ status: "ACTIVE" })
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.reactivated, true);
+  assert.ok(statements.some(sql => sql.includes("revoked_at = NULL") && sql.includes("COUNT(*)")));
+  assert.ok(statements.some(sql => sql.includes("INSERT INTO audit_logs")));
+});
+
+test("owner cannot restore a device when the customer has no active license", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const basePrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = basePrepare(sql);
+    if (sql.includes("SELECT id, user_id, status, revoked_reason FROM devices WHERE id = ?")) {
+      statement.first = async () => ({
+        id: "123e4567-e89b-42d3-a456-426614174003",
+        user_id: customerSession.user_id,
+        status: "REVOKED",
+        revoked_reason: "ACCOUNT_REVOKED"
+      });
+    } else if (sql.includes("SELECT status FROM users WHERE id = ? AND role = 'CUSTOMER'")) {
+      statement.first = async () => ({ status: "ACTIVE" });
+    } else if (sql.includes("FROM licenses") && sql.includes("status = 'ACTIVE'")) {
+      statement.first = async () => null;
+    }
+    return statement;
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/devices/123e4567-e89b-42d3-a456-426614174003", {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer " + "E".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ status: "ACTIVE" })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 409);
+  assert.equal((await json(response)).error, "active_license_required");
+});
+
+test("owner cannot issue a license with fewer device slots than currently active devices", async () => {
+  const { env, queries } = createEnv({ session: ownerSession });
+  const basePrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = basePrepare(sql);
+    if (sql.includes("SELECT id, email, role, status FROM users WHERE id = ?")) {
+      statement.first = async () => ({
+        id: customerSession.user_id,
+        email: customerSession.email,
+        role: "CUSTOMER",
+        status: "ACTIVE"
+      });
+    } else if (sql.includes("SELECT COUNT(*) AS active_count FROM devices")) {
+      statement.first = async () => ({ active_count: 2 });
+    }
+    return statement;
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/licenses", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "E".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userId: customerSession.user_id,
+        planCode: "MONTHLY",
+        expiresAt: Math.floor(Date.now() / 1000) + 30 * 86400,
+        maxDevices: 1
+      })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 409);
+  assert.equal((await json(response)).error, "device_limit_below_existing");
+  assert.equal(queries.some(sql => sql.includes("INSERT INTO licenses")), false);
+});
+
 test("owner cannot create a license for an invalid customer identifier", async () => {
   const { env } = createEnv({ session: ownerSession });
   const response = await worker.fetch(
