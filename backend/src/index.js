@@ -399,13 +399,11 @@ async function googleLogin(request, env) {
     displayName: user.display_name,
     role: user.role
   };
-  if (user.role === "OWNER") {
-    Object.assign(responseUser, {
-      googleSub: identity.sub,
-      emailVerified: identity.emailVerified,
-      latestSignIn
-    });
-  }
+  Object.assign(responseUser, {
+    googleSub: identity.sub,
+    emailVerified: identity.emailVerified,
+    latestSignIn
+  });
   return response(request, {
     accessToken: rawSession,
     tokenType: "Bearer",
@@ -442,9 +440,9 @@ function sanitizeClientTechnicalInfo(value) {
     screenWidthPx: integer("screenWidthPx", 20000),
     screenHeightPx: integer("screenHeightPx", 20000),
     densityDpi: integer("densityDpi", 2000),
-    networkType: allowedNetworkTypes.has(networkType) ? networkType : "OTHER",
-    networkStatus: allowedNetworkStates.has(networkStatus) ? networkStatus : "OFFLINE",
-    networkValidated: value.networkValidated === true
+    networkType: allowedNetworkTypes.has(networkType) ? networkType : null,
+    networkStatus: allowedNetworkStates.has(networkStatus) ? networkStatus : null,
+    networkValidated: typeof value.networkValidated === "boolean" ? value.networkValidated : null
   };
 }
 
@@ -1503,13 +1501,15 @@ async function route(request, env) {
       displayName: session.display_name,
       role: session.role
     };
+    Object.assign(user, {
+      googleSub: session.google_sub,
+      emailVerified: Number(session.email_verified) === 1,
+      latestSignIn: await latestSignInDetails(env, session.user_id)
+    });
     if (session.role === "OWNER") {
       Object.assign(user, {
-        googleSub: session.google_sub,
-        emailVerified: Number(session.email_verified) === 1,
         createdAt: session.created_at,
-        lastLoginAt: session.last_login_at,
-        latestSignIn: await latestSignInDetails(env, session.user_id)
+        lastLoginAt: session.last_login_at
       });
     }
     return response(request, {
