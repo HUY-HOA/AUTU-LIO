@@ -559,7 +559,7 @@ class ScriptExecutionEngineTest {
             val program = compile(
                 """
                 BIẾN NOI_DUNG: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()
-                BIẾN TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ("Đăng nhập")
+                BIẾN TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ("Đăng nhập")
                 NẾU (KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH("Đăng nhập") VÀ CHỨA_CHUỖI(NOI_DUNG, "AUTU")) {
                     NHẤN(LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO, 0), LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO, 1))
                 }
@@ -1052,7 +1052,7 @@ class ScriptExecutionEngineTest {
                     )
                 )
                 "KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH" -> arguments.firstOrNull() == "Đăng nhập"
-                "TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ" -> listOf(100, 200)
+                "TÌM_VỊ_TRÍ_CHỮ" -> listOf(100, 200)
                 "TÌM_THÀNH_PHẦN_VĂN_BẢN" -> arguments.firstOrNull() == "Đăng nhập"
                 "NHẤN_THÀNH_PHẦN_VĂN_BẢN" -> {
                     actions += "accessibilityClick:${arguments.firstOrNull()}"
@@ -1206,7 +1206,7 @@ class ScriptExecutionEngineTest {
                 BIẾN XUONG: SỐ = LÀM_TRÒN_XUỐNG(3.9)
                 BIẾN LEN: SỐ = LÀM_TRÒN_LÊN(3.1)
                 BIẾN VI_TRI: SỐ = TÌM_VỊ_TRÍ_TRONG_CHUỖI("AUTU-LIO", "LIO")
-                BIẾN PHAN_TU: SỐ = TÌM_VỊ_TRÍ_TRONG_CHUỖI_PHẦN_TỬ_TRONG_DANH_SÁCH(GOC, 1)
+                BIẾN PHAN_TU: SỐ = TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH(GOC, 1)
                 BIẾN NGU_NHIEN: SỐ = SỐ_NGẪU_NHIÊN(2, 5)
                 BIẾN RONG: LUẬN_LÝ = KIỂM_TRA_RỖNG("   ")
                 NẾU (
