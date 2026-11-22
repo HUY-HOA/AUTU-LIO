@@ -1255,6 +1255,20 @@ private fun EditorScreen(
                                 fontSize = 12.sp,
                                 lineHeight = 17.sp
                             )
+                            Text(
+                                "Android tối thiểu: " + command.androidRequirement,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            if (!command.androidNote.isNullOrBlank()) {
+                                Text(
+                                    command.androidNote,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
                             if (!command.example.isNullOrBlank()) {
                                 Text(
                                     "Ví dụ: " + command.example,
