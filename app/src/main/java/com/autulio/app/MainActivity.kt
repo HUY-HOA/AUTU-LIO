@@ -1813,7 +1813,7 @@ private fun ScriptFileControls() {
                     "Imported ${imported.bytes} bytes to ${imported.relativePath}."
                 )
             } catch (error: Exception) {
-                message = error.localizedMessage ?: tr("Không nhập được tệp.", "Could not import the file.")
+                message = localizedErrorMessage(error, tr("Không nhập được tệp.", "Could not import the file."))
             } finally {
                 working = false
             }
@@ -1838,7 +1838,7 @@ private fun ScriptFileControls() {
                     "Exported $bytes bytes from $path."
                 )
             } catch (error: Exception) {
-                message = error.localizedMessage ?: tr("Không xuất được tệp.", "Could not export the file.")
+                message = localizedErrorMessage(error, tr("Không xuất được tệp.", "Could not export the file."))
             } finally {
                 working = false
             }
@@ -1949,7 +1949,7 @@ private fun DatabaseBackupControls() {
                     "Backup complete · ${metadata.databaseBytes} bytes · schema ${metadata.schemaVersion} · SHA-256 ${metadata.sha256.take(12)}…"
                 )
             } catch (error: Exception) {
-                message = error.localizedMessage ?: tr("Không sao lưu được cơ sở dữ liệu.", "Database backup failed.")
+                message = localizedErrorMessage(error, tr("Không sao lưu được cơ sở dữ liệu.", "Database backup failed."))
             } finally {
                 working = false
             }
@@ -2036,7 +2036,7 @@ private fun DatabaseBackupControls() {
                                     "Restore complete · schema ${metadata.schemaVersion} · ${metadata.databaseBytes} bytes."
                                 )
                             } catch (error: Exception) {
-                                message = error.localizedMessage ?: tr("Không khôi phục được cơ sở dữ liệu.", "Database restore failed.")
+                                message = localizedErrorMessage(error, tr("Không khôi phục được cơ sở dữ liệu.", "Database restore failed."))
                             } finally {
                                 working = false
                             }
