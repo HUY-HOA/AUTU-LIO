@@ -25,7 +25,7 @@ class ScriptExecutionEngineTest {
                 """
                 BIẾN I = 0
                 LẶP(3) {
-                    CHẠM(I, 20)
+                    NHẤN(I, 20)
                     I = I + 1
                 }
                 """
@@ -50,11 +50,11 @@ class ScriptExecutionEngineTest {
         try {
             val program = compile(
                 """
-                BIẾN PIN_MUC_TIEU: SỐ = 12
-                NẾU (PIN_MUC_TIEU > 10 VÀ KHÔNG SAI) {
-                    CHẠM(10, 20)
+                BIẾN LẤY_PHẦN_TRĂM_PIN_MUC_TIEU: SỐ = 12
+                NẾU (LẤY_PHẦN_TRĂM_PIN_MUC_TIEU > 10 VÀ KHÔNG SAI) {
+                    NHẤN(10, 20)
                 } NGƯỢC_LẠI {
-                    CHẠM(30, 40)
+                    NHẤN(30, 40)
                 }
                 """
             )
@@ -82,7 +82,7 @@ class ScriptExecutionEngineTest {
                     NẾU (I == 3) {
                         THOÁT_LẶP
                     }
-                    CHẠM(I, 20)
+                    NHẤN(I, 20)
                 }
                 """
             )
@@ -111,7 +111,7 @@ class ScriptExecutionEngineTest {
                     NẾU (I == 2) {
                         BỎ_QUA_LƯỢT
                     }
-                    CHẠM(I, 30)
+                    NHẤN(I, 30)
                 }
                 """
             )
@@ -135,7 +135,7 @@ class ScriptExecutionEngineTest {
         try {
             assertEquals(
                 ScriptExecutionStartResult.Started,
-                engine.start(compile("CHẠM(1, 1)\nCHỜ(250)\nCHẠM(2, 2)"))
+                engine.start(compile("NHẤN(1, 1)\nCHỜ(250)\nNHẤN(2, 2)"))
             )
             assertTrue(firstAction.await(2, TimeUnit.SECONDS))
             assertTrue(engine.pause())
@@ -182,9 +182,9 @@ class ScriptExecutionEngineTest {
             val program = compile(
                 """
                 THỬ {
-                    CHẠM(10, 20)
+                    NHẤN(10, 20)
                 } LUÔN_THỰC_HIỆN {
-                    CHẠM(30, 40)
+                    NHẤN(30, 40)
                 }
                 """.trimIndent()
             )
@@ -196,7 +196,7 @@ class ScriptExecutionEngineTest {
             assertTrue("Không thể tạm dừng kịch bản.", engine.pause())
             assertEquals(ScriptExecutionState.PAUSED, engine.snapshot().state)
             assertTrue("Không thể dừng kịch bản đang tạm dừng.", engine.stop())
-            assertEquals(ScriptExecutionState.STOPPING, engine.snapshot().state)
+            assertEquals(ScriptExecutionState.STOPLẤY_PHẦN_TRĂM_PING, engine.snapshot().state)
             releaseFirstTap.countDown()
 
             assertTrue(
@@ -224,14 +224,14 @@ class ScriptExecutionEngineTest {
         try {
             val program = compile(
                 """
-                NẾU (CÓ_MẠNG() VÀ ĐÚNG) {
+                NẾU (KIỂM_TRA_KẾT_NỐI_MẠNG() VÀ ĐÚNG) {
                     MỞ_ỨNG_DỤNG("com.example.game")
                 }
                 """
             )
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
             assertTrue(completed.await(3, TimeUnit.SECONDS))
-            assertEquals(listOf("function:CÓ_MẠNG"), dispatcher.functions)
+            assertEquals(listOf("function:KIỂM_TRA_KẾT_NỐI_MẠNG"), dispatcher.functions)
             assertEquals(listOf("open:com.example.game"), dispatcher.actions)
         } finally {
             engine.close()
@@ -276,7 +276,7 @@ class ScriptExecutionEngineTest {
         try {
             val instructions = listOf(
                 ScriptInstruction.Command(
-                    "CHẠM",
+                    "NHẤN",
                     listOf(ScriptExpression.NumberLiteral(1.0), ScriptExpression.NumberLiteral(2.0))
                 )
             )
@@ -306,7 +306,7 @@ class ScriptExecutionEngineTest {
                             ScriptExpression.NumberLiteral(100.0),
                             listOf(
                                 ScriptInstruction.Command(
-                                    "CHẠM",
+                                    "NHẤN",
                                     listOf(ScriptExpression.NumberLiteral(1.0), ScriptExpression.NumberLiteral(2.0))
                                 )
                             )
@@ -340,7 +340,7 @@ class ScriptExecutionEngineTest {
             if (it.state == ScriptExecutionState.FAILED) failure.countDown()
         }
         try {
-            assertEquals(ScriptExecutionStartResult.Started, engine.start(compile("CHẠM(1, 2)")))
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(compile("NHẤN(1, 2)")))
             assertTrue(failure.await(2, TimeUnit.SECONDS))
             assertEquals("dispatch_failed", engine.snapshot().errorCode)
         } finally {
@@ -361,13 +361,13 @@ class ScriptExecutionEngineTest {
             override fun longPress(x: Int, y: Int, durationMs: Int) = true
             override fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int) = true
             override fun evaluateFunction(name: String, arguments: List<Any?>): Any? =
-                name == "ĐANG_SẠC" && calls.incrementAndGet() >= 3
+                name == "KIỂM_TRA_ĐANG_SẠC" && calls.incrementAndGet() >= 3
         }
         val engine = ScriptExecutionEngine(dispatcher) {
             if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
         }
         try {
-            val program = compile("CHỜ_ĐẾN_KHI(ĐANG_SẠC(), 2000, 50)\nCHẠM(5, 6)")
+            val program = compile("CHỜ_ĐẾN_KHI(KIỂM_TRA_ĐANG_SẠC(), 2000, 50)\nNHẤN(5, 6)")
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
             assertTrue(completed.await(3, TimeUnit.SECONDS))
             assertEquals(3, calls.get())
@@ -390,7 +390,7 @@ class ScriptExecutionEngineTest {
             if (it.state == ScriptExecutionState.FAILED) failed.countDown()
         }
         try {
-            assertEquals(ScriptExecutionStartResult.Started, engine.start(compile("CHỜ_ĐẾN_KHI(ĐANG_SẠC(), 150, 50)")))
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(compile("CHỜ_ĐẾN_KHI(KIỂM_TRA_ĐANG_SẠC(), 150, 50)")))
             assertTrue(failed.await(2, TimeUnit.SECONDS))
             assertEquals("wait_until_timeout", engine.snapshot().errorCode)
         } finally {
@@ -411,7 +411,7 @@ class ScriptExecutionEngineTest {
                 BIẾN DEM = 0
                 LẶP_ĐẾN_KHI(DEM >= 3) {
                     DEM = DEM + 1
-                    CHẠM(DEM, 30)
+                    NHẤN(DEM, 30)
                 }
                 """.trimIndent()
             )
@@ -434,14 +434,14 @@ class ScriptExecutionEngineTest {
             val program = compile(
                 """
                 BIẾN DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20)
-                BIẾN SO_LUONG: SỐ = THÊM_PHẦN_TỬ(DANH_SÁCH, 30)
-                BIẾN CO_20: LUẬN_LÝ = CÓ_PHẦN_TỬ(DANH_SÁCH, 20)
-                BIẾN PHAN_TU: SỐ = LẤY_PHẦN_TỬ(DANH_SÁCH, 1)
-                BIẾN DA_XOA: SỐ = XÓA_PHẦN_TỬ(DANH_SÁCH, 1)
-                BIẾN DA_DAT: SỐ = ĐẶT_PHẦN_TỬ(DANH_SÁCH, 0, 15)
+                BIẾN SO_LUONG: SỐ = THÊM_PHẦN_TỬ_VÀO_DANH_SÁCH(DANH_SÁCH, 30)
+                BIẾN CO_20: LUẬN_LÝ = KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH(DANH_SÁCH, 20)
+                BIẾN PHAN_TU: SỐ = LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(DANH_SÁCH, 1)
+                BIẾN DA_XOA: SỐ = XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH(DANH_SÁCH, 1)
+                BIẾN DA_DAT: SỐ = ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH(DANH_SÁCH, 0, 15)
                 NẾU (SO_LUONG == 3 VÀ CO_20 VÀ PHAN_TU == 20 VÀ DA_XOA == 20 VÀ DA_DAT == 15 VÀ ĐỘ_DÀI(DANH_SÁCH) == 2) {
                     LẶP_MỖI (GIA_TRI TRONG DANH_SÁCH) {
-                        CHẠM(GIA_TRI, 40)
+                        NHẤN(GIA_TRI, 40)
                     }
                 }
                 """.trimIndent()
@@ -465,14 +465,14 @@ class ScriptExecutionEngineTest {
             val program = compile(
                 """
                 BIẾN CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("X", 10, "Y", 20)
-                BIẾN GIA_TRI_X: SỐ = LẤY_GIÁ_TRỊ(CAU_HINH, "X")
-                BIẾN DA_DAT: SỐ = ĐẶT_GIÁ_TRỊ(CAU_HINH, "Z", 30)
-                BIẾN CO_Z: LUẬN_LÝ = CÓ_KHÓA(CAU_HINH, "Z")
-                BIẾN DA_XOA: SỐ = XÓA_KHÓA(CAU_HINH, "Y")
-                BIẾN KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+                BIẾN GIA_TRI_X: SỐ = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CAU_HINH, "X")
+                BIẾN DA_DAT: SỐ = ĐẶT_GIÁ_TRỊ_TRONG_BẢN_ĐỒ(CAU_HINH, "Z", 30)
+                BIẾN CO_Z: LUẬN_LÝ = KIỂM_TRA_KHÓA_TRONG_BẢN_ĐỒ(CAU_HINH, "Z")
+                BIẾN DA_XOA: SỐ = XÓA_KHÓA_KHỎI_BẢN_ĐỒ(CAU_HINH, "Y")
+                BIẾN KHOA: DANH_SÁCH = LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ(CAU_HINH)
                 NẾU (GIA_TRI_X == 10 VÀ DA_DAT == 30 VÀ CO_Z VÀ DA_XOA == 20 VÀ ĐỘ_DÀI(CAU_HINH) == 2) {
                     LẶP_MỖI (K TRONG KHOA) {
-                        CHẠM(ĐỘ_DÀI(K), 40)
+                        NHẤN(ĐỘ_DÀI(K), 40)
                     }
                 }
                 """.trimIndent()
@@ -505,7 +505,7 @@ class ScriptExecutionEngineTest {
                 BIẾN CAC_TU: DANH_SÁCH = TÁCH_CHUỖI("A,B,C", ",")
                 BIẾN GHEP: CHUỖI = NỐI_CHUỖI(CAC_TU, "-")
                 NẾU (CHỨA_CHUỖI(HOA, "AUTU") VÀ BẮT_ĐẦU_BẰNG(HOA, "AUTU") VÀ KẾT_THÚC_BẰNG(HOA, "LIO") VÀ CAT == "AUTU" VÀ KY_TU == "A" VÀ THAY == "LIO-LIO" VÀ GHEP == "A-B-C" VÀ THUONG == "autu-lio") {
-                    CHẠM(1, 1)
+                    NHẤN(1, 1)
                 }
                 """.trimIndent()
             )
@@ -559,9 +559,9 @@ class ScriptExecutionEngineTest {
             val program = compile(
                 """
                 BIẾN NOI_DUNG: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()
-                BIẾN TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ("Đăng nhập")
-                NẾU (MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập") VÀ CHỨA_CHUỖI(NOI_DUNG, "AUTU")) {
-                    CHẠM(LẤY_PHẦN_TỬ(TOA_DO, 0), LẤY_PHẦN_TỬ(TOA_DO, 1))
+                BIẾN TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ("Đăng nhập")
+                NẾU (KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH("Đăng nhập") VÀ CHỨA_CHUỖI(NOI_DUNG, "AUTU")) {
+                    NHẤN(LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO, 0), LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO, 1))
                 }
                 """.trimIndent()
             )
@@ -584,11 +584,11 @@ class ScriptExecutionEngineTest {
             val program = compile(
                 """
                 BIẾN CÁC_KHỐI: DANH_SÁCH = ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()
-                BIẾN KHỐI_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_KHỐI, 0)
-                BIẾN CÁC_DÒNG: DANH_SÁCH = LẤY_GIÁ_TRỊ(KHỐI_ĐẦU, "CÁC_DÒNG")
-                BIẾN DÒNG_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_DÒNG, 0)
-                NẾU (LẤY_GIÁ_TRỊ(DÒNG_ĐẦU, "VĂN_BẢN") == "Đăng nhập") {
-                    CHẠM(LẤY_GIÁ_TRỊ(DÒNG_ĐẦU, "X"), LẤY_GIÁ_TRỊ(DÒNG_ĐẦU, "Y"))
+                BIẾN KHỐI_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(CÁC_KHỐI, 0)
+                BIẾN CÁC_DÒNG: DANH_SÁCH = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(KHỐI_ĐẦU, "CÁC_DÒNG")
+                BIẾN DÒNG_ĐẦU: BẢN_ĐỒ = LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(CÁC_DÒNG, 0)
+                NẾU (LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(DÒNG_ĐẦU, "VĂN_BẢN") == "Đăng nhập") {
+                    NHẤN(LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(DÒNG_ĐẦU, "X"), LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(DÒNG_ĐẦU, "Y"))
                 }
                 """.trimIndent()
             )
@@ -619,7 +619,7 @@ class ScriptExecutionEngineTest {
         try {
             val program = compile(
                 """
-                CHẠM_ĐA_ĐIỂM(
+                NHẤN_ĐA_ĐIỂM(
                     TẠO_DANH_SÁCH(TẠO_DANH_SÁCH(10, 20), TẠO_DANH_SÁCH(30, 40)),
                     100
                 )
@@ -660,12 +660,12 @@ class ScriptExecutionEngineTest {
                 THỬ {
                     MỞ_ỨNG_DỤNG("invalid")
                 } BẮT_LỖI (LỖI) {
-                    BIẾN MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
+                    BIẾN MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(LỖI, "MÃ")
                     NẾU (MÃ_LỖI == "invalid_package_name") {
-                        CHẠM(10, 20)
+                        NHẤN(10, 20)
                     }
                 } LUÔN_THỰC_HIỆN {
-                    CHẠM(30, 40)
+                    NHẤN(30, 40)
                 }
                 """.trimIndent()
             )
@@ -693,9 +693,9 @@ class ScriptExecutionEngineTest {
             val program = compile(
                 """
                 THỬ {
-                    CHẠM(10, 20)
+                    NHẤN(10, 20)
                 } LUÔN_THỰC_HIỆN {
-                    CHẠM(30, 40)
+                    NHẤN(30, 40)
                 }
                 """.trimIndent()
             )
@@ -729,7 +729,7 @@ class ScriptExecutionEngineTest {
                 THỬ {
                     MỞ_ỨNG_DỤNG("invalid")
                 } LUÔN_THỰC_HIỆN {
-                    CHẠM(50, 60)
+                    NHẤN(50, 60)
                 }
                 """.trimIndent()
             )
@@ -756,7 +756,7 @@ class ScriptExecutionEngineTest {
                     NHẤN_THÀNH_PHẦN_VĂN_BẢN("Đăng nhập")
                     NHẬP_VĂN_BẢN_VÀO_THÀNH_PHẦN("Tên người dùng", "LIO")
                     BIẾN TOA_DO: DANH_SÁCH = TÌM_TỌA_ĐỘ_THÀNH_PHẦN("Đăng nhập")
-                    CHẠM(LẤY_PHẦN_TỬ(TOA_DO, 0), LẤY_PHẦN_TỬ(TOA_DO, 1))
+                    NHẤN(LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO, 0), LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO, 1))
                 }
                 NẾU (TÌM_THÀNH_PHẦN_THEO_ID("login_button")) {
                     NHẤN_THÀNH_PHẦN_THEO_ID("login_button")
@@ -794,12 +794,12 @@ class ScriptExecutionEngineTest {
             val program = compile(
                 """
                 BIẾN CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"A\":[1,{\"B\":2},null]}")
-                BIẾN CÁC_MỤC: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "A")
-                BIẾN PHẦN_TỬ: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_MỤC, 1)
-                BIẾN GIA_TRI_B: SỐ = LẤY_GIÁ_TRỊ(PHẦN_TỬ, "B")
+                BIẾN CÁC_MỤC: DANH_SÁCH = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CẤU_HÌNH, "A")
+                BIẾN PHẦN_TỬ: BẢN_ĐỒ = LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(CÁC_MỤC, 1)
+                BIẾN GIA_TRI_B: SỐ = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(PHẦN_TỬ, "B")
                 BIẾN JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
-                NẾU (GIA_TRI_B == 2 VÀ LẤY_PHẦN_TỬ(CÁC_MỤC, 2) == RỖNG VÀ CHỨA_CHUỖI(JSON_KẾT_QUẢ, "null")) {
-                    CHẠM(70, 80)
+                NẾU (GIA_TRI_B == 2 VÀ LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(CÁC_MỤC, 2) == RỖNG VÀ CHỨA_CHUỖI(JSON_KẾT_QUẢ, "null")) {
+                    NHẤN(70, 80)
                 }
                 """.trimIndent()
             )
@@ -840,7 +840,7 @@ class ScriptExecutionEngineTest {
                 """
                 BIẾN NỘI_DUNG: CHUỖI = ĐỌC_TỆP("settings/config.txt")
                 GHI_TỆP("settings/config.txt", NỘI_DUNG + " updated")
-                NẾU (TỆP_TỒN_TẠI("settings/config.txt")) {
+                NẾU (KIỂM_TRA_TỆP_TỒN_TẠI("settings/config.txt")) {
                     BIẾN CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
                     GHI_JSON_TỆP("settings/backup.json", CẤU_HÌNH)
                 }
@@ -881,10 +881,10 @@ class ScriptExecutionEngineTest {
                     TẠO_BẢN_ĐỒ("Authorization", "Bearer example-token"),
                     10000
                 )
-                BIẾN MÃ_TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
-                BIẾN NOI_DUNG: CHUỖI = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "NỘI_DUNG")
+                BIẾN MÃ_TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(PHẢN_HỒI, "TRẠNG_THÁI")
+                BIẾN NOI_DUNG: CHUỖI = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(PHẢN_HỒI, "NỘI_DUNG")
                 NẾU (MÃ_TRẠNG_THÁI == 200 VÀ CHỨA_CHUỖI(NOI_DUNG, "sẵn sàng")) {
-                    CHẠM(40, 50)
+                    NHẤN(40, 50)
                 }
                 """.trimIndent()
             )
@@ -910,7 +910,7 @@ class ScriptExecutionEngineTest {
                 BIẾN MỐC: SỐ = PHÂN_TÍCH_THỜI_GIAN_ISO("2026-11-20T14:30:00+07:00")
                 BIẾN NĂM: CHUỖI = ĐỊNH_DẠNG_THỜI_GIAN(MỐC, "yyyy")
                 NẾU (NĂM == "2026" VÀ ĐỘ_DÀI(THỜI_GIAN_ISO()) > 0) {
-                    CHẠM(40, 50)
+                    NHẤN(40, 50)
                 }
                 """.trimIndent()
             )
@@ -1051,8 +1051,8 @@ class ScriptExecutionEngineTest {
                         )
                     )
                 )
-                "MÀN_HÌNH_CHỨA_CHỮ" -> arguments.firstOrNull() == "Đăng nhập"
-                "TÌM_VỊ_TRÍ_CHỮ" -> listOf(100, 200)
+                "KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH" -> arguments.firstOrNull() == "Đăng nhập"
+                "TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ" -> listOf(100, 200)
                 "TÌM_THÀNH_PHẦN_VĂN_BẢN" -> arguments.firstOrNull() == "Đăng nhập"
                 "NHẤN_THÀNH_PHẦN_VĂN_BẢN" -> {
                     actions += "accessibilityClick:${arguments.firstOrNull()}"
@@ -1079,7 +1079,7 @@ class ScriptExecutionEngineTest {
                     actions += "writeFile:${arguments.firstOrNull()}=${arguments.getOrNull(1)}"
                     true
                 }
-                "TỆP_TỒN_TẠI" -> true
+                "KIỂM_TRA_TỆP_TỒN_TẠI" -> true
                 "XÓA_TỆP" -> true
                 "TẠO_THƯ_MỤC" -> true
                 "LIỆT_KÊ_TỆP" -> listOf("config.json", "state.txt")
@@ -1088,7 +1088,7 @@ class ScriptExecutionEngineTest {
                     actions += "writeJson:${arguments.firstOrNull()}"
                     true
                 }
-                else -> name == "CÓ_MẠNG"
+                else -> name == "KIỂM_TRA_KẾT_NỐI_MẠNG"
             }
         }
     }
@@ -1108,7 +1108,7 @@ class ScriptExecutionEngineTest {
                 BIẾN NOI_DUNG: CHUỖI = "OK"
                 NẾU (2 ^ 3 ^ 2 == 512 VÀ CO_THE_CHAY VÀ ĐỘ_DÀI(NOI_DUNG) == 2) {
                     MUC_TIEU = MUC_TIEU + 1
-                    CHẠM(MUC_TIEU, 40)
+                    NHẤN(MUC_TIEU, 40)
                 }
                 """.trimIndent()
             )
@@ -1151,7 +1151,7 @@ class ScriptExecutionEngineTest {
                     TRẢ_VỀ A + B
                 }
                 BIẾN KET_QUA: SỐ = TINH_TONG(10, 12)
-                CHẠM(KET_QUA, 30)
+                NHẤN(KET_QUA, 30)
                 """.trimIndent()
             )
             assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
@@ -1199,25 +1199,25 @@ class ScriptExecutionEngineTest {
                     TRẢ_VỀ V > 0
                 }
                 BIẾN GOC: DANH_SÁCH = TẠO_DANH_SÁCH(3, 1, 2)
-                BIẾN SAP_XEP: DANH_SÁCH = SẮP_XẾP(GOC)
-                BIẾN DAO_NGUOC: DANH_SÁCH = ĐẢO_NGƯỢC(GOC)
-                BIẾN LOC: DANH_SÁCH = LỌC(GOC, "LA_SO_DUONG")
+                BIẾN SAP_XEP: DANH_SÁCH = SẮP_XẾP_DANH_SÁCH(GOC)
+                BIẾN DAO_NGUOC: DANH_SÁCH = ĐẢO_NGƯỢC_DANH_SÁCH(GOC)
+                BIẾN LOC: DANH_SÁCH = LỌC_DANH_SÁCH(GOC, "LA_SO_DUONG")
                 BIẾN CAN: SỐ = CĂN_BẬC_HAI(81)
                 BIẾN XUONG: SỐ = LÀM_TRÒN_XUỐNG(3.9)
                 BIẾN LEN: SỐ = LÀM_TRÒN_LÊN(3.1)
-                BIẾN VI_TRI: SỐ = TÌM_VỊ_TRÍ("AUTU-LIO", "LIO")
-                BIẾN PHAN_TU: SỐ = TÌM_PHẦN_TỬ(GOC, 1)
+                BIẾN VI_TRI: SỐ = TÌM_VỊ_TRÍ_TRONG_CHUỖI("AUTU-LIO", "LIO")
+                BIẾN PHAN_TU: SỐ = TÌM_VỊ_TRÍ_TRONG_CHUỖI_PHẦN_TỬ_TRONG_DANH_SÁCH(GOC, 1)
                 BIẾN NGU_NHIEN: SỐ = SỐ_NGẪU_NHIÊN(2, 5)
                 BIẾN RONG: LUẬN_LÝ = KIỂM_TRA_RỖNG("   ")
                 NẾU (
-                    LẤY_PHẦN_TỬ(SAP_XEP, 0) == 1 VÀ
-                    LẤY_PHẦN_TỬ(DAO_NGUOC, 0) == 2 VÀ
+                    LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(SAP_XEP, 0) == 1 VÀ
+                    LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(DAO_NGUOC, 0) == 2 VÀ
                     ĐỘ_DÀI(LOC) == 3 VÀ
                     CAN == 9 VÀ XUONG == 3 VÀ LEN == 4 VÀ
                     VI_TRI == 5 VÀ PHAN_TU == 1 VÀ
                     NGU_NHIEN >= 2 VÀ NGU_NHIEN < 5 VÀ RONG
                 ) {
-                    CHẠM(10, 20)
+                    NHẤN(10, 20)
                 }
                 """.trimIndent()
             )
