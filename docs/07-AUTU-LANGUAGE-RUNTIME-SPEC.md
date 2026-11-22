@@ -62,7 +62,7 @@ Lệnh cử chỉ chạy qua Android AccessibilityService. Lệnh hệ thống c
 
 Toán học/chuỗi: `SỐ`, `CHUỖI`, `LÀM_TRÒN`, `TUYỆT_ĐỐI`, `ĐỘ_DÀI`, `NHỎ_NHẤT`, `LỚN_NHẤT`.
 
-Thiết bị: `LẤY_PHẦN_TRĂM_PIN`, `KIỂM_TRA_ĐANG_SẠC`, `KIỂM_TRA_KẾT_NỐI_MẠNG`, `KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG`, `KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI`, `KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ`, `LẤY_ÂM_LƯỢNG`, `LẤY_ĐỘ_SÁNG`, `CHIỀU_RỘNG_MÀN_HÌNH`, `CHIỀU_CAO_MÀN_HÌNH`, `THỜI_GIAN_MS`.
+Thiết bị: `LẤY_PHẦN_TRĂM_PIN`, `KIỂM_TRA_ĐANG_SẠC`, `KIỂM_TRA_KẾT_NỐI_MẠNG`, `KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG`, `KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI`, `KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ`, `LẤY_ÂM_LƯỢNG`, `LẤY_ĐỘ_SÁNG`, `LẤY_CHIỀU_RỘNG_MÀN_HÌNH`, `LẤY_CHIỀU_CAO_MÀN_HÌNH`, `LẤY_THỜI_GIAN_MS`.
 
 ## 6. Những phần chưa triển khai
 
