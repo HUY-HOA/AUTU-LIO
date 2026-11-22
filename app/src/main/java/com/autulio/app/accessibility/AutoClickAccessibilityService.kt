@@ -754,7 +754,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
                 keyguard.isDeviceSecure
             }
-            "LẤY_PHẦN_TRĂM_PIN", "LẤY_PHẦN_TRĂM_PIN" -> batteryPercent()
+            "LẤY_PHẦN_TRĂM_PIN" -> batteryPercent()
             "KIỂM_TRA_ĐANG_SẠC" -> isCharging()
             "KIỂM_TRA_KẾT_NỐI_MẠNG" -> hasNetworkConnection()
             "KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG" -> {
@@ -984,7 +984,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             "KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 1)
                 val query = arguments[0] as? String
-                    ?: throw IllegalArgumentException("MÀN_HÌNH_CHỨA_CHỮ cần một chuỗi.")
+                    ?: throw IllegalArgumentException("KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH cần một chuỗi.")
                 readScreenTextItems().any { it.text.contains(query, ignoreCase = true) }
             }
             "TÌM_VỊ_TRÍ_CHỮ" -> {
