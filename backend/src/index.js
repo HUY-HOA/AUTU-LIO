@@ -466,7 +466,11 @@ async function listAdminCustomers(request, env, session) {
     "l.id AS license_id, l.plan_code, l.status AS license_status, l.starts_at, l.expires_at, l.max_devices, " +
     "CASE WHEN l.id IS NULL THEN NULL WHEN l.status <> 'ACTIVE' THEN l.status WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_license_status, " +
     "(SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE') AS active_device_count, " +
+    "(SELECT MAX(d.presence_seen_at) FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE') AS presence_seen_at, " +
+    "(SELECT MAX(d.app_foreground_at) FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE') AS app_foreground_at, " +
+    "(SELECT d.runtime_state FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE' ORDER BY d.presence_seen_at DESC, d.registered_at DESC LIMIT 1) AS runtime_state, " +
     "(SELECT metadata_json FROM audit_logs a WHERE a.actor_user_id = u.id AND a.action = 'auth.google_sign_in' ORDER BY a.created_at DESC LIMIT 1) AS latest_sign_in_metadata_json, " +
+
     "(SELECT created_at FROM audit_logs a WHERE a.actor_user_id = u.id AND a.action = 'auth.google_sign_in' ORDER BY a.created_at DESC LIMIT 1) AS latest_sign_in_at " +
     "FROM users u LEFT JOIN licenses l ON l.id = (SELECT latest.id FROM licenses latest WHERE latest.user_id = u.id ORDER BY latest.created_at DESC, latest.rowid DESC LIMIT 1) " +
     "WHERE u.role = 'CUSTOMER' ORDER BY u.created_at DESC"
@@ -689,7 +693,7 @@ async function listAdminDevices(request, env, session) {
   const result = await env.DB.prepare(
     "SELECT d.id, d.user_id, u.email, u.display_name, u.status AS customer_status, " +
     "d.label, d.manufacturer, d.model, d.android_version, d.app_version, d.status, d.revoked_reason, " +
-    "d.registered_at, d.last_seen_at, d.revoked_at, l.status AS raw_license_status, l.starts_at AS license_starts_at, " +
+    "d.registered_at, d.last_seen_at, d.presence_seen_at, d.app_foreground_at, d.runtime_state, d.revoked_at, l.status AS raw_license_status, l.starts_at AS license_starts_at, " +
     "l.expires_at AS license_expires_at, l.max_devices, " +
     "CASE WHEN l.id IS NULL THEN NULL WHEN l.status <> 'ACTIVE' THEN l.status WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS license_status, " +
     "(SELECT COUNT(*) FROM devices active WHERE active.user_id = d.user_id AND active.status = 'ACTIVE') AS active_device_count " +
@@ -1391,6 +1395,63 @@ async function updateAdminPackage(request, env, session, packageId) {
   return response(request, { updated: true, packageId, status }, 200, env);
 }
 
+async function reportCustomerPresence(request, env, session) {
+  await requireRole(session, ["CUSTOMER"]);
+  const body = await readBody(request, 4_000);
+  const fingerprint = typeof body.deviceFingerprint === "string"
+    ? body.deviceFingerprint.trim().toLowerCase()
+    : "";
+  if (!/^[a-f0-9]{64}$/.test(fingerprint)) {
+    throw new HttpError(400, "invalid_device_fingerprint", "A registered device fingerprint is required.");
+  }
+
+  const appForeground = body.appForeground === true;
+  const runtimeState = typeof body.runtimeState === "string"
+    ? body.runtimeState.trim().toUpperCase()
+    : "UNKNOWN";
+  const allowedRuntimeStates = new Set(["UNKNOWN", "RUNNING", "PAUSED", "STOPPED"]);
+  if (!allowedRuntimeStates.has(runtimeState)) {
+    throw new HttpError(400, "invalid_runtime_state", "The AUTU runtime state is invalid.");
+  }
+  if (!appForeground && runtimeState !== "RUNNING" && runtimeState !== "PAUSED") {
+    throw new HttpError(400, "invalid_presence_report", "Background presence is accepted only while AUTU is running or paused.");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const license = await getActiveLicense(env, session.user_id, now);
+  if (!license) {
+    throw new HttpError(403, "active_license_required", "An active license is required to report app presence.");
+  }
+  const device = await env.DB.prepare(
+    "SELECT id FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'"
+  ).bind(session.user_id, fingerprint).first();
+  if (!device) {
+    throw new HttpError(403, "active_device_required", "This device is not registered or has been revoked.");
+  }
+
+  const updated = await env.DB.prepare(
+    "UPDATE devices SET presence_seen_at = ?, " +
+    "app_foreground_at = CASE WHEN ? = 1 THEN ? ELSE app_foreground_at END, " +
+    "runtime_state = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
+  ).bind(
+    now,
+    appForeground ? 1 : 0,
+    now,
+    runtimeState,
+    device.id,
+    session.user_id
+  ).run();
+  if (updated.meta?.changes !== 1) {
+    throw new HttpError(409, "presence_update_conflict", "The registered device changed while reporting presence.");
+  }
+  return response(request, {
+    updated: true,
+    presenceSeenAt: now,
+    appForegroundAt: appForeground ? now : null,
+    runtimeState
+  }, 200, env);
+}
+
 async function listCustomerPackages(request, env, session) {
   await requireRole(session, ["CUSTOMER"]);
   const now = Math.floor(Date.now() / 1000);
@@ -1521,6 +1582,9 @@ async function route(request, env) {
 
   if (method === "GET" && path === "/api/customer/account") {
     return await getCustomerAccount(request, env, session);
+  }
+  if (method === "POST" && path === "/api/customer/presence") {
+    return await reportCustomerPresence(request, env, session);
   }
   if (method === "GET" && path === "/api/customer/packages") {
     return await listCustomerPackages(request, env, session);
