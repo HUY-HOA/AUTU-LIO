@@ -393,19 +393,24 @@ async function googleLogin(request, env) {
     deviceInfo
   });
   const latestSignIn = { createdAt: now, deviceLabel, googleProfile, deviceInfo };
+  const responseUser = {
+    id: user.id,
+    email: user.email,
+    displayName: user.display_name,
+    role: user.role
+  };
+  if (user.role === "OWNER") {
+    Object.assign(responseUser, {
+      googleSub: identity.sub,
+      emailVerified: identity.emailVerified,
+      latestSignIn
+    });
+  }
   return response(request, {
     accessToken: rawSession,
     tokenType: "Bearer",
     expiresAt,
-    user: {
-      id: user.id,
-      email: user.email,
-      displayName: user.display_name,
-      role: user.role,
-      googleSub: identity.sub,
-      emailVerified: identity.emailVerified,
-      latestSignIn
-    }
+    user: responseUser
   }, 200, env);
 }
 
@@ -756,7 +761,7 @@ async function getCustomerAccount(request, env, session) {
     "WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1"
   ).bind(session.user_id).first();
   const result = await env.DB.prepare(
-    "SELECT id, label, manufacturer, model, android_version, app_version, status, revoked_at, revoked_reason, registered_at, last_seen_at " +
+    "SELECT id, status, revoked_reason " +
     "FROM devices WHERE user_id = ? ORDER BY registered_at DESC"
   ).bind(session.user_id).all();
 
@@ -771,12 +776,7 @@ async function getCustomerAccount(request, env, session) {
     account: {
       id: session.user_id,
       email: session.email,
-      displayName: session.display_name,
-      googleSub: session.google_sub,
-      emailVerified: Number(session.email_verified) === 1,
-      createdAt: session.created_at,
-      lastLoginAt: session.last_login_at,
-      latestSignIn: await latestSignInDetails(env, session.user_id)
+      displayName: session.display_name
     },
     license: license ? { ...license, effective_status: licenseState } : null,
     devices: result.results || [],
@@ -1497,18 +1497,23 @@ async function route(request, env) {
   const session = await getSession(request, env);
 
   if (method === "GET" && path === "/api/auth/me") {
-    return response(request, {
-      user: {
-        id: session.user_id,
-        email: session.email,
-        displayName: session.display_name,
-        role: session.role,
+    const user = {
+      id: session.user_id,
+      email: session.email,
+      displayName: session.display_name,
+      role: session.role
+    };
+    if (session.role === "OWNER") {
+      Object.assign(user, {
         googleSub: session.google_sub,
         emailVerified: Number(session.email_verified) === 1,
         createdAt: session.created_at,
         lastLoginAt: session.last_login_at,
         latestSignIn: await latestSignInDetails(env, session.user_id)
-      },
+      });
+    }
+    return response(request, {
+      user,
       session: { expiresAt: session.expires_at }
     }, 200, env);
   }
