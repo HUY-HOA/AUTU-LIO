@@ -27,6 +27,31 @@ class EditorGuideCatalogTest {
     }
 
     @Test
+    fun systemCommandsHaveTheirOwnCategorySeparateFromGestures() {
+        val system = EditorGuideCatalog.sections.first { it.id == "system" }
+        val gestures = EditorGuideCatalog.sections.first { it.id == "gestures" }
+        val systemNames = system.commands.map { it.syntax }
+
+        assertTrue(systemNames.any { it.startsWith("QUAY_LẠI") })
+        assertTrue(systemNames.any { it.startsWith("VỀ_MÀN_HÌNH_CHÍNH") })
+        assertTrue(systemNames.any { it.startsWith("MỞ_THANH_THÔNG_BÁO") })
+        assertFalse(gestures.commands.any { it.syntax.startsWith("QUAY_LẠI") })
+        assertFalse(gestures.commands.any { it.syntax.startsWith("VỀ_MÀN_HÌNH_CHÍNH") })
+    }
+
+    @Test
+    fun guideCommandEntriesAreSearchableAndNotDuplicated() {
+        val entries = EditorGuideCatalog.sections.flatMap { section ->
+            section.commands.map { section.id to it.syntax }
+        }
+        val syntax = entries.map { it.second }
+
+        assertTrue(EditorGuideCatalog.sections.any { it.id == "ocr" })
+        assertTrue(EditorGuideCatalog.sections.any { it.id == "database" })
+        assertEquals(syntax.size, syntax.distinct().size)
+    }
+
+    @Test
     fun templatesExposeUniqueNamesAndValidSource() {
         val identifiers = com.autulio.app.script.ScriptTemplateCatalog.templates.map { it.id }
         assertEquals(identifiers.size, identifiers.distinct().size)
