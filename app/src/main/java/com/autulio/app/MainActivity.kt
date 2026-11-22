@@ -198,8 +198,8 @@ private fun RolePreviewChooser(
         }
     }
 }
-@Suppress("UNUSED_PARAMETER")
-internal fun tr(vi: String, en: String): String = vi
+internal fun tr(vi: String, en: String): String =
+    if (Locale.getDefault().language.equals("vi", ignoreCase = true)) vi else en
 
 internal fun localizedErrorMessage(error: Throwable?, fallback: String): String {
     val message = error?.message?.trim().orEmpty()
