@@ -109,7 +109,7 @@ class ScriptFilePickerActivity : ComponentActivity() {
                 imported.relativePath.substringAfterLast('/')
             )
         } catch (error: Exception) {
-            ScriptFilePickerResult.Failed(error.localizedMessage ?: "Không nhập được tệp đã chọn.")
+            ScriptFilePickerResult.Failed(localizedErrorMessage(error, "Không nhập được tệp đã chọn."))
         }
         complete(result)
         finish()
@@ -128,7 +128,7 @@ class ScriptFilePickerActivity : ComponentActivity() {
                 ?: throw java.io.IOException("Không mở được vị trí lưu đã chọn.")
             ScriptFilePickerResult.Exported(bytes)
         } catch (error: Exception) {
-            ScriptFilePickerResult.Failed(error.localizedMessage ?: "Không xuất được tệp.")
+            ScriptFilePickerResult.Failed(localizedErrorMessage(error, "Không xuất được tệp."))
         }
         complete(result)
         finish()
