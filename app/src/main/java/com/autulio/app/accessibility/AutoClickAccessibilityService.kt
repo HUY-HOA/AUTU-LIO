@@ -2081,14 +2081,14 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val systemIsDark =
             (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val useDarkTheme = UiThemePreferences.load(this).isDark(systemIsDark)
-        val windowBackgroundColor = if (useDarkTheme) 0xE8000000.toInt() else 0xF5F0F0EC.toInt()
-        val windowBorderColor = if (useDarkTheme) 0x66555555 else 0x88777971.toInt()
+        val windowBackgroundColor = if (useDarkTheme) 0xFF000000.toInt() else 0xF5E9E9E4.toInt()
+        val windowBorderColor = if (useDarkTheme) 0x66505050 else 0x88706F67.toInt()
         val primaryTextColor = if (useDarkTheme) 0xFFF2F2F2.toInt() else 0xFF20211F.toInt()
-        val buttonBackgroundColor = if (useDarkTheme) 0xF0191919.toInt() else 0xFFF8F8F4.toInt()
-        val buttonBorderColor = if (useDarkTheme) 0x80555555.toInt() else 0x88777971.toInt()
-        val editorBackgroundColor = if (useDarkTheme) 0xFF050505.toInt() else 0xFFF8F8F4.toInt()
+        val buttonBackgroundColor = if (useDarkTheme) 0xFF121212.toInt() else 0xFFF2F2ED.toInt()
+        val buttonBorderColor = if (useDarkTheme) 0x80707070.toInt() else 0x88706F67.toInt()
+        val editorBackgroundColor = if (useDarkTheme) 0xFF000000.toInt() else 0xFFF2F2ED.toInt()
         val editorTextColor = if (useDarkTheme) 0xFFF2F2F2.toInt() else 0xFF20211F.toInt()
-        val editorHintColor = if (useDarkTheme) 0xFF999999.toInt() else 0xFF74756F.toInt()
+        val editorHintColor = if (useDarkTheme) 0xFF999999.toInt() else 0xFF777870.toInt()
         val floatingPreferences = getSharedPreferences(
             "autu_lio_floating_window",
             MODE_PRIVATE
