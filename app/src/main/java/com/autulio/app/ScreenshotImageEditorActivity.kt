@@ -597,9 +597,6 @@ private fun ScreenshotImageEditorScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = "Quay lại")
-            }
             Column(Modifier.weight(1f)) {
                 Text("Chỉnh sửa ảnh", fontWeight = FontWeight.Bold, fontSize = 19.sp)
                 Text(
