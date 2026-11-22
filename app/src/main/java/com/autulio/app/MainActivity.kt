@@ -656,7 +656,24 @@ private fun EditorScreen(
     var templateDetailId by rememberSaveable { mutableStateOf<String?>(null) }
     var guideSectionDetailId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTemplate = ScriptTemplateCatalog.templates.firstOrNull { it.id == templateDetailId }
-    val selectedGuideSection = EditorGuideCatalog.sections.firstOrNull { it.id == guideSectionDetailId }
+    val selectedGuideSection = EditorGuideCatalog.sections
+        .firstOrNull { it.id == guideSectionDetailId }
+        ?.let { section ->
+            val query = guideSearch.trim()
+            val categoryMatches = section.title.contains(query, ignoreCase = true) ||
+                section.summary.contains(query, ignoreCase = true)
+            if (query.isBlank() || categoryMatches) {
+                section
+            } else {
+                section.copy(
+                    commands = section.commands.filter { command ->
+                        command.syntax.contains(query, ignoreCase = true) ||
+                            command.description.contains(query, ignoreCase = true) ||
+                            command.example.orEmpty().contains(query, ignoreCase = true)
+                    }
+                )
+            }
+        }
 
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
