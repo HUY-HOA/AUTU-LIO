@@ -1646,7 +1646,7 @@ test("customer app foreground heartbeat stores presence and runtime state on the
   assert.ok(operations.some(operation =>
     operation.sql.includes("UPDATE devices SET presence_seen_at = ?") &&
     operation.sql.includes("app_foreground_at = CASE") &&
-    operation.values[4] === "STOPPED"
+    operation.values[3] === "STOPPED"
   ));
 });
 
