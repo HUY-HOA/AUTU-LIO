@@ -205,9 +205,6 @@ private fun ScreenshotCropScreen(
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = "Quay lại")
-            }
             Column(Modifier.weight(1f)) {
                 Text("Cắt ảnh chụp", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                 Text(
