@@ -11,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -205,14 +204,9 @@ private fun AuthScreen(
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontSize = 34.sp,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp,
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF5B8CFF),
-                                Color(0xFF35C6C8)
-                            )
-                        )
+                        letterSpacing = 2.sp
                     ),
+                    color = Color(0xFF5B8CFF),
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(12.dp))
@@ -220,12 +214,12 @@ private fun AuthScreen(
                     val w = size.width
                     val h = size.height
                     val brackets = Path().apply {
-                        moveTo(w * 0.36f, h * 0.23f)
-                        lineTo(w * 0.15f, h * 0.5f)
-                        lineTo(w * 0.36f, h * 0.77f)
-                        moveTo(w * 0.64f, h * 0.23f)
-                        lineTo(w * 0.85f, h * 0.5f)
-                        lineTo(w * 0.64f, h * 0.77f)
+                        moveTo(w * 0.30f, h * 0.23f)
+                        lineTo(w * 0.12f, h * 0.5f)
+                        lineTo(w * 0.30f, h * 0.77f)
+                        moveTo(w * 0.70f, h * 0.23f)
+                        lineTo(w * 0.88f, h * 0.5f)
+                        lineTo(w * 0.70f, h * 0.77f)
                     }
                     drawPath(
                         path = brackets,
@@ -237,12 +231,12 @@ private fun AuthScreen(
                         )
                     )
                     val lightning = Path().apply {
-                        moveTo(w * 0.56f, h * 0.27f)
-                        lineTo(w * 0.41f, h * 0.52f)
-                        lineTo(w * 0.51f, h * 0.52f)
-                        lineTo(w * 0.45f, h * 0.73f)
-                        lineTo(w * 0.68f, h * 0.45f)
-                        lineTo(w * 0.57f, h * 0.45f)
+                        moveTo(w * 0.56f, h * 0.14f)
+                        lineTo(w * 0.37f, h * 0.53f)
+                        lineTo(w * 0.50f, h * 0.53f)
+                        lineTo(w * 0.44f, h * 0.86f)
+                        lineTo(w * 0.66f, h * 0.43f)
+                        lineTo(w * 0.53f, h * 0.43f)
                         close()
                     }
                     drawPath(path = lightning, color = Color(0xFF35C6C8))
