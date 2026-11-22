@@ -1,6 +1,8 @@
 package com.autulio.app.auth
 
 import android.app.Activity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -120,6 +122,32 @@ internal fun AuthenticatedAppHost() {
                     user = null
                 }
             }
+        }
+    }
+
+    // Record only a minimal heartbeat while the customer app is in the foreground.
+    // When the app is backgrounded, the accessibility service reports presence only
+    // while an AUTU script is actively running or paused.
+    LaunchedEffect(accessToken, user?.role) {
+        val token = accessToken ?: return@LaunchedEffect
+        if (user?.role != AccessRole.CUSTOMER) return@LaunchedEffect
+        val lifecycle = (activity as? LifecycleOwner)?.lifecycle ?: return@LaunchedEffect
+        val identity = runCatching {
+            SecureDeviceIdentityStore(context).getExistingIdentity()
+        }.getOrNull() ?: return@LaunchedEffect
+
+        while (true) {
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                runCatching {
+                    repository.reportCustomerPresence(
+                        accessToken = token,
+                        deviceFingerprint = identity.fingerprintSha256,
+                        appForeground = true,
+                        runtimeState = AutoClickAccessibilityService.currentRuntimePresenceState()
+                    )
+                }
+            }
+            delay(45_000)
         }
     }
 
