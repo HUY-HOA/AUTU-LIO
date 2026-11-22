@@ -104,6 +104,10 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+                        GoogleSignInDetailsCard(
+                            details = customer.googleSignIn,
+                            title = tr("Dữ liệu Google và lần đăng nhập gần nhất", "Google data and most recent sign-in")
+                        )
                         Text(
                             tr("Thiết bị đang dùng: ${customer.activeDeviceCount}", "Active devices: ${customer.activeDeviceCount}"),
                             fontSize = 12.sp,
