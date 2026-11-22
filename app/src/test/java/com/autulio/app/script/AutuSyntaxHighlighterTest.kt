@@ -32,7 +32,7 @@ NẾU (DEM > 0) {
 
     @Test
     fun preservesSourceTextAndCursorOffsets() {
-        val source = "BIẾN A = 1\\nCHẠM(A, 2)"
+        val source = "BIẾN A = 1\nCHẠM(A, 2)"
         val transformed = AutuSyntaxHighlighter.filter(AnnotatedString(source))
 
         assertEquals(source, transformed.text.text)
