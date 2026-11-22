@@ -429,6 +429,9 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
     AppTheme(dark = LocalUiThemeMode.current.isDark(isSystemInDarkTheme())) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                CustomerLicenseCountdownBar(accessToken = accessToken)
+            },
             bottomBar = {
                 NavigationBar {
                     customerTabs.forEach { tab ->
