@@ -442,6 +442,8 @@ internal fun CustomerDeviceLicenseScreen(
             if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
             if (notice.isNotBlank()) Text(notice, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
             account?.let { current ->
+                val currentDeviceLimit = current.license?.let { "${current.activeDeviceCount}/${it.maxDevices}" }
+                    ?: tr("Chưa có giấy phép", "No license")
                 CardBox {
                     Text(current.displayName ?: current.email, fontWeight = FontWeight.SemiBold)
                     Text(current.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -469,7 +471,7 @@ internal fun CustomerDeviceLicenseScreen(
                     GoogleSignInDetailsButton(current.googleSignIn)
                 }
                 Text(
-                    tr("Thiết bị đã đăng ký · ${current.activeDeviceCount}/${current.license?.maxDevices ?: 0}", "Registered devices · ${current.activeDeviceCount}/${current.license?.maxDevices ?: 0}"),
+                    tr("Thiết bị đã đăng ký · $currentDeviceLimit", "Registered devices · $currentDeviceLimit"),
                     fontWeight = FontWeight.SemiBold
                 )
                 if (current.devices.isEmpty()) {
@@ -511,6 +513,20 @@ internal fun CustomerDeviceLicenseScreen(
                             }
                         }
                     }
+                }
+                if (
+                    !current.canRegisterDevice &&
+                    current.license?.effectiveStatus == "ACTIVE" &&
+                    current.activeDeviceCount >= current.license.maxDevices
+                ) {
+                    Text(
+                        tr(
+                            "Đã dùng hết giới hạn thiết bị. Gỡ một thiết bị cũ để giải phóng chỗ hoặc liên hệ chủ ứng dụng để tăng giới hạn.",
+                            "The device limit is full. Remove an old device to free a slot or contact the app owner to increase the limit."
+                        ),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 if (current.canRegisterDevice) {
                     Button(onClick = { showRegistrationConsent = true }, modifier = Modifier.fillMaxWidth(), enabled = !registering) {
