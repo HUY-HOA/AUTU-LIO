@@ -8,19 +8,20 @@ import org.junit.Test
 class ScriptCompilerTest {
 
     @Test
-    fun acceptsLegacyVariableAndFunctionKeywordsForSavedScripts() {
-        val result = ScriptCompiler.compile(
+    fun rejectsLegacyVariableAndFunctionKeywords() {
+        val legacyVariable = ScriptCompiler.compile("ĐẶT SO_LAN: SỐ = 2")
+        val legacyFunction = ScriptCompiler.compile(
             """
-            ĐẶT SO_LAN: SỐ = 2
             ĐỊNH_NGHĨA_HÀM TINH_DOI(A: SỐ): SỐ {
                 TRẢ_VỀ A * 2
             }
-            BIẾN KET_QUA: SỐ = TINH_DOI(SO_LAN)
-            CHẠM(KET_QUA, 20)
+            CHẠM(1, 2)
             """.trimIndent()
         )
-        assertTrue(result.diagnostics.toString(), result.isSuccess)
-        assertEquals(ScriptCompiler.LANGUAGE_VERSION, result.program?.languageVersion)
+        assertFalse(legacyVariable.isSuccess)
+        assertFalse(legacyFunction.isSuccess)
+        assertEquals("unknown_command", legacyVariable.diagnostics.first().code)
+        assertEquals("unknown_command", legacyFunction.diagnostics.first().code)
     }
 
     @Test
@@ -135,10 +136,8 @@ class ScriptCompilerTest {
         assertEquals(null, english.program)
 
         val supportedActions = listOf(
-            "ỨNG_DỤNG_GẦN_ĐÂY()", "MỞ_THÔNG_BÁO()", "MỞ_CÀI_ĐẶT_NHANH()",
-            "HIỆN_MENU_NGUỒN()", "KHÓA_MÀN_HÌNH()", "CHIA_MÀN_HÌNH()",
-            "ỨNG_DỤNG_GẦN_ĐÂY()", "MỞ_THÔNG_BÁO()", "MỞ_CÀI_ĐẶT_NHANH()",
-            "HIỆN_MENU_NGUỒN()", "KHÓA_MÀN_HÌNH()", "CHIA_MÀN_HÌNH()"
+            "MỞ_ỨNG_DỤNG_GẦN_ĐÂY()", "MỞ_THANH_THÔNG_BÁO()", "MỞ_BẢNG_CÀI_ĐẶT_NHANH()",
+            "MỞ_HỘP_THOẠI_NGUỒN()", "KHÓA_MÀN_HÌNH()", "BẬT_TẮT_CHIA_MÀN_HÌNH()"
         )
         supportedActions.forEach { source ->
             val result = ScriptCompiler.compile(source)
@@ -147,18 +146,13 @@ class ScriptCompilerTest {
     }
 
     @Test
-    fun normalizesRenamedAndroidCommandsAndKeepsLegacyAliases() {
+    fun acceptsCanonicalAndroidCommandNamesOnly() {
         val source = """
             MỞ_ỨNG_DỤNG_GẦN_ĐÂY()
             MỞ_THANH_THÔNG_BÁO()
             MỞ_BẢNG_CÀI_ĐẶT_NHANH()
             MỞ_HỘP_THOẠI_NGUỒN()
             BẬT_TẮT_CHIA_MÀN_HÌNH()
-            ỨNG_DỤNG_GẦN_ĐÂY()
-            MỞ_THÔNG_BÁO()
-            MỞ_CÀI_ĐẶT_NHANH()
-            HIỆN_MENU_NGUỒN()
-            CHIA_MÀN_HÌNH()
         """.trimIndent()
         val result = ScriptCompiler.compile(source)
         assertTrue(result.diagnostics.toString(), result.isSuccess)
@@ -167,11 +161,6 @@ class ScriptCompilerTest {
             .map { it.name }
         assertEquals(
             listOf(
-                "MỞ_ỨNG_DỤNG_GẦN_ĐÂY",
-                "MỞ_THANH_THÔNG_BÁO",
-                "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
-                "MỞ_HỘP_THOẠI_NGUỒN",
-                "BẬT_TẮT_CHIA_MÀN_HÌNH",
                 "MỞ_ỨNG_DỤNG_GẦN_ĐÂY",
                 "MỞ_THANH_THÔNG_BÁO",
                 "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
@@ -198,7 +187,7 @@ class ScriptCompilerTest {
 
         assertEquals("argument_count", back.diagnostics.first().code)
         assertEquals("argument_count", home.diagnostics.first().code)
-        val recents = ScriptCompiler.compile("ỨNG_DỤNG_GẦN_ĐÂY(1)")
+        val recents = ScriptCompiler.compile("MỞ_ỨNG_DỤNG_GẦN_ĐÂY(1)")
         val lock = ScriptCompiler.compile("KHÓA_MÀN_HÌNH(1)")
         assertEquals("argument_count", recents.diagnostics.first().code)
         assertEquals("argument_count", lock.diagnostics.first().code)
@@ -216,29 +205,29 @@ class ScriptCompilerTest {
             "MỞ_ỨNG_DỤNG(\"com.example.game\")",
             "QUAY_LẠI()",
             "VỀ_MÀN_HÌNH_CHÍNH()",
-            "ỨNG_DỤNG_GẦN_ĐÂY()",
-            "MỞ_THÔNG_BÁO()",
-            "MỞ_CÀI_ĐẶT_NHANH()",
-            "HIỆN_MENU_NGUỒN()",
+            "MỞ_ỨNG_DỤNG_GẦN_ĐÂY()",
+            "MỞ_THANH_THÔNG_BÁO()",
+            "MỞ_BẢNG_CÀI_ĐẶT_NHANH()",
+            "MỞ_HỘP_THOẠI_NGUỒN()",
             "KHÓA_MÀN_HÌNH()",
-            "CHIA_MÀN_HÌNH()"
+            "BẬT_TẮT_CHIA_MÀN_HÌNH()"
         )
         validCommands.forEach { source ->
             val result = ScriptCompiler.compile(source)
             assertTrue("$source: ${result.diagnostics}", result.isSuccess)
         }
 
-        val invalidCommands = listOf(
-            "ỨNG_DỤNG_GẦN_ĐÂY(1)",
-            "MỞ_THÔNG_BÁO(1)",
-            "MỞ_CÀI_ĐẶT_NHANH(1)",
-            "HIỆN_MENU_NGUỒN(1)",
-            "CHIA_MÀN_HÌNH(1)"
+        val legacyCommands = listOf(
+            "ỨNG_DỤNG_GẦN_ĐÂY()",
+            "MỞ_THÔNG_BÁO()",
+            "MỞ_CÀI_ĐẶT_NHANH()",
+            "HIỆN_MENU_NGUỒN()",
+            "CHIA_MÀN_HÌNH()"
         )
-        invalidCommands.forEach { source ->
+        legacyCommands.forEach { source ->
             val result = ScriptCompiler.compile(source)
             assertFalse(source, result.isSuccess)
-            assertEquals("argument_count", result.diagnostics.first().code)
+            assertEquals("unknown_command", result.diagnostics.first().code)
         }
     }
 

@@ -95,31 +95,6 @@ object ScriptCompiler {
     private const val INSTRUCTION_CAP = MAX_EXPANDED_INSTRUCTIONS + 1
     private const val DURATION_CAP = MAX_TOTAL_DURATION_MS + 1
 
-    // AUTU Script 1.0 chỉ chấp nhận lệnh tiếng Việt viết HOA, đúng dấu.
-    private val commandAliases = mapOf(
-        "CHẠM" to "CHẠM",
-        "NHẤN_GIỮ" to "NHẤN_GIỮ",
-        "VUỐT" to "VUỐT",
-        "CHẠM_ĐA_ĐIỂM" to "CHẠM_ĐA_ĐIỂM",
-        "VUỐT_ĐA_ĐIỂM" to "VUỐT_ĐA_ĐIỂM",
-        "CHỜ" to "CHỜ",
-        "MỞ_ỨNG_DỤNG" to "MỞ_ỨNG_DỤNG",
-        "QUAY_LẠI" to "QUAY_LẠI",
-        "VỀ_MÀN_HÌNH_CHÍNH" to "VỀ_MÀN_HÌNH_CHÍNH",
-        "MỞ_ỨNG_DỤNG_GẦN_ĐÂY" to "MỞ_ỨNG_DỤNG_GẦN_ĐÂY",
-        "MỞ_THANH_THÔNG_BÁO" to "MỞ_THANH_THÔNG_BÁO",
-        "MỞ_BẢNG_CÀI_ĐẶT_NHANH" to "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
-        "MỞ_HỘP_THOẠI_NGUỒN" to "MỞ_HỘP_THOẠI_NGUỒN",
-        "KHÓA_MÀN_HÌNH" to "KHÓA_MÀN_HÌNH",
-        "BẬT_TẮT_CHIA_MÀN_HÌNH" to "BẬT_TẮT_CHIA_MÀN_HÌNH",
-        // Bí danh cũ để bảo toàn các kịch bản đã lưu.
-        "ỨNG_DỤNG_GẦN_ĐÂY" to "MỞ_ỨNG_DỤNG_GẦN_ĐÂY",
-        "MỞ_THÔNG_BÁO" to "MỞ_THANH_THÔNG_BÁO",
-        "MỞ_CÀI_ĐẶT_NHANH" to "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
-        "HIỆN_MENU_NGUỒN" to "MỞ_HỘP_THOẠI_NGUỒN",
-        "CHIA_MÀN_HÌNH" to "BẬT_TẮT_CHIA_MÀN_HÌNH"
-    )
-
     private val commandArgumentCounts = mapOf(
         "CHẠM" to 2, "NHẤN_GIỮ" to 3, "VUỐT" to 5,
         "CHẠM_ĐA_ĐIỂM" to 2, "VUỐT_ĐA_ĐIỂM" to 2,
@@ -246,7 +221,7 @@ object ScriptCompiler {
 
     private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ")
     private val reservedWords = setOf(
-        "BIẾN", "ĐẶT", "HÀM", "ĐỊNH_NGHĨA_HÀM", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
+        "BIẾN", "HÀM", "NẾU", "NGƯỢC_LẠI_NẾU", "NGƯỢC_LẠI",
         "LẶP", "LẶP_KHI", "LẶP_ĐẾN_KHI", "LẶP_MỖI", "TRONG", "CHỜ_ĐẾN_KHI",
         "THOÁT_LẶP", "BỎ_QUA_LƯỢT", "TRẢ_VỀ", "THỬ", "BẮT_LỖI", "LUÔN_THỰC_HIỆN",
         "ĐÚNG", "SAI", "RỖNG", "VÀ", "HOẶC", "KHÔNG"
@@ -531,14 +506,14 @@ object ScriptCompiler {
             requireUppercaseIdentifier(name, "lệnh hoặc tên biến")
             val keyword = name.text
             return when (keyword) {
-                "BIẾN", "ĐẶT" -> parseVariableDeclaration(name)
+                "BIẾN" -> parseVariableDeclaration(name)
                 "NẾU" -> parseIf(name, depth, loopDepth)
                 "LẶP" -> parseRepeat(name, depth, loopDepth)
                 "LẶP_KHI" -> parseWhile(name, depth, loopDepth)
                 "LẶP_ĐẾN_KHI" -> parseUntil(name, depth, loopDepth)
                 "LẶP_MỖI" -> parseForEach(name, depth, loopDepth)
                 "CHỜ_ĐẾN_KHI" -> parseWaitUntil(name)
-                "HÀM", "ĐỊNH_NGHĨA_HÀM" -> parseFunctionDefinition(name, depth, loopDepth)
+                "HÀM" -> parseFunctionDefinition(name, depth, loopDepth)
                 "THỬ" -> parseTryCatch(name, depth, loopDepth)
                 "TRẢ_VỀ" -> {
                     if (!insideFunction) fail(name.line, name.column, "return_outside_function", "TRẢ_VỀ chỉ được dùng bên trong hàm.", "TRẢ_VỀ can only be used inside a function.")
@@ -594,7 +569,7 @@ object ScriptCompiler {
             }
             val functionName = expect(TokenType.IDENTIFIER, "expected_function_name", "Sau HÀM cần có tên hàm viết HOA.", "Expected an uppercase function name after HÀM.")
             requireUppercaseIdentifier(functionName, "tên hàm")
-            if (functionName.text in reservedWords || functionName.text in commandAliases || functionName.text in builtinFunctionArities) {
+            if (functionName.text in reservedWords || functionName.text in commandArgumentCounts || functionName.text in builtinFunctionArities) {
                 fail(functionName.line, functionName.column, "reserved_function_name", "Tên hàm bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Function name conflicts with a keyword, command or built-in function.")
             }
             if (!functionNames.add(functionName.text)) {
@@ -608,7 +583,7 @@ object ScriptCompiler {
                 while (true) {
                     val parameter = expect(TokenType.IDENTIFIER, "expected_parameter_name", "Tham số hàm phải có tên viết HOA.", "Function parameters must have uppercase names.")
                     requireUppercaseIdentifier(parameter, "tên tham số")
-                    if (parameter.text in reservedWords || parameter.text in commandAliases || builtinFunctionArities.containsKey(parameter.text)) {
+                    if (parameter.text in reservedWords || parameter.text in commandArgumentCounts || builtinFunctionArities.containsKey(parameter.text)) {
                         fail(parameter.line, parameter.column, "reserved_parameter_name", "Tên tham số bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Parameter name conflicts with a keyword, command or built-in function.")
                     }
                     if (!parameterNames.add(parameter.text)) {
@@ -655,7 +630,7 @@ object ScriptCompiler {
         private fun parseVariableDeclaration(name: Token): ScriptInstruction.SetVariable {
             val variable = expect(TokenType.IDENTIFIER, "expected_variable_name", "Sau BIẾN cần có tên biến viết HOA.", "Expected an uppercase variable name after BIẾN.")
             requireUppercaseIdentifier(variable, "tên biến")
-            if (variable.text in reservedWords || variable.text in commandAliases || variable.text in builtinFunctionArities) {
+            if (variable.text in reservedWords || variable.text in commandArgumentCounts || variable.text in builtinFunctionArities) {
                 fail(variable.line, variable.column, "reserved_identifier", "Tên biến trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Variable name conflicts with a keyword, command or built-in function.")
             }
             val declaredType = if (isSymbol(":")) {
@@ -710,7 +685,7 @@ object ScriptCompiler {
                 expectSymbol("(", "expected_catch_variable", "BẮT_LỖI cần biến lỗi trong dấu ngoặc.", "BẮT_LỖI requires an error variable in parentheses.")
                 val variable = expect(TokenType.IDENTIFIER, "expected_catch_variable", "Cần tên biến lỗi viết HOA.", "Expected an uppercase error variable.")
                 requireUppercaseIdentifier(variable, "biến lỗi")
-                if (variable.text in reservedWords || variable.text in commandAliases || builtinFunctionArities.containsKey(variable.text)) {
+                if (variable.text in reservedWords || variable.text in commandArgumentCounts || builtinFunctionArities.containsKey(variable.text)) {
                     fail(variable.line, variable.column, "reserved_catch_variable", "Tên biến lỗi bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "The error variable conflicts with a keyword, command or built-in function.")
                 }
                 expectSymbol(")", "expected_catch_parenthesis", "Thiếu ')' sau biến lỗi.", "Expected ')' after the error variable.")
@@ -775,7 +750,7 @@ object ScriptCompiler {
             expectSymbol("(", "expected_left_parenthesis", "Thiếu '(' sau LẶP_MỖI.", "Expected '(' after LẶP_MỖI.")
             val variable = expect(TokenType.IDENTIFIER, "expected_loop_variable", "Sau LẶP_MỖI cần tên biến viết HOA.", "Expected an uppercase loop variable after LẶP_MỖI.")
             requireUppercaseIdentifier(variable, "tên biến lặp")
-            if (variable.text in reservedWords || variable.text in commandAliases || builtinFunctionArities.containsKey(variable.text)) {
+            if (variable.text in reservedWords || variable.text in commandArgumentCounts || builtinFunctionArities.containsKey(variable.text)) {
                 fail(variable.line, variable.column, "reserved_loop_variable", "Tên biến lặp bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Loop variable conflicts with a keyword, command or built-in function.")
             }
             val inToken = expect(TokenType.IDENTIFIER, "expected_in_keyword", "Cần từ khóa TRONG giữa biến và danh sách.", "Expected TRONG between the loop variable and list.")
@@ -832,11 +807,10 @@ object ScriptCompiler {
         }
 
         private fun parseCommand(name: Token): ScriptInstruction.Command {
-            val command = commandAliases[name.text]
-                ?: fail(name.line, name.column, "unknown_command", "Không nhận ra lệnh '" + name.text + "'. AUTU Script 1.4 chỉ nhận lệnh tiếng Việt viết HOA và đúng dấu.", "Unknown command '" + name.text + "'. AUTU Script 1.4 accepts only uppercase Vietnamese commands with correct diacritics.")
-            val args = parseArguments()
+            val command = name.text
             val expected = commandArgumentCounts[command]
-                ?: fail(name.line, name.column, "unsupported_command", "Lệnh '$command' chưa được đăng ký tham số.", "Command '$command' has no registered argument signature.")
+                ?: fail(name.line, name.column, "unknown_command", "Không nhận ra lệnh '" + command + "'. AUTU Script 1.22 chỉ nhận tên lệnh tiếng Việt chuẩn, viết HOA và đúng dấu.", "Unknown command '" + command + "'. AUTU Script 1.22 accepts only canonical uppercase Vietnamese command names with correct diacritics.")
+            val args = parseArguments()
             if (args.size != expected) fail(name.line, name.column, "argument_count", "Lệnh '$command' cần đúng $expected tham số.", "'$command' requires exactly $expected arguments.")
             validateLiteralArguments(name, command, args)
             return ScriptInstruction.Command(command, args)
@@ -941,7 +915,7 @@ object ScriptCompiler {
             if (token.text == "SAI") return ScriptExpression.BooleanLiteral(false)
             if (token.text == "RỖNG") return ScriptExpression.NullLiteral
             requireUppercaseIdentifier(token, "tên biến hoặc hàm")
-            if (token.text in reservedWords || token.text in commandAliases) {
+            if (token.text in reservedWords || token.text in commandArgumentCounts) {
                 fail(token.line, token.column, "reserved_identifier", "Từ khóa hoặc lệnh không thể dùng làm biến/hàm.", "A keyword or command cannot be used as a variable/function.")
             }
             return if (isSymbol("(")) {
