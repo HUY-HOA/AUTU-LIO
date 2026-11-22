@@ -231,7 +231,7 @@ NHẤN(X, Y)
 BIẾN KHOẢNG_CÁCH: SỐ = DP_SANG_PIXEL(24)
 ```
 
-Dùng `MẬT_ĐỘ_MÀN_HÌNH()`, `DP_SANG_PIXEL(DP)`, `PIXEL_SANG_DP(PIXEL)`, `TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỶ_LỆ_X_THEO_TỌA_ĐỘ(X)` và `TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)`. Tỷ lệ 0–1 ánh xạ từ pixel đầu đến pixel cuối của màn hình. Từ phiên bản 1.22 có thêm `TỌA_ĐỘ_X_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỶ_LỆ_X_VÙNG_AN_TOÀN(X)` và `TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y)` để quy đổi trong vùng an toàn theo system bars/cutout mà Android xác định được. `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa hướng tự nhiên ROTATION_0 và hệ tọa độ logic hiện tại, bao gồm thiết bị có hướng gốc ngang. Tọa độ đầu vào và đầu ra của hai hàm này là pixel nguyên; chuyển đổi không tự thay tham số CHẠM/VUỐT.
+Dùng `LẤY_MẬT_ĐỘ_MÀN_HÌNH()`, `DP_SANG_PIXEL(DP)`, `PIXEL_SANG_DP(PIXEL)`, `TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỶ_LỆ_X_THEO_TỌA_ĐỘ(X)` và `TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)`. Tỷ lệ 0–1 ánh xạ từ pixel đầu đến pixel cuối của màn hình. Từ phiên bản 1.22 có thêm `TỌA_ĐỘ_X_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỶ_LỆ_X_VÙNG_AN_TOÀN(X)` và `TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y)` để quy đổi trong vùng an toàn theo system bars/cutout mà Android xác định được. `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa hướng tự nhiên ROTATION_0 và hệ tọa độ logic hiện tại, bao gồm thiết bị có hướng gốc ngang. Tọa độ đầu vào và đầu ra của hai hàm này là pixel nguyên; chuyển đổi không tự thay tham số CHẠM/VUỐT.
 
 ## 6. Lệnh thao tác Android đã nối runtime
 
@@ -303,19 +303,19 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG()` | 0 | Trạng thái tương tác của màn hình |
 | `KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI("tên.gói")` | 1 | Kiểm tra gói ứng dụng đã cài |
 | `KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ("tên.gói")` | 1 | Kiểm tra gói đang ở foreground |
-| `CHIỀU_RỘNG_MÀN_HÌNH()` | 0 | Chiều rộng pixel |
-| `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
-| `CHIỀU_RỘNG_DP()` / `CHIỀU_CAO_DP()` | 0 | Kích thước màn hình theo DP hiện tại |
-| `TỶ_LỆ_KHUNG_HÌNH()` | 0 | Tỷ lệ chiều rộng pixel / chiều cao pixel |
-| `HƯỚNG_MÀN_HÌNH()` | 0 | `NGANG`, `DỌC` hoặc `VUÔNG` |
-| `XOAY_MÀN_HÌNH()` | 0 | Chỉ số rotation Android 0–3 |
-| `GÓC_XOAY_MÀN_HÌNH()` | 0 | Góc xoay 0°, 90°, 180° hoặc 270° |
-| `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` | 0 | Package foreground gần nhất được gửi từ sự kiện Trợ năng |
-| `HÃNG_SẢN_XUẤT()` / `MẪU_THIẾT_BỊ()` | 0 | Nhà sản xuất và model thiết bị |
-| `PHIÊN_BẢN_ANDROID()` / `MỨC_API_ANDROID()` | 0 | Chuỗi phiên bản và mức API Android |
-| `MÀN_HÌNH_BỊ_KHÓA()` | 0 | ĐÚNG khi Keyguard đang khóa màn hình |
-| `THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()` | 0 | ĐÚNG nếu thiết bị có khóa bảo mật được cấu hình |
-| `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
+| `LẤY_CHIỀU_RỘNG_MÀN_HÌNH()` | 0 | Chiều rộng pixel |
+| `LẤY_CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
+| `LẤY_CHIỀU_RỘNG_DP()` / `LẤY_CHIỀU_CAO_DP()` | 0 | Kích thước màn hình theo DP hiện tại |
+| `LẤY_TỶ_LỆ_KHUNG_HÌNH()` | 0 | Tỷ lệ chiều rộng pixel / chiều cao pixel |
+| `LẤY_HƯỚNG_MÀN_HÌNH()` | 0 | `NGANG`, `DỌC` hoặc `VUÔNG` |
+| `LẤY_XOAY_MÀN_HÌNH()` | 0 | Chỉ số rotation Android 0–3 |
+| `LẤY_GÓC_LẤY_XOAY_MÀN_HÌNH()` | 0 | Góc xoay 0°, 90°, 180° hoặc 270° |
+| `LẤY_GÓI_ỨNG_DỤNG_ĐANG_MỞ()` | 0 | Package foreground gần nhất được gửi từ sự kiện Trợ năng |
+| `LẤY_HÃNG_SẢN_XUẤT()` / `LẤY_MẪU_THIẾT_BỊ()` | 0 | Nhà sản xuất và model thiết bị |
+| `LẤY_PHIÊN_BẢN_ANDROID()` / `LẤY_MỨC_API_ANDROID()` | 0 | Chuỗi phiên bản và mức API Android |
+| `KIỂM_TRA_MÀN_HÌNH_BỊ_KHÓA()` | 0 | ĐÚNG khi Keyguard đang khóa màn hình |
+| `KIỂM_TRA_THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()` | 0 | ĐÚNG nếu thiết bị có khóa bảo mật được cấu hình |
+| `LẤY_THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
 
 Thông tin hãng/model, phiên bản Android và trạng thái Keyguard được đọc cục bộ tại thiết bị, không gửi lên máy chủ. Các hàm Keyguard chỉ đọc trạng thái, không mở khóa hoặc thay đổi thiết lập bảo mật. Các hàm DP dùng density hiện tại; tỷ lệ khung hình và hướng được suy ra từ kích thước pixel thực. Chỉ số xoay 0–3 là rotation Android, góc xoay là 0°/90°/180°/270°. Package foreground chỉ có khi AccessibilityService nhận được sự kiện cửa sổ, nên có thể rỗng khi dịch vụ chưa bật hoặc chưa nhận sự kiện.
  
