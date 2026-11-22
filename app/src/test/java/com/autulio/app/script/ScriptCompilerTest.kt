@@ -565,7 +565,7 @@ class ScriptCompilerTest {
             BIẾN HƯỚNG: CHUỖI = HƯỚNG_MÀN_HÌNH()
             BIẾN XOAY: SỐ = XOAY_MÀN_HÌNH()
             BIẾN GÓC_XOAY: SỐ = GÓC_XOAY_MÀN_HÌNH()
-            BIẾN GÓI: CHUỖI = GÓI_KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ()
+            BIẾN GÓI: CHUỖI = GÓI_ỨNG_DỤNG_ĐANG_MỞ()
             """.trimIndent()
         )
 
@@ -577,7 +577,7 @@ class ScriptCompilerTest {
     fun rejectsArgumentsForDisplayOrientationAndForegroundAppBuiltins() {
         val width = ScriptCompiler.compile("BIẾN RỘNG = CHIỀU_RỘNG_DP(1)")
         val orientation = ScriptCompiler.compile("BIẾN HƯỚNG = HƯỚNG_MÀN_HÌNH(1)")
-        val foreground = ScriptCompiler.compile("BIẾN GÓI = GÓI_KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ(1)")
+        val foreground = ScriptCompiler.compile("BIẾN GÓI = GÓI_ỨNG_DỤNG_ĐANG_MỞ(1)")
 
         assertEquals("function_argument_count", width.diagnostics.first().code)
         assertEquals("function_argument_count", orientation.diagnostics.first().code)
