@@ -47,6 +47,7 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.SecureScriptDraftStore
+import com.autulio.app.localizedErrorMessage
 import com.autulio.app.UiThemePreferences
 import com.autulio.app.access.AccessRole
 import com.autulio.app.auth.AuthApiException
@@ -542,7 +543,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 startActivity(intent)
                 launchAccepted.set(true)
             } catch (error: Exception) {
-                launchError.set(error.localizedMessage ?: "Không mở được bộ chọn tệp.")
+                launchError.set(localizedErrorMessage(error, "Không mở được bộ chọn tệp."))
                 ScriptFilePickerCoordinator.complete(requestId, ScriptFilePickerResult.Failed(launchError.get()!!))
             } finally {
                 launchFinished.countDown()
