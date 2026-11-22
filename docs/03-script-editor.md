@@ -311,7 +311,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `XOAY_MÀN_HÌNH()` | 0 | Chỉ số rotation Android 0–3 |
 | `GÓC_XOAY_MÀN_HÌNH()` | 0 | Góc xoay 0°, 90°, 180° hoặc 270° |
 | `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` | 0 | Package foreground gần nhất được gửi từ sự kiện Trợ năng |
-| `HÀNG_SẢN_XUẤT()` / `MẪU_THIẾT_BỊ()` | 0 | Nhà sản xuất và model thiết bị |
+| `HÃNG_SẢN_XUẤT()` / `MẪU_THIẾT_BỊ()` | 0 | Nhà sản xuất và model thiết bị |
 | `PHIÊN_BẢN_ANDROID()` / `MỨC_API_ANDROID()` | 0 | Chuỗi phiên bản và mức API Android |
 | `MÀN_HÌNH_BỊ_KHÓA()` | 0 | ĐÚNG khi Keyguard đang khóa màn hình |
 | `THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()` | 0 | ĐÚNG nếu thiết bị có khóa bảo mật được cấu hình |
