@@ -518,13 +518,13 @@ internal fun AccessControlAdminScreen(
                                 restoreDeviceTarget = null
                                 refresh()
                             } catch (exception: Exception) {
-                                error = localizedErrorMessage(exception, "Không thể mở lại thiết bị.")
+                                error = localizedErrorMessage(exception, "Không thể cho phép lại thiết bị.")
                             } finally {
                                 restoringDevice = false
                             }
                         }
                     }
-                ) { Text(if (restoringDevice) "ĐANG MỞ…" else "CHO PHÉP LẠI THIẾT BỊ") }
+                ) { Text(if (restoringDevice) "ĐANG CHO PHÉP…" else "CHO PHÉP LẠI THIẾT BỊ") }
             },
             dismissButton = {
                 TextButton(
