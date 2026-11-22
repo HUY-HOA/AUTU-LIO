@@ -50,8 +50,8 @@ class ScriptExecutionEngineTest {
         try {
             val program = compile(
                 """
-                BIẾN LẤY_PHẦN_TRĂM_PIN_MUC_TIEU: SỐ = 12
-                NẾU (LẤY_PHẦN_TRĂM_PIN_MUC_TIEU > 10 VÀ KHÔNG SAI) {
+                BIẾN PIN_MUC_TIEU: SỐ = 12
+                NẾU (PIN_MUC_TIEU > 10 VÀ KHÔNG SAI) {
                     NHẤN(10, 20)
                 } NGƯỢC_LẠI {
                     NHẤN(30, 40)
@@ -196,7 +196,7 @@ class ScriptExecutionEngineTest {
             assertTrue("Không thể tạm dừng kịch bản.", engine.pause())
             assertEquals(ScriptExecutionState.PAUSED, engine.snapshot().state)
             assertTrue("Không thể dừng kịch bản đang tạm dừng.", engine.stop())
-            assertEquals(ScriptExecutionState.STOPLẤY_PHẦN_TRĂM_PING, engine.snapshot().state)
+            assertEquals(ScriptExecutionState.STOPPING, engine.snapshot().state)
             releaseFirstTap.countDown()
 
             assertTrue(
