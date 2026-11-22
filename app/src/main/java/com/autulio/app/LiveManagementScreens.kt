@@ -104,6 +104,10 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+                        GoogleSignInDetailsCard(
+                            details = customer.googleSignIn,
+                            title = tr("Dữ liệu Google và lần đăng nhập gần nhất", "Google data and most recent sign-in")
+                        )
                         Text(
                             tr("Thiết bị đang dùng: ${customer.activeDeviceCount}", "Active devices: ${customer.activeDeviceCount}"),
                             fontSize = 12.sp,
@@ -461,6 +465,7 @@ internal fun CustomerDeviceLicenseScreen(
                         fontSize = 12.sp
                     )
                 }
+                GoogleSignInDetailsCard(current.googleSignIn)
                 Text(tr("Thiết bị đã đăng ký", "Registered devices"), fontWeight = FontWeight.SemiBold)
                 if (current.devices.isEmpty()) {
                     EmptyState(Icons.Outlined.Devices, tr("Chưa có thiết bị", "No registered devices"), tr("Đăng ký thiết bị này để sử dụng theo giới hạn giấy phép.", "Register this device to use AUTU within your license limit."))

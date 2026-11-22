@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.AuthenticatedUser
 import com.autulio.app.auth.CustomerRecord
 import com.autulio.app.auth.DeviceRecord
 import com.autulio.app.auth.LicenseRecord
@@ -45,6 +46,7 @@ internal fun AccessControlAdminScreen(
     val scope = rememberCoroutineScope()
     var section by remember(initialSection) { mutableStateOf(initialSection) }
     var customers by remember { mutableStateOf<List<CustomerRecord>>(emptyList()) }
+    var ownerUser by remember { mutableStateOf<AuthenticatedUser?>(null) }
     var licenses by remember { mutableStateOf<List<LicenseRecord>>(emptyList()) }
     var devices by remember { mutableStateOf<List<DeviceRecord>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
@@ -76,6 +78,7 @@ internal fun AccessControlAdminScreen(
             customers = result.first
             licenses = result.second
             devices = result.third
+            ownerUser = runCatching { repository.currentUser(token) }.getOrNull()
         } catch (exception: Exception) {
             error = localizedErrorMessage(exception, "Không tải được dữ liệu quản lý.")
         } finally {
@@ -107,6 +110,13 @@ internal fun AccessControlAdminScreen(
         if (accessToken.isNullOrBlank()) {
             EmptyState(Icons.Outlined.VerifiedUser, "Chưa có phiên quản trị", "Đăng nhập bằng tài khoản chủ sở hữu để quản lý khách hàng, giấy phép và thiết bị.")
         } else {
+            ownerUser?.let { currentOwner ->
+                GoogleSignInDetailsCard(
+                    details = currentOwner.googleSignIn,
+                    title = "Thông tin đăng nhập Google của chủ ứng dụng"
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(7.dp)
@@ -293,6 +303,10 @@ internal fun AccessControlAdminScreen(
                                     }
                                     Text(statusText(customer.status), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 }
+                                GoogleSignInDetailsCard(
+                                    details = customer.googleSignIn,
+                                    title = "Dữ liệu Google và lần đăng nhập gần nhất"
+                                )
                                 Text(
                                     customer.licenseId?.let {
                                         "${customer.planCode?.let(::planText) ?: "Gói sử dụng"} · ${customer.licenseStatus?.let(::statusText) ?: "Chưa rõ"} · Hết hạn ${accessDate(customer.licenseExpiresAt)}"
