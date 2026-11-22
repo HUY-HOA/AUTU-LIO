@@ -55,38 +55,41 @@ internal fun AdminIconValue(
 internal fun AdminPresenceInfo(
     presenceSeenAt: Long?,
     appForegroundAt: Long?,
-    runtimeState: String
+    runtimeState: String,
+    isAllowed: Boolean = true
 ) {
     val nowSeconds = System.currentTimeMillis() / 1000L
     val ageSeconds = presenceSeenAt
-        ?.takeIf { it > 0L }
+        ?.takeIf { isAllowed && it > 0L }
         ?.let { (nowSeconds - it).coerceAtLeast(0L) }
 
     val connection = when {
+        !isAllowed -> "Bị chặn"
         ageSeconds == null -> "Chưa có dữ liệu"
         ageSeconds <= 120L -> "Đang kết nối"
         ageSeconds <= 600L -> "Vừa hoạt động"
         else -> "Ngoại tuyến"
     }
-    val connectionIcon = if (ageSeconds != null && ageSeconds <= 120L) {
+    val connectionIcon = if (isAllowed && ageSeconds != null && ageSeconds <= 120L) {
         Icons.Outlined.Wifi
     } else {
         Icons.Outlined.WifiOff
     }
 
-    val appIsForeground = ageSeconds != null &&
+    val appIsForeground = isAllowed &&
+        ageSeconds != null &&
         ageSeconds <= 120L &&
         appForegroundAt != null &&
         appForegroundAt > 0L &&
         nowSeconds - appForegroundAt <= 120L
     val appLabel = when {
-        ageSeconds == null -> "Chưa rõ"
+        !isAllowed || ageSeconds == null -> "Chưa rõ"
         appIsForeground -> "Đang mở"
         ageSeconds <= 600L -> "Đã chuyển nền"
         else -> "Không rõ"
     }
 
-    val runtimeFresh = ageSeconds != null && ageSeconds <= 120L
+    val runtimeFresh = isAllowed && ageSeconds != null && ageSeconds <= 120L
     val runtimeIcon: ImageVector
     val runtimeLabel: String
     if (!runtimeFresh) {
