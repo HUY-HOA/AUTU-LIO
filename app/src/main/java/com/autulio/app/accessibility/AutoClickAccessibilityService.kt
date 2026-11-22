@@ -94,23 +94,34 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         @Volatile
         private var sessionRole: AccessRole? = null
 
-        fun markSessionVerified(role: AccessRole) {
-            val previousRole = sessionRole
+        @Volatile
+        private var sessionToken: String? = null
+
+        fun markSessionVerified(role: AccessRole, accessToken: String) {
+            if (accessToken.isBlank()) {
+                invalidateSession()
+                return
+            }
+            val identityChanged = sessionRole != role || sessionToken != accessToken
+            if (identityChanged) {
+                sessionVerified = false
+                activeInstance?.lockRunner()
+            }
             sessionRole = role
-            when (role) {
-                AccessRole.OWNER -> sessionVerified = true
-                // CUSTOMER access is granted only by the service after it also
-                // verifies an active license and this device's active registration.
-                // UI session refreshes must never re-enable a runner denied by that check.
-                AccessRole.CUSTOMER -> {
-                    if (previousRole != AccessRole.CUSTOMER) sessionVerified = false
-                }
+            sessionToken = accessToken
+            if (role == AccessRole.OWNER) {
+                sessionVerified = true
+            } else if (identityChanged) {
+                // A CUSTOMER session is not runnable until the service has checked
+                // both the active license and this exact device registration.
+                activeInstance?.restartAuthorizationMonitor()
             }
         }
 
         fun invalidateSession() {
             sessionVerified = false
             sessionRole = null
+            sessionToken = null
             activeInstance?.lockRunner()
         }
 
@@ -203,6 +214,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         // The runner window is opened only after the signed-in app prepares a program.
     }
 
+    private fun restartAuthorizationMonitor() {
+        authorizationMonitorTask?.cancel(false)
+        authorizationMonitorTask = null
+        startAuthorizationMonitor()
+    }
+
     private fun startAuthorizationMonitor() {
         if (authorizationMonitorTask != null) return
         authorizationMonitorTask = authorizationMonitorExecutor.scheduleWithFixedDelay({
@@ -213,7 +230,13 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 var accountVerified = false
                 try {
                     val verifiedUser = runBlocking { authRepository.currentUser(token) }
+                    // Do not let a response for a previous account update the active role.
+                    if (sessionStore.read() != token) return@scheduleWithFixedDelay
                     accountVerified = true
+                    if (sessionRole != null && sessionRole != verifiedUser.role) {
+                        sessionVerified = false
+                        lockRunner()
+                    }
                     sessionRole = verifiedUser.role
                     if (verifiedUser.role == AccessRole.CUSTOMER) {
                         val identity = SecureDeviceIdentityStore(this).getExistingIdentity()
