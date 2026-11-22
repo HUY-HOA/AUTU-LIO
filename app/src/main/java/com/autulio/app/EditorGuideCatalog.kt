@@ -94,10 +94,10 @@ object EditorGuideCatalog {
                 EditorGuideCommand("ĐỌC_VĂN_BẢN_MÀN_HÌNH()", "Đọc văn bản OCR nhận diện được trên màn hình.", "BIẾN NOI_DUNG: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()", minAndroidApi = 30),
                 EditorGuideCommand("ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()", "Đọc kết quả OCR có cấu trúc và thông tin vị trí.", minAndroidApi = 30),
                 EditorGuideCommand("KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH(\"nội dung\")", "Kiểm tra một đoạn chữ có xuất hiện trên màn hình không.", minAndroidApi = 26, androidNote = "OCR trực tiếp từ ảnh màn hình cần Android 11.0 (API 30) trở lên; Android 8–10 chỉ tìm trong cây Trợ năng."),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ(\"nội dung\")", "Tìm vị trí của đoạn chữ được OCR nhận diện.", minAndroidApi = 26, androidNote = "OCR trực tiếp từ ảnh màn hình cần Android 11.0 (API 30) trở lên; Android 8–10 chỉ tìm trong cây Trợ năng."),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")", "Tìm vị trí của đoạn chữ được OCR nhận diện.", minAndroidApi = 26, androidNote = "OCR trực tiếp từ ảnh màn hình cần Android 11.0 (API 30) trở lên; Android 8–10 chỉ tìm trong cây Trợ năng."),
                 EditorGuideCommand("ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH(x, y, rộng, cao)", "Chỉ đọc OCR bên trong vùng màn hình đã chọn.", minAndroidApi = 30),
                 EditorGuideCommand("KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH(\"chữ\", x, y, rộng, cao)", "Kiểm tra chữ trong một vùng giới hạn.", minAndroidApi = 30),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ_TRONG_VÙNG_MÀN_HÌNH(\"chữ\", x, y, rộng, cao)", "Tìm vị trí chữ chỉ trong vùng giới hạn.", minAndroidApi = 30)
+                EditorGuideCommand("TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH(\"chữ\", x, y, rộng, cao)", "Tìm vị trí chữ chỉ trong vùng giới hạn.", minAndroidApi = 30)
             ),
             notes = listOf(
                 "OCR phụ thuộc quyền chụp màn hình, chất lượng ảnh, cỡ chữ và độ tương phản.",
@@ -132,7 +132,7 @@ object EditorGuideCatalog {
             commands = listOf(
                 EditorGuideCommand("LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(x, y)", "Đọc màu tại một điểm trên màn hình.", "BIẾN MAU: BẢN_ĐỒ = LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(200, 400)", minAndroidApi = 30),
                 EditorGuideCommand("KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(đỏ, xanh_lá, xanh_dương, sai_số)", "Kiểm tra màu mục tiêu có xuất hiện trong màn hình.", minAndroidApi = 30),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_TRONG_CHUỖI_MÀU_TRÊN_MÀN_HÌNH(đỏ, xanh_lá, xanh_dương, sai_số)", "Tìm tọa độ có màu gần giá trị RGB mục tiêu.", minAndroidApi = 30),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH(đỏ, xanh_lá, xanh_dương, sai_số)", "Tìm tọa độ có màu gần giá trị RGB mục tiêu.", minAndroidApi = 30),
                 EditorGuideCommand("TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(đỏ, xanh_lá, xanh_dương, sai_số, x, y, rộng, cao)", "Ước lượng tỷ lệ pixel gần màu mục tiêu trong vùng.", minAndroidApi = 30)
             ),
             notes = listOf(
@@ -175,7 +175,7 @@ object EditorGuideCatalog {
                 EditorGuideCommand("LẤY_CHIỀU_RỘNG_MÀN_HÌNH() / LẤY_CHIỀU_CAO_MÀN_HÌNH()", "Lấy kích thước toàn màn hình theo pixel."),
                 EditorGuideCommand("LẤY_CHIỀU_RỘNG_DP() / LẤY_CHIỀU_CAO_DP()", "Lấy kích thước màn hình theo đơn vị DP."),
                 EditorGuideCommand("LẤY_MẬT_ĐỘ_MÀN_HÌNH() / LẤY_TỶ_LỆ_KHUNG_HÌNH()", "Đọc mật độ điểm ảnh và tỷ lệ khung hình."),
-                EditorGuideCommand("LẤY_HƯỚNG_MÀN_HÌNH() / LẤY_XOAY_MÀN_HÌNH() / LẤY_GÓC_LẤY_XOAY_MÀN_HÌNH()", "Đọc hướng và góc xoay hiện tại."),
+                EditorGuideCommand("LẤY_HƯỚNG_MÀN_HÌNH() / LẤY_XOAY_MÀN_HÌNH() / LẤY_GÓC_XOAY_MÀN_HÌNH()", "Đọc hướng và góc xoay hiện tại."),
                 EditorGuideCommand("DP_SANG_PIXEL(dp) / PIXEL_SANG_DP(px)", "Chuyển đổi giữa DP và pixel."),
                 EditorGuideCommand("TỌA_ĐỘ_X_THEO_TỶ_LỆ(tỷ_lệ) / TỌA_ĐỘ_Y_THEO_TỶ_LỆ(tỷ_lệ)", "Tính tọa độ pixel từ tỷ lệ màn hình."),
                 EditorGuideCommand("TỶ_LỆ_X_THEO_TỌA_ĐỘ(x) / TỶ_LỆ_Y_THEO_TỌA_ĐỘ(y)", "Đổi tọa độ pixel thành tỷ lệ màn hình."),
