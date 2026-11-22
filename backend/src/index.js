@@ -208,10 +208,29 @@ async function verifyGoogleIdToken(idToken, expectedNonce, env) {
       !(claims.email_verified === true || claims.email_verified === "true")) {
     throw new HttpError(401, "unverified_google_account", "Google account email must be verified.");
   }
+  const optionalText = (key, maxLength) =>
+    typeof claims[key] === "string" ? claims[key].trim().slice(0, maxLength) || null : null;
+  const optionalHttpsUrl = (key) => {
+    const value = optionalText(key, 2048);
+    if (!value) return null;
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "https:" ? parsed.toString() : null;
+    } catch {
+      return null;
+    }
+  };
   return {
     sub: claims.sub,
     email: normalizeEmail(claims.email),
-    name: typeof claims.name === "string" ? claims.name.slice(0, 120) : null
+    emailVerified: true,
+    name: optionalText("name", 120),
+    givenName: optionalText("given_name", 120),
+    familyName: optionalText("family_name", 120),
+    pictureUrl: optionalHttpsUrl("picture"),
+    profileUrl: optionalHttpsUrl("profile"),
+    locale: optionalText("locale", 40),
+    hostedDomain: optionalText("hd", 253)
   };
 }
 
@@ -222,7 +241,7 @@ async function getSession(request, env) {
   const tokenHash = await sha256(match[1]);
   const now = Math.floor(Date.now() / 1000);
   const session = await env.DB.prepare(
-    "SELECT s.id AS session_id, s.user_id, s.expires_at, u.email, u.display_name, u.role, u.status, u.email_verified " +
+    "SELECT s.id AS session_id, s.user_id, s.expires_at, u.email, u.display_name, u.role, u.status, u.email_verified, u.google_sub, u.created_at, u.last_login_at " +
     "FROM sessions s JOIN users u ON u.id = s.user_id " +
     "WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ?"
   ).bind(tokenHash, now).first();
@@ -245,6 +264,34 @@ async function audit(env, actorId, action, targetType = null, targetId = null, m
     crypto.randomUUID(), actorId, action, targetType, targetId,
     JSON.stringify(metadata), Math.floor(Date.now() / 1000)
   ).run();
+}
+
+function toLatestSignInDetails(metadataJson, createdAt) {
+  if (typeof metadataJson !== "string" || !metadataJson.trim()) return null;
+  let metadata;
+  try {
+    metadata = JSON.parse(metadataJson);
+  } catch {
+    return null;
+  }
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  return {
+    createdAt: Number.isSafeInteger(Number(createdAt)) ? Number(createdAt) : null,
+    deviceLabel: typeof metadata.deviceLabel === "string" ? metadata.deviceLabel.slice(0, 100) : null,
+    googleProfile: metadata.googleProfile && typeof metadata.googleProfile === "object"
+      ? metadata.googleProfile : null,
+    deviceInfo: metadata.deviceInfo && typeof metadata.deviceInfo === "object"
+      ? metadata.deviceInfo : null
+  };
+}
+
+async function latestSignInDetails(env, userId) {
+  const row = await env.DB.prepare(
+    "SELECT metadata_json, created_at FROM audit_logs " +
+    "WHERE actor_user_id = ? AND action = 'auth.google_sign_in' " +
+    "ORDER BY created_at DESC LIMIT 1"
+  ).bind(userId).first();
+  return row ? toLatestSignInDetails(row.metadata_json, row.created_at) : null;
 }
 
 async function createChallenge(request, env) {
@@ -332,10 +379,20 @@ async function googleLogin(request, env) {
   await env.DB.prepare(
     "INSERT INTO sessions (id, user_id, token_hash, created_at, expires_at, last_seen_at, device_label) VALUES (?, ?, ?, ?, ?, ?, ?)"
   ).bind(sessionId, user.id, await sha256(rawSession), now, expiresAt, now, deviceLabel).run();
+  const googleProfile = {
+    givenName: identity.givenName,
+    familyName: identity.familyName,
+    pictureUrl: identity.pictureUrl,
+    profileUrl: identity.profileUrl,
+    locale: identity.locale,
+    hostedDomain: identity.hostedDomain
+  };
   await audit(env, user.id, "auth.google_sign_in", "session", sessionId, {
     deviceLabel,
+    googleProfile,
     deviceInfo
   });
+  const latestSignIn = { createdAt: now, deviceLabel, googleProfile, deviceInfo };
   return response(request, {
     accessToken: rawSession,
     tokenType: "Bearer",
@@ -345,6 +402,9 @@ async function googleLogin(request, env) {
       email: user.email,
       displayName: user.display_name,
       role: user.role,
+      googleSub: identity.sub,
+      emailVerified: identity.emailVerified,
+      latestSignIn
     }
   }, 200, env);
 }
@@ -399,14 +459,29 @@ async function listAdminCustomers(request, env, session) {
   await requireRole(session, ["OWNER"]);
   const now = Math.floor(Date.now() / 1000);
   const result = await env.DB.prepare(
-    "SELECT u.id, u.email, u.display_name, u.status, u.created_at, u.last_login_at, " +
+    "SELECT u.id, u.google_sub, u.email, u.email_verified, u.display_name, u.status, u.created_at, u.last_login_at, " +
     "l.id AS license_id, l.plan_code, l.status AS license_status, l.starts_at, l.expires_at, l.max_devices, " +
     "CASE WHEN l.id IS NULL THEN NULL WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_license_status, " +
-    "(SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE') AS active_device_count " +
+    "(SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE') AS active_device_count, " +
+    "(SELECT metadata_json FROM audit_logs a WHERE a.actor_user_id = u.id AND a.action = 'auth.google_sign_in' ORDER BY a.created_at DESC LIMIT 1) AS latest_sign_in_metadata_json, " +
+    "(SELECT created_at FROM audit_logs a WHERE a.actor_user_id = u.id AND a.action = 'auth.google_sign_in' ORDER BY a.created_at DESC LIMIT 1) AS latest_sign_in_at " +
     "FROM users u LEFT JOIN licenses l ON l.user_id = u.id AND l.status = 'ACTIVE' " +
     "WHERE u.role = 'CUSTOMER' ORDER BY u.created_at DESC"
   ).bind(now, now).all();
-  return response(request, { customers: result.results || [] }, 200, env);
+  const customers = (result.results || []).map(row => {
+    const {
+      latest_sign_in_metadata_json: metadataJson,
+      latest_sign_in_at: signInAt,
+      email_verified: emailVerified,
+      ...customer
+    } = row;
+    return {
+      ...customer,
+      email_verified: Number(emailVerified) === 1,
+      latestSignIn: toLatestSignInDetails(metadataJson, signInAt)
+    };
+  });
+  return response(request, { customers }, 200, env);
 }
 
 
@@ -640,7 +715,16 @@ async function getCustomerAccount(request, env, session) {
   }
   const activeDeviceCount = (result.results || []).filter(device => device.status === "ACTIVE").length;
   return response(request, {
-    account: { id: session.user_id, email: session.email, displayName: session.display_name },
+    account: {
+      id: session.user_id,
+      email: session.email,
+      displayName: session.display_name,
+      googleSub: session.google_sub,
+      emailVerified: Number(session.email_verified) === 1,
+      createdAt: session.created_at,
+      lastLoginAt: session.last_login_at,
+      latestSignIn: await latestSignInDetails(env, session.user_id)
+    },
     license: license ? { ...license, effective_status: licenseState } : null,
     devices: result.results || [],
     activeDeviceCount,
@@ -1333,6 +1417,11 @@ async function route(request, env) {
         email: session.email,
         displayName: session.display_name,
         role: session.role,
+        googleSub: session.google_sub,
+        emailVerified: Number(session.email_verified) === 1,
+        createdAt: session.created_at,
+        lastLoginAt: session.last_login_at,
+        latestSignIn: await latestSignInDetails(env, session.user_id)
       },
       session: { expiresAt: session.expires_at }
     }, 200, env);
