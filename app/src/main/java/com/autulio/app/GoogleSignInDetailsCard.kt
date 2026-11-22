@@ -143,6 +143,7 @@ private fun formatGoogleSignInEpoch(value: Long): String {
     if (value <= 0L) return "—"
     return java.text.DateFormat.getDateTimeInstance(
         java.text.DateFormat.MEDIUM,
-        java.text.DateFormat.SHORT
+        java.text.DateFormat.SHORT,
+        java.util.Locale.forLanguageTag("vi-VN")
     ).format(java.util.Date(value * 1000L))
 }
