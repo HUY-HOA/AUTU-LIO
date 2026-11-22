@@ -168,7 +168,8 @@ data class CustomerDeviceInfo(
     val status: String,
     val registeredAt: Long,
     val lastSeenAt: Long,
-    val revokedAt: Long?
+    val revokedAt: Long?,
+    val revokedReason: String?
 )
 
 data class AutuPackageRecord(
