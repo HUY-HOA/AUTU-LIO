@@ -672,6 +672,35 @@ test("revoking a license keeps already-enrolled devices registered", async () =>
   assert.equal(statements.some(sql => sql.includes("UPDATE devices")), false);
 });
 
+test("customer self-removal records a reversible customer-removal reason", async () => {
+  const { env } = createEnv({ session: customerSession });
+  const statements = [];
+  const basePrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = basePrepare(sql);
+    const originalRun = statement.run.bind(statement);
+    statement.run = async () => {
+      statements.push(sql);
+      return originalRun();
+    };
+    return statement;
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/customer/devices/123e4567-e89b-42d3-a456-426614174005", {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + "D".repeat(48) }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal((await json(response)).removed, true);
+  assert.ok(statements.some(sql =>
+    sql.includes("revoked_reason = 'CUSTOMER_REMOVED'") && sql.includes("status = 'REVOKED'")
+  ));
+});
+
 test("customer can re-enroll a device that they previously removed", async () => {
   const proof = await makeSignedDeviceEnrollment();
   const now = Math.floor(Date.now() / 1000);
