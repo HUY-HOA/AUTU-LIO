@@ -118,7 +118,7 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                             AdminIconValue(Icons.Outlined.Devices, "Thiết bị đã cấp quyền", customer.activeDeviceCount.toString())
                             AdminIconValue(Icons.Outlined.AccessTime, "Đăng nhập gần nhất", formatEpoch(customer.lastLoginAt))
                         }
-                        AdminPresenceInfo(customer.presenceSeenAt, customer.appForegroundAt, customer.runtimeState)
+                        AdminPresenceInfo(customer.presenceSeenAt, customer.appForegroundAt, customer.runtimeState, customer.status == "ACTIVE")
                         if (customer.licenseId != null) {
                             AdminIconValue(
                                 Icons.Outlined.VerifiedUser,
@@ -406,7 +406,7 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
                         AdminIconValue(Icons.Outlined.Apps, "Phiên bản AUTU", "AUTU-LIO ${device.appVersion}")
                         AdminIconValue(Icons.Outlined.AccessTime, "Lần sử dụng", formatEpoch(device.lastSeenAt))
                     }
-                    AdminPresenceInfo(device.presenceSeenAt, device.appForegroundAt, device.runtimeState)
+                    AdminPresenceInfo(device.presenceSeenAt, device.appForegroundAt, device.runtimeState, device.status == "ACTIVE" && device.customerStatus == "ACTIVE")
                     if (device.status == "ACTIVE") {
                         OutlinedButton(
                             onClick = {
