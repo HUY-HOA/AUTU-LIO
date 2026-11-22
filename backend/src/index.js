@@ -583,6 +583,12 @@ async function createCustomerLicense(request, env, session) {
   if (customer.status !== "ACTIVE") {
     throw new HttpError(409, "customer_inactive", "A license cannot be issued to an inactive account.");
   }
+  const enrolled = await env.DB.prepare(
+    "SELECT COUNT(*) AS active_count FROM devices WHERE user_id = ? AND status = 'ACTIVE'"
+  ).bind(userId).first();
+  if (Number(enrolled?.active_count || 0) > maxDevices) {
+    throw new HttpError(409, "device_limit_below_existing", "The new license device limit is lower than the customer's current active device count. Revoke extra devices or increase the limit.");
+  }
 
   await env.DB.prepare(
     "UPDATE licenses SET status = 'PAUSED', updated_at = ? " +
@@ -642,6 +648,14 @@ async function updateCustomerLicense(request, env, session, licenseId) {
   }
   if (status === "ACTIVE" && (startsAt > now || expiresAt <= now)) {
     throw new HttpError(400, "license_not_current", "An active license must have a start time in the past and an expiry time in the future.");
+  }
+  if (status === "ACTIVE") {
+    const enrolled = await env.DB.prepare(
+      "SELECT COUNT(*) AS active_count FROM devices WHERE user_id = ? AND status = 'ACTIVE'"
+    ).bind(current.user_id).first();
+    if (Number(enrolled?.active_count || 0) > maxDevices) {
+      throw new HttpError(409, "device_limit_below_existing", "The new license device limit is lower than the customer's current active device count. Revoke extra devices or increase the limit.");
+    }
   }
 
   try {
