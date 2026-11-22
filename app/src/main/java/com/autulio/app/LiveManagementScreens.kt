@@ -489,8 +489,8 @@ internal fun CustomerDeviceLicenseScreen(
                                     "The app owner revoked this device. Contact the owner to restore it."
                                 )
                                 "ACCOUNT_REVOKED" -> tr(
-                                    "Thiết bị bị thu hồi cùng tài khoản. Chủ ứng dụng cần kích hoạt lại tài khoản, cấp giấy phép và mở lại thiết bị.",
-                                    "This device was revoked with the account. The owner must reactivate the account, issue a license and restore the device."
+                                    "Thiết bị bị khóa cùng tài khoản. Sau khi chủ ứng dụng mở lại tài khoản và cấp giấy phép còn hiệu lực, hãy đăng ký lại thiết bị bằng khóa bảo mật hiện có.",
+                                    "This device was disabled with the account. After the owner reactivates the account and issues a current license, register it again with its existing security key."
                                 )
                                 else -> tr(
                                     "Thiết bị đã bị thu hồi từ phiên bản cũ. Chủ ứng dụng cần mở lại thiết bị trong trang quản lý.",
