@@ -1113,4 +1113,43 @@ class ScriptCompilerTest {
     }
 
 
+    @Test
+    fun normalizesLegacyGestureAndBuiltinNamesToCanonicalNames() {
+        val legacyGestures = ScriptCompiler.compile(
+            """
+            CHẠM(10, 20)
+            CHẠM_ĐA_ĐIỂM(TẠO_DANH_SÁCH(TẠO_DANH_SÁCH(10, 20), TẠO_DANH_SÁCH(30, 40)), 100)
+            """.trimIndent()
+        )
+        assertTrue(legacyGestures.diagnostics.toString(), legacyGestures.isSuccess)
+        assertEquals(
+            listOf("NHẤN", "NHẤN_ĐA_ĐIỂM"),
+            legacyGestures.program!!.instructions
+                .filterIsInstance<ScriptInstruction.Command>()
+                .map { it.name }
+        )
+
+        val legacyFunctions = ScriptCompiler.compile(
+            """
+            BIẾN PIN_CU: SỐ = PIN()
+            BIẾN CHU_CU: LUẬN_LÝ = MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập")
+            BIẾN PHAN_TU_CU: SỐ = LẤY_PHẦN_TỬ(TẠO_DANH_SÁCH(1), 0)
+            BIẾN GIA_TRI_CU: SỐ = LẤY_GIÁ_TRỊ(TẠO_BẢN_ĐỒ("A", 1), "A")
+            """.trimIndent()
+        )
+        assertTrue(legacyFunctions.diagnostics.toString(), legacyFunctions.isSuccess)
+        assertEquals(
+            listOf(
+                "LẤY_PHẦN_TRĂM_PIN",
+                "KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH",
+                "LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH",
+                "LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ"
+            ),
+            legacyFunctions.program!!.instructions
+                .filterIsInstance<ScriptInstruction.SetVariable>()
+                .map { (it.value as ScriptExpression.FunctionCall).name }
+        )
+    }
+
+
 }
