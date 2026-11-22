@@ -23,6 +23,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.DateFormat
+import java.util.Date
+import java.util.Locale
+
+private fun formatPresenceTime(value: Long?): String {
+    if (value == null || value <= 0L) return "Chưa có"
+    return DateFormat.getDateTimeInstance(
+        DateFormat.SHORT,
+        DateFormat.SHORT,
+        Locale.forLanguageTag("vi-VN")
+    ).format(Date(value * 1000L))
+}
 
 @Composable
 internal fun AdminIconValue(
@@ -123,6 +135,13 @@ internal fun AdminPresenceInfo(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             AdminIconValue(runtimeIcon, "Trạng thái AUTU", runtimeLabel)
+            if (isAllowed && presenceSeenAt != null && presenceSeenAt > 0L) {
+                AdminIconValue(
+                    Icons.Outlined.AccessTime,
+                    "Lần kết nối gần nhất",
+                    formatPresenceTime(presenceSeenAt)
+                )
+            }
         }
     }
 }
