@@ -9,11 +9,11 @@ class EditorQuickInsertTest {
 
     @Test
     fun insertsAtCurrentCursorPosition() {
-        val initial = TextFieldValue("CHẠM(12)", selection = TextRange(6))
+        val initial = TextFieldValue("NHẤN(12)", selection = TextRange(6))
 
         val updated = insertEditorQuickText(initial, "_")
 
-        assertEquals("CHẠM(1_2)", updated.text)
+        assertEquals("NHẤN(1_2)", updated.text)
         assertEquals(7, updated.selection.start)
     }
 
