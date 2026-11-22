@@ -35,10 +35,10 @@ object EditorGuideCatalog {
             title = "1. Thao tác chạm và vuốt",
             summary = "Nhóm thao tác trực tiếp trên màn hình: chạm, nhấn giữ, vuốt, đa điểm và chờ.",
             commands = listOf(
-                EditorGuideCommand("CHẠM(x, y)", "Chạm một lần tại tọa độ X/Y.", "CHẠM(200, 400)"),
+                EditorGuideCommand("NHẤN(x, y)", "Chạm một lần tại tọa độ X/Y.", "NHẤN(200, 400)"),
                 EditorGuideCommand("NHẤN_GIỮ(x, y, ms)", "Nhấn giữ tại tọa độ trong thời gian đã đặt.", "NHẤN_GIỮ(200, 400, 800)"),
                 EditorGuideCommand("VUỐT(x1, y1, x2, y2, ms)", "Vuốt từ điểm bắt đầu đến điểm kết thúc.", "VUỐT(360, 850, 360, 350, 450)"),
-                EditorGuideCommand("CHẠM_ĐA_ĐIỂM(CÁC_ĐIỂM, ms)", "Gửi thao tác chạm đồng thời từ 2 đến 5 điểm."),
+                EditorGuideCommand("NHẤN_ĐA_ĐIỂM(CÁC_ĐIỂM, ms)", "Gửi thao tác chạm đồng thời từ 2 đến 5 điểm."),
                 EditorGuideCommand("VUỐT_ĐA_ĐIỂM(CÁC_ĐƯỜNG, ms)", "Gửi nhiều đường vuốt đồng thời, tối đa 5 ngón."),
                 EditorGuideCommand("CHỜ(ms)", "Tạm dừng kịch bản trong số mili giây đã đặt.", "CHỜ(500)")
             ),
@@ -93,11 +93,11 @@ object EditorGuideCatalog {
             commands = listOf(
                 EditorGuideCommand("ĐỌC_VĂN_BẢN_MÀN_HÌNH()", "Đọc văn bản OCR nhận diện được trên màn hình.", "BIẾN NOI_DUNG: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()", minAndroidApi = 30),
                 EditorGuideCommand("ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH()", "Đọc kết quả OCR có cấu trúc và thông tin vị trí.", minAndroidApi = 30),
-                EditorGuideCommand("MÀN_HÌNH_CHỨA_CHỮ(\"nội dung\")", "Kiểm tra một đoạn chữ có xuất hiện trên màn hình không.", minAndroidApi = 26, androidNote = "OCR trực tiếp từ ảnh màn hình cần Android 11.0 (API 30) trở lên; Android 8–10 chỉ tìm trong cây Trợ năng."),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_CHỮ(\"nội dung\")", "Tìm vị trí của đoạn chữ được OCR nhận diện.", minAndroidApi = 26, androidNote = "OCR trực tiếp từ ảnh màn hình cần Android 11.0 (API 30) trở lên; Android 8–10 chỉ tìm trong cây Trợ năng."),
-                EditorGuideCommand("ĐỌC_VĂN_BẢN_VÙNG(x, y, rộng, cao)", "Chỉ đọc OCR bên trong vùng màn hình đã chọn.", minAndroidApi = 30),
-                EditorGuideCommand("MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(\"chữ\", x, y, rộng, cao)", "Kiểm tra chữ trong một vùng giới hạn.", minAndroidApi = 30),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG(\"chữ\", x, y, rộng, cao)", "Tìm vị trí chữ chỉ trong vùng giới hạn.", minAndroidApi = 30)
+                EditorGuideCommand("KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH(\"nội dung\")", "Kiểm tra một đoạn chữ có xuất hiện trên màn hình không.", minAndroidApi = 26, androidNote = "OCR trực tiếp từ ảnh màn hình cần Android 11.0 (API 30) trở lên; Android 8–10 chỉ tìm trong cây Trợ năng."),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ(\"nội dung\")", "Tìm vị trí của đoạn chữ được OCR nhận diện.", minAndroidApi = 26, androidNote = "OCR trực tiếp từ ảnh màn hình cần Android 11.0 (API 30) trở lên; Android 8–10 chỉ tìm trong cây Trợ năng."),
+                EditorGuideCommand("ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH(x, y, rộng, cao)", "Chỉ đọc OCR bên trong vùng màn hình đã chọn.", minAndroidApi = 30),
+                EditorGuideCommand("KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH(\"chữ\", x, y, rộng, cao)", "Kiểm tra chữ trong một vùng giới hạn.", minAndroidApi = 30),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ_TRONG_VÙNG_MÀN_HÌNH(\"chữ\", x, y, rộng, cao)", "Tìm vị trí chữ chỉ trong vùng giới hạn.", minAndroidApi = 30)
             ),
             notes = listOf(
                 "OCR phụ thuộc quyền chụp màn hình, chất lượng ảnh, cỡ chữ và độ tương phản.",
@@ -110,13 +110,13 @@ object EditorGuideCatalog {
             summary = "Nhận diện nhãn hình ảnh, mã QR, mã vạch và vật thể trên màn hình.",
             commands = listOf(
                 EditorGuideCommand("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()", "Trả về các nhãn mô tả nội dung hình ảnh.", minAndroidApi = 30),
-                EditorGuideCommand("MÀN_HÌNH_CHỨA_NHÃN_ẢNH(\"nhãn\")", "Kiểm tra nhãn hình ảnh có trong kết quả nhận diện.", minAndroidApi = 30),
+                EditorGuideCommand("KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH(\"nhãn\")", "Kiểm tra nhãn hình ảnh có trong kết quả nhận diện.", minAndroidApi = 30),
                 EditorGuideCommand("CHI_TIẾT_MÃ_QR_MÀN_HÌNH()", "Đọc thông tin chi tiết của mã QR nhận diện được.", minAndroidApi = 30),
                 EditorGuideCommand("CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()", "Đọc thông tin chi tiết của mã vạch nhận diện được.", minAndroidApi = 30),
                 EditorGuideCommand("QUÉT_MÃ_QR_MÀN_HÌNH()", "Quét mã QR đang hiển thị trên màn hình.", minAndroidApi = 30),
                 EditorGuideCommand("QUÉT_MÃ_VẠCH_MÀN_HÌNH()", "Quét mã vạch đang hiển thị trên màn hình.", minAndroidApi = 30),
                 EditorGuideCommand("PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()", "Phát hiện các vật thể mà mô hình nhận diện hỗ trợ.", minAndroidApi = 30),
-                EditorGuideCommand("MÀN_HÌNH_CÓ_VẬT_THỂ(\"nhãn\")", "Kiểm tra một loại vật thể có xuất hiện không.", minAndroidApi = 30),
+                EditorGuideCommand("KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH(\"nhãn\")", "Kiểm tra một loại vật thể có xuất hiện không.", minAndroidApi = 30),
                 EditorGuideCommand("TÌM_TỌA_ĐỘ_VẬT_THỂ(\"nhãn\")", "Tìm vị trí của vật thể theo nhãn.", minAndroidApi = 30),
                 EditorGuideCommand("ĐẾM_VẬT_THỂ_MÀN_HÌNH()", "Đếm số vật thể nhận diện được.", minAndroidApi = 30)
             ),
@@ -130,10 +130,10 @@ object EditorGuideCatalog {
             title = "6. Phân tích màu sắc",
             summary = "Đọc màu pixel, tìm vùng có màu gần đúng và ước lượng tỷ lệ màu trong vùng.",
             commands = listOf(
-                EditorGuideCommand("MÀU_TẠI(x, y)", "Đọc màu tại một điểm trên màn hình.", "BIẾN MAU: BẢN_ĐỒ = MÀU_TẠI(200, 400)", minAndroidApi = 30),
-                EditorGuideCommand("MÀN_HÌNH_CÓ_MÀU(đỏ, xanh_lá, xanh_dương, sai_số)", "Kiểm tra màu mục tiêu có xuất hiện trong màn hình.", minAndroidApi = 30),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_MÀU(đỏ, xanh_lá, xanh_dương, sai_số)", "Tìm tọa độ có màu gần giá trị RGB mục tiêu.", minAndroidApi = 30),
-                EditorGuideCommand("TỶ_LỆ_MÀU_TRONG_VÙNG(đỏ, xanh_lá, xanh_dương, sai_số, x, y, rộng, cao)", "Ước lượng tỷ lệ pixel gần màu mục tiêu trong vùng.", minAndroidApi = 30)
+                EditorGuideCommand("LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(x, y)", "Đọc màu tại một điểm trên màn hình.", "BIẾN MAU: BẢN_ĐỒ = LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(200, 400)", minAndroidApi = 30),
+                EditorGuideCommand("KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(đỏ, xanh_lá, xanh_dương, sai_số)", "Kiểm tra màu mục tiêu có xuất hiện trong màn hình.", minAndroidApi = 30),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_TRONG_CHUỖI_MÀU_TRÊN_MÀN_HÌNH(đỏ, xanh_lá, xanh_dương, sai_số)", "Tìm tọa độ có màu gần giá trị RGB mục tiêu.", minAndroidApi = 30),
+                EditorGuideCommand("TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(đỏ, xanh_lá, xanh_dương, sai_số, x, y, rộng, cao)", "Ước lượng tỷ lệ pixel gần màu mục tiêu trong vùng.", minAndroidApi = 30)
             ),
             notes = listOf(
                 "Các thành phần màu RGB và sai số phải nằm trong phạm vi mà hàm quy định.",
@@ -145,26 +145,26 @@ object EditorGuideCatalog {
             title = "7. Thông tin thiết bị và trạng thái hệ thống",
             summary = "Lấy thông tin pin, mạng, ứng dụng, phiên bản Android và trạng thái khóa màn hình.",
             commands = listOf(
-                EditorGuideCommand("PIN() / PHẦN_TRĂM_PIN()", "Đọc mức pin hoặc phần trăm pin còn lại."),
-                EditorGuideCommand("ĐANG_SẠC()", "Kiểm tra thiết bị có đang sạc không."),
-                EditorGuideCommand("CÓ_MẠNG()", "Kiểm tra trạng thái kết nối mạng theo dữ liệu thiết bị."),
-                EditorGuideCommand("MÀN_HÌNH_SÁNG()", "Kiểm tra màn hình đang bật hay tắt."),
-                EditorGuideCommand("ỨNG_DỤNG_ĐÃ_CÀI(\"tên.gói\")", "Kiểm tra ứng dụng theo tên gói đã cài trên thiết bị."),
-                EditorGuideCommand("ỨNG_DỤNG_ĐANG_MỞ(\"tên.gói\")", "Kiểm tra ứng dụng theo tên gói có đang mở hay không."),
-                EditorGuideCommand("GÓI_ỨNG_DỤNG_ĐANG_MỞ()", "Lấy tên gói của ứng dụng đang ở foreground."),
+                EditorGuideCommand("LẤY_PHẦN_TRĂM_PIN() / LẤY_PHẦN_TRĂM_LẤY_PHẦN_TRĂM_PIN()", "Đọc mức pin hoặc phần trăm pin còn lại."),
+                EditorGuideCommand("KIỂM_TRA_ĐANG_SẠC()", "Kiểm tra thiết bị có đang sạc không."),
+                EditorGuideCommand("KIỂM_TRA_KẾT_NỐI_MẠNG()", "Kiểm tra trạng thái kết nối mạng theo dữ liệu thiết bị."),
+                EditorGuideCommand("KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG()", "Kiểm tra màn hình đang bật hay tắt."),
+                EditorGuideCommand("KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI(\"tên.gói\")", "Kiểm tra ứng dụng theo tên gói đã cài trên thiết bị."),
+                EditorGuideCommand("KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ(\"tên.gói\")", "Kiểm tra ứng dụng theo tên gói có đang mở hay không."),
+                EditorGuideCommand("GÓI_KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ()", "Lấy tên gói của ứng dụng đang ở foreground."),
                 EditorGuideCommand("HÃNG_SẢN_XUẤT() / MẪU_THIẾT_BỊ()", "Đọc hãng sản xuất và model thiết bị."),
                 EditorGuideCommand("PHIÊN_BẢN_ANDROID() / MỨC_API_ANDROID()", "Đọc phiên bản Android và mức API."),
                 EditorGuideCommand("MÀN_HÌNH_BỊ_KHÓA()", "Kiểm tra trạng thái khóa màn hình."),
                 EditorGuideCommand("THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()", "Kiểm tra thiết bị có cấu hình bảo mật khóa màn hình."),
                 EditorGuideCommand("THỜI_GIAN_MS()", "Lấy thời gian hiện tại dạng mili giây."),
-                EditorGuideCommand("ÂM_LƯỢNG() / ĐỘ_SÁNG()", "Đọc âm lượng media và độ sáng màn hình hiện tại."),
-                EditorGuideCommand("ĐẶT_ÂM_LƯỢNG(phần_trăm)", "Đặt âm lượng media từ 0 đến 100%."),
-                EditorGuideCommand("ĐẶT_ĐỘ_SÁNG(phần_trăm)", "Đặt độ sáng từ 0 đến 100%; cần cấp quyền sửa đổi cài đặt hệ thống."),
+                EditorGuideCommand("LẤY_ÂM_LƯỢNG() / LẤY_ĐỘ_SÁNG()", "Đọc âm lượng media và độ sáng màn hình hiện tại."),
+                EditorGuideCommand("ĐẶT_LẤY_ÂM_LƯỢNG(phần_trăm)", "Đặt âm lượng media từ 0 đến 100%."),
+                EditorGuideCommand("ĐẶT_LẤY_ĐỘ_SÁNG(phần_trăm)", "Đặt độ sáng từ 0 đến 100%; cần cấp quyền sửa đổi cài đặt hệ thống."),
                 EditorGuideCommand("RUNG(mili_giây)", "Rung thiết bị từ 1 đến 5.000 ms nếu thiết bị có bộ rung.")
             ),
             notes = listOf(
-                "Trên Android 11.0 (API 30) trở lên, quy tắc package visibility có thể giới hạn các gói mà ỨNG_DỤNG_ĐÃ_CÀI() truy vấn được.",
-                "ĐẶT_ĐỘ_SÁNG() cần quyền 'Cho phép sửa đổi cài đặt hệ thống'; quyền này không được tự cấp bởi AUTU-LIO.",
+                "Trên Android 11.0 (API 30) trở lên, quy tắc package visibility có thể giới hạn các gói mà KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI() truy vấn được.",
+                "ĐẶT_LẤY_ĐỘ_SÁNG() cần quyền 'Cho phép sửa đổi cài đặt hệ thống'; quyền này không được tự cấp bởi AUTU-LIO.",
                 "Trạng thái mạng không thay thế việc kiểm tra phản hồi thực tế từ máy chủ."
             )
         ),
@@ -232,7 +232,7 @@ object EditorGuideCatalog {
                 EditorGuideCommand("CHỮ_HOA(chuỗi) / CHỮ_THƯỜNG(chuỗi)", "Chuyển đổi chữ hoa hoặc chữ thường."),
                 EditorGuideCommand("CẮT_KHOẢNG_TRẮNG(chuỗi)", "Loại bỏ khoảng trắng ở hai đầu chuỗi."),
                 EditorGuideCommand("CHỨA_CHUỖI(a, b)", "Kiểm tra chuỗi a có chứa chuỗi b."),
-                EditorGuideCommand("TÌM_VỊ_TRÍ(chuỗi, chuỗi_cần_tìm)", "Trả vị trí bắt đầu, tính từ 0; trả về -1 nếu không tìm thấy."),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_TRONG_CHUỖI(chuỗi, chuỗi_cần_tìm)", "Trả vị trí bắt đầu, tính từ 0; trả về -1 nếu không tìm thấy."),
                 EditorGuideCommand("KIỂM_TRA_RỖNG(giá_trị)", "Kiểm tra chuỗi, danh sách, bản đồ hoặc giá trị RỖNG."),
                 EditorGuideCommand("BẮT_ĐẦU_BẰNG(a, b) / KẾT_THÚC_BẰNG(a, b)", "Kiểm tra tiền tố hoặc hậu tố."),
                 EditorGuideCommand("THAY_THẾ(chuỗi, cũ, mới)", "Thay các phần chuỗi khớp."),
@@ -246,18 +246,18 @@ object EditorGuideCatalog {
             summary = "Tạo, đọc, thêm, sửa, xóa và tìm dữ liệu dạng danh sách hoặc cặp khóa–giá trị.",
             commands = listOf(
                 EditorGuideCommand("TẠO_DANH_SÁCH(a, b, ...)", "Tạo danh sách, tối đa 64 phần tử."),
-                EditorGuideCommand("LẤY_PHẦN_TỬ(danh_sách, chỉ_số)", "Đọc phần tử theo chỉ số, bắt đầu từ 0."),
-                EditorGuideCommand("THÊM_PHẦN_TỬ(danh_sách, giá_trị)", "Thêm phần tử vào cuối danh sách."),
-                EditorGuideCommand("ĐẶT_PHẦN_TỬ(danh_sách, chỉ_số, giá_trị)", "Thay giá trị tại một chỉ số."),
-                EditorGuideCommand("XÓA_PHẦN_TỬ(danh_sách, chỉ_số)", "Xóa phần tử theo chỉ số."),
-                EditorGuideCommand("CÓ_PHẦN_TỬ(danh_sách, giá_trị) / TÌM_PHẦN_TỬ(danh_sách, giá_trị)", "Kiểm tra phần tử hoặc tìm chỉ số đầu tiên; không thấy trả về -1."),
-                EditorGuideCommand("SẮP_XẾP(danh_sách)", "Tạo danh sách mới đã sắp xếp tăng dần; chỉ nhận toàn số hoặc toàn chuỗi."),
-                EditorGuideCommand("ĐẢO_NGƯỢC(danh_sách)", "Tạo danh sách mới theo thứ tự ngược, không sửa danh sách gốc."),
-                EditorGuideCommand("LỌC(danh_sách, tên_hàm)", "Lọc phần tử bằng hàm tự định nghĩa nhận một phần tử và trả về ĐÚNG/SAI."),
+                EditorGuideCommand("LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(danh_sách, chỉ_số)", "Đọc phần tử theo chỉ số, bắt đầu từ 0."),
+                EditorGuideCommand("THÊM_PHẦN_TỬ_VÀO_DANH_SÁCH(danh_sách, giá_trị)", "Thêm phần tử vào cuối danh sách."),
+                EditorGuideCommand("ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, chỉ_số, giá_trị)", "Thay giá trị tại một chỉ số."),
+                EditorGuideCommand("XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH(danh_sách, chỉ_số)", "Xóa phần tử theo chỉ số."),
+                EditorGuideCommand("KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị) / TÌM_VỊ_TRÍ_TRONG_CHUỖI_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị)", "Kiểm tra phần tử hoặc tìm chỉ số đầu tiên; không thấy trả về -1."),
+                EditorGuideCommand("SẮP_XẾP_DANH_SÁCH(danh_sách)", "Tạo danh sách mới đã sắp xếp tăng dần; chỉ nhận toàn số hoặc toàn chuỗi."),
+                EditorGuideCommand("ĐẢO_NGƯỢC_DANH_SÁCH(danh_sách)", "Tạo danh sách mới theo thứ tự ngược, không sửa danh sách gốc."),
+                EditorGuideCommand("LỌC_DANH_SÁCH(danh_sách, tên_hàm)", "Lọc phần tử bằng hàm tự định nghĩa nhận một phần tử và trả về ĐÚNG/SAI."),
                 EditorGuideCommand("TẠO_BẢN_ĐỒ(khóa, giá_trị, ...)", "Tạo bản đồ theo từng cặp khóa và giá trị."),
-                EditorGuideCommand("LẤY_GIÁ_TRỊ(bản_đồ, khóa) / ĐẶT_GIÁ_TRỊ(bản_đồ, khóa, giá_trị)", "Đọc hoặc cập nhật giá trị theo khóa."),
-                EditorGuideCommand("XÓA_KHÓA(bản_đồ, khóa) / CÓ_KHÓA(bản_đồ, khóa)", "Xóa khóa hoặc kiểm tra khóa tồn tại."),
-                EditorGuideCommand("DANH_SÁCH_KHÓA(bản_đồ)", "Lấy danh sách khóa của bản đồ.")
+                EditorGuideCommand("LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(bản_đồ, khóa) / ĐẶT_GIÁ_TRỊ_TRONG_BẢN_ĐỒ(bản_đồ, khóa, giá_trị)", "Đọc hoặc cập nhật giá trị theo khóa."),
+                EditorGuideCommand("XÓA_KHÓA_KHỎI_BẢN_ĐỒ(bản_đồ, khóa) / KIỂM_TRA_KHÓA_TRONG_BẢN_ĐỒ(bản_đồ, khóa)", "Xóa khóa hoặc kiểm tra khóa tồn tại."),
+                EditorGuideCommand("LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ(bản_đồ)", "Lấy danh sách khóa của bản đồ.")
             ),
             notes = listOf(
                 "Danh sách và bản đồ có giới hạn số phần tử, độ sâu lồng nhau và tổng kích thước.",
@@ -289,14 +289,14 @@ object EditorGuideCatalog {
             commands = listOf(
                 EditorGuideCommand("ĐỌC_TỆP(đường_dẫn)", "Đọc văn bản UTF-8 trong vùng tệp riêng."),
                 EditorGuideCommand("GHI_TỆP(đường_dẫn, nội_dung)", "Ghi hoặc thay thế tệp UTF-8."),
-                EditorGuideCommand("TỆP_TỒN_TẠI(đường_dẫn)", "Kiểm tra một tệp có tồn tại."),
+                EditorGuideCommand("KIỂM_TRA_TỆP_TỒN_TẠI(đường_dẫn)", "Kiểm tra một tệp có tồn tại."),
                 EditorGuideCommand("XÓA_TỆP(đường_dẫn)", "Xóa tệp trong vùng riêng."),
                 EditorGuideCommand("TẠO_THƯ_MỤC(đường_dẫn)", "Tạo thư mục trong vùng riêng."),
                 EditorGuideCommand("LIỆT_KÊ_TỆP(đường_dẫn)", "Liệt kê tệp trực tiếp trong thư mục."),
                 EditorGuideCommand("ĐỌC_JSON_TỆP(đường_dẫn) / GHI_JSON_TỆP(đường_dẫn, giá_trị)", "Đọc hoặc ghi dữ liệu JSON trong tệp."),
                 EditorGuideCommand("CHỌN_TỆP(MIME)", "Mở bộ chọn Android và nhập tệp vào vùng AUTU."),
                 EditorGuideCommand("LƯU_TỆP(đường_dẫn, tên_gợi_ý)", "Mở bộ chọn Android để xuất tệp ra nơi người dùng chọn."),
-                EditorGuideCommand("GỬI_TỆP_HTTP(...) / TẢI_TỆP_HTTP(...)", "Tải lên hoặc tải xuống tệp qua HTTPS; xem thêm nhóm Mạng.")
+                EditorGuideCommand("TẢI_LÊN_TỆP_HTTP(...) / TẢI_XUỐNG_TỆP_HTTP(...)", "Tải lên hoặc tải xuống tệp qua HTTPS; xem thêm nhóm Mạng.")
             ),
             notes = listOf(
                 "Đường dẫn chỉ được nằm trong vùng dữ liệu riêng của AUTU-LIO; không hỗ trợ đường dẫn tuyệt đối hoặc thoát khỏi thư mục riêng.",
@@ -325,8 +325,8 @@ object EditorGuideCatalog {
             summary = "Gửi yêu cầu HTTPS và trao đổi dữ liệu với API bên ngoài.",
             commands = listOf(
                 EditorGuideCommand("GỬI_YÊU_CẦU_HTTP(phương_thức, URL, nội_dung, tiêu_đề, timeout)", "Gửi yêu cầu HTTP qua HTTPS và nhận phản hồi.", "GỬI_YÊU_CẦU_HTTP(\"GET\", \"https://api.example.com/status\", RỖNG, TẠO_BẢN_ĐỒ(), 10000)"),
-                EditorGuideCommand("GỬI_TỆP_HTTP(...) ", "Upload tệp bằng multipart/form-data; chi tiết tham số nằm trong tài liệu ngôn ngữ."),
-                EditorGuideCommand("TẢI_TỆP_HTTP(URL, đường_dẫn_đích, tiêu_đề, timeout)", "Tải tệp qua HTTPS và lưu vào vùng riêng AUTU.")
+                EditorGuideCommand("TẢI_LÊN_TỆP_HTTP(...) ", "Upload tệp bằng multipart/form-data; chi tiết tham số nằm trong tài liệu ngôn ngữ."),
+                EditorGuideCommand("TẢI_XUỐNG_TỆP_HTTP(URL, đường_dẫn_đích, tiêu_đề, timeout)", "Tải tệp qua HTTPS và lưu vào vùng riêng AUTU.")
             ),
             notes = listOf(
                 "Chỉ chấp nhận HTTPS và các phương thức mạng được runtime cho phép.",
@@ -369,7 +369,7 @@ object EditorGuideCatalog {
             title = "18. Chụp và lưu ảnh màn hình",
             summary = "Chụp màn hình qua AccessibilityService và lưu JPEG vào vùng dữ liệu riêng AUTU.",
             commands = listOf(
-                EditorGuideCommand("CHỤP_ẢNH_MÀN_HÌNH(đường_dẫn) / LƯU_ẢNH_MÀN_HÌNH(đường_dẫn)", "Chụp và lưu JPEG; trả về bản đồ gồm đường dẫn, kích thước và dung lượng.", minAndroidApi = 30)
+                EditorGuideCommand("CHỤP_ẢNH_MÀN_HÌNH(đường_dẫn) / CHỤP_ẢNH_MÀN_HÌNH(đường_dẫn)", "Chụp và lưu JPEG; trả về bản đồ gồm đường dẫn, kích thước và dung lượng.", minAndroidApi = 30)
             ),
             notes = listOf(
                 "Cần bật AccessibilityService cho AUTU-LIO và Android 11.0 (API 30) trở lên.",
