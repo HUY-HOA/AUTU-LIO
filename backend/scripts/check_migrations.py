@@ -145,6 +145,24 @@ device_columns = {
 if "revoked_reason" not in device_columns:
     raise SystemExit("Device revocation reason column is missing")
 
+required_presence_columns = {
+    "presence_seen_at",
+    "app_foreground_at",
+    "runtime_state",
+}
+if not required_presence_columns.issubset(device_columns):
+    raise SystemExit("Device presence tracking columns are missing")
+
+database.execute(
+    "UPDATE devices SET presence_seen_at = 120, app_foreground_at = 120, runtime_state = 'RUNNING' "
+    "WHERE id = 'device-1'"
+)
+presence = database.execute(
+    "SELECT presence_seen_at, app_foreground_at, runtime_state FROM devices WHERE id = 'device-1'"
+).fetchone()
+if presence != (120, 120, "RUNNING"):
+    raise SystemExit("Device presence tracking columns cannot store the live state")
+
 database.execute(
     "UPDATE devices SET status = 'REVOKED', revoked_reason = 'LEGACY_REVOKED' WHERE id = 'device-1'"
 )
