@@ -145,7 +145,7 @@ object EditorGuideCatalog {
             title = "7. Thông tin thiết bị và trạng thái hệ thống",
             summary = "Lấy thông tin pin, mạng, ứng dụng, phiên bản Android và trạng thái khóa màn hình.",
             commands = listOf(
-                EditorGuideCommand("LẤY_PHẦN_TRĂM_PIN() / LẤY_PHẦN_TRĂM_LẤY_PHẦN_TRĂM_PIN()", "Đọc mức pin hoặc phần trăm pin còn lại."),
+                EditorGuideCommand("LẤY_PHẦN_TRĂM_PIN()", "Đọc mức pin hoặc phần trăm pin còn lại."),
                 EditorGuideCommand("KIỂM_TRA_ĐANG_SẠC()", "Kiểm tra thiết bị có đang sạc không."),
                 EditorGuideCommand("KIỂM_TRA_KẾT_NỐI_MẠNG()", "Kiểm tra trạng thái kết nối mạng theo dữ liệu thiết bị."),
                 EditorGuideCommand("KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG()", "Kiểm tra màn hình đang bật hay tắt."),
