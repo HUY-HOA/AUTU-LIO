@@ -229,8 +229,10 @@ private fun RolePreviewChooser(
         }
     }
 }
-internal fun tr(vi: String, en: String): String =
-    if (Locale.getDefault().language.equals("vi", ignoreCase = true)) vi else en
+// AUTU-LIO is Vietnamese-first by product requirement. Keep English strings
+// in call sites only as reference/future localization source; never show raw
+// English UI labels to customers.
+internal fun tr(vi: String, en: String): String = vi
 
 internal fun localizedErrorMessage(error: Throwable?, fallback: String): String {
     val message = error?.message?.trim().orEmpty()
@@ -1481,7 +1483,7 @@ private fun CustomerHome(
                         account?.license == null -> Text(tr("Chưa được cấp giấy phép.", "No license has been issued."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                         else -> {
                             Text(
-                                "${account?.license?.planCode} · ${account?.license?.effectiveStatus}",
+                                "${account?.license?.planCode?.let(::planText)} · ${account?.license?.effectiveStatus?.let(::statusText)}",
                                 color = if (account?.canRun == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold

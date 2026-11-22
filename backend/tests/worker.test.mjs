@@ -701,7 +701,8 @@ test("customer self-removal records a reversible customer-removal reason", async
   ));
 });
 
-test("customer can re-enroll a device that they previously removed", async () => {
+for (const revokedReason of ["CUSTOMER_REMOVED", "ACCOUNT_REVOKED"]) {
+test(`customer can re-enroll a device revoked with ${revokedReason}`, async () => {
   const proof = await makeSignedDeviceEnrollment();
   const now = Math.floor(Date.now() / 1000);
   const { env, operations } = createDeviceRegistrationEnv({
@@ -722,7 +723,7 @@ test("customer can re-enroll a device that they previously removed", async () =>
     existingDevice: {
       id: "device-previous",
       status: "REVOKED",
-      revoked_reason: "CUSTOMER_REMOVED"
+      revoked_reason: revokedReason
     }
   });
 
@@ -754,10 +755,11 @@ test("customer can re-enroll a device that they previously removed", async () =>
   assert.equal(body.reactivated, true);
   assert.equal(body.device.id, "device-previous");
   assert.ok(operations.some(operation =>
-    operation.sql.includes("revoked_reason = 'CUSTOMER_REMOVED'") &&
+    operation.sql.includes("revoked_reason IN ('CUSTOMER_REMOVED', 'ACCOUNT_REVOKED')") &&
     operation.sql.includes("status = 'ACTIVE'")
   ));
 });
+}
 
 test("customer cannot self-reactivate a device revoked by the owner", async () => {
   const proof = await makeSignedDeviceEnrollment();
