@@ -58,6 +58,8 @@ internal fun AccessControlAdminScreen(
     var pendingConfirmation by remember { mutableStateOf<AccessAdminConfirmation?>(null) }
     var createFor by remember { mutableStateOf<CustomerRecord?>(null) }
     var editLicense by remember { mutableStateOf<LicenseRecord?>(null) }
+    var restoreDeviceTarget by remember { mutableStateOf<DeviceRecord?>(null) }
+    var restoringDevice by remember { mutableStateOf(false) }
     var createPlan by remember { mutableStateOf("MONTHLY") }
     var createPlanExpanded by remember { mutableStateOf(false) }
     var createDays by remember { mutableStateOf("30") }
@@ -162,7 +164,7 @@ internal fun AccessControlAdminScreen(
                     "SUSPENDED" to "Tạm khóa",
                     "PAUSED" to "Tạm dừng",
                     "EXPIRED" to "Hết hạn",
-                    "REVOKED" to "Thu hồi"
+                    "REVOKED" to "Đã khóa / thu hồi"
                 ).forEach { item ->
                     FilterChip(
                         selected = statusFilter == item.first,
@@ -265,7 +267,12 @@ internal fun AccessControlAdminScreen(
                                         Text(device.label.ifBlank { "${device.manufacturer} ${device.model}".trim().ifBlank { device.email } }, fontWeight = FontWeight.SemiBold)
                                         Text(device.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    Text(statusText(device.status), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        if (device.status == "ACTIVE") "Đang hoạt động" else "Đã khóa / thu hồi",
+                                        color = if (device.status == "ACTIVE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
                                 Text("${device.manufacturer} ${device.model} · Android ${device.androidVersion}", fontSize = 12.sp)
                                 Text("AUTU-LIO ${device.appVersion} · Lần hoạt động: ${accessDate(device.lastSeenAt)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -282,48 +289,35 @@ internal fun AccessControlAdminScreen(
                                         "LEGACY_REVOKED" -> "Thu hồi từ phiên bản cũ"
                                         else -> "Không rõ lý do"
                                     }
-                                    Text("Lý do: $reasonText", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
-                                    val canRestore = device.customerStatus == "ACTIVE" &&
-                                        device.licenseStatus == "ACTIVE" &&
-                                        device.activeDeviceCount < (device.maxDevices ?: 0)
-                                    TextButton(
-                                        enabled = canRestore,
-                                        onClick = {
-                                            val token = accessToken ?: return@TextButton
-                                            pendingConfirmation = AccessAdminConfirmation(
-                                                title = "Mở lại thiết bị?",
-                                                message = "Thiết bị sẽ được kích hoạt lại bằng khóa bảo mật đã đăng ký trước đây. Cần tài khoản đang hoạt động, giấy phép còn hiệu lực và còn chỗ trong giới hạn thiết bị.",
-                                                confirmLabel = "Mở lại thiết bị",
-                                                destructive = false
-                                            ) {
-                                                repository.updateCustomerDeviceStatus(token, device.id, "ACTIVE")
-                                                notice = "Đã mở lại thiết bị."
-                                            }
-                                        }
-                                    ) { Text("Mở lại thiết bị") }
-                                    if (!canRestore) {
-                                        val blocked = when {
-                                            device.customerStatus != "ACTIVE" -> "Cần kích hoạt tài khoản trước"
-                                            device.licenseStatus != "ACTIVE" -> "Cần cấp giấy phép còn hiệu lực trước"
-                                            else -> "Đã hết giới hạn thiết bị; hãy thu hồi thiết bị khác hoặc tăng giới hạn"
-                                        }
-                                        Text(blocked, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Lý do khóa: $reasonText", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                                    OutlinedButton(
+                                        onClick = { restoreDeviceTarget = device },
+                                        enabled = !restoringDevice,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text("MỞ LẠI THIẾT BỊ") }
+                                    deviceRestoreBlocker(device)?.let { blocked ->
+                                        Text(
+                                            "Chưa thể mở ngay: $blocked",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
                                     }
                                 } else {
-                                    TextButton(
+                                    OutlinedButton(
+                                        modifier = Modifier.fillMaxWidth(),
                                         onClick = {
-                                            val token = accessToken ?: return@TextButton
+                                            val token = accessToken ?: return@OutlinedButton
                                             pendingConfirmation = AccessAdminConfirmation(
-                                                title = "Thu hồi thiết bị?",
-                                                message = "Thiết bị sẽ mất quyền chạy các gói AUTU. Bạn có thể chủ động mở lại thiết bị sau này, nếu tài khoản, giấy phép và giới hạn thiết bị cho phép.",
-                                                confirmLabel = "Thu hồi thiết bị"
+                                                title = "Khóa thiết bị?",
+                                                message = "Thiết bị sẽ mất quyền chạy các gói AUTU. Chủ sở hữu có thể mở lại thiết bị sau khi tài khoản, giấy phép và giới hạn thiết bị đáp ứng điều kiện.",
+                                                confirmLabel = "Khóa thiết bị"
                                             ) {
                                                 repository.revokeCustomerDevice(token, device.id)
-                                                notice = "Đã thu hồi thiết bị."
+                                                notice = "Đã khóa thiết bị."
                                             }
                                         },
-                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                    ) { Text("Thu hồi thiết bị") }
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                    ) { Text("KHÓA THIẾT BỊ") }
                                 }
                             }
                         }
@@ -467,6 +461,61 @@ internal fun AccessControlAdminScreen(
         )
     }
 
+    restoreDeviceTarget?.let { device ->
+        val blocked = deviceRestoreBlocker(device)
+        AlertDialog(
+            onDismissRequest = { if (!restoringDevice) restoreDeviceTarget = null },
+            title = { Text("Mở lại thiết bị?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${device.email} · ${device.label.ifBlank { device.model }}", fontSize = 12.sp)
+                    Text("Thiết bị sẽ được kích hoạt lại bằng khóa bảo mật đã đăng ký trước đây.")
+                    if (blocked != null) {
+                        Text(
+                            "Chưa thể mở thiết bị: $blocked",
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                    } else {
+                        Text(
+                            "Đủ điều kiện mở lại. Thiết bị sẽ được tính vào giới hạn giấy phép.",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = blocked == null && !restoringDevice,
+                    onClick = {
+                        val token = accessToken ?: return@Button
+                        scope.launch {
+                            restoringDevice = true
+                            error = ""
+                            try {
+                                repository.updateCustomerDeviceStatus(token, device.id, "ACTIVE")
+                                notice = "Đã mở lại thiết bị ${device.email}."
+                                restoreDeviceTarget = null
+                                refresh()
+                            } catch (exception: Exception) {
+                                error = localizedErrorMessage(exception, "Không thể mở lại thiết bị.")
+                            } finally {
+                                restoringDevice = false
+                            }
+                        }
+                    }
+                ) { Text(if (restoringDevice) "ĐANG MỞ…" else "MỞ LẠI THIẾT BỊ") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { restoreDeviceTarget = null },
+                    enabled = !restoringDevice
+                ) { Text("Đóng") }
+            }
+        )
+    }
+
     createFor?.let { customer ->
         AlertDialog(
             onDismissRequest = { if (!saving) createFor = null },
@@ -601,4 +650,12 @@ private fun accessDate(value: Long?): String {
         java.text.DateFormat.SHORT,
         java.text.DateFormat.SHORT
     ).format(java.util.Date(value * 1000L))
+}
+
+
+private fun deviceRestoreBlocker(device: DeviceRecord): String? = when {
+    device.customerStatus != "ACTIVE" -> "Tài khoản khách hàng đang bị khóa. Hãy kích hoạt lại tài khoản trước."
+    device.licenseStatus != "ACTIVE" -> "Giấy phép chưa hoạt động hoặc đã hết hạn. Hãy cấp/kích hoạt giấy phép còn hiệu lực."
+    device.activeDeviceCount >= (device.maxDevices ?: 0) -> "Đã hết giới hạn thiết bị. Hãy khóa thiết bị khác hoặc tăng giới hạn giấy phép."
+    else -> null
 }
