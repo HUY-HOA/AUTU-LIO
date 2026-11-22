@@ -184,6 +184,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var editorPanel: LinearLayout? = null
     private var codeInput: EditText? = null
     private var floatingParams: WindowManager.LayoutParams? = null
+    private var floatingDraftName = FLOATING_DRAFT_NAME
     private var editorVisible = false
     private var collapsed = true
     private var restoreFloatingExpandedAfterScreenshot = false
@@ -297,12 +298,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         super.onDestroy()
     }
 
-    fun prepareProgram(program: ScriptProgram): Boolean {
+    fun prepareProgram(program: ScriptProgram, draftName: String? = null): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             val finished = CountDownLatch(1)
             val result = AtomicBoolean(false)
             if (!mainHandler.post {
-                    result.set(prepareProgram(program))
+                    result.set(prepareProgram(program, draftName))
                     finished.countDown()
                 }
             ) return false
@@ -325,6 +326,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             state == ScriptExecutionState.STOPPING
         ) return false
 
+        draftName?.trim()?.takeIf { it.isNotEmpty() && it.length <= 96 }?.let {
+            floatingDraftName = it
+        }
         pendingProgram = program
         if (!showFloatingWindow()) {
             pendingProgram = null
@@ -334,6 +338,55 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         setCollapsed(false)
         renderSnapshot(executionEngine?.snapshot())
         return true
+    }
+
+    /**
+     * Opens the owner draft in the persistent accessibility overlay without requiring
+     * a script to be compiled first. The Activity saves the same encrypted draft before
+     * calling this method, so the floating and full-screen editors share one source.
+     */
+    fun openFloatingEditor(draftName: String, source: String): Boolean {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            val finished = CountDownLatch(1)
+            val result = AtomicBoolean(false)
+            if (!mainHandler.post {
+                    result.set(openFloatingEditor(draftName, source))
+                    finished.countDown()
+                }
+            ) return false
+            return try {
+                finished.await(2, TimeUnit.SECONDS) && result.get()
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                false
+            }
+        }
+
+        val normalizedName = draftName.trim()
+        if (databaseMaintenanceActive ||
+            !sessionVerified ||
+            sessionRole != AccessRole.OWNER ||
+            sessionStore.read().isNullOrBlank() ||
+            normalizedName.isBlank() ||
+            normalizedName.length > 96 ||
+            source.length > ScriptCompiler.MAX_SOURCE_LENGTH
+        ) return false
+
+        val state = executionEngine?.snapshot()?.state
+        if (state == ScriptExecutionState.RUNNING ||
+            state == ScriptExecutionState.PAUSED ||
+            state == ScriptExecutionState.STOPPING
+        ) return false
+
+        floatingDraftName = normalizedName
+        if (!showFloatingWindow()) return false
+
+        codeInput?.setText(source)
+        if (!saveFloatingDraft()) return false
+        setCollapsed(false)
+        setEditorVisible(true)
+        statusLabel?.text = "Đang soạn · Bản nháp được lưu tự động"
+        return editorVisible
     }
 
     fun pauseExecution(): Boolean = executionEngine?.pause() == true
@@ -2172,6 +2225,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             setPadding(0, dp(5), 0, 0)
         }
 
+        val symbolsButton = panelButton("Ký tự") { anchor ->
+            showFloatingSymbolMenu(anchor)
+        }
         val actionButton = panelButton("Thao tác") { anchor ->
             showFloatingActionMenu(anchor)
         }
@@ -2188,6 +2244,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val prepareButton = panelButton("Kiểm tra") {
             prepareFloatingProgram()
         }
+        editorTools.addView(symbolsButton)
         editorTools.addView(actionButton)
         editorTools.addView(templateButton)
         editorTools.addView(saveButton)
@@ -2414,7 +2471,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private fun loadFloatingDraft(): String {
         if (sessionRole != AccessRole.OWNER) return ""
         return runCatching {
-            SecureScriptDraftStore(this).load().contents[FLOATING_DRAFT_NAME].orEmpty()
+            SecureScriptDraftStore(this).load().contents[floatingDraftName].orEmpty()
         }.getOrDefault("")
     }
 
@@ -2424,9 +2481,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             val code = codeInput?.text?.toString().orEmpty()
             val store = SecureScriptDraftStore(this)
             val snapshot = store.load()
-            val names = (snapshot.names + FLOATING_DRAFT_NAME)
+            val names = (snapshot.names + floatingDraftName)
                 .distinctBy { it.lowercase(Locale.ROOT) }
-            store.save(names, snapshot.contents + (FLOATING_DRAFT_NAME to code))
+            store.save(names, snapshot.contents + (floatingDraftName to code))
             true
         }.getOrDefault(false)
     }
@@ -2444,6 +2501,60 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         editable.replace(start, end, insertion)
         field.setSelection((start + prefix.length + snippet.trim().length).coerceIn(0, editable.length))
         field.requestFocus()
+    }
+
+    private fun showFloatingSymbolMenu(anchor: View) {
+        val symbols = listOf(
+            Triple("Dấu gạch dưới  _", "_", 1),
+            Triple("Ngoặc tròn  ()", "()", 1),
+            Triple("Ngoặc nhọn  {}", "{}", 1),
+            Triple("Dấu nháy kép  \"\"", "\"\"", 1),
+            Triple("Ghi chú  //", "//", 2),
+            Triple("Dấu phẩy  ,", ",", 1),
+            Triple("Dấu hai chấm  :", ":", 1),
+            Triple("Dấu chấm phẩy  ;", ";", 1),
+            Triple("Gán  =", "=", 1),
+            Triple("So sánh  ==", "==", 2),
+            Triple("Khác  !=", "!=", 2),
+            Triple("Lớn hơn hoặc bằng  >=", ">=", 2),
+            Triple("Nhỏ hơn hoặc bằng  <=", "<=", 2),
+            Triple("Cộng  +", "+", 1),
+            Triple("Trừ  -", "-", 1),
+            Triple("Nhân  *", "*", 1),
+            Triple("Chia  /", "/", 1),
+            Triple("Chia dư  %", "%", 1),
+            Triple("Lũy thừa  ^", "^", 1),
+            Triple("Lớn hơn  >", ">", 1),
+            Triple("Nhỏ hơn  <", "<", 1),
+            Triple("Dấu chấm  .", ".", 1)
+        )
+        val menu = PopupMenu(this, anchor)
+        symbols.forEachIndexed { index, item ->
+            menu.menu.add(0, index, index, item.first)
+        }
+        menu.setOnMenuItemClickListener { item ->
+            symbols.getOrNull(item.itemId)?.let { (_, insertion, cursorOffset) ->
+                insertFloatingTextAtSelection(insertion, cursorOffset)
+            }
+            true
+        }
+        menu.show()
+    }
+
+    private fun insertFloatingTextAtSelection(insertion: String, cursorOffset: Int) {
+        val field = codeInput ?: return
+        val editable = field.text ?: return
+        val rawStart = field.selectionStart.takeIf { it >= 0 } ?: editable.length
+        val rawEnd = field.selectionEnd.takeIf { it >= 0 } ?: rawStart
+        val start = minOf(rawStart, rawEnd).coerceIn(0, editable.length)
+        val end = maxOf(rawStart, rawEnd).coerceIn(start, editable.length)
+        editable.replace(start, end, insertion)
+        val cursor = (start + cursorOffset.coerceIn(0, insertion.length))
+            .coerceIn(0, editable.length)
+        field.setSelection(cursor)
+        field.requestFocus()
+        val keyboard = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        field.post { keyboard.showSoftInput(field, InputMethodManager.SHOW_IMPLICIT) }
     }
 
     private fun showFloatingActionMenu(anchor: View) {
