@@ -404,7 +404,7 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         AdminIconValue(Icons.Outlined.Apps, "Phiên bản AUTU", "AUTU-LIO ${device.appVersion}")
-                        AdminIconValue(Icons.Outlined.AccessTime, "Lần sử dụng", formatEpoch(device.lastSeenAt))
+                        AdminIconValue(Icons.Outlined.AccessTime, "Kiểm tra quyền", formatEpoch(device.lastSeenAt))
                     }
                     AdminPresenceInfo(device.presenceSeenAt, device.appForegroundAt, device.runtimeState, device.status == "ACTIVE" && device.customerStatus == "ACTIVE")
                     if (device.status == "ACTIVE") {
