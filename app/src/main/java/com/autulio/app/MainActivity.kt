@@ -247,7 +247,7 @@ internal fun localizedErrorMessage(error: Throwable?, fallback: String): String 
 
 internal fun statusText(value: String): String = when (value.trim().uppercase(Locale.ROOT)) {
     "ACTIVE" -> "Đang hoạt động"
-    "SUSPENDED" -> "Bị tạm khóa"
+    "SUSPENDED" -> "Đã chặn đăng nhập"
     "PAUSED" -> "Tạm dừng"
     "REVOKED" -> "Đã thu hồi"
     "EXPIRED" -> "Đã hết hạn"
