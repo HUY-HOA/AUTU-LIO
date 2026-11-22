@@ -487,7 +487,7 @@ class ScriptExecutionEngine(
             evaluate(it, variables, declaredTypes, runId, callDepth)
         }
         val success = when (instruction.name) {
-            "CHẠM" -> dispatcher.tap(requireCoordinate(args[0]), requireCoordinate(args[1]))
+            "NHẤN" -> dispatcher.tap(requireCoordinate(args[0]), requireCoordinate(args[1]))
             "NHẤN_GIỮ" -> dispatcher.longPress(
                 requireCoordinate(args[0]),
                 requireCoordinate(args[1]),
@@ -500,7 +500,7 @@ class ScriptExecutionEngine(
                 requireCoordinate(args[3]),
                 requireDuration(args[4], 1, ScriptCompiler.MAX_GESTURE_MS)
             )
-            "CHẠM_ĐA_ĐIỂM" -> {
+            "NHẤN_ĐA_ĐIỂM" -> {
                 val points = requireMultiTouchPaths(args[0], minPoints = 1, maxPoints = 1)
                 val tapPaths = points.map { point ->
                     listOf(point[0], point[1], point[0], point[1])
@@ -797,7 +797,7 @@ class ScriptExecutionEngine(
             }
             String(codePoints, start, length)
         }
-        "TÌM_VỊ_TRÍ" -> {
+        "TÌM_VỊ_TRÍ_TRONG_CHUỖI" -> {
             requireArgs(name, args, 2)
             val source = args[0] as? String
                 ?: throw ScriptRuntimeFailure("invalid_argument", "TÌM_VỊ_TRÍ cần chuỗi nguồn.")
@@ -877,13 +877,13 @@ class ScriptExecutionEngine(
             }
             args.map { copySupportedValue(it) }.toMutableList()
         }
-        "LẤY_PHẦN_TỬ" -> {
+        "LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH" -> {
             requireArgs(name, args, 2)
             val list = requireMutableList(args[0], name)
             val index = requireListIndex(args[1], list.size, allowEnd = false)
             list[index]
         }
-        "THÊM_PHẦN_TỬ" -> {
+        "THÊM_PHẦN_TỬ_VÀO_DANH_SÁCH" -> {
             requireArgs(name, args, 2)
             val list = requireMutableList(args[0], name)
             val copiedValue = copySupportedValue(args[1])
@@ -893,7 +893,7 @@ class ScriptExecutionEngine(
             list.add(copiedValue)
             list.size.toDouble()
         }
-        "ĐẶT_PHẦN_TỬ" -> {
+        "ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH" -> {
             requireArgs(name, args, 3)
             val list = requireMutableList(args[0], name)
             val index = requireListIndex(args[1], list.size, allowEnd = false)
@@ -901,32 +901,32 @@ class ScriptExecutionEngine(
             list[index] = copiedValue
             copiedValue
         }
-        "XÓA_PHẦN_TỬ" -> {
+        "XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH" -> {
             requireArgs(name, args, 2)
             val list = requireMutableList(args[0], name)
             val index = requireListIndex(args[1], list.size, allowEnd = false)
             list.removeAt(index)
         }
-        "CÓ_PHẦN_TỬ" -> {
+        "KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH" -> {
             requireArgs(name, args, 2)
             val list = args[0] as? List<*>
                 ?: throw ScriptRuntimeFailure("invalid_argument", "CÓ_PHẦN_TỬ cần danh sách ở tham số đầu.")
             list.any { valuesEqual(it, args[1]) }
         }
-        "TÌM_PHẦN_TỬ" -> {
+        "TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH" -> {
             requireArgs(name, args, 2)
             val list = args[0] as? List<*>
                 ?: throw ScriptRuntimeFailure("invalid_argument", "TÌM_PHẦN_TỬ cần danh sách ở tham số đầu.")
             list.indexOfFirst { valuesEqual(it, args[1]) }.toDouble()
         }
-        "ĐẢO_NGƯỢC" -> {
+        "ĐẢO_NGƯỢC_DANH_SÁCH" -> {
             requireArgs(name, args, 1)
             val list = args[0] as? List<*>
                 ?: throw ScriptRuntimeFailure("invalid_argument", "ĐẢO_NGƯỢC cần một danh sách.")
             if (list.size > ScriptCompiler.MAX_LIST_ITEMS) throw ScriptRuntimeFailure("list_too_large", "Danh sách vượt giới hạn.")
             list.asReversed().map { copySupportedValue(it) }.toMutableList()
         }
-        "SẮP_XẾP" -> {
+        "SẮP_XẾP_DANH_SÁCH" -> {
             requireArgs(name, args, 1)
             val list = args[0] as? List<*>
                 ?: throw ScriptRuntimeFailure("invalid_argument", "SẮP_XẾP cần một danh sách.")
@@ -938,7 +938,7 @@ class ScriptExecutionEngine(
             }
             sorted.map { copySupportedValue(it) }.toMutableList()
         }
-        "LỌC" -> {
+        "LỌC_DANH_SÁCH" -> {
             requireArgs(name, args, 2)
             val list = args[0] as? List<*>
                 ?: throw ScriptRuntimeFailure("invalid_argument", "LỌC cần danh sách ở tham số đầu.")
@@ -969,14 +969,14 @@ class ScriptExecutionEngine(
             }
             map
         }
-        "LẤY_GIÁ_TRỊ" -> {
+        "LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ" -> {
             requireArgs(name, args, 2)
             val map = requireMutableMap(args[0], name)
             val key = requireMapKey(args[1])
             if (!map.containsKey(key)) throw ScriptRuntimeFailure("map_key_not_found", "Không tìm thấy khóa '" + key + "'.")
             map[key]
         }
-        "ĐẶT_GIÁ_TRỊ" -> {
+        "ĐẶT_GIÁ_TRỊ_TRONG_BẢN_ĐỒ" -> {
             requireArgs(name, args, 3)
             val map = requireMutableMap(args[0], name)
             val key = requireMapKey(args[1])
@@ -987,20 +987,20 @@ class ScriptExecutionEngine(
             map[key] = copiedValue
             copiedValue
         }
-        "XÓA_KHÓA" -> {
+        "XÓA_KHÓA_KHỎI_BẢN_ĐỒ" -> {
             requireArgs(name, args, 2)
             val map = requireMutableMap(args[0], name)
             val key = requireMapKey(args[1])
             if (!map.containsKey(key)) throw ScriptRuntimeFailure("map_key_not_found", "Không tìm thấy khóa '" + key + "'.")
             map.remove(key)
         }
-        "CÓ_KHÓA" -> {
+        "KIỂM_TRA_KHÓA_TRONG_BẢN_ĐỒ" -> {
             requireArgs(name, args, 2)
             val map = args[0] as? Map<*, *>
                 ?: throw ScriptRuntimeFailure("invalid_argument", "CÓ_KHÓA cần bản đồ ở tham số đầu.")
             map.containsKey(requireMapKey(args[1]))
         }
-        "DANH_SÁCH_KHÓA" -> {
+        "LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ" -> {
             requireArgs(name, args, 1)
             val map = args[0] as? Map<*, *>
                 ?: throw ScriptRuntimeFailure("invalid_argument", "DANH_SÁCH_KHÓA cần một bản đồ.")
@@ -1369,10 +1369,10 @@ class ScriptExecutionEngine(
                     validateExpression(instruction.expression, 0)
                 is ScriptInstruction.Command -> {
                     val arity = when (instruction.name) {
-                        "CHẠM" -> 2
+                        "NHẤN" -> 2
                         "NHẤN_GIỮ" -> 3
                         "VUỐT" -> 5
-                        "CHẠM_ĐA_ĐIỂM", "VUỐT_ĐA_ĐIỂM" -> 2
+                        "NHẤN_ĐA_ĐIỂM", "VUỐT_ĐA_ĐIỂM" -> 2
                         "CHỜ", "MỞ_ỨNG_DỤNG" -> 1
                         "QUAY_LẠI", "VỀ_MÀN_HÌNH_CHÍNH",
                         "MỞ_ỨNG_DỤNG_GẦN_ĐÂY", "MỞ_THANH_THÔNG_BÁO", "MỞ_BẢNG_CÀI_ĐẶT_NHANH",
