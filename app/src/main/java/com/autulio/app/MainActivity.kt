@@ -948,6 +948,7 @@ private fun EditorScreen(
                 Text(tr("Chuyển sang mã hóa & phát hành", "Continue to secure packaging"))
             }
         }
+        }
         if (showQuickKeys && imeVisible && editorHasFocus) {
             EditorImeQuickKeyBar(
                 quickKeys = quickKeys,
