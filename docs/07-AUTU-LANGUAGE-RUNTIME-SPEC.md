@@ -15,11 +15,11 @@
 
 ```ebnf
 CHUONG_TRINH  = { KHAI_BAO_HAM | CAU_LENH } ;
-KHAI_BAO_HAM  = ("HÀM" | "ĐỊNH_NGHĨA_HÀM"), TEN_HAM, "(", [DANH_SACH_THAM_SO], ")", [":", KIEU], KHOI ;
+KHAI_BAO_HAM  = "HÀM", TEN_HAM, "(", [DANH_SACH_THAM_SO], ")", [":", KIEU], KHOI ;
 DANH_SACH_THAM_SO = THAM_SO, {",", THAM_SO} ;
 THAM_SO       = TEN, [":", KIEU] ;
 CAU_LENH      = KHAI_BAO_BIEN | GAN_BIEN | LENH_ANDROID | DIEU_KIEN | VONG_LAP | CHO_DIEU_KIEN | DIEU_KHIEN_VONG | TRA_VE ;
-KHAI_BAO_BIEN = ("BIẾN" | "ĐẶT"), TEN, [":", KIEU], "=", BIEU_THUC ;
+KHAI_BAO_BIEN = "BIẾN", TEN, [":", KIEU], "=", BIEU_THUC ;
 GAN_BIEN      = TEN, "=", BIEU_THUC ;
 DIEU_KIEN     = "NẾU", "(", BIEU_THUC, ")", KHOI, ["NGƯỢC_LẠI_NẾU", ...], ["NGƯỢC_LẠI", KHOI] ;
 VONG_LAP      = "LẶP", "(", BIEU_THUC, ")", KHOI
@@ -32,7 +32,7 @@ KHOI          = "{", {CAU_LENH}, "}" ;
 KIEU          = "SỐ" | "CHUỖI" | "LUẬN_LÝ" | "BẤT_KỲ" ;
 ```
 
-`BIẾN` và `HÀM` là tên chuẩn theo đúng vai trò. `ĐẶT` và `ĐỊNH_NGHĨA_HÀM` chỉ còn là bí danh tương thích với kịch bản cũ. Gán lại biến đã khai báo dùng trực tiếp cú pháp `TEN_BIEN = BIEU_THUC`. Ngữ pháp mô tả cấu trúc; parser vẫn là nguồn quyết định cuối cùng về cú pháp hợp lệ.
+`BIẾN` và `HÀM` là cú pháp chuẩn duy nhất cho khai báo biến và định nghĩa hàm. Không hỗ trợ từ khóa thay thế hoặc cú pháp tương thích cũ. Gán lại biến đã khai báo dùng trực tiếp cú pháp `TEN_BIEN = BIEU_THUC`. Ngữ pháp mô tả cấu trúc; parser vẫn là nguồn quyết định cuối cùng về cú pháp hợp lệ.
 
 ## 3. AST và runtime
 
