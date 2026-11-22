@@ -186,7 +186,6 @@ private fun AuthScreen(
     onRetrySession: () -> Unit,
     onSignIn: () -> Unit
 ) {
-    MaterialTheme(colorScheme = darkColorScheme(primary = androidx.compose.ui.graphics.Color(0xFF4F8CFF))) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
             Column(
                 Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
@@ -283,5 +282,4 @@ private fun AuthScreen(
                 }
             }
         }
-    }
 }
