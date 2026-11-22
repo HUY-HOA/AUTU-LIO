@@ -1753,12 +1753,24 @@ private fun SettingsScreen(
     modifier: Modifier,
     onLogout: () -> Unit
 ) {
+    val context = LocalContext.current
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         BrandHeader(admin = false)
         Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
         ThemeModeSelector()
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
         SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
+        SettingRow(
+            Icons.Outlined.Chat,
+            tr("Liên hệ nhà phát triển", "Contact developer"),
+            tr("Mở Zalo để liên hệ và nhận hỗ trợ.", "Open Zalo to contact the developer and get support.")
+        ) {
+            val contactIntent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://zaloapp.com/qr/p/1gl8y41uqztdt?src=qr")
+            )
+            context.startActivity(contactIntent)
+        }
         DatabaseBackupControls()
         ScriptFileControls()
         SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
