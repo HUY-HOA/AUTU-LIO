@@ -407,44 +407,42 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
                                 scope.launch {
                                     try {
                                         repository.revokeCustomerDevice(token, device.id)
-                                        notice = tr("Đã thu hồi thiết bị ${device.email}.", "Revoked device for ${device.email}.")
+                                        notice = tr("Đã khóa thiết bị ${device.email}.", "Locked device for ${device.email}.")
                                         refresh()
                                     } catch (exception: Exception) {
-                                        error = localizedErrorMessage(exception, tr("Không thể thu hồi thiết bị.", "Could not revoke the device."))
+                                        error = localizedErrorMessage(exception, tr("Không thể khóa thiết bị.", "Could not lock the device."))
                                     }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) { Text(tr("Thu hồi thiết bị", "Revoke device")) }
+                        ) { Text(tr("KHÓA THIẾT BỊ", "LOCK DEVICE")) }
                     } else {
-                        val canRestore = device.customerStatus == "ACTIVE" &&
-                            device.licenseStatus == "ACTIVE" &&
-                            device.activeDeviceCount < (device.maxDevices ?: 0)
+                        val blocked = when {
+                            device.customerStatus != "ACTIVE" -> tr("Tài khoản khách hàng đang bị khóa. Hãy kích hoạt lại tài khoản trước.", "The customer account is locked. Activate it first.")
+                            device.licenseStatus != "ACTIVE" -> tr("Giấy phép chưa hoạt động hoặc đã hết hạn. Hãy cấp/kích hoạt giấy phép còn hiệu lực.", "The license is not active or has expired. Issue/activate a current license.")
+                            device.activeDeviceCount >= (device.maxDevices ?: 0) -> tr("Đã hết giới hạn thiết bị. Hãy khóa thiết bị khác hoặc tăng giới hạn giấy phép.", "The device limit is full. Lock another device or increase the license limit.")
+                            else -> null
+                        }
                         val reasonText = when (device.revokedReason) {
                             "OWNER_REVOKED" -> tr("Chủ ứng dụng đã thu hồi", "Revoked by app owner")
-                            "ACCOUNT_REVOKED" -> tr("Tài khoản đã bị thu hồi", "Account was revoked")
+                            "ACCOUNT_REVOKED" -> tr("Tài khoản đã thu hồi", "Account was revoked")
                             "CUSTOMER_REMOVED" -> tr("Khách hàng đã gỡ", "Removed by customer")
                             "LEGACY_REVOKED" -> tr("Thu hồi từ phiên bản cũ", "Revoked by an older version")
                             else -> tr("Không rõ lý do", "Unknown reason")
                         }
                         Text(
-                            tr("Lý do thu hồi: $reasonText", "Revocation reason: $reasonText"),
+                            tr("Lý do khóa: $reasonText", "Lock reason: $reasonText"),
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 11.sp
                         )
                         OutlinedButton(
                             onClick = { restoreTarget = device },
-                            enabled = canRestore && !restoring,
+                            enabled = !restoring,
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text(tr("Mở lại thiết bị", "Restore device")) }
-                        if (!canRestore) {
-                            val blocked = when {
-                                device.customerStatus != "ACTIVE" -> tr("Cần kích hoạt tài khoản khách hàng trước.", "Activate the customer account first.")
-                                device.licenseStatus != "ACTIVE" -> tr("Cần cấp giấy phép còn hiệu lực trước.", "Issue a current license first.")
-                                else -> tr("Đã hết giới hạn thiết bị. Hãy thu hồi thiết bị khác hoặc tăng giới hạn.", "The device limit is full. Revoke another device or increase the limit.")
-                            }
-                            Text(blocked, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        ) { Text(tr("MỞ LẠI THIẾT BỊ", "UNLOCK DEVICE")) }
+                        if (blocked != null) {
+                            Text(blocked, fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -457,17 +455,23 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
             onDismissRequest = { if (!restoring) restoreTarget = null },
             title = { Text(tr("Mở lại thiết bị?", "Restore device?")) },
             text = {
-                Text(
-                    tr(
-                        "Thiết bị ${device.label.ifBlank { device.model }} sẽ được cấp quyền hoạt động lại. Cần tài khoản đang hoạt động, giấy phép còn hiệu lực và còn chỗ trong giới hạn thiết bị.",
-                        "Device ${device.label.ifBlank { device.model }} will be allowed to operate again. The customer account must be active, the license current, and a device slot available."
-                    ),
-                    fontSize = 13.sp
-                )
+                val blocked = when {
+                    device.customerStatus != "ACTIVE" -> tr("Tài khoản khách hàng đang bị khóa. Hãy kích hoạt lại tài khoản trước.", "The customer account is locked. Activate it first.")
+                    device.licenseStatus != "ACTIVE" -> tr("Giấy phép chưa hoạt động hoặc đã hết hạn. Hãy cấp/kích hoạt giấy phép còn hiệu lực.", "The license is not active or has expired. Issue/activate a current license.")
+                    device.activeDeviceCount >= (device.maxDevices ?: 0) -> tr("Đã hết giới hạn thiết bị. Hãy khóa thiết bị khác hoặc tăng giới hạn giấy phép.", "The device limit is full. Lock another device or increase the license limit.")
+                    else -> null
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("${device.label.ifBlank { device.model }}")
+                    if (blocked != null) Text(blocked, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    else Text(tr("Đủ điều kiện mở lại thiết bị.", "Device is eligible for restore."), color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                }
             },
             confirmButton = {
                 TextButton(
-                    enabled = !restoring,
+                    enabled = !restoring && device.customerStatus == "ACTIVE" &&
+                        device.licenseStatus == "ACTIVE" &&
+                        device.activeDeviceCount < (device.maxDevices ?: 0),
                     onClick = {
                         val token = accessToken ?: return@TextButton
                         scope.launch {
