@@ -56,7 +56,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 
 ### Thông tin thiết bị đã nối runtime ở 1.21
 
-Các hàm HÀNG_SẢN_XUẤT(), MẪU_THIẾT_BỊ(), PHIÊN_BẢN_ANDROID(), MỨC_API_ANDROID(), MÀN_HÌNH_BỊ_KHÓA() và THIẾT_BỊ_ĐƯỢC_BẢO_MẬT() đọc thuộc tính thiết bị/Keyguard cục bộ. Trạng thái bảo mật chỉ được truy vấn; không có hàm bỏ qua hoặc mở khóa bảo mật.
+Các hàm HÃNG_SẢN_XUẤT(), MẪU_THIẾT_BỊ(), PHIÊN_BẢN_ANDROID(), MỨC_API_ANDROID(), MÀN_HÌNH_BỊ_KHÓA() và THIẾT_BỊ_ĐƯỢC_BẢO_MẬT() đọc thuộc tính thiết bị/Keyguard cục bộ. Trạng thái bảo mật chỉ được truy vấn; không có hàm bỏ qua hoặc mở khóa bảo mật.
 
 ## Danh mục API dự kiến
 
