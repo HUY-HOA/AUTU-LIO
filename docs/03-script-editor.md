@@ -123,9 +123,9 @@ Phép cộng với ít nhất một toán hạng là chuỗi sẽ nối chuỗi.
 ### Điều kiện
 
 ```text
-NẾU (LẤY_LẤY_PHẦN_TRĂM_PIN() > 20 VÀ KIỂM_TRA_KẾT_NỐI_MẠNG()) {
+NẾU (LẤY_PHẦN_TRĂM_PIN() > 20 VÀ KIỂM_TRA_KẾT_NỐI_MẠNG()) {
     NHẤN(200, 400)
-} NGƯỢC_LẠI_NẾU (LẤY_LẤY_PHẦN_TRĂM_PIN() > 10) {
+} NGƯỢC_LẠI_NẾU (LẤY_PHẦN_TRĂM_PIN() > 10) {
     CHỜ(500)
 } NGƯỢC_LẠI {
     QUAY_LẠI()
@@ -297,7 +297,7 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 
 | Hàm | Tham số | Trả về |
 |---|---|---|
-| `LẤY_LẤY_PHẦN_TRĂM_PIN()` / `PHẦN_TRĂM_LẤY_LẤY_PHẦN_TRĂM_PIN()` | 0 | Phần trăm pin |
+| `LẤY_PHẦN_TRĂM_PIN()` / `LẤY_PHẦN_TRĂM_PIN()` | 0 | Phần trăm pin |
 | `KIỂM_TRA_ĐANG_SẠC()` | 0 | ĐÚNG nếu đang sạc hoặc pin đầy |
 | `KIỂM_TRA_KẾT_NỐI_MẠNG()` | 0 | ĐÚNG nếu kết nối Internet đã được xác thực |
 | `KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG()` | 0 | Trạng thái tương tác của màn hình |
