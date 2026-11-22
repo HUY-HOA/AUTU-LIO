@@ -406,6 +406,8 @@ internal fun CustomerDeviceLicenseScreen(
     var showRegistrationConsent by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf("") }
+    var deviceForInfo by remember { mutableStateOf<DeviceRecord?>(null) }
+    var deviceToRemove by remember { mutableStateOf<DeviceRecord?>(null) }
 
     suspend fun refresh() {
         if (accessToken.isNullOrBlank()) return
@@ -464,56 +466,49 @@ internal fun CustomerDeviceLicenseScreen(
                         color = if (current.canRun) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         fontSize = 12.sp
                     )
+                    GoogleSignInDetailsButton(current.googleSignIn)
                 }
-                GoogleSignInDetailsCard(current.googleSignIn)
-                Text(tr("Thiết bị đã đăng ký", "Registered devices"), fontWeight = FontWeight.SemiBold)
+                Text(
+                    tr("Thiết bị đã đăng ký · ${current.activeDeviceCount}/${current.license?.maxDevices ?: 0}", "Registered devices · ${current.activeDeviceCount}/${current.license?.maxDevices ?: 0}"),
+                    fontWeight = FontWeight.SemiBold
+                )
                 if (current.devices.isEmpty()) {
                     EmptyState(Icons.Outlined.Devices, tr("Chưa có thiết bị", "No registered devices"), tr("Đăng ký thiết bị này để sử dụng theo giới hạn giấy phép.", "Register this device to use AUTU within your license limit."))
                 } else current.devices.forEach { device ->
+                    val name = device.label.ifBlank {
+                        listOf(device.manufacturer, device.model).filter { it.isNotBlank() }
+                            .joinToString(" ").ifBlank { tr("Thiết bị Android", "Android device") }
+                    }
+                    val platform = listOfNotNull(
+                        device.manufacturer.takeIf { it.isNotBlank() },
+                        device.model.takeIf { it.isNotBlank() },
+                        device.androidVersion.takeIf { it.isNotBlank() }?.let { "Android $it" }
+                    ).distinct().joinToString(" · ")
                     CardBox {
-                        Text(device.label.ifBlank { "${device.manufacturer} ${device.model}".trim() }, fontWeight = FontWeight.SemiBold)
-                        Text("${device.manufacturer} ${device.model}", fontSize = 12.sp)
-                        Text(
-                            "${statusText(device.status)} · ${tr("Lần cuối", "Last seen")}: ${formatEpoch(device.lastSeenAt)}",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp
-                        )
-                        if (device.status == "REVOKED") {
-                            val revokeMessage = when (device.revokedReason) {
-                                "CUSTOMER_REMOVED" -> tr(
-                                    "Bạn đã gỡ thiết bị này. Có thể đăng ký lại bằng khóa bảo mật cũ khi giấy phép còn hiệu lực.",
-                                    "You removed this device. You can register it again with its existing security key while your license is active."
-                                )
-                                "OWNER_REVOKED" -> tr(
-                                    "Chủ ứng dụng đã thu hồi thiết bị này. Hãy liên hệ chủ ứng dụng để được mở lại.",
-                                    "The app owner revoked this device. Contact the owner to restore it."
-                                )
-                                "ACCOUNT_REVOKED" -> tr(
-                                    "Thiết bị bị thu hồi cùng tài khoản. Chủ ứng dụng cần kích hoạt lại tài khoản, cấp giấy phép và mở lại thiết bị.",
-                                    "This device was revoked with the account. The owner must reactivate the account, issue a license and restore the device."
-                                )
-                                else -> tr(
-                                    "Thiết bị đã bị thu hồi từ phiên bản cũ. Chủ ứng dụng cần mở lại thiết bị trong trang quản lý.",
-                                    "This device was revoked by an older version. The owner must restore it from device management."
-                                )
-                            }
-                            Text(revokeMessage, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                            Text(statusText(device.status), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
-                        if (device.status == "ACTIVE") {
-                            TextButton(
-                                onClick = {
-                                    val token = accessToken ?: return@TextButton
-                                    scope.launch {
-                                        try {
-                                            repository.removeOwnDevice(token, device.id)
-                                            notice = tr("Đã gỡ thiết bị khỏi tài khoản.", "Device removed from your account.")
-                                            refresh()
-                                        } catch (exception: Exception) {
-                                            error = localizedErrorMessage(exception, tr("Không thể gỡ thiết bị khỏi tài khoản.", "Could not remove the device."))
-                                        }
-                                    }
-                                }
-                            ) { Text(tr("Gỡ thiết bị này", "Remove this device")) }
+                        if (platform.isNotBlank()) {
+                            Text(platform, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (device.lastSeenAt > 0L) {
+                            Text(
+                                "${tr("Hoạt động gần nhất", "Last active")}: ${formatEpoch(device.lastSeenAt)}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            TextButton(onClick = { deviceForInfo = device }) {
+                                Text(tr("Thông tin", "Info"))
+                            }
+                            if (device.status == "ACTIVE") {
+                                TextButton(
+                                    onClick = { deviceToRemove = device },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                ) { Text(tr("Gỡ thiết bị", "Remove device")) }
+                            }
                         }
                     }
                 }
@@ -527,6 +522,76 @@ internal fun CustomerDeviceLicenseScreen(
                 }
             }
         }
+    }
+
+    deviceForInfo?.let { device ->
+        val reason = when (device.revokedReason) {
+            "CUSTOMER_REMOVED" -> tr("Bạn đã tự gỡ thiết bị.", "You removed this device.")
+            "OWNER_REVOKED" -> tr("Chủ ứng dụng đã gỡ quyền thiết bị.", "The app owner revoked this device.")
+            "ACCOUNT_REVOKED" -> tr("Thiết bị bị thu hồi cùng tài khoản.", "The device was revoked with the account.")
+            "LEGACY_REVOKED" -> tr("Trạng thái thu hồi từ phiên bản cũ.", "Revoked by an older version.")
+            else -> null
+        }
+        AlertDialog(
+            onDismissRequest = { deviceForInfo = null },
+            title = { Text(device.label.ifBlank { listOf(device.manufacturer, device.model).filter { it.isNotBlank() }.joinToString(" ").ifBlank { tr("Thiết bị Android", "Android device") } }) },
+            text = {
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    CustomerDeviceInfoLine(tr("Trạng thái", "Status"), statusText(device.status))
+                    CustomerDeviceInfoLine(tr("Nhà sản xuất", "Manufacturer"), device.manufacturer)
+                    CustomerDeviceInfoLine(tr("Mẫu máy", "Model"), device.model)
+                    CustomerDeviceInfoLine(tr("Phiên bản Android", "Android version"), device.androidVersion)
+                    CustomerDeviceInfoLine(tr("Phiên bản AUTU-LIO", "AUTU-LIO version"), device.appVersion)
+                    CustomerDeviceInfoLine(tr("Đăng ký lúc", "Registered"), device.registeredAt.takeIf { it > 0L }?.let(::formatEpoch))
+                    CustomerDeviceInfoLine(tr("Hoạt động gần nhất", "Last active"), device.lastSeenAt.takeIf { it > 0L }?.let(::formatEpoch))
+                    CustomerDeviceInfoLine(tr("Gỡ lúc", "Removed"), device.revokedAt?.takeIf { it > 0L }?.let(::formatEpoch))
+                    CustomerDeviceInfoLine(tr("Lý do", "Reason"), reason)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { deviceForInfo = null }) { Text(tr("Đóng", "Close")) }
+            }
+        )
+    }
+
+    deviceToRemove?.let { device ->
+        AlertDialog(
+            onDismissRequest = { deviceToRemove = null },
+            title = { Text(tr("Gỡ thiết bị khỏi tài khoản?", "Remove this device?")) },
+            text = {
+                Text(
+                    tr(
+                        "Thiết bị này sẽ không còn được chạy AUTU và giải phóng một khe trong giới hạn thiết bị. Lịch sử đăng ký vẫn được giữ. Bạn có thể đăng ký lại thiết bị này bằng khóa bảo mật cũ khi giấy phép còn hiệu lực.",
+                        "This device will no longer run AUTU and will free one device slot. Its enrollment history is retained. You can re-register it using its existing security key while your license is active."
+                    ),
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val token = accessToken ?: return@TextButton
+                        scope.launch {
+                            try {
+                                repository.removeOwnDevice(token, device.id)
+                                notice = tr("Đã gỡ thiết bị khỏi tài khoản.", "Device removed from your account.")
+                                deviceToRemove = null
+                                refresh()
+                            } catch (exception: Exception) {
+                                error = localizedErrorMessage(exception, tr("Không thể gỡ thiết bị khỏi tài khoản.", "Could not remove the device."))
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text(tr("Gỡ thiết bị", "Remove device")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deviceToRemove = null }) { Text(tr("Hủy", "Cancel")) }
+            }
+        )
     }
 
     if (showRegistrationConsent) {
@@ -1112,4 +1177,15 @@ private fun formatEpoch(value: Long?): String {
     if (value == null || value <= 0L) return "—"
     return java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT)
         .format(java.util.Date(value * 1000L))
+}
+
+
+@Composable
+private fun CustomerDeviceInfoLine(label: String, value: String?) {
+    if (value.isNullOrBlank()) return
+    Text(
+        "$label: $value",
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
