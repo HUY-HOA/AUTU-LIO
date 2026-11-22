@@ -257,6 +257,6 @@ private fun auditActionTitle(action: String): String = when (action) {
 
 private fun formatAuditTime(epochSeconds: Long): String {
     if (epochSeconds <= 0L) return "—"
-    return SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
+    return SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.forLanguageTag("vi-VN"))
         .format(Date(epochSeconds * 1_000L))
 }
