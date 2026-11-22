@@ -84,7 +84,7 @@ class ScriptFileStore(
     companion object {
         const val DEFAULT_MAX_FILE_BYTES = 1_048_576
         const val MAX_LIST_ITEMS = 128
-        private val ENVELOPE_MAGIC = "AUTU-SFILE-ENC:v1\\u0000".toByteArray(StandardCharsets.US_ASCII)
+        private val ENVELOPE_MAGIC = "AUTU-SFILE-ENC:v1|".toByteArray(StandardCharsets.US_ASCII)
         private const val ENVELOPE_OVERHEAD = 64
     }
 
@@ -209,7 +209,7 @@ class ScriptFileStore(
     private fun resolve(relativePath: String): File {
         require(relativePath.isNotBlank()) { "Đường dẫn tệp không được để trống." }
         require(!File(relativePath).isAbsolute) { "Chỉ chấp nhận đường dẫn tương đối." }
-        require(!relativePath.contains('\\\\') && !relativePath.contains('\\u0000')) {
+        require(!relativePath.contains('\\') && !relativePath.contains('\u0000')) {
             "Đường dẫn chứa ký tự không hợp lệ."
         }
         val segments = relativePath.split('/')
