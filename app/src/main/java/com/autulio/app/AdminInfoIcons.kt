@@ -120,13 +120,6 @@ internal fun AdminPresenceInfo(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             AdminIconValue(runtimeIcon, "Trạng thái AUTU", runtimeLabel)
-            if (presenceSeenAt != null && presenceSeenAt > 0L) {
-                AdminIconValue(
-                    Icons.Outlined.AccessTime,
-                    "Lần gửi tín hiệu",
-                    accessDate(presenceSeenAt)
-                )
-            }
         }
     }
 }
