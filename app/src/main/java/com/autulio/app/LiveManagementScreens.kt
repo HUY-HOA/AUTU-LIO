@@ -48,6 +48,7 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
     var error by remember { mutableStateOf("") }
     var target by remember { mutableStateOf<CustomerRecord?>(null) }
     var planCode by remember { mutableStateOf("MONTHLY") }
+    var planMenuExpanded by remember { mutableStateOf(false) }
     var durationDays by remember { mutableStateOf("30") }
     var maxDevices by remember { mutableStateOf("1") }
     var saving by remember { mutableStateOf(false) }
@@ -131,6 +132,7 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                                 onClick = {
                                     target = customer
                                     planCode = "MONTHLY"
+                                    planMenuExpanded = false
                                     durationDays = "30"
                                     maxDevices = "1"
                                 },
@@ -151,7 +153,35 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(customer.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(planCode, { planCode = it.uppercase() }, label = { Text(tr("Mã gói", "Plan code")) }, singleLine = true)
+                    Box(Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { planMenuExpanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Loại gói: ${planText(planCode)}")
+                        }
+                        DropdownMenu(
+                            expanded = planMenuExpanded,
+                            onDismissRequest = { planMenuExpanded = false }
+                        ) {
+                            listOf(
+                                "WEEKLY",
+                                "MONTHLY",
+                                "QUARTERLY",
+                                "YEARLY",
+                                "LIFETIME",
+                                "TRIAL"
+                            ).forEach { code ->
+                                DropdownMenuItem(
+                                    text = { Text(planText(code)) },
+                                    onClick = {
+                                        planCode = code
+                                        planMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                     OutlinedTextField(durationDays, { durationDays = it.filter(Char::isDigit).take(4) }, label = { Text(tr("Thời hạn (ngày)", "Duration (days)")) }, singleLine = true)
                     OutlinedTextField(maxDevices, { maxDevices = it.filter(Char::isDigit).take(2) }, label = { Text(tr("Số thiết bị tối đa", "Maximum devices")) }, singleLine = true)
                     Text(tr("Giấy phép chỉ được áp dụng sau khi máy chủ lưu thành công.", "The license becomes active only after the server confirms it."), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
