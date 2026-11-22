@@ -649,16 +649,14 @@ internal fun CustomerDeviceLicenseScreen(
                         fontSize = 12.sp
                     )
                 }
-                GoogleSignInDetailsCard(current.googleSignIn)
                 Text(tr("Thiết bị đã đăng ký", "Registered devices"), fontWeight = FontWeight.SemiBold)
                 if (current.devices.isEmpty()) {
                     EmptyState(Icons.Outlined.Devices, tr("Chưa có thiết bị", "No registered devices"), tr("Đăng ký thiết bị này để sử dụng theo giới hạn giấy phép.", "Register this device to use AUTU within your license limit."))
-                } else current.devices.forEach { device ->
+                } else current.devices.forEachIndexed { index, device ->
                     CardBox {
-                        Text(device.label.ifBlank { "${device.manufacturer} ${device.model}".trim() }, fontWeight = FontWeight.SemiBold)
-                        Text("${device.manufacturer} ${device.model}", fontSize = 12.sp)
+                        Text("Thiết bị ${index + 1}", fontWeight = FontWeight.SemiBold)
                         Text(
-                            "${statusText(device.status)} · ${tr("Lần cuối", "Last seen")}: ${formatEpoch(device.lastSeenAt)}",
+                            statusText(device.status),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
