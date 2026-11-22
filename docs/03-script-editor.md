@@ -7,6 +7,21 @@
 
 AUTU Script là ngôn ngữ kịch bản chuyên cho tự động hóa Android trong AUTU-LIO. Mã được phân tích thành cấu trúc lệnh an toàn, kiểm tra ngân sách rồi mới được runtime thực thi. Không có `eval`, shell, reflection hay thực thi Kotlin/Java tùy ý.
 
+## Yêu cầu phiên bản Android
+
+AUTU-LIO có **Android tối thiểu 8.0 (API 26)**. Vì vậy, các lệnh AUTU thông thường yêu cầu Android 8.0 (API 26) trở lên, trừ các ngoại lệ sau:
+
+| Lệnh / nhóm lệnh | Android tối thiểu | Ghi chú |
+|---|---:|---|
+| `KHÓA_MÀN_HÌNH()` | Android 9.0 (API 28) | Vẫn cần Trợ năng và thiết bị cho phép hành động khóa màn hình. |
+| `BẬT_TẮT_CHIA_MÀN_HÌNH()` | Android 11.0 (API 30) | Còn phụ thuộc thiết bị có cung cấp hành động chia màn hình. |
+| OCR ảnh màn hình, OCR theo vùng, nhận diện nhãn ảnh, QR/mã vạch, vật thể và phân tích màu | Android 11.0 (API 30) | Dùng API chụp màn hình của AccessibilityService; phải bật Trợ năng. |
+| `MÀN_HÌNH_CHỨA_CHỮ()`, `TÌM_VỊ_TRÍ_CHỮ()` | Android 8.0 (API 26) | Trên Android 8–10 chỉ tìm văn bản trong cây Trợ năng; OCR từ ảnh cần Android 11+. |
+| Phát hiện vùng khuyết màn hình (`DisplayCutout`) | Android 9.0 (API 28) | Android 8 có thể không xác định được vùng khuyết; hàm kiểm tra khả năng có thể trả về `SAI`. |
+
+Trong Hướng dẫn ngay trong trình soạn thảo, mỗi lệnh hiển thị riêng mức Android tối thiểu và ghi chú tương thích (nếu có). Mức API là căn cứ kỹ thuật; hãng sản xuất, ứng dụng đích, quyền Trợ năng và chính sách hệ thống vẫn có thể giới hạn hành động.
+
+
 ## 1. Quy tắc viết mã
 
 - Lệnh và từ khóa phải viết HOA, đúng dấu: `BIẾN`, `HÀM`, `NẾU`, `LẶP`, `CHẠM`, `NHẤN_GIỮ`.
