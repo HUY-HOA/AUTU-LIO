@@ -35,6 +35,8 @@ internal fun GoogleSignInDetailsCard(
     details: GoogleSignInDetails?,
     title: String = tr("Dữ liệu đăng nhập Google và thiết bị", "Google sign-in and device data")
 ) {
+    if (details == null) return
+
     var showDetails by remember(details) { mutableStateOf(false) }
 
     OutlinedButton(onClick = { showDetails = true }) {
@@ -56,39 +58,24 @@ internal fun GoogleSignInDetailsCard(
                         .padding(end = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    if (details == null) {
-                        Text(
-                            tr("Máy chủ chưa có dữ liệu chi tiết cho tài khoản này.", "The server has no detailed sign-in data for this account."),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        Text(tr("Dữ liệu Google", "Google data"), fontWeight = FontWeight.Medium, fontSize = 12.sp)
-                        InfoLine(tr("Google ID (sub)", "Google ID (sub)"), details.googleSub)
-                        InfoLine(tr("Email đã xác minh", "Email verified"), if (details.emailVerified) tr("Đúng", "Yes") else tr("Không", "No"))
-                        InfoLine(tr("Tên", "Given name"), details.givenName)
-                        InfoLine(tr("Họ", "Family name"), details.familyName)
-                        InfoLine(tr("Đường dẫn ảnh hồ sơ", "Profile picture URL"), details.pictureUrl)
-                        InfoLine(tr("Trang hồ sơ", "Profile page"), details.profileUrl)
-                        InfoLine(tr("Ngôn ngữ Google", "Google locale"), details.locale)
-                        InfoLine(tr("Miền Google Workspace", "Google Workspace domain"), details.hostedDomain)
-                        InfoLine(tr("Thời điểm đăng nhập gần nhất", "Most recent sign-in"), details.signedInAt?.let(::formatGoogleSignInEpoch))
-                        InfoLine(tr("Nhãn thiết bị", "Device label"), details.deviceLabel)
+                    Text(tr("Dữ liệu Google", "Google data"), fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                    InfoLine(tr("Google ID (sub)", "Google ID (sub)"), details.googleSub)
+                    InfoLine(tr("Email đã xác minh", "Email verified"), if (details.emailVerified) tr("Đúng", "Yes") else tr("Không", "No"))
+                    InfoLine(tr("Tên", "Given name"), details.givenName)
+                    InfoLine(tr("Họ", "Family name"), details.familyName)
+                    InfoLine(tr("Trang hồ sơ", "Profile page"), details.profileUrl)
+                    InfoLine(tr("Ngôn ngữ Google", "Google locale"), details.locale)
+                    InfoLine(tr("Miền Google Workspace", "Google Workspace domain"), details.hostedDomain)
+                    InfoLine(tr("Thời điểm đăng nhập gần nhất", "Most recent sign-in"), details.signedInAt?.let(::formatGoogleSignInEpoch))
+                    InfoLine(tr("Nhãn thiết bị", "Device label"), details.deviceLabel)
 
+                    if (details.deviceInfo?.hasCollectedValues() == true) {
                         Text(
                             tr("Thông tin kỹ thuật thiết bị lúc đăng nhập", "Device technical information at sign-in"),
                             fontWeight = FontWeight.Medium,
                             fontSize = 12.sp
                         )
                         DeviceInfoLines(details.deviceInfo)
-                        Text(
-                            tr(
-                                "Trường Google tùy chọn có thể không được trả về cho mọi tài khoản. Không có dữ liệu nghĩa là Google không gửi trường đó trong lần đăng nhập này.",
-                                "Optional Google fields are not returned for every account. A missing value means Google did not provide that field in this sign-in."
-                            ),
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             },
@@ -103,10 +90,7 @@ internal fun GoogleSignInDetailsCard(
 
 @Composable
 private fun DeviceInfoLines(info: SignInDeviceTechnicalInfo?) {
-    if (info == null) {
-        Text(tr("Chưa có dữ liệu thiết bị.", "No device details are available."), fontSize = 12.sp)
-        return
-    }
+    if (info == null) return
     InfoLine(tr("Nhà sản xuất", "Manufacturer"), info.manufacturer)
     InfoLine(tr("Mẫu máy", "Model"), info.model)
     InfoLine(tr("Thương hiệu thiết bị", "Device brand"), info.brand)
@@ -133,9 +117,19 @@ private fun DeviceInfoLines(info: SignInDeviceTechnicalInfo?) {
 }
 
 @Composable
+private fun SignInDeviceTechnicalInfo.hasCollectedValues(): Boolean =
+    listOf(
+        manufacturer, model, brand, product, deviceCodeName, supportedAbis,
+        androidVersion, appVersionName, localeTag, timeZoneId, networkType, networkStatus
+    ).any { !it.isNullOrBlank() } ||
+        listOfNotNull(
+            sdkInt, appVersionCode, screenWidthPx, screenHeightPx, densityDpi
+        ).isNotEmpty() ||
+        networkValidated != null
+
+@Composable
 private fun InfoLine(label: String, value: String?) {
-    val displayValue = value?.takeIf { it.isNotBlank() }
-        ?: tr("Không được cung cấp", "Not provided")
+    val displayValue = value?.takeIf { it.isNotBlank() } ?: return
     SelectionContainer {
         Text(
             "$label: $displayValue",
