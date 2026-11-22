@@ -47,16 +47,16 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 
 ### Các API màn hình đã nối runtime ở 1.18–1.21
 
-- `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()` trả thông số kích thước theo density và pixel.
-- `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()` trả hướng và rotation hiện tại.
-- `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` trả package gần nhất từ sự kiện AccessibilityService; có thể rỗng nếu chưa có sự kiện.
+- `LẤY_CHIỀU_RỘNG_DP()`, `LẤY_CHIỀU_CAO_DP()`, `LẤY_TỶ_LỆ_KHUNG_HÌNH()` trả thông số kích thước theo density và pixel.
+- `LẤY_HƯỚNG_MÀN_HÌNH()`, `LẤY_XOAY_MÀN_HÌNH()`, `LẤY_GÓC_LẤY_XOAY_MÀN_HÌNH()` trả hướng và rotation hiện tại.
+- `LẤY_GÓI_ỨNG_DỤNG_ĐANG_MỞ()` trả package gần nhất từ sự kiện AccessibilityService; có thể rỗng nếu chưa có sự kiện.
 - `TỌA_ĐỘ_X_VÙNG_AN_TOÀN()`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN()` đổi tỷ lệ 0–1 thành pixel trong vùng an toàn; hai hàm `TỶ_LỆ_*_VÙNG_AN_TOÀN()` thực hiện chiều ngược lại.
 - `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa ROTATION_0 và hệ trục logic hiện tại. Công thức bao quát thiết bị hướng gốc ngang và cả bốn mã xoay Android.
 - Chuyển đổi góc xoay chỉ đổi hệ tọa độ trả về; không đổi tự động các tham số CHẠM/VUỐT. Cần nghiệm thu thực tế trên thiết bị để xác nhận sự tương thích với từng OEM.
 
 ### Thông tin thiết bị đã nối runtime ở 1.21
 
-Các hàm HÃNG_SẢN_XUẤT(), MẪU_THIẾT_BỊ(), PHIÊN_BẢN_ANDROID(), MỨC_API_ANDROID(), MÀN_HÌNH_BỊ_KHÓA() và THIẾT_BỊ_ĐƯỢC_BẢO_MẬT() đọc thuộc tính thiết bị/Keyguard cục bộ. Trạng thái bảo mật chỉ được truy vấn; không có hàm bỏ qua hoặc mở khóa bảo mật.
+Các hàm LẤY_HÃNG_SẢN_XUẤT(), LẤY_MẪU_THIẾT_BỊ(), LẤY_PHIÊN_BẢN_ANDROID(), LẤY_MỨC_API_ANDROID(), KIỂM_TRA_MÀN_HÌNH_BỊ_KHÓA() và KIỂM_TRA_THIẾT_BỊ_ĐƯỢC_BẢO_MẬT() đọc thuộc tính thiết bị/Keyguard cục bộ. Trạng thái bảo mật chỉ được truy vấn; không có hàm bỏ qua hoặc mở khóa bảo mật.
 
 ## Danh mục API dự kiến
 
