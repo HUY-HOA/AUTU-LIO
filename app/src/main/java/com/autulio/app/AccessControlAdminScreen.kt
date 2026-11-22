@@ -201,14 +201,22 @@ internal fun AccessControlAdminScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text(license.email, fontWeight = FontWeight.SemiBold)
-                                        Text("${planText(license.planCode)} · ${statusText(license.status)}", fontSize = 12.sp)
+                                        AdminIconValue(
+                                            Icons.Outlined.VerifiedUser,
+                                            "Gói và trạng thái giấy phép",
+                                            "${planText(license.planCode)} · ${statusText(license.status)}"
+                                        )
                                     }
-                                    Text("${license.activeDeviceCount}/${license.maxDevices}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    AdminIconValue(
+                                        Icons.Outlined.Devices,
+                                        "Thiết bị đang được cấp quyền",
+                                        "${license.activeDeviceCount}/${license.maxDevices}"
+                                    )
                                 }
-                                Text(
-                                    "Hết hạn: ${accessDate(license.expiresAt)}",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 11.sp
+                                AdminIconValue(
+                                    Icons.Outlined.AccessTime,
+                                    "Thời hạn giấy phép",
+                                    accessDate(license.expiresAt)
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     OutlinedButton(
