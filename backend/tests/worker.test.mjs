@@ -78,12 +78,20 @@ function createEnv({
   };
 }
 
-function createDeviceRegistrationEnv({ challenge, license, session = customerSession }) {
+function createDeviceRegistrationEnv({
+  challenge,
+  license,
+  session = customerSession,
+  existingDevice = null,
+  activeDeviceCount = 0
+}) {
   const queries = [];
+  const operations = [];
   const DB = {
     prepare(sql) {
       queries.push(sql);
       return {
+        sql,
         values: [],
         bind(...values) {
           this.values = values;
@@ -93,14 +101,18 @@ function createDeviceRegistrationEnv({ challenge, license, session = customerSes
           if (sql.includes("FROM sessions s JOIN users u")) return session;
           if (sql.includes("FROM device_enrollment_challenges")) return challenge;
           if (sql.includes("FROM licenses")) return license;
-          if (sql.includes("SELECT id, status FROM devices")) return null;
-          if (sql.includes("SELECT COUNT(*) AS active_count FROM devices")) return { active_count: 0 };
+          if (sql.includes("SELECT id, status, revoked_reason FROM devices")) return existingDevice;
           return null;
         },
         async all() {
           return { results: [] };
         },
         async run() {
+          operations.push({ sql, values: this.values });
+          if (sql.includes("UPDATE devices SET status = 'ACTIVE'") &&
+              activeDeviceCount >= Number(this.values[this.values.length - 1])) {
+            return { meta: { changes: 0 } };
+          }
           return { meta: { changes: 1 } };
         }
       };
@@ -109,7 +121,7 @@ function createDeviceRegistrationEnv({ challenge, license, session = customerSes
       return [];
     }
   };
-  return { env: { DB }, queries };
+  return { env: { DB }, queries, operations };
 }
 
 function makeRequest(path, options = {}) {
