@@ -94,6 +94,9 @@ data class CustomerRecord(
     val licenseExpiresAt: Long?,
     val maxDevices: Int?,
     val activeDeviceCount: Int,
+    val presenceSeenAt: Long? = null,
+    val appForegroundAt: Long? = null,
+    val runtimeState: String = "UNKNOWN",
     val googleSignIn: GoogleSignInDetails? = null
 )
 
@@ -127,7 +130,10 @@ data class DeviceRecord(
     val licenseStatus: String?,
     val licenseExpiresAt: Long?,
     val maxDevices: Int?,
-    val activeDeviceCount: Int
+    val activeDeviceCount: Int,
+    val presenceSeenAt: Long? = null,
+    val appForegroundAt: Long? = null,
+    val runtimeState: String = "UNKNOWN"
 )
 
 data class DeviceEnrollmentChallenge(
@@ -301,6 +307,9 @@ class AuthRepository(context: Context) {
                         licenseExpiresAt = item.optLong("expires_at").takeIf { item.has("expires_at") && !item.isNull("expires_at") },
                         maxDevices = item.optInt("max_devices").takeIf { item.has("max_devices") && !item.isNull("max_devices") },
                         activeDeviceCount = item.optInt("active_device_count"),
+                        presenceSeenAt = item.optLong("presence_seen_at").takeIf { item.has("presence_seen_at") && !item.isNull("presence_seen_at") },
+                        appForegroundAt = item.optLong("app_foreground_at").takeIf { item.has("app_foreground_at") && !item.isNull("app_foreground_at") },
+                        runtimeState = item.optString("runtime_state").ifBlank { "UNKNOWN" },
                         googleSignIn = parseGoogleSignInDetails(
                             googleSub = item.optString("google_sub"),
                             emailVerified = item.optBoolean("email_verified"),
@@ -433,7 +442,10 @@ class AuthRepository(context: Context) {
                         licenseStatus = item.optString("license_status").takeIf { it.isNotBlank() && it != "null" },
                         licenseExpiresAt = item.optLong("license_expires_at").takeIf { item.has("license_expires_at") && !item.isNull("license_expires_at") },
                         maxDevices = item.optInt("max_devices").takeIf { item.has("max_devices") && !item.isNull("max_devices") },
-                        activeDeviceCount = item.optInt("active_device_count")
+                        activeDeviceCount = item.optInt("active_device_count"),
+                        presenceSeenAt = item.optLong("presence_seen_at").takeIf { item.has("presence_seen_at") && !item.isNull("presence_seen_at") },
+                        appForegroundAt = item.optLong("app_foreground_at").takeIf { item.has("app_foreground_at") && !item.isNull("app_foreground_at") },
+                        runtimeState = item.optString("runtime_state").ifBlank { "UNKNOWN" }
                     )
                 )
             }
@@ -479,6 +491,25 @@ class AuthRepository(context: Context) {
                 )
             }
         }
+    }
+
+    suspend fun reportCustomerPresence(
+        accessToken: String,
+        deviceFingerprint: String,
+        appForeground: Boolean,
+        runtimeState: String
+    ) {
+        require(deviceFingerprint.matches(Regex("^[a-fA-F0-9]{64}$")))
+        require(runtimeState in setOf("UNKNOWN", "RUNNING", "PAUSED", "STOPPED"))
+        apiRequest(
+            "/api/customer/presence",
+            "POST",
+            JSONObject()
+                .put("deviceFingerprint", deviceFingerprint.lowercase(Locale.ROOT))
+                .put("appForeground", appForeground)
+                .put("runtimeState", runtimeState),
+            accessToken
+        )
     }
 
     suspend fun listCustomerPackages(accessToken: String, deviceFingerprint: String): CustomerAutuPackageCatalog {
