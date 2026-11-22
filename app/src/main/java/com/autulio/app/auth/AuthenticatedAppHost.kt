@@ -203,9 +203,10 @@ private fun AuthScreen(
                 Text("AUTU-LIO", style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    tr("Đăng nhập để xác minh quyền tài khoản", "Sign in to verify your account access"),
+                    "LIOScript",
                     textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
                 )
                 Spacer(Modifier.height(22.dp))
                 if (restoring) {
