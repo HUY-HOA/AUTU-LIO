@@ -652,6 +652,7 @@ private fun EditorScreen(
     var showTemplates by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var templateSearch by rememberSaveable { mutableStateOf("") }
+    var guideSearch by rememberSaveable { mutableStateOf("") }
     var templateDetailId by rememberSaveable { mutableStateOf<String?>(null) }
     var guideSectionDetailId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTemplate = ScriptTemplateCatalog.templates.firstOrNull { it.id == templateDetailId }
@@ -918,44 +919,108 @@ private fun EditorScreen(
     }
 
     if (showHelp) {
+        val normalizedGuideSearch = guideSearch.trim()
+        val filteredGuideSections = EditorGuideCatalog.sections.mapNotNull { section ->
+            if (normalizedGuideSearch.isBlank()) {
+                section
+            } else {
+                val categoryMatches =
+                    section.title.contains(normalizedGuideSearch, ignoreCase = true) ||
+                        section.summary.contains(normalizedGuideSearch, ignoreCase = true)
+                val matchingCommands = section.commands.filter { command ->
+                    command.syntax.contains(normalizedGuideSearch, ignoreCase = true) ||
+                        command.description.contains(normalizedGuideSearch, ignoreCase = true) ||
+                        command.example.orEmpty().contains(normalizedGuideSearch, ignoreCase = true)
+                }
+                when {
+                    categoryMatches -> section
+                    matchingCommands.isNotEmpty() -> section.copy(commands = matchingCommands)
+                    else -> null
+                }
+            }
+        }
         AlertDialog(
             onDismissRequest = { showHelp = false },
-            title = { Text("Hướng dẫn AUTU-LIO") },
+            title = { Text("Danh mục lệnh AUTU-LIO") },
             text = {
                 Column(
-                    modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                    modifier = Modifier.heightIn(max = 500.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        "Chọn nhóm chức năng rồi nhấn Chi tiết để xem cú pháp, cách dùng, ví dụ và giới hạn. Nội dung chi tiết chỉ mở khi cần."
+                        "Lệnh được chia theo chức năng. Tìm theo tên lệnh hoặc mở một nhóm để xem cú pháp và ví dụ.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    EditorGuideCatalog.sections.forEach { section ->
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text(section.title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                    Text(
-                                        section.summary,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 11.sp,
-                                        lineHeight = 15.sp,
-                                        maxLines = 2
-                                    )
+                    OutlinedTextField(
+                        value = guideSearch,
+                        onValueChange = { guideSearch = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Tìm lệnh hoặc nhóm") },
+                        placeholder = { Text("Ví dụ: QUAY_LẠI, PIN, JSON, OCR...") },
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (guideSearch.isNotBlank()) {
+                                IconButton(onClick = { guideSearch = "" }) {
+                                    Icon(Icons.Outlined.Close, contentDescription = "Xóa tìm kiếm")
                                 }
-                                TextButton(
-                                    onClick = { guideSectionDetailId = section.id },
-                                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 4.dp)
+                            }
+                        }
+                    )
+                    Text(
+                        if (normalizedGuideSearch.isBlank()) {
+                            "${EditorGuideCatalog.sections.size} nhóm chức năng"
+                        } else {
+                            "${filteredGuideSections.size} nhóm phù hợp"
+                        },
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        if (filteredGuideSections.isEmpty()) {
+                            Text(
+                                "Không tìm thấy lệnh phù hợp.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                        }
+                        filteredGuideSections.forEach { section ->
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("Chi tiết")
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text(section.title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                        Text(
+                                            section.summary,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp,
+                                            lineHeight = 15.sp,
+                                            maxLines = 2
+                                        )
+                                        Text(
+                                            "${section.commands.size} mục",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                    TextButton(
+                                        onClick = { guideSectionDetailId = section.id },
+                                        contentPadding = PaddingValues(horizontal = 7.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("Chi tiết")
+                                    }
                                 }
                             }
                         }
@@ -963,7 +1028,10 @@ private fun EditorScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showHelp = false }) { Text("Đóng") }
+                TextButton(onClick = {
+                    showHelp = false
+                    guideSearch = ""
+                }) { Text("Đóng") }
             }
         )
     }
