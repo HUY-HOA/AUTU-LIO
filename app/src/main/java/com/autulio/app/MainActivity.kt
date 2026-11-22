@@ -345,6 +345,9 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(host) },
+            topBar = {
+                GoogleAccountHeader(accessToken = accessToken)
+            },
             bottomBar = {
                 NavigationBar {
                     adminTabs.forEach { tab ->
@@ -430,7 +433,10 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                CustomerLicenseCountdownBar(accessToken = accessToken)
+                Column {
+                    GoogleAccountHeader(accessToken = accessToken, fallbackEmail = email)
+                    CustomerLicenseCountdownBar(accessToken = accessToken)
+                }
             },
             bottomBar = {
                 NavigationBar {
