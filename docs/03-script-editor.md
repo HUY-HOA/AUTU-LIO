@@ -261,7 +261,11 @@ Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ th
 |---|---|---|
 | `SỐ(GIÁ_TRỊ)` | 1 | Chuyển số hoặc chuỗi số thành số |
 | `CHUỖI(GIÁ_TRỊ)` | 1 | Chuyển thành chuỗi |
-| `LÀM_TRÒN(SỐ)` | 1 | Làm tròn |
+| `LÀM_TRÒN(SỐ)` | 1 | Làm tròn gần nhất |
+| `CĂN_BẬC_HAI(SỐ)` | 1 | Căn bậc hai; báo lỗi với số âm |
+| `LÀM_TRÒN_XUỐNG(SỐ)` / `LÀM_TRÒN_LÊN(SỐ)` | 1 | Làm tròn xuống hoặc lên |
+| `SIN(RADIAN)` / `COS(RADIAN)` / `TAN(RADIAN)` | 1 | Lượng giác; góc tính bằng radian |
+| `SỐ_NGẪU_NHIÊN()` / `SỐ_NGẪU_NHIÊN(MIN, MAX)` | 0 hoặc 2 | Sinh số trong [0,1) hoặc [MIN,MAX) |
 | `TUYỆT_ĐỐI(SỐ)` | 1 | Giá trị tuyệt đối |
 | `ĐỘ_DÀI(CHUỖI)` | 1 | Độ dài chuỗi |
 | `NHỎ_NHẤT(A, B)` | 2 | Số nhỏ hơn |
@@ -277,6 +281,8 @@ Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ th
 | `NỐI_CHUỖI(DANH_SÁCH, PHÂN_CÁCH)` | 2 | Nối danh sách chuỗi |
 | `KÝ_TỰ_TẠI(CHUỖI, VỊ_TRÍ)` | 2 | Lấy ký tự theo vị trí bắt đầu từ 0 |
 | `CẮT_CHUỖI(CHUỖI, VỊ_TRÍ, ĐỘ_DÀI)` | 3 | Cắt theo vị trí và số ký tự |
+| `TÌM_VỊ_TRÍ_TRONG_CHUỖI(CHUỖI, CHUỖI_CẦN_TÌM)` | 2 | Vị trí bắt đầu từ 0; không thấy trả về -1 |
+| `KIỂM_TRA_RỖNG(GIÁ_TRỊ)` | 1 | Kiểm tra chuỗi trống/khoảng trắng, danh sách, bản đồ hoặc RỖNG |
 | `TẠO_DANH_SÁCH(...)` | 0–64 | Tạo danh sách mới |
 | `ĐỘ_DÀI(DANH_SÁCH)` | 1 | Số phần tử trong danh sách |
 | `LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(DANH_SÁCH, CHỈ_SỐ)` | 2 | Lấy phần tử theo chỉ số bắt đầu từ 0 |
@@ -284,6 +290,10 @@ Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ th
 | `ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH(DANH_SÁCH, CHỈ_SỐ, GIÁ_TRỊ)` | 3 | Thay phần tử theo chỉ số |
 | `XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH(DANH_SÁCH, CHỈ_SỐ)` | 2 | Xóa và trả về phần tử đã xóa |
 | `KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Kiểm tra phần tử có trong danh sách |
+| `TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Tìm chỉ số đầu tiên; không thấy trả về -1 |
+| `SẮP_XẾP_DANH_SÁCH(DANH_SÁCH)` | 1 | Trả về bản sao tăng dần; danh sách phải toàn số hoặc toàn chuỗi |
+| `ĐẢO_NGƯỢC_DANH_SÁCH(DANH_SÁCH)` | 1 | Trả về bản sao đảo thứ tự |
+| `LỌC_DANH_SÁCH(DANH_SÁCH, TÊN_HÀM)` | 2 | Lọc theo hàm tự định nghĩa nhận một phần tử và trả ĐÚNG/SAI |
 | `TẠO_BẢN_ĐỒ(KHÓA, GIÁ_TRỊ, ...)` | 0–64 cặp | Tạo bản đồ mới, số tham số phải chẵn |
 | `LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(BẢN_ĐỒ, KHÓA)` | 2 | Lấy giá trị theo khóa |
 | `ĐẶT_GIÁ_TRỊ_TRONG_BẢN_ĐỒ(BẢN_ĐỒ, KHÓA, GIÁ_TRỊ)` | 3 | Thêm hoặc cập nhật giá trị |
@@ -316,6 +326,8 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 | `KIỂM_TRA_MÀN_HÌNH_BỊ_KHÓA()` | 0 | ĐÚNG khi Keyguard đang khóa màn hình |
 | `KIỂM_TRA_THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()` | 0 | ĐÚNG nếu thiết bị có khóa bảo mật được cấu hình |
 | `LẤY_THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
+| `LẤY_ÂM_LƯỢNG()` / `LẤY_ĐỘ_SÁNG()` | 0 | Giá trị hiện tại theo phần trăm |
+| `ĐẶT_ÂM_LƯỢNG(PHẦN_TRĂM)` / `ĐẶT_ĐỘ_SÁNG(PHẦN_TRĂM)` | 1 | Đặt giá trị 0–100; độ sáng cần quyền sửa đổi cài đặt hệ thống |
 
 Thông tin hãng/model, phiên bản Android và trạng thái Keyguard được đọc cục bộ tại thiết bị, không gửi lên máy chủ. Các hàm Keyguard chỉ đọc trạng thái, không mở khóa hoặc thay đổi thiết lập bảo mật. Các hàm DP dùng density hiện tại; tỷ lệ khung hình và hướng được suy ra từ kích thước pixel thực. Chỉ số xoay 0–3 là rotation Android, góc xoay là 0°/90°/180°/270°. Package foreground chỉ có khi AccessibilityService nhận được sự kiện cửa sổ, nên có thể rỗng khi dịch vụ chưa bật hoặc chưa nhận sự kiện.
  
@@ -354,13 +366,24 @@ AUTU-LIO dùng một database SQLite nội bộ trong vùng riêng ứng dụng.
 
 ## 9. Văn bản giao diện qua Trợ năng và màu màn hình
 
-AUTU-LIO không tích hợp OCR, nhận diện ảnh, quét QR/mã vạch hoặc phát hiện vật thể. Văn bản chỉ được đọc cục bộ từ cây Android Accessibility mà ứng dụng đang mở chủ động công khai.
+AUTU-LIO tích hợp OCR, gán nhãn hình ảnh, phát hiện vật thể và quét QR/mã vạch bằng Google ML Kit chạy trực tiếp trên thiết bị. Ảnh được lấy qua AccessibilityService; các tác vụ nhận diện không gửi ảnh lên dịch vụ AI đám mây. OCR từ ảnh màn hình và các tác vụ thị giác cần Android 11.0 (API 30) trở lên cùng AccessibilityService đã bật. Trên Android 8–10, việc đọc/tìm chữ chỉ dùng nội dung mà ứng dụng đích công khai qua cây Android Accessibility.
 
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
 | ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Văn bản và nhãn có thể truy cập qua cây Trợ năng |
 | KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH | KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH("Đăng nhập") | ĐÚNG nếu một nhãn được công khai có chứa chuỗi |
-| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("Đăng nhập") | Danh sách [X, Y] là tâm bounds của nhãn tìm thấy |
+| TÌM_VỊ_TRÍ_CHỮ | `TÌM_VỊ_TRÍ_CHỮ("Đăng nhập")` | Danh sách [X, Y] là tâm bounds của nhãn tìm thấy |
+| ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH | `ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH(X,Y,RỘNG,CAO)` | OCR văn bản trong vùng |
+| KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH | `KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH(CHUỖI,X,Y,RỘNG,CAO)` | Kiểm tra chữ trong vùng |
+| TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH | `TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH(CHUỖI,X,Y,RỘNG,CAO)` | Tọa độ tâm chữ tìm thấy |
+| NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH | `NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()` | Danh sách nhãn ảnh |
+| KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH | `KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH(NHÃN)` | Kiểm tra nhãn có trong ảnh |
+| PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH | `PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()` | Danh sách vật thể, nhãn và vùng bao |
+| KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH | `KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH(NHÃN)` | Kiểm tra vật thể theo nhãn |
+| TÌM_TỌA_ĐỘ_VẬT_THỂ | `TÌM_TỌA_ĐỘ_VẬT_THỂ(NHÃN)` | Tọa độ tâm vật thể đầu tiên khớp |
+| ĐẾM_VẬT_THỂ_MÀN_HÌNH | `ĐẾM_VẬT_THỂ_MÀN_HÌNH()` | Số vật thể nhận diện được |
+| QUÉT_MÃ_QR_MÀN_HÌNH / QUÉT_MÃ_VẠCH_MÀN_HÌNH | Không tham số | Danh sách nội dung mã quét được |
+| CHI_TIẾT_MÃ_QR_MÀN_HÌNH / CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH | Không tham số | Chi tiết, loại nội dung và tọa độ |
 | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() | Cấu trúc khối/dòng và tọa độ từ cây Trợ năng |
 
 Cây Trợ năng không đảm bảo hiển thị nội dung game canvas, video, nội dung vẽ trực tiếp hoặc thành phần tùy chỉnh không cung cấp nhãn. Ảnh màn hình chỉ được xử lý cục bộ cho các lệnh màu RGB, không được gửi tới dịch vụ AI.
@@ -369,7 +392,7 @@ Cây Trợ năng không đảm bảo hiển thị nội dung game canvas, video,
 
 | Hàm | Cú pháp |
 |---|---|
-| MÀU_TẠI | `MÀU_TẠI(X, Y)` trả về các kênh RGB, alpha và HEX |
+| MÀU_TẠI | `LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(X, Y)` trả về các kênh RGB, alpha và HEX |
 | KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH | `KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
 | TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH | `TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
 | TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH | `TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO)` |
