@@ -316,6 +316,8 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf("") }
+    var restoreTarget by remember { mutableStateOf<DeviceRecord?>(null) }
+    var restoring by remember { mutableStateOf(false) }
 
     suspend fun refresh() {
         if (accessToken.isNullOrBlank()) return
@@ -384,10 +386,81 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) { Text(tr("Thu hồi thiết bị", "Revoke device")) }
+                    } else {
+                        val canRestore = device.customerStatus == "ACTIVE" &&
+                            device.licenseStatus == "ACTIVE" &&
+                            device.activeDeviceCount < (device.maxDevices ?: 0)
+                        val reasonText = when (device.revokedReason) {
+                            "OWNER_REVOKED" -> tr("Chủ ứng dụng đã thu hồi", "Revoked by app owner")
+                            "ACCOUNT_REVOKED" -> tr("Tài khoản đã bị thu hồi", "Account was revoked")
+                            "CUSTOMER_REMOVED" -> tr("Khách hàng đã gỡ", "Removed by customer")
+                            "LEGACY_REVOKED" -> tr("Thu hồi từ phiên bản cũ", "Revoked by an older version")
+                            else -> tr("Không rõ lý do", "Unknown reason")
+                        }
+                        Text(
+                            tr("Lý do thu hồi: $reasonText", "Revocation reason: $reasonText"),
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 11.sp
+                        )
+                        OutlinedButton(
+                            onClick = { restoreTarget = device },
+                            enabled = canRestore && !restoring,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(tr("Mở lại thiết bị", "Restore device")) }
+                        if (!canRestore) {
+                            val blocked = when {
+                                device.customerStatus != "ACTIVE" -> tr("Cần kích hoạt tài khoản khách hàng trước.", "Activate the customer account first.")
+                                device.licenseStatus != "ACTIVE" -> tr("Cần cấp giấy phép còn hiệu lực trước.", "Issue a current license first.")
+                                else -> tr("Đã hết giới hạn thiết bị. Hãy thu hồi thiết bị khác hoặc tăng giới hạn.", "The device limit is full. Revoke another device or increase the limit.")
+                            }
+                            Text(blocked, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
         }
+    }
+
+    restoreTarget?.let { device ->
+        AlertDialog(
+            onDismissRequest = { if (!restoring) restoreTarget = null },
+            title = { Text(tr("Mở lại thiết bị?", "Restore device?")) },
+            text = {
+                Text(
+                    tr(
+                        "Thiết bị ${device.label.ifBlank { device.model }} sẽ được cấp quyền hoạt động lại. Cần tài khoản đang hoạt động, giấy phép còn hiệu lực và còn chỗ trong giới hạn thiết bị.",
+                        "Device ${device.label.ifBlank { device.model }} will be allowed to operate again. The customer account must be active, the license current, and a device slot available."
+                    ),
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !restoring,
+                    onClick = {
+                        val token = accessToken ?: return@TextButton
+                        scope.launch {
+                            restoring = true
+                            try {
+                                repository.updateCustomerDeviceStatus(token, device.id, "ACTIVE")
+                                notice = tr("Đã mở lại thiết bị ${device.email}.", "Restored device for ${device.email}.")
+                                restoreTarget = null
+                                refresh()
+                            } catch (exception: Exception) {
+                                error = localizedErrorMessage(exception, tr("Không thể mở lại thiết bị.", "Could not restore the device."))
+                            } finally {
+                                restoring = false
+                            }
+                        }
+                    }
+                ) { Text(if (restoring) tr("Đang mở…", "Restoring…") else tr("Mở lại", "Restore")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { restoreTarget = null }, enabled = !restoring) {
+                    Text(tr("Hủy", "Cancel"))
+                }
+            }
+        )
     }
 }
 
