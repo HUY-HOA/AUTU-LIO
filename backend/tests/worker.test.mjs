@@ -11,7 +11,10 @@ const customerSession = {
   display_name: "Customer",
   role: "CUSTOMER",
   status: "ACTIVE",
-  email_verified: 1
+  email_verified: 1,
+  google_sub: "google-sub-customer-123",
+  created_at: 1794000000,
+  last_login_at: 1795000000
 };
 
 const ownerSession = {
@@ -32,7 +35,8 @@ function createEnv({
   challengeLimitSuccess = true,
   loginLimitSuccess = true,
   accountLicense = null,
-  accountDevices = []
+  accountDevices = [],
+  latestSignInRow = null
 } = {}) {
   const queries = [];
   const DB = {
@@ -47,6 +51,7 @@ function createEnv({
         },
         async first() {
           if (sql.includes("FROM sessions s JOIN users u")) return session;
+          if (sql.includes("SELECT metadata_json, created_at FROM audit_logs")) return latestSignInRow;
           if (sql.includes("FROM licenses") && sql.includes("ORDER BY created_at DESC")) return accountLicense;
           return null;
         },
@@ -344,6 +349,41 @@ test("protected routes reject requests without a bearer session", async () => {
   assert.equal(response.status, 401);
   assert.equal(body.error, "authentication_required");
   assert.equal(queries.length, 0);
+});
+
+test("current customer receives only their own verified Google profile and latest sign-in data", async () => {
+  const latestSignInRow = {
+    metadata_json: JSON.stringify({
+      deviceLabel: "Google Pixel",
+      googleProfile: {
+        givenName: "Customer",
+        pictureUrl: "https://lh3.googleusercontent.com/a/customer-photo",
+        locale: "vi"
+      },
+      deviceInfo: {
+        manufacturer: "Google",
+        model: "Pixel",
+        androidVersion: "16"
+      }
+    }),
+    created_at: 1795000000
+  };
+  const { env } = createEnv({ session: customerSession, latestSignInRow });
+  const response = await worker.fetch(
+    makeRequest("/api/auth/me", {
+      headers: { Authorization: `Bearer ${"D".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.user.id, customerSession.user_id);
+  assert.equal(body.user.googleSub, customerSession.google_sub);
+  assert.equal(body.user.emailVerified, true);
+  assert.equal(body.user.latestSignIn.googleProfile.pictureUrl, "https://lh3.googleusercontent.com/a/customer-photo");
+  assert.equal(body.user.latestSignIn.deviceLabel, "Google Pixel");
+  assert.equal(Object.hasOwn(body.user, "createdAt"), false);
 });
 
 test("customer account endpoint returns the signed-in account and empty license/device state", async () => {
