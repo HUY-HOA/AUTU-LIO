@@ -80,6 +80,7 @@ The Worker source is deployed and all six D1 migrations are applied. Production 
 - `GET /api/customer/account` — CUSTOMER account, license and registered devices.
 - `POST /api/customer/devices/challenge` — create a one-time device enrollment challenge.
 - `POST /api/customer/devices` — register the RSA-3072 Android Keystore public key.
+- `POST /api/customer/presence` — report app foreground and AUTU runtime presence for the authenticated active device.
 - `GET /api/customer/packages?deviceFingerprint=...` — list published packages for an active license and matching active device.
 - `GET /api/customer/packages/:packageId/download?deviceFingerprint=...` — retrieve ciphertext and a data key wrapped to the registered device.
 - `GET /api/admin/customers`, `GET /api/admin/licenses`, `GET /api/admin/devices` — OWNER customer and device directories.
