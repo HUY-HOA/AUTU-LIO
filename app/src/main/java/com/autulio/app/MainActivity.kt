@@ -1622,6 +1622,64 @@ private fun CustomerDeviceLicensePage(modifier: Modifier) {
 }
 
 @Composable
+private fun ThemeModeSelector() {
+    val selectedMode = LocalUiThemeMode.current
+    val onModeChange = LocalOnUiThemeModeChange.current
+    val options = listOf(
+        UiThemeMode.DARK to tr("Tối", "Dark"),
+        UiThemeMode.LIGHT to tr("Sáng", "Light"),
+        UiThemeMode.SYSTEM to tr("Theo hệ thống", "System")
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(9.dp))
+                Column {
+                    Text(tr("Giao diện", "Appearance"), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        tr("Chọn chế độ hiển thị của AUTU-LIO", "Choose how AUTU-LIO looks"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                options.forEach { (mode, label) ->
+                    FilterChip(
+                        selected = selectedMode == mode,
+                        onClick = { onModeChange(mode) },
+                        label = { Text(label, fontSize = 12.sp) }
+                    )
+                }
+            }
+            Text(
+                when (selectedMode) {
+                    UiThemeMode.DARK -> tr("Nền đen thuần, giảm ánh sáng nền.", "Pure black background with less screen glare.")
+                    UiThemeMode.LIGHT -> tr("Nền sáng dịu, tránh trắng gắt.", "Soft light background without harsh white.")
+                    UiThemeMode.SYSTEM -> tr("Tự đổi theo chế độ sáng/tối của Android.", "Automatically follows Android light/dark mode.")
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                lineHeight = 15.sp
+            )
+        }
+    }
+}
+
+@Composable
 private fun SettingsScreen(
     modifier: Modifier,
     onLogout: () -> Unit
@@ -2081,7 +2139,9 @@ class ScriptEditorActivity : ComponentActivity() {
             val host = remember { SnackbarHostState() }
             val scope = rememberCoroutineScope()
 
-            AppTheme(dark = true) {
+            val editorThemeMode = remember { UiThemePreferences.load(this@ScriptEditorActivity) }
+            val systemIsDark = isSystemInDarkTheme()
+            AppTheme(dark = editorThemeMode.isDark(systemIsDark)) {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                     snackbarHost = { SnackbarHost(host) }
