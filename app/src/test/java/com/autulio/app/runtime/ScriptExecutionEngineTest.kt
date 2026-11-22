@@ -1209,14 +1209,7 @@ class ScriptExecutionEngineTest {
                 BIẾN PHAN_TU: SỐ = TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH(GOC, 1)
                 BIẾN NGU_NHIEN: SỐ = SỐ_NGẪU_NHIÊN(2, 5)
                 BIẾN RONG: LUẬN_LÝ = KIỂM_TRA_RỖNG("   ")
-                NẾU (
-                    LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(SAP_XEP, 0) == 1 VÀ
-                    LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(DAO_NGUOC, 0) == 2 VÀ
-                    ĐỘ_DÀI(LOC) == 3 VÀ
-                    CAN == 9 VÀ XUONG == 3 VÀ LEN == 4 VÀ
-                    VI_TRI == 5 VÀ PHAN_TU == 1 VÀ
-                    NGU_NHIEN >= 2 VÀ NGU_NHIEN < 5 VÀ RONG
-                ) {
+                NẾU (LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(SAP_XEP, 0) == 1 VÀ LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(DAO_NGUOC, 0) == 2 VÀ ĐỘ_DÀI(LOC) == 3 VÀ CAN == 9 VÀ XUONG == 3 VÀ LEN == 4 VÀ VI_TRI == 5 VÀ PHAN_TU == 1 VÀ NGU_NHIEN >= 2 VÀ NGU_NHIEN < 5 VÀ RONG) {
                     NHẤN(10, 20)
                 }
                 """.trimIndent()
