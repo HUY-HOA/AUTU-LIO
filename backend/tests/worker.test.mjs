@@ -140,7 +140,7 @@ async function makeSignedDeviceEnrollment() {
   const challengeId = crypto.randomUUID();
   const nonceBytes = crypto.getRandomValues(new Uint8Array(32));
   const nonce = btoa(String.fromCharCode(...nonceBytes))
-    .replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   const nonceDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(nonce));
   const nonceHash = Array.from(new Uint8Array(nonceDigest), value => value.toString(16).padStart(2, "0")).join("");
   const signatureBytes = new Uint8Array(await crypto.subtle.sign(
