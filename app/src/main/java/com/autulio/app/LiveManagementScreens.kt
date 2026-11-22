@@ -748,8 +748,8 @@ internal fun CustomerDeviceLicenseScreen(
             text = {
                 Text(
                     tr(
-                        "AUTU-LIO sẽ tạo khóa RSA 3072-bit trong Android Keystore. Khóa riêng không rời thiết bị; khóa công khai dùng để xác minh thiết bị và nhận khóa giải mã gói AUTU được gửi riêng cho thiết bị. Chỉ khóa công khai và thông tin model/phiên bản Android/AUTU-LIO được gửi đến máy chủ; không gửi IMEI hoặc số sê-ri.",
-                        "AUTU-LIO will create an RSA 3072-bit key in Android Keystore. The private key stays on this device; the public key verifies this device and lets the server wrap package decryption keys specifically for it. Only the public key and device model/Android/AUTU-LIO version are sent to the server; no IMEI or serial number is collected."
+                        "AUTU-LIO sẽ tạo khóa RSA 3072-bit trong Android Keystore. Khóa riêng không rời thiết bị; khóa công khai dùng để xác minh thiết bị và nhận khóa giải mã gói AUTU được gửi riêng cho thiết bị. Máy chủ nhận khóa công khai cùng thông tin hãng/mẫu máy, phiên bản Android và AUTU-LIO. Khi ứng dụng được mở, AUTU gửi tín hiệu kết nối định kỳ; khi kịch bản đang chạy hoặc tạm dừng ở nền, dịch vụ gửi trạng thái tương ứng. Máy chủ chỉ lưu thời điểm và trạng thái kết nối/chạy; không ghi nội dung màn hình, thao tác cá nhân, vị trí, IMEI hoặc số sê-ri.",
+                        "AUTU-LIO will create an RSA 3072-bit key in Android Keystore. The private key stays on this device; the public key verifies this device and lets the server wrap package decryption keys specifically for it. The server receives the public key and device manufacturer/model, Android version and AUTU-LIO version. While the app is open, AUTU sends periodic connection signals; while a script is running or paused in the background, the service reports that state. The server stores only timestamps and connection/runtime states; it does not collect screen contents, personal interactions, location, IMEI or serial number."
                     ),
                     fontSize = 13.sp
                 )
