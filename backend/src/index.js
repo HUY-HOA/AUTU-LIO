@@ -753,7 +753,7 @@ async function getCustomerAccount(request, env, session) {
   const now = Math.floor(Date.now() / 1000);
   const license = await env.DB.prepare(
     "SELECT id, plan_code, status, starts_at, expires_at, max_devices FROM licenses " +
-    "WHERE user_id = ? ORDER BY created_at DESC LIMIT 1"
+    "WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1"
   ).bind(session.user_id).first();
   const result = await env.DB.prepare(
     "SELECT id, label, manufacturer, model, android_version, app_version, status, revoked_at, revoked_reason, registered_at, last_seen_at " +
