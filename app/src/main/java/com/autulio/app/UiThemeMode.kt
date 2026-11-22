@@ -1,7 +1,10 @@
 package com.autulio.app
 
 import android.content.Context
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 
 enum class UiThemeMode(val preferenceValue: String) {
     DARK("dark"),
@@ -45,3 +48,14 @@ object UiThemePreferences {
 
 internal val LocalUiThemeMode = compositionLocalOf { UiThemeMode.SYSTEM }
 internal val LocalOnUiThemeModeChange = compositionLocalOf<(UiThemeMode) -> Unit> { {} }
+
+@Composable
+internal fun PreferredAppTheme(context: Context, content: @Composable () -> Unit) {
+    val mode = remember(context.applicationContext) {
+        UiThemePreferences.load(context.applicationContext)
+    }
+    AppTheme(
+        dark = mode.isDark(isSystemInDarkTheme()),
+        content = content
+    )
+}
