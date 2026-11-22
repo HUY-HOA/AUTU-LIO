@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.matchParentSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -144,7 +144,7 @@ private fun GoogleProfileAvatar(pictureUrl: String?) {
             Image(
                 bitmap = image.asImageBitmap(),
                 contentDescription = tr("Ảnh đại diện Google", "Google profile picture"),
-                modifier = Modifier.matchParentSize().clip(CircleShape),
+                modifier = Modifier.fillMaxSize().clip(CircleShape),
                 contentScale = ContentScale.Crop
             )
         } else {
