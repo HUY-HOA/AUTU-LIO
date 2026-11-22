@@ -137,6 +137,14 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         private const val FLOATING_DRAFT_NAME = "Kịch bản nổi"
 
         fun current(): AutoClickAccessibilityService? = activeInstance
+
+        fun currentRuntimePresenceState(): String {
+            return when (activeInstance?.executionEngine?.snapshot()?.state) {
+                ScriptExecutionState.RUNNING -> "RUNNING"
+                ScriptExecutionState.PAUSED -> "PAUSED"
+                else -> "STOPPED"
+            }
+        }
     }
 
 
@@ -256,6 +264,19 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         // active registration, not just that the Google session still exists.
                         runBlocking {
                             authRepository.listCustomerPackages(token, identity.fingerprintSha256)
+                            val runtimeState = when (executionEngine?.snapshot()?.state) {
+                                ScriptExecutionState.RUNNING -> "RUNNING"
+                                ScriptExecutionState.PAUSED -> "PAUSED"
+                                else -> null
+                            }
+                            if (runtimeState != null) {
+                                authRepository.reportCustomerPresence(
+                                    accessToken = token,
+                                    deviceFingerprint = identity.fingerprintSha256,
+                                    appForeground = false,
+                                    runtimeState = runtimeState
+                                )
+                            }
                         }
                     }
                     if (sessionStore.read() == token) sessionVerified = true
