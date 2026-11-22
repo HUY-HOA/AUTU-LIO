@@ -28,7 +28,6 @@ import java.util.Locale
 @Composable
 internal fun AdminTemplateLibraryScreen(
     modifier: Modifier = Modifier,
-    onBack: () -> Unit,
     onOpenTemplate: (ScriptTemplate) -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -53,7 +52,6 @@ internal fun AdminTemplateLibraryScreen(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Heading(
             tr("Thư viện mẫu AUTU", "AUTU template library"),
             tr(
