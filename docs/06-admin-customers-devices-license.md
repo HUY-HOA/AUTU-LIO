@@ -12,7 +12,7 @@ Gộp khách hàng, giấy phép và thiết bị vào một màn hình duy nh�
 - **Thu hồi tài khoản:** chặn đăng nhập, chấm dứt phiên, thu hồi toàn bộ giấy phép và thiết bị đang hoạt động. Đây là thu hồi mềm để giữ hồ sơ và nhật ký đối soát; không xóa dữ liệu vật lý.
 - **Giấy phép:** cấp mới, gia hạn, điều chỉnh giới hạn thiết bị, tạm dừng/kích hoạt lại hoặc thu hồi. Tạm dừng giấy phép không chặn đăng nhập nhưng ngăn tải/chạy AUTU. Thu hồi giấy phép kết thúc giấy phép đó; thiết bị đã đăng ký và khóa bảo mật vẫn được giữ, muốn dùng lại phải cấp giấy phép mới.
 - **Thiết bị:** nút **Chặn thiết bị** thu hồi quyền sử dụng trên thiết bị nhưng không xóa hồ sơ đăng ký hoặc khóa bảo mật. Chủ ứng dụng có thể **Cho phép lại thiết bị** khi tài khoản hoạt động, giấy phép còn hiệu lực và vẫn còn giới hạn thiết bị.
-- Mở lại thiết bị yêu cầu tài khoản ACTIVE, giấy phép còn hiệu lực và số thiết bị đang hoạt động nhỏ hơn giới hạn giấy phép.
+- Cho phép lại thiết bị yêu cầu tài khoản ACTIVE, giấy phép còn hiệu lực và số thiết bị đang hoạt động nhỏ hơn giới hạn giấy phép.
 - Nếu khách hàng tự gỡ thiết bị, họ có thể đăng ký lại bằng khóa Android Keystore cũ sau khi có giấy phép hợp lệ. Thiết bị bị chủ ứng dụng hoặc tài khoản thu hồi không được tự mở lại; chủ ứng dụng phải thực hiện.
 - Các thao tác thu hồi, khóa hoặc mở lại đều cần hộp thoại xác nhận giải thích hậu quả.
 
