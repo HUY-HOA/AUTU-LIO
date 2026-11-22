@@ -33,6 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -49,6 +51,7 @@ import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
+import com.autulio.app.script.AutuSyntaxHighlighter
 import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptTemplate
 import com.autulio.app.script.ScriptTemplateCatalog
@@ -605,6 +608,30 @@ private fun ScriptsScreen(
 }
 
 @Composable
+private fun SyntaxHighlightLegend() {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AutuSyntaxHighlighter.legendItems.forEach { item ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("●", color = item.color, fontSize = 10.sp)
+                Text(
+                    item.label,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun EditorScreen(
     name: String,
     code: String,
@@ -623,10 +650,28 @@ private fun EditorScreen(
     var showTemplates by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var templateSearch by rememberSaveable { mutableStateOf("") }
+    var guideSearch by rememberSaveable { mutableStateOf("") }
     var templateDetailId by rememberSaveable { mutableStateOf<String?>(null) }
     var guideSectionDetailId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTemplate = ScriptTemplateCatalog.templates.firstOrNull { it.id == templateDetailId }
-    val selectedGuideSection = EditorGuideCatalog.sections.firstOrNull { it.id == guideSectionDetailId }
+    val selectedGuideSection = EditorGuideCatalog.sections
+        .firstOrNull { it.id == guideSectionDetailId }
+        ?.let { section ->
+            val query = guideSearch.trim()
+            val categoryMatches = section.title.contains(query, ignoreCase = true) ||
+                section.summary.contains(query, ignoreCase = true)
+            if (query.isBlank() || categoryMatches) {
+                section
+            } else {
+                section.copy(
+                    commands = section.commands.filter { command ->
+                        command.syntax.contains(query, ignoreCase = true) ||
+                            command.description.contains(query, ignoreCase = true) ||
+                            command.example.orEmpty().contains(query, ignoreCase = true)
+                    }
+                )
+            }
+        }
 
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
@@ -663,6 +708,7 @@ private fun EditorScreen(
             fontWeight = FontWeight.SemiBold,
             fontSize = 12.sp
         )
+        SyntaxHighlightLegend()
         OutlinedTextField(
             value = code,
             onValueChange = {
@@ -672,6 +718,12 @@ private fun EditorScreen(
             },
             modifier = Modifier.fillMaxWidth().weight(1f),
             minLines = 8,
+            textStyle = TextStyle(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 13.sp,
+                lineHeight = 19.sp
+            ),
+            visualTransformation = AutuSyntaxHighlighter,
             label = { Text(tr("Mã nguồn", "Source code")) },
             placeholder = { Text(tr("Nhập mã kịch bản hoặc chọn một mẫu...", "Enter a script or choose a template...")) }
         )
@@ -882,44 +934,108 @@ private fun EditorScreen(
     }
 
     if (showHelp) {
+        val normalizedGuideSearch = guideSearch.trim()
+        val filteredGuideSections = EditorGuideCatalog.sections.mapNotNull { section ->
+            if (normalizedGuideSearch.isBlank()) {
+                section
+            } else {
+                val categoryMatches =
+                    section.title.contains(normalizedGuideSearch, ignoreCase = true) ||
+                        section.summary.contains(normalizedGuideSearch, ignoreCase = true)
+                val matchingCommands = section.commands.filter { command ->
+                    command.syntax.contains(normalizedGuideSearch, ignoreCase = true) ||
+                        command.description.contains(normalizedGuideSearch, ignoreCase = true) ||
+                        command.example.orEmpty().contains(normalizedGuideSearch, ignoreCase = true)
+                }
+                when {
+                    categoryMatches -> section
+                    matchingCommands.isNotEmpty() -> section.copy(commands = matchingCommands)
+                    else -> null
+                }
+            }
+        }
         AlertDialog(
             onDismissRequest = { showHelp = false },
-            title = { Text("Hướng dẫn AUTU-LIO") },
+            title = { Text("Danh mục lệnh AUTU-LIO") },
             text = {
                 Column(
-                    modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                    modifier = Modifier.heightIn(max = 500.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        "Chọn nhóm chức năng rồi nhấn Chi tiết để xem cú pháp, cách dùng, ví dụ và giới hạn. Nội dung chi tiết chỉ mở khi cần."
+                        "Lệnh được chia theo chức năng. Tìm theo tên lệnh hoặc mở một nhóm để xem cú pháp và ví dụ.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    EditorGuideCatalog.sections.forEach { section ->
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text(section.title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                    Text(
-                                        section.summary,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 11.sp,
-                                        lineHeight = 15.sp,
-                                        maxLines = 2
-                                    )
+                    OutlinedTextField(
+                        value = guideSearch,
+                        onValueChange = { guideSearch = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Tìm lệnh hoặc nhóm") },
+                        placeholder = { Text("Ví dụ: QUAY_LẠI, PIN, JSON, OCR...") },
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (guideSearch.isNotBlank()) {
+                                IconButton(onClick = { guideSearch = "" }) {
+                                    Icon(Icons.Outlined.Close, contentDescription = "Xóa tìm kiếm")
                                 }
-                                TextButton(
-                                    onClick = { guideSectionDetailId = section.id },
-                                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 4.dp)
+                            }
+                        }
+                    )
+                    Text(
+                        if (normalizedGuideSearch.isBlank()) {
+                            "${EditorGuideCatalog.sections.size} nhóm chức năng"
+                        } else {
+                            "${filteredGuideSections.size} nhóm phù hợp"
+                        },
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        if (filteredGuideSections.isEmpty()) {
+                            Text(
+                                "Không tìm thấy lệnh phù hợp.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                        }
+                        filteredGuideSections.forEach { section ->
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("Chi tiết")
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text(section.title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                        Text(
+                                            section.summary,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp,
+                                            lineHeight = 15.sp,
+                                            maxLines = 2
+                                        )
+                                        Text(
+                                            "${section.commands.size} mục",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                    TextButton(
+                                        onClick = { guideSectionDetailId = section.id },
+                                        contentPadding = PaddingValues(horizontal = 7.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("Chi tiết")
+                                    }
                                 }
                             }
                         }
@@ -927,7 +1043,10 @@ private fun EditorScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showHelp = false }) { Text("Đóng") }
+                TextButton(onClick = {
+                    showHelp = false
+                    guideSearch = ""
+                }) { Text("Đóng") }
             }
         )
     }
