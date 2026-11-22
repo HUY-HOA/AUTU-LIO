@@ -349,7 +349,7 @@ object EditorGuideCatalog {
                 "Tọa độ và cỡ chữ tính bằng pixel trên toàn màn hình.",
                 "Màu hỗ trợ HEX #RRGGBB hoặc #AARRGGBB; lớp đánh dấu cần quyền hiển thị phù hợp."
             )
-        )
+        ),
         EditorGuideSection(
             id = "logging",
             title = "17. Nhật ký, in nội dung và thông báo",
@@ -363,7 +363,7 @@ object EditorGuideCatalog {
                 "Có thể đọc nhật ký đã lưu bằng ĐỌC_TỆP(\"logs/script.log\").",
                 "IN() chỉ dành cho nhật ký kỹ thuật; GHI_NHẬT_KÝ() lưu thêm bản ghi trong vùng riêng của ứng dụng."
             )
-        ),,
+        ),
         EditorGuideSection(
             id = "screenshots",
             title = "18. Chụp và lưu ảnh màn hình",
