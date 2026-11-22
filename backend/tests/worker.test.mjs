@@ -1220,7 +1220,7 @@ test("package publishing stores AES-GCM ciphertext and master-key version, not p
   assert.equal(versionInsert.values.includes(source), false);
 });
 
-test("customer package download decrypts the server envelope and wraps the data key to the registered RSA device", async () => {
+test("customer package download unwraps the data key with Android Keystore-compatible RSA-OAEP SHA-1", async () => {
   const masterBytes = crypto.getRandomValues(new Uint8Array(32));
   const masterKey = Buffer.from(masterBytes).toString("base64url");
   const { env: ownerEnv } = createEnv({ session: ownerSession });
@@ -1256,7 +1256,7 @@ test("customer package download decrypts the server envelope and wraps the data 
       name: "RSA-OAEP",
       modulusLength: 3072,
       publicExponent: new Uint8Array([1, 0, 1]),
-      hash: "SHA-256"
+      hash: "SHA-1"
     },
     true,
     ["encrypt", "decrypt"]
@@ -1317,7 +1317,7 @@ test("customer package download decrypts the server envelope and wraps the data 
     }
   };
   const downloaded = await worker.fetch(
-    makeRequest("/api/customer/packages/" + packageInfo.id + "/download?deviceFingerprint=" + fingerprint + "&keyWrapping=RSA-OAEP-SHA256&compression=GZIP", {
+    makeRequest("/api/customer/packages/" + packageInfo.id + "/download?deviceFingerprint=" + fingerprint + "&keyWrapping=RSA-OAEP-SHA1&compression=GZIP", {
       headers: { Authorization: "Bearer " + "O".repeat(48) }
     }),
     customerEnv
