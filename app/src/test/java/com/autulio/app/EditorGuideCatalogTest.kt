@@ -46,7 +46,7 @@ class EditorGuideCatalogTest {
         assertEquals(30, apiFor("ĐỌC_VĂN_BẢN_MÀN_HÌNH"))
         assertEquals(30, apiFor("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH"))
         assertEquals(30, apiFor("LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH"))
-        assertEquals(28, apiFor("CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH"))
+        assertEquals(28, apiFor("KIỂM_TRA_KHẢ_NĂNG_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH"))
     }
 
     @Test
