@@ -13,13 +13,13 @@
 
 1. Khách hàng phải đăng nhập, có giấy phép ACTIVE chưa hết hạn và đăng ký thiết bị đang dùng.
 2. Máy chủ chỉ trả danh sách gói ACTIVE sau khi xác minh giấy phép và thiết bị.
-3. Khi tải, Worker bọc khóa dữ liệu riêng cho public key của thiết bị bằng RSA-3072 OAEP SHA-256. Thiết bị khác không thể dùng gói khóa đã bọc này.
+3. Khi tải, Worker bọc khóa dữ liệu riêng cho public key của thiết bị bằng RSA-3072 OAEP SHA-1/MGF1-SHA1. Đây chỉ là bước bọc khóa AES ngẫu nhiên; nội dung AUTU vẫn được mã hóa bằng AES-256-GCM. Thiết bị khác không thể dùng gói khóa đã bọc này.
 4. Ứng dụng giải mã gói trong bộ nhớ, giải nén nếu có marker `GZ1.`, kiểm tra SHA-256 trên source gốc, biên dịch đúng language version rồi chuyển chương trình đã biên dịch cho runtime. Mã nguồn không được xuất thành tệp dùng chung.
 
 ## Định dạng và tương thích
 
 - `GZ1.` ở đầu ciphertext cho biết payload sau AES-GCM được nén GZIP; ciphertext không có marker là định dạng raw cũ. Client mới yêu cầu `compression=GZIP`; client cũ nhận bản raw được Worker giải nén và mã hóa lại trong bộ nhớ.
-- Gói cũ vẫn giải mã được sau nâng cấp vì dữ liệu lưu cũ không thay đổi. Client mới yêu cầu OAEP SHA-256; client cũ mặc định được Worker dùng OAEP SHA-1 tương thích. Cả hai đều yêu cầu khóa RSA tối thiểu 3072-bit.
+- Worker hỗ trợ OAEP SHA-1/MGF1-SHA1 cho khóa Android Keystore hiện có; đây cũng là chế độ tải được ứng dụng yêu cầu. Android Keystore mặc định cho MGF1 là SHA-1 nếu lúc tạo khóa không khai báo digest MGF1 khác. Nâng cấp lên SHA-256/MGF1-SHA256 cần tạo/cấp quyền khóa phù hợp và thương lượng chế độ riêng; không được tự áp dụng cho khóa thiết bị đã đăng ký. Tất cả chế độ đều yêu cầu RSA tối thiểu 3072-bit.
 - Không thay đổi D1 schema hoặc các secrets hiện hữu.
 - Giới hạn source đầu vào vẫn là 32.768 ký tự. Ứng dụng giới hạn kích thước sau giải nén ở mức 262.144 byte để tránh payload nén bất thường.
 
