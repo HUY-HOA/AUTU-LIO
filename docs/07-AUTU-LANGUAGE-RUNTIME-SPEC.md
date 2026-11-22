@@ -54,7 +54,7 @@ Runtime:
 
 ## 4. Tên chuẩn của lệnh Android nối runtime
 
-`CHẠM`, `NHẤN_GIỮ`, `VUỐT`, `CHỜ`, `MỞ_ỨNG_DỤNG`, `QUAY_LẠI`, `VỀ_MÀN_HÌNH_CHÍNH`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY`, `MỞ_THANH_THÔNG_BÁO`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH`, `MỞ_HỘP_THOẠI_NGUỒN`, `KHÓA_MÀN_HÌNH`, `BẬT_TẮT_CHIA_MÀN_HÌNH`.
+`NHẤN`, `NHẤN_GIỮ`, `NHẤN_ĐA_ĐIỂM`, `VUỐT`, `VUỐT_ĐA_ĐIỂM`, `CHỜ`, `MỞ_ỨNG_DỤNG`, `QUAY_LẠI`, `VỀ_MÀN_HÌNH_CHÍNH`, `MỞ_ỨNG_DỤNG_GẦN_ĐÂY`, `MỞ_THANH_THÔNG_BÁO`, `MỞ_BẢNG_CÀI_ĐẶT_NHANH`, `MỞ_HỘP_THOẠI_NGUỒN`, `KHÓA_MÀN_HÌNH`, `BẬT_TẮT_CHIA_MÀN_HÌNH`.
 
 Lệnh cử chỉ chạy qua Android AccessibilityService. Lệnh hệ thống có thể thất bại do Android/API hoặc trạng thái quyền; runtime báo lỗi thay vì giả lập thành công.
 
@@ -62,7 +62,7 @@ Lệnh cử chỉ chạy qua Android AccessibilityService. Lệnh hệ thống c
 
 Toán học/chuỗi: `SỐ`, `CHUỖI`, `LÀM_TRÒN`, `TUYỆT_ĐỐI`, `ĐỘ_DÀI`, `NHỎ_NHẤT`, `LỚN_NHẤT`.
 
-Thiết bị: `PIN`, `PHẦN_TRĂM_PIN`, `ĐANG_SẠC`, `CÓ_MẠNG`, `MÀN_HÌNH_SÁNG`, `ỨNG_DỤNG_ĐÃ_CÀI`, `ỨNG_DỤNG_ĐANG_MỞ`, `CHIỀU_RỘNG_MÀN_HÌNH`, `CHIỀU_CAO_MÀN_HÌNH`, `THỜI_GIAN_MS`.
+Thiết bị: `LẤY_PHẦN_TRĂM_PIN`, `KIỂM_TRA_ĐANG_SẠC`, `KIỂM_TRA_KẾT_NỐI_MẠNG`, `KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG`, `KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI`, `KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ`, `LẤY_ÂM_LƯỢNG`, `LẤY_ĐỘ_SÁNG`, `CHIỀU_RỘNG_MÀN_HÌNH`, `CHIỀU_CAO_MÀN_HÌNH`, `THỜI_GIAN_MS`.
 
 ## 6. Những phần chưa triển khai
 
