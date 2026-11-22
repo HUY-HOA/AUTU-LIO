@@ -1064,4 +1064,53 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", saveWrong.diagnostics.first().code)
     }
 
+    @Test
+    fun compilesExpandedMathTextCollectionAndAndroidFunctions() {
+        val result = ScriptCompiler.compile(
+            """
+            BIẾN A: SỐ = CĂN_BẬC_HAI(81)
+            BIẾN B: SỐ = LÀM_TRÒN_XUỐNG(3.9)
+            BIẾN C: SỐ = LÀM_TRÒN_LÊN(3.1)
+            BIẾN D: SỐ = SIN(0) + COS(0) + TAN(0)
+            BIẾN R1: SỐ = SỐ_NGẪU_NHIÊN()
+            BIẾN R2: SỐ = SỐ_NGẪU_NHIÊN(1, 10)
+            BIẾN DS: DANH_SÁCH = TẠO_DANH_SÁCH(3, 1, 2)
+            BIẾN SAP_XEP: DANH_SÁCH = SẮP_XẾP(DS)
+            BIẾN DAO_NGUOC: DANH_SÁCH = ĐẢO_NGƯỢC(DS)
+            BIẾN VI_TRI: SỐ = TÌM_PHẦN_TỬ(DS, 1)
+            BIẾN CHUOI: SỐ = TÌM_VỊ_TRÍ("AUTU-LIO", "LIO")
+            BIẾN RONG: LUẬN_LÝ = KIỂM_TRA_RỖNG("  ")
+            HÀM LA_SO_DUONG(V: SỐ): LUẬN_LÝ {
+                TRẢ_VỀ V > 0
+            }
+            BIẾN LOC: DANH_SÁCH = LỌC(DS, "LA_SO_DUONG")
+            BIẾN AM_LUONG: SỐ = ÂM_LƯỢNG()
+            BIẾN DO_SANG: BẤT_KỲ = ĐỘ_SÁNG()
+            GHI_NHẬT_KÝ("Bắt đầu")
+            GHI_NHẬT_KÝ("WARN", "Cảnh báo")
+            IN("Hoàn tất")
+            THÔNG_BÁO("AUTU-LIO")
+            RUNG(100)
+            ĐẶT_ÂM_LƯỢNG(50)
+            ĐẶT_ĐỘ_SÁNG(60)
+            BIẾN ANH: BẢN_ĐỒ = CHỤP_ẢNH_MÀN_HÌNH("screens/test.jpg")
+            BIẾN ANH_LUU: BẢN_ĐỒ = LƯU_ẢNH_MÀN_HÌNH("screens/test-copy.jpg")
+            BIẾN RONG_VUNG: SỐ = CHIỀU_RỘNG_VÙNG_AN_TOÀN()
+            BIẾN CO_NOTCH: LUẬN_LÝ = CÓ_VÙNG_KHUYẾT_MÀN_HÌNH()
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
+    @Test
+    fun rejectsInvalidOptionalBuiltinArgumentCounts() {
+        val random = ScriptCompiler.compile("BIẾN X = SỐ_NGẪU_NHIÊN(1)")
+        val log = ScriptCompiler.compile("BIẾN X = GHI_NHẬT_KÝ()")
+        val tooManyRandom = ScriptCompiler.compile("BIẾN X = SỐ_NGẪU_NHIÊN(1, 2, 3)")
+        assertEquals("function_argument_count", random.diagnostics.first().code)
+        assertEquals("function_argument_count", log.diagnostics.first().code)
+        assertEquals("function_argument_count", tooManyRandom.diagnostics.first().code)
+    }
+
+
 }
