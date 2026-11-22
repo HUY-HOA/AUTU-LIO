@@ -663,8 +663,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 1)
                 val percent = requireNonNegativeFiniteNumber(name, arguments[0], "PHẦN_TRĂM")
                 require(percent <= 100.0) { "ĐẶT_ĐỘ_SÁNG chỉ nhận giá trị từ 0 đến 100." }
-                require(android.provider.Settings.System.canWrite(this)) {
-                    "Cần cấp quyền 'Cho phép sửa đổi cài đặt hệ thống' cho AUTU-LIO trước khi đổi độ sáng."
+                if (!android.provider.Settings.System.canWrite(this)) {
+                    val settingsIntent = Intent(
+                        android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                        android.net.Uri.parse("package:$packageName")
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    mainHandler.post {
+                        runCatching { startActivity(settingsIntent) }
+                    }
+                    throw IllegalStateException(
+                        "Đã mở cài đặt quyền hệ thống. Hãy bật 'Cho phép sửa đổi cài đặt hệ thống' cho AUTU-LIO rồi chạy lại kịch bản."
+                    )
                 }
                 val raw = (percent * 255.0 / 100.0).toInt().coerceIn(0, 255)
                 android.provider.Settings.System.putInt(
