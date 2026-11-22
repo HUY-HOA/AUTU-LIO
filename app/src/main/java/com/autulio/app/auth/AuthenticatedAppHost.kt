@@ -1,16 +1,21 @@
 package com.autulio.app.auth
 
 import android.app.Activity
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -193,22 +198,52 @@ private fun AuthScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    Icons.Outlined.Code,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(58.dp)
+                Text(
+                    "AUTU-LIO",
+                    style = MaterialTheme.typography.headlineLarge,
+                    textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(18.dp))
-                Text("AUTU-LIO", style = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
+                Canvas(Modifier.size(84.dp)) {
+                    val w = size.width
+                    val h = size.height
+                    val brackets = Path().apply {
+                        moveTo(w * 0.36f, h * 0.23f)
+                        lineTo(w * 0.15f, h * 0.5f)
+                        lineTo(w * 0.36f, h * 0.77f)
+                        moveTo(w * 0.64f, h * 0.23f)
+                        lineTo(w * 0.85f, h * 0.5f)
+                        lineTo(w * 0.64f, h * 0.77f)
+                    }
+                    drawPath(
+                        path = brackets,
+                        color = Color(0xFF4F8CFF),
+                        style = Stroke(
+                            width = w * 0.075f,
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
+                    )
+                    val lightning = Path().apply {
+                        moveTo(w * 0.56f, h * 0.27f)
+                        lineTo(w * 0.41f, h * 0.52f)
+                        lineTo(w * 0.51f, h * 0.52f)
+                        lineTo(w * 0.45f, h * 0.73f)
+                        lineTo(w * 0.68f, h * 0.45f)
+                        lineTo(w * 0.57f, h * 0.45f)
+                        close()
+                    }
+                    drawPath(path = lightning, color = Color(0xFF35C6C8))
+                }
+                Spacer(Modifier.height(10.dp))
                 Text(
                     "LIOScript",
+                    style = MaterialTheme.typography.titleLarge,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
                 )
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(28.dp))
                 if (restoring) {
                     CircularProgressIndicator()
                     Spacer(Modifier.height(10.dp))
