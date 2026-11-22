@@ -26,6 +26,42 @@ data class AuthenticatedUser(
     val email: String,
     val displayName: String?,
     val role: AccessRole,
+    val googleSignIn: GoogleSignInDetails? = null
+)
+
+data class GoogleSignInDetails(
+    val googleSub: String,
+    val emailVerified: Boolean,
+    val givenName: String?,
+    val familyName: String?,
+    val pictureUrl: String?,
+    val profileUrl: String?,
+    val locale: String?,
+    val hostedDomain: String?,
+    val signedInAt: Long?,
+    val deviceLabel: String?,
+    val deviceInfo: SignInDeviceTechnicalInfo?
+)
+
+data class SignInDeviceTechnicalInfo(
+    val manufacturer: String?,
+    val model: String?,
+    val brand: String?,
+    val product: String?,
+    val deviceCodeName: String?,
+    val supportedAbis: String?,
+    val androidVersion: String?,
+    val sdkInt: Int?,
+    val appVersionName: String?,
+    val appVersionCode: Long?,
+    val localeTag: String?,
+    val timeZoneId: String?,
+    val screenWidthPx: Int?,
+    val screenHeightPx: Int?,
+    val densityDpi: Int?,
+    val networkType: String?,
+    val networkStatus: String?,
+    val networkValidated: Boolean?
 )
 
 data class AuthSession(
@@ -57,7 +93,8 @@ data class CustomerRecord(
     val licenseStartsAt: Long?,
     val licenseExpiresAt: Long?,
     val maxDevices: Int?,
-    val activeDeviceCount: Int
+    val activeDeviceCount: Int,
+    val googleSignIn: GoogleSignInDetails? = null
 )
 
 data class LicenseRecord(
@@ -101,7 +138,8 @@ data class CustomerAccountOverview(
     val devices: List<CustomerDeviceInfo>,
     val activeDeviceCount: Int,
     val canRegisterDevice: Boolean,
-    val canRun: Boolean
+    val canRun: Boolean,
+    val googleSignIn: GoogleSignInDetails? = null
 )
 
 data class CustomerLicenseInfo(
@@ -264,7 +302,12 @@ class AuthRepository(context: Context) {
                         licenseStartsAt = item.optLong("starts_at").takeIf { item.has("starts_at") && !item.isNull("starts_at") },
                         licenseExpiresAt = item.optLong("expires_at").takeIf { item.has("expires_at") && !item.isNull("expires_at") },
                         maxDevices = item.optInt("max_devices").takeIf { item.has("max_devices") && !item.isNull("max_devices") },
-                        activeDeviceCount = item.optInt("active_device_count")
+                        activeDeviceCount = item.optInt("active_device_count"),
+                        googleSignIn = parseGoogleSignInDetails(
+                            googleSub = item.optString("google_sub"),
+                            emailVerified = item.optBoolean("email_verified"),
+                            latestSignIn = item.optJSONObject("latestSignIn")
+                        )
                     )
                 )
             }
@@ -684,7 +727,12 @@ class AuthRepository(context: Context) {
             devices = devices,
             activeDeviceCount = result.optInt("activeDeviceCount"),
             canRegisterDevice = result.optBoolean("canRegisterDevice"),
-            canRun = result.optBoolean("canRun")
+            canRun = result.optBoolean("canRun"),
+            googleSignIn = parseGoogleSignInDetails(
+                googleSub = account.optString("googleSub"),
+                emailVerified = account.optBoolean("emailVerified"),
+                latestSignIn = account.optJSONObject("latestSignIn")
+            )
         )
     }
 
@@ -757,7 +805,68 @@ class AuthRepository(context: Context) {
         val role = runCatching { AccessRole.valueOf(roleName) }.getOrNull()
         if (id.isBlank() || email.isBlank() || role == null) return null
         val displayName = optString("displayName").takeIf { it.isNotBlank() && it != "null" }
-        return AuthenticatedUser(id, email, displayName, role)
+        return AuthenticatedUser(
+            id = id,
+            email = email,
+            displayName = displayName,
+            role = role,
+            googleSignIn = parseGoogleSignInDetails(
+                googleSub = optString("googleSub"),
+                emailVerified = optBoolean("emailVerified"),
+                latestSignIn = optJSONObject("latestSignIn")
+            )
+        )
+    }
+
+    private fun parseGoogleSignInDetails(
+        googleSub: String,
+        emailVerified: Boolean,
+        latestSignIn: JSONObject?
+    ): GoogleSignInDetails? {
+        if (googleSub.isBlank()) return null
+        val profile = latestSignIn?.optJSONObject("googleProfile")
+        val device = latestSignIn?.optJSONObject("deviceInfo")
+        fun text(json: JSONObject?, key: String): String? =
+            json?.optString(key)?.takeIf { it.isNotBlank() && it != "null" }
+        fun int(json: JSONObject?, key: String): Int? =
+            if (json != null && json.has(key) && !json.isNull(key)) json.optInt(key) else null
+        fun long(json: JSONObject?, key: String): Long? =
+            if (json != null && json.has(key) && !json.isNull(key)) json.optLong(key) else null
+        val deviceInfo = device?.let {
+            SignInDeviceTechnicalInfo(
+                manufacturer = text(it, "manufacturer"),
+                model = text(it, "model"),
+                brand = text(it, "brand"),
+                product = text(it, "product"),
+                deviceCodeName = text(it, "deviceCodeName"),
+                supportedAbis = text(it, "supportedAbis"),
+                androidVersion = text(it, "androidVersion"),
+                sdkInt = int(it, "sdkInt"),
+                appVersionName = text(it, "appVersionName"),
+                appVersionCode = long(it, "appVersionCode"),
+                localeTag = text(it, "localeTag"),
+                timeZoneId = text(it, "timeZoneId"),
+                screenWidthPx = int(it, "screenWidthPx"),
+                screenHeightPx = int(it, "screenHeightPx"),
+                densityDpi = int(it, "densityDpi"),
+                networkType = text(it, "networkType"),
+                networkStatus = text(it, "networkStatus"),
+                networkValidated = if (it.has("networkValidated")) it.optBoolean("networkValidated") else null
+            )
+        }
+        return GoogleSignInDetails(
+            googleSub = googleSub,
+            emailVerified = emailVerified,
+            givenName = text(profile, "givenName"),
+            familyName = text(profile, "familyName"),
+            pictureUrl = text(profile, "pictureUrl"),
+            profileUrl = text(profile, "profileUrl"),
+            locale = text(profile, "locale"),
+            hostedDomain = text(profile, "hostedDomain"),
+            signedInAt = long(latestSignIn, "createdAt"),
+            deviceLabel = text(latestSignIn, "deviceLabel"),
+            deviceInfo = deviceInfo
+        )
     }
 
     private fun deviceLabel(): String {
