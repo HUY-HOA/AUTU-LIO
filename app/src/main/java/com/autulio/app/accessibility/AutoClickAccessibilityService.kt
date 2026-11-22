@@ -2179,7 +2179,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val move = controlButton("A", "Mở bảng AUTU hoặc giữ để di chuyển", 0xFF7DD3FC.toInt()) {
             if (collapsed) setCollapsed(false)
         }
-        val edit = controlButton("✎", "Mở trình soạn mã nổi", 0xFFE2E8F0.toInt()) {
+        val edit = controlButton("✎", "Mở trình soạn mã nổi", primaryTextColor) {
             setEditorVisible(!editorVisible)
         }
         val primary = controlButton("▶", "Chạy kịch bản", 0xFF69A7FF.toInt()) {
@@ -2194,7 +2194,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val gallery = controlButton("▤", "Mở kho ảnh chụp và ảnh đã nhập", 0xFF7DD3FC.toInt()) {
             openScreenshotLibrary()
         }
-        val collapse = controlButton("▾", "Thu gọn thành nút AUTU", 0xFFE2E8F0.toInt()) {
+        val collapse = controlButton("▾", "Thu gọn thành nút AUTU", primaryTextColor) {
             setCollapsed(true)
         }
 
