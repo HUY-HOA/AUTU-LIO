@@ -876,7 +876,7 @@ test("owner cannot issue a license with fewer device slots than currently active
     const statement = basePrepare(sql);
     if (sql.includes("SELECT id, email, role, status FROM users WHERE id = ?")) {
       statement.first = async () => ({
-        id: customerSession.user_id,
+        id: "123e4567-e89b-42d3-a456-426614174004",
         email: customerSession.email,
         role: "CUSTOMER",
         status: "ACTIVE"
@@ -895,7 +895,7 @@ test("owner cannot issue a license with fewer device slots than currently active
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        userId: customerSession.user_id,
+        userId: "123e4567-e89b-42d3-a456-426614174004",
         planCode: "MONTHLY",
         expiresAt: Math.floor(Date.now() / 1000) + 30 * 86400,
         maxDevices: 1
