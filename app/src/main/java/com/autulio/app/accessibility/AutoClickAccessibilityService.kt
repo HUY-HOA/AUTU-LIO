@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.accessibilityservice.AccessibilityService.ScreenshotResult
 import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
 import android.content.Context
+import android.content.res.Configuration
 import android.content.Intent
 import android.content.IntentFilter
 import java.io.File
@@ -46,6 +47,7 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import com.autulio.app.runtime.ScriptActionDispatcher
 import com.autulio.app.SecureScriptDraftStore
+import com.autulio.app.UiThemePreferences
 import com.autulio.app.access.AccessRole
 import com.autulio.app.auth.AuthApiException
 import com.autulio.app.auth.AuthRepository
@@ -2076,6 +2078,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
+        val systemIsDark =
+            (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val useDarkTheme = UiThemePreferences.load(this).isDark(systemIsDark)
+        val windowBackgroundColor = if (useDarkTheme) 0xE8000000.toInt() else 0xF5F0F0EC.toInt()
+        val windowBorderColor = if (useDarkTheme) 0x66555555 else 0x88777971.toInt()
+        val primaryTextColor = if (useDarkTheme) 0xFFF2F2F2.toInt() else 0xFF20211F.toInt()
+        val buttonBackgroundColor = if (useDarkTheme) 0xF0191919.toInt() else 0xFFF8F8F4.toInt()
+        val buttonBorderColor = if (useDarkTheme) 0x80555555.toInt() else 0x88777971.toInt()
+        val editorBackgroundColor = if (useDarkTheme) 0xFF050505.toInt() else 0xFFF8F8F4.toInt()
+        val editorTextColor = if (useDarkTheme) 0xFFF2F2F2.toInt() else 0xFF20211F.toInt()
+        val editorHintColor = if (useDarkTheme) 0xFF999999.toInt() else 0xFF74756F.toInt()
         val floatingPreferences = getSharedPreferences(
             "autu_lio_floating_window",
             MODE_PRIVATE
@@ -2093,9 +2106,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             orientation = LinearLayout.VERTICAL
             setPadding(dp(6), dp(5), dp(6), dp(5))
             background = GradientDrawable().apply {
-                setColor(0xE8172233.toInt())
+                setColor(windowBackgroundColor)
                 cornerRadius = dp(13).toFloat()
-                setStroke(dp(1), 0x665F789B)
+                setStroke(dp(1), windowBorderColor)
             }
         }
 
@@ -2103,7 +2116,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         val status = TextView(this).apply {
             textSize = 11f
-            setTextColor(0xFFE2E8F0.toInt())
+            setTextColor(primaryTextColor)
             maxLines = 3
             setPadding(dp(4), dp(1), dp(4), dp(5))
             layoutParams = LinearLayout.LayoutParams(
@@ -2131,9 +2144,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             isFocusable = true
             contentDescription = description
             background = GradientDrawable().apply {
-                setColor(0xF0212D40.toInt())
+                setColor(buttonBackgroundColor)
                 cornerRadius = dp(9).toFloat()
-                setStroke(dp(1), 0x805C708C.toInt())
+                setStroke(dp(1), buttonBorderColor)
             }
             layoutParams = LinearLayout.LayoutParams(dp(34), dp(36)).apply {
                 marginStart = dp(2)
@@ -2148,13 +2161,13 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 textSize = 10f
                 maxLines = 1
                 gravity = Gravity.CENTER
-                setTextColor(0xFFE2E8F0.toInt())
+                setTextColor(primaryTextColor)
                 isClickable = true
                 isFocusable = true
                 background = GradientDrawable().apply {
-                    setColor(0xF0212D40.toInt())
+                    setColor(buttonBackgroundColor)
                     cornerRadius = dp(7).toFloat()
-                    setStroke(dp(1), 0x805C708C.toInt())
+                    setStroke(dp(1), buttonBorderColor)
                 }
                 layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply {
                     marginStart = dp(2)
@@ -2197,8 +2210,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
         val editor = EditText(this).apply {
             textSize = 12f
-            setTextColor(0xFFF1F5F9.toInt())
-            setHintTextColor(0xFF94A3B8.toInt())
+            setTextColor(editorTextColor)
+            setHintTextColor(editorHintColor)
             hint = "Nhập mã AUTU tại đây..."
             inputType = InputType.TYPE_CLASS_TEXT or
                 InputType.TYPE_TEXT_FLAG_MULTI_LINE or
@@ -2209,9 +2222,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             setHorizontallyScrolling(false)
             setPadding(dp(9), dp(8), dp(9), dp(8))
             background = GradientDrawable().apply {
-                setColor(0xFF0B1220.toInt())
+                setColor(editorBackgroundColor)
                 cornerRadius = dp(8).toFloat()
-                setStroke(dp(1), 0x805C708C.toInt())
+                setStroke(dp(1), buttonBorderColor)
             }
         }
 
