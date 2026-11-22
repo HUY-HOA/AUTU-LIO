@@ -67,8 +67,14 @@ class EditorGuideCatalogTest {
             assertTrue(template.nameVi.isNotBlank())
             assertTrue(template.descriptionVi.isNotBlank())
             assertTrue(template.source.isNotBlank())
+            val compiled = com.autulio.app.script.ScriptCompiler.compile(template.source)
+            assertTrue(
+                "Mẫu ${template.id} không biên dịch được: ${compiled.diagnostics}",
+                compiled.isSuccess
+            )
         }
     }
+
     @Test
     fun screenAnnotationExamplesCompile() {
         val source = """
