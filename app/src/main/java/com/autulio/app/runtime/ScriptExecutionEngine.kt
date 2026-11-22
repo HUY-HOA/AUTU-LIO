@@ -910,26 +910,26 @@ class ScriptExecutionEngine(
         "KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH" -> {
             requireArgs(name, args, 2)
             val list = args[0] as? List<*>
-                ?: throw ScriptRuntimeFailure("invalid_argument", "CÓ_PHẦN_TỬ cần danh sách ở tham số đầu.")
+                ?: throw ScriptRuntimeFailure("invalid_argument", "KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH cần danh sách ở tham số đầu.")
             list.any { valuesEqual(it, args[1]) }
         }
         "TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH" -> {
             requireArgs(name, args, 2)
             val list = args[0] as? List<*>
-                ?: throw ScriptRuntimeFailure("invalid_argument", "TÌM_PHẦN_TỬ cần danh sách ở tham số đầu.")
+                ?: throw ScriptRuntimeFailure("invalid_argument", "TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH cần danh sách ở tham số đầu.")
             list.indexOfFirst { valuesEqual(it, args[1]) }.toDouble()
         }
         "ĐẢO_NGƯỢC_DANH_SÁCH" -> {
             requireArgs(name, args, 1)
             val list = args[0] as? List<*>
-                ?: throw ScriptRuntimeFailure("invalid_argument", "ĐẢO_NGƯỢC cần một danh sách.")
+                ?: throw ScriptRuntimeFailure("invalid_argument", "ĐẢO_NGƯỢC_DANH_SÁCH cần một danh sách.")
             if (list.size > ScriptCompiler.MAX_LIST_ITEMS) throw ScriptRuntimeFailure("list_too_large", "Danh sách vượt giới hạn.")
             list.asReversed().map { copySupportedValue(it) }.toMutableList()
         }
         "SẮP_XẾP_DANH_SÁCH" -> {
             requireArgs(name, args, 1)
             val list = args[0] as? List<*>
-                ?: throw ScriptRuntimeFailure("invalid_argument", "SẮP_XẾP cần một danh sách.")
+                ?: throw ScriptRuntimeFailure("invalid_argument", "SẮP_XẾP_DANH_SÁCH cần một danh sách.")
             if (list.size > ScriptCompiler.MAX_LIST_ITEMS) throw ScriptRuntimeFailure("list_too_large", "Danh sách vượt giới hạn.")
             val sorted = when {
                 list.all { it is Number } -> list.sortedBy { (it as Number).toDouble() }
@@ -941,9 +941,9 @@ class ScriptExecutionEngine(
         "LỌC_DANH_SÁCH" -> {
             requireArgs(name, args, 2)
             val list = args[0] as? List<*>
-                ?: throw ScriptRuntimeFailure("invalid_argument", "LỌC cần danh sách ở tham số đầu.")
+                ?: throw ScriptRuntimeFailure("invalid_argument", "LỌC_DANH_SÁCH cần danh sách ở tham số đầu.")
             val predicateName = args[1] as? String
-                ?: throw ScriptRuntimeFailure("invalid_argument", "Tham số thứ hai của LỌC phải là tên hàm dạng chuỗi.")
+                ?: throw ScriptRuntimeFailure("invalid_argument", "Tham số thứ hai của LỌC_DANH_SÁCH phải là tên hàm dạng chuỗi.")
             if (list.size > ScriptCompiler.MAX_LIST_ITEMS) throw ScriptRuntimeFailure("list_too_large", "Danh sách vượt giới hạn.")
             if (!activeFunctions.containsKey(predicateName)) {
                 throw ScriptRuntimeFailure("unknown_function", "Không tìm thấy hàm lọc '" + predicateName + "'. Hãy khai báo hàm nhận một phần tử và trả về ĐÚNG/SAI.")
@@ -951,7 +951,7 @@ class ScriptExecutionEngine(
             list.filter { item ->
                 requireBoolean(
                     invokeUserFunction(predicateName, listOf(item), variables, declaredTypes, runId, callDepth),
-                    "Hàm lọc '" + predicateName + "' phải trả về ĐÚNG hoặc SAI."
+                    "Hàm lọc trong LỌC_DANH_SÁCH '" + predicateName + "' phải trả về ĐÚNG hoặc SAI."
                 )
             }.map { copySupportedValue(it) }.toMutableList()
         }
