@@ -107,17 +107,31 @@ object ScriptCompiler {
 
     private val builtinFunctionArities = mapOf(
         "SỐ" to 1, "CHUỖI" to 1, "LÀM_TRÒN" to 1,
+        "CĂN_BẬC_HAI" to 1, "LÀM_TRÒN_XUỐNG" to 1, "LÀM_TRÒN_LÊN" to 1,
+        "SIN" to 1, "COS" to 1, "TAN" to 1, "SỐ_NGẪU_NHIÊN" to -3,
         "TUYỆT_ĐỐI" to 1, "ĐỘ_DÀI" to 1,
         "CHỮ_HOA" to 1, "CHỮ_THƯỜNG" to 1, "CẮT_KHOẢNG_TRẮNG" to 1,
         "CHỨA_CHUỖI" to 2, "BẮT_ĐẦU_BẰNG" to 2, "KẾT_THÚC_BẰNG" to 2,
         "THAY_THẾ" to 3, "TÁCH_CHUỖI" to 2, "NỐI_CHUỖI" to 2,
         "KÝ_TỰ_TẠI" to 2, "CẮT_CHUỖI" to 3,
+        "TÌM_VỊ_TRÍ" to 2, "KIỂM_TRA_RỖNG" to 1,
         "NHỎ_NHẤT" to 2, "LỚN_NHẤT" to 2,
+        "SẮP_XẾP" to 1, "ĐẢO_NGƯỢC" to 1, "LỌC" to 2, "TÌM_PHẦN_TỬ" to 2,
         "PIN" to 0, "PHẦN_TRĂM_PIN" to 0,
         "ĐANG_SẠC" to 0, "CÓ_MẠNG" to 0, "MÀN_HÌNH_SÁNG" to 0,
         "ỨNG_DỤNG_ĐÃ_CÀI" to 1, "ỨNG_DỤNG_ĐANG_MỞ" to 1,
         "CHIỀU_RỘNG_MÀN_HÌNH" to 0, "CHIỀU_CAO_MÀN_HÌNH" to 0,
         "THỜI_GIAN_MS" to 0,
+        "CHIỀU_RỘNG_VÙNG_AN_TOÀN" to 0, "CHIỀU_CAO_VÙNG_AN_TOÀN" to 0,
+        "LỀ_AN_TOÀN_TRÁI" to 0, "LỀ_AN_TOÀN_TRÊN" to 0,
+        "LỀ_AN_TOÀN_PHẢI" to 0, "LỀ_AN_TOÀN_DƯỚI" to 0,
+        "CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH" to 0,
+        "CÓ_VÙNG_KHUYẾT_MÀN_HÌNH" to 0, "SỐ_VÙNG_KHUYẾT_MÀN_HÌNH" to 0,
+        "TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH" to 0,
+        "GHI_NHẬT_KÝ" to -4, "IN" to 1, "THÔNG_BÁO" to 1,
+        "ÂM_LƯỢNG" to 0, "ĐỘ_SÁNG" to 0, "RUNG" to 1,
+        "ĐẶT_ÂM_LƯỢNG" to 1, "ĐẶT_ĐỘ_SÁNG" to 1,
+        "CHỤP_ẢNH_MÀN_HÌNH" to 1, "LƯU_ẢNH_MÀN_HÌNH" to 1,
         "TẠO_DANH_SÁCH" to -1,
         "LẤY_PHẦN_TỬ" to 2,
         "THÊM_PHẦN_TỬ" to 2,
@@ -556,6 +570,10 @@ object ScriptCompiler {
                 fail(name.line, name.column, "map_too_large", "Bản đồ không được vượt quá $MAX_MAP_ENTRIES cặp khóa–giá trị.", "A map cannot exceed $MAX_MAP_ENTRIES key-value pairs.")
             } else if (expected == -2 && arguments.size % 2 != 0) {
                 fail(name.line, name.column, "map_argument_count", "TẠO_BẢN_ĐỒ cần số tham số chẵn theo cặp KHÓA, GIÁ_TRỊ.", "TẠO_BẢN_ĐỒ requires an even number of KEY, VALUE arguments.")
+            } else if (expected == -3 && arguments.size !in setOf(0, 2)) {
+                fail(name.line, name.column, "function_argument_count", "Hàm '" + name.text + "' nhận 0 hoặc 2 tham số.", "Function '" + name.text + "' accepts 0 or 2 arguments.")
+            } else if (expected == -4 && arguments.size !in 1..2) {
+                fail(name.line, name.column, "function_argument_count", "Hàm '" + name.text + "' nhận 1 hoặc 2 tham số.", "Function '" + name.text + "' accepts 1 or 2 arguments.")
             } else if (expected != null && expected >= 0 && arguments.size != expected) {
                 fail(name.line, name.column, "function_argument_count", "Hàm '" + name.text + "' cần đúng " + expected + " tham số.", "Function '" + name.text + "' requires exactly " + expected + " arguments.")
             }
@@ -940,6 +958,10 @@ object ScriptCompiler {
                     fail(token.line, token.column, "map_too_large", "Bản đồ không được vượt quá $MAX_MAP_ENTRIES cặp khóa–giá trị.", "A map cannot exceed $MAX_MAP_ENTRIES key-value pairs.")
                 } else if (expected == -2 && args.size % 2 != 0) {
                     fail(token.line, token.column, "map_argument_count", "TẠO_BẢN_ĐỒ cần số tham số chẵn theo cặp KHÓA, GIÁ_TRỊ.", "TẠO_BẢN_ĐỒ requires an even number of KEY, VALUE arguments.")
+                } else if (expected == -3 && args.size !in setOf(0, 2)) {
+                    fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' nhận 0 hoặc 2 tham số.", "Function '" + token.text + "' accepts 0 or 2 arguments.")
+                } else if (expected == -4 && args.size !in 1..2) {
+                    fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' nhận 1 hoặc 2 tham số.", "Function '" + token.text + "' accepts 1 or 2 arguments.")
                 } else if (expected != null && expected >= 0 && args.size != expected) {
                     fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' cần đúng " + expected + " tham số.", "Function '" + token.text + "' requires exactly " + expected + " arguments.")
                 }
