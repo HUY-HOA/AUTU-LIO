@@ -61,7 +61,7 @@ class ScreenshotLibraryActivity : ComponentActivity() {
         setContent {
             var statusMessage by remember { mutableStateOf("") }
 
-            AppTheme(dark = true) {
+            PreferredAppTheme(this@ScreenshotLibraryActivity) {
                 ScreenshotLibraryScreen(
                     rootDirectory = screenshotRoot,
                     refreshVersion = refreshVersion.intValue,
