@@ -104,7 +104,7 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
-                        GoogleSignInDetailsCard(
+                        GoogleSignInDetailsButton(
                             details = customer.googleSignIn,
                             title = tr("Dữ liệu Google và lần đăng nhập gần nhất", "Google data and most recent sign-in")
                         )
