@@ -1481,7 +1481,7 @@ private fun CustomerHome(
                         account?.license == null -> Text(tr("Chưa được cấp giấy phép.", "No license has been issued."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                         else -> {
                             Text(
-                                "${account?.license?.planCode} · ${account?.license?.effectiveStatus}",
+                                "${account?.license?.planCode?.let(::planText)} · ${account?.license?.effectiveStatus?.let(::statusText)}",
                                 color = if (account?.canRun == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
