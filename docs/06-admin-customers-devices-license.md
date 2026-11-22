@@ -7,10 +7,11 @@
 
 Gộp khách hàng, giấy phép và thiết bị vào một màn hình duy nhất với ba bộ lọc nội bộ, ô tìm kiếm và lọc trạng thái. Mỗi hồ sơ có các thao tác nhanh; tải dữ liệu từ API quản trị và làm mới đồng bộ.
 
-- Khóa/mở khóa khách hàng: chấm dứt phiên hiện tại; không tự thu hồi giấy phép hoặc thiết bị khi chỉ tạm khóa.
-- Thu hồi tài khoản: chấm dứt phiên, thu hồi giấy phép và thiết bị đang hoạt động. Đây là thu hồi mềm để giữ dấu vết đối soát; không xóa vật lý hồ sơ hoặc nhật ký.
-- Giấy phép: cấp mới, gia hạn, điều chỉnh giới hạn thiết bị, tạm dừng/mở lại và thu hồi. Thu hồi hoặc tạm dừng giấy phép không xóa đăng ký thiết bị; thiết bị được giữ trạng thái liên kết nhưng không thể chạy AUTU khi không có giấy phép hợp lệ.
-- Thiết bị: xem thông tin đã đăng ký, lý do thu hồi, trạng thái tài khoản/giấy phép và số khe thiết bị đang dùng; chủ ứng dụng có thể thu hồi hoặc mở lại thiết bị.
+- **Chặn đăng nhập / Cho phép đăng nhập:** chấm dứt các phiên hiện tại và ngăn đăng nhập khi tài khoản bị chặn. Chỉ thao tác này thì giấy phép và thiết bị vẫn được giữ nguyên.
+- **Kích hoạt tài khoản:** dùng cho tài khoản đã bị thu hồi; chỉ khôi phục trạng thái tài khoản, không tự khôi phục giấy phép hoặc thiết bị đã thu hồi.
+- **Thu hồi tài khoản:** chặn đăng nhập, chấm dứt phiên, thu hồi toàn bộ giấy phép và thiết bị đang hoạt động. Đây là thu hồi mềm để giữ hồ sơ và nhật ký đối soát; không xóa dữ liệu vật lý.
+- **Giấy phép:** cấp mới, gia hạn, điều chỉnh giới hạn thiết bị, tạm dừng/kích hoạt lại hoặc thu hồi. Tạm dừng giấy phép không chặn đăng nhập nhưng ngăn tải/chạy AUTU. Thu hồi giấy phép kết thúc giấy phép đó; thiết bị đã đăng ký và khóa bảo mật vẫn được giữ, muốn dùng lại phải cấp giấy phép mới.
+- **Thiết bị:** nút **Chặn thiết bị** thu hồi quyền sử dụng trên thiết bị nhưng không xóa hồ sơ đăng ký hoặc khóa bảo mật. Chủ ứng dụng có thể **Cho phép lại thiết bị** khi tài khoản hoạt động, giấy phép còn hiệu lực và vẫn còn giới hạn thiết bị.
 - Mở lại thiết bị yêu cầu tài khoản ACTIVE, giấy phép còn hiệu lực và số thiết bị đang hoạt động nhỏ hơn giới hạn giấy phép.
 - Nếu khách hàng tự gỡ thiết bị, họ có thể đăng ký lại bằng khóa Android Keystore cũ sau khi có giấy phép hợp lệ. Thiết bị bị chủ ứng dụng hoặc tài khoản thu hồi không được tự mở lại; chủ ứng dụng phải thực hiện.
 - Các thao tác thu hồi, khóa hoặc mở lại đều cần hộp thoại xác nhận giải thích hậu quả.
@@ -32,7 +33,7 @@ Mỗi hồ sơ hiển thị:
 - Danh sách thiết bị được liên kết.
 - Lịch sử giấy phép và giao dịch nếu có.
 - Nhật ký các thay đổi quản trị liên quan tới tài khoản.
-- Nút khóa/mở khóa, thu hồi phiên đăng nhập và mở hồ sơ giấy phép; các hành động ảnh hưởng tài khoản phải xác nhận.
+- Nút **Chặn đăng nhập**, **Cho phép đăng nhập**, **Kích hoạt tài khoản** hoặc **Thu hồi tài khoản**; mỗi thao tác có mô tả hậu quả và yêu cầu xác nhận.
 
 ## 3. Thiết bị
 
@@ -51,8 +52,8 @@ Hiển thị:
 - Trạng thái đăng ký với tài khoản.
 - Lịch sử liên kết và gỡ liên kết.
 - Trạng thái giấy phép áp dụng trên máy.
-- Nút gỡ liên kết hoặc chặn thiết bị, có xác nhận.
-- Nút mở lại thiết bị đã thu hồi; máy chủ kiểm tra tình trạng khách hàng, giấy phép và số khe trước khi cho phép.
+- Nút **Chặn thiết bị**, có xác nhận và giải thích rằng thông tin đăng ký vẫn được giữ.
+- Nút **Cho phép lại thiết bị** đã thu hồi; máy chủ kiểm tra tình trạng tài khoản, giấy phép và giới hạn thiết bị trước khi khôi phục.
 
 Mã cài đặt có thể đổi sau khi gỡ/cài lại ứng dụng hoặc xóa dữ liệu. Không dùng IMEI, số sê-ri phần cứng hoặc MAC để nhận diện.
 
