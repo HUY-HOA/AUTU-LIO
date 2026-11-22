@@ -982,7 +982,7 @@ class AuthRepository(context: Context) {
         "invalid_device_public_key", "weak_device_public_key" -> "Khóa bảo mật của thiết bị không hợp lệ."
         "invalid_device_proof", "invalid_device_challenge", "invalid_device_signature",
         "device_challenge_already_used" -> "Không thể xác minh thiết bị. Vui lòng thử đăng ký lại."
-        "device_revoked" -> "Thiết bị này đã bị chủ ứng dụng thu hồi quyền."
+        "device_revoked" -> "Thiết bị đã bị chủ ứng dụng hoặc thao tác thu hồi tài khoản chặn. Hãy yêu cầu chủ ứng dụng mở lại thiết bị."
         "device_limit_reached" -> "Đã đạt giới hạn số thiết bị của giấy phép."
         "device_limit_below_existing" -> "Giới hạn mới thấp hơn số thiết bị đang hoạt động. Hãy thu hồi bớt thiết bị hoặc tăng giới hạn."
         "device_key_already_registered" -> "Thiết bị này đã được đăng ký bằng một tài khoản khác."
