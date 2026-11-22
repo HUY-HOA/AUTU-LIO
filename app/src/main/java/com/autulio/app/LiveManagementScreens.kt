@@ -8,9 +8,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.VerifiedUser
@@ -110,22 +114,21 @@ internal fun CustomersAdminScreen(accessToken: String?, modifier: Modifier = Mod
                             details = customer.googleSignIn,
                             title = tr("Dữ liệu Google và lần đăng nhập gần nhất", "Google data and most recent sign-in")
                         )
-                        Text(
-                            tr("Thiết bị đang dùng: ${customer.activeDeviceCount}", "Active devices: ${customer.activeDeviceCount}"),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AdminIconValue(Icons.Outlined.Devices, "Thiết bị đã cấp quyền", customer.activeDeviceCount.toString())
+                            AdminIconValue(Icons.Outlined.AccessTime, "Đăng nhập gần nhất", formatEpoch(customer.lastLoginAt))
+                        }
+                        AdminPresenceInfo(customer.presenceSeenAt, customer.appForegroundAt, customer.runtimeState)
                         if (customer.licenseId != null) {
-                            Text(
-                                "${customer.planCode?.let(::planText) ?: "—"} · ${customer.licenseStatus?.let(::statusText) ?: "—"}",
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 13.sp
+                            AdminIconValue(
+                                Icons.Outlined.VerifiedUser,
+                                "Giấy phép",
+                                "${customer.planCode?.let(::planText) ?: "—"} · ${customer.licenseStatus?.let(::statusText) ?: "—"}"
                             )
-                            Text(
-                                tr("Hết hạn: ${formatEpoch(customer.licenseExpiresAt)} · Giới hạn: ${customer.maxDevices ?: 1} thiết bị", "Expires: ${formatEpoch(customer.licenseExpiresAt)} · Limit: ${customer.maxDevices ?: 1} devices"),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 12.sp
-                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                AdminIconValue(Icons.Outlined.CalendarToday, "Hết hạn", formatEpoch(customer.licenseExpiresAt))
+                                AdminIconValue(Icons.Outlined.Devices, "Giới hạn thiết bị", (customer.maxDevices ?: 1).toString())
+                            }
                         } else {
                             Text(tr("Chưa có giấy phép sử dụng", "No usage license"), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                             Button(
@@ -388,18 +391,22 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
                             Text(device.email, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                         }
                         Text(
-                            statusText(device.status),
+                            if (device.status == "ACTIVE") "Đã cấp quyền" else "Đã thu hồi quyền",
                             color = if (device.status == "ACTIVE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    Text("${device.manufacturer} ${device.model} · Android ${device.androidVersion}", fontSize = 12.sp)
-                    Text(
-                        tr("AUTU-LIO ${device.appVersion} · Hoạt động: ${formatEpoch(device.lastSeenAt)}", "AUTU-LIO ${device.appVersion} · Last seen: ${formatEpoch(device.lastSeenAt)}"),
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    AdminIconValue(
+                        Icons.Outlined.PhoneAndroid,
+                        "Thiết bị Android",
+                        "${device.manufacturer} ${device.model} · Android ${device.androidVersion}"
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        AdminIconValue(Icons.Outlined.Apps, "Phiên bản AUTU", "AUTU-LIO ${device.appVersion}")
+                        AdminIconValue(Icons.Outlined.AccessTime, "Lần sử dụng", formatEpoch(device.lastSeenAt))
+                    }
+                    AdminPresenceInfo(device.presenceSeenAt, device.appForegroundAt, device.runtimeState)
                     if (device.status == "ACTIVE") {
                         OutlinedButton(
                             onClick = {
