@@ -70,7 +70,7 @@ class ScriptSafFileTransferTest {
     ) {
         val root = Files.createTempDirectory("autu-saf-transfer").toFile()
         try {
-            val store = ScriptFileStore(File(root, "store"), maxBytes)
+            val store = ScriptFileStore(File(root, "store"), maxBytes, TestScriptFileCipher)
             block(store, ScriptSafFileTransfer(store, maxBytes))
         } finally {
             root.deleteRecursively()
