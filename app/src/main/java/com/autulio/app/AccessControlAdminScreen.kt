@@ -287,7 +287,7 @@ internal fun AccessControlAdminScreen(
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     AdminIconValue(Icons.Outlined.Apps, "Phiên bản AUTU", "AUTU-LIO ${device.appVersion}")
-                                    AdminIconValue(Icons.Outlined.AccessTime, "Lần sử dụng", accessDate(device.lastSeenAt))
+                                    AdminIconValue(Icons.Outlined.AccessTime, "Kiểm tra quyền", accessDate(device.lastSeenAt))
                                 }
                                 AdminPresenceInfo(device.presenceSeenAt, device.appForegroundAt, device.runtimeState, device.status == "ACTIVE" && device.customerStatus == "ACTIVE")
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
