@@ -34,6 +34,13 @@
 - Đăng xuất/phiên bị từ chối xóa quyền chạy, dừng kịch bản và cho phép khối LUÔN_THỰC_HIỆN hoàn tất trước khi xóa lớp đánh dấu.
 - Admin Studio tải dữ liệu quản trị từ API; giao diện Customer có luồng tài khoản, package, thiết bị và cài đặt.
 
+### Theo dõi trạng thái sử dụng
+- D1 migration `0008_device_presence.sql` bổ sung thời điểm tín hiệu hiện diện, thời điểm ứng dụng ở nền trước và trạng thái bộ chạy; tách biệt hoàn toàn với trạng thái cấp quyền thiết bị.
+- CUSTOMER gửi tín hiệu khi ứng dụng đang ở nền trước mỗi 45 giây. Accessibility Service chỉ gửi tín hiệu nền khi AUTU đang chạy hoặc tạm dừng.
+- Màn hình quản trị phân loại: đang kết nối (tối đa 2 phút), vừa hoạt động (2–10 phút), ngoại tuyến (trên 10 phút), hoặc chưa có dữ liệu. Trạng thái AUTU cũ không được hiển thị như trạng thái hiện tại khi tín hiệu đã quá hạn.
+- Chỉ lưu dấu thời gian và trạng thái ứng dụng/bộ chạy; không thu thập nội dung màn hình, thao tác cá nhân hoặc vị trí.
+- Muốn dữ liệu xuất hiện trên môi trường Production, cần áp dụng migration 0008 cho D1 và triển khai phiên bản Worker có endpoint `POST /api/customer/presence`.
+
 ### AUTU Script và chạy tự động
 - Parser/compiler tạo AST, báo lỗi theo dòng/cột; có giới hạn mã nguồn, số lệnh và thời lượng.
 - AUTU Script 1.22 dùng `BIẾN` để khai báo biến và `HÀM` để định nghĩa hàm; `ĐẶT` và `ĐỊNH_NGHĨA_HÀM` được giữ làm bí danh tương thích, các ví dụ mới trong hướng dẫn dùng tên chuẩn.
