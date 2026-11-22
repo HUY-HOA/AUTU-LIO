@@ -63,7 +63,7 @@ internal fun GoogleSignInDetailsButton(
 }
 
 @Composable
-private fun GoogleSignInDetailsContent(details: GoogleSignInDetails) {
+internal fun GoogleSignInDetailsContent(details: GoogleSignInDetails) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -102,8 +102,8 @@ private fun DeviceInfoLines(info: SignInDeviceTechnicalInfo?) {
         tr("Mã phiên bản ứng dụng", "App version code") to info.appVersionCode?.toString(),
         tr("Ngôn ngữ thiết bị", "Device locale") to info.localeTag,
         tr("Múi giờ", "Time zone") to info.timeZoneId,
-        tr("Độ phân giải", "Screen resolution") to if (info.screenWidthPx != null && info.screenHeightPx != null) "\${info.screenWidthPx} × \${info.screenHeightPx} px" else null,
-        tr("Mật độ màn hình", "Screen density") to info.densityDpi?.let { "\${it} dpi" },
+        tr("Độ phân giải", "Screen resolution") to if (info.screenWidthPx != null && info.screenHeightPx != null) "${info.screenWidthPx} × ${info.screenHeightPx} px" else null,
+        tr("Mật độ màn hình", "Screen density") to info.densityDpi?.let { "${it} dpi" },
         tr("Loại kết nối", "Connection type") to info.networkType,
         tr("Trạng thái mạng", "Network status") to info.networkStatus,
         tr("Internet đã được xác thực", "Internet validated") to info.networkValidated?.let { if (it) tr("Đúng", "Yes") else tr("Không", "No") }
