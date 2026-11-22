@@ -246,9 +246,6 @@ private fun ScreenshotLibraryScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = "Quay lại")
-            }
             Column(Modifier.weight(1f)) {
                 Text("Kho ảnh AUTU-LIO", fontWeight = FontWeight.Bold, fontSize = 19.sp)
                 Text(
