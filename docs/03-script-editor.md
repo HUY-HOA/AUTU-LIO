@@ -10,8 +10,8 @@ AUTU Script là ngôn ngữ kịch bản chuyên cho tự động hóa Android t
 ## 1. Quy tắc viết mã
 
 - Lệnh và từ khóa phải viết HOA, đúng dấu: `BIẾN`, `HÀM`, `NẾU`, `LẶP`, `CHẠM`, `NHẤN_GIỮ`.
-- `BIẾN` khai báo biến; `HÀM` định nghĩa hàm. `ĐẶT` và `ĐỊNH_NGHĨA_HÀM` vẫn được chấp nhận để chạy kịch bản cũ.
-- Các tên lệnh điều hướng Android dùng tên mô tả đúng thao tác; tên cũ vẫn được chấp nhận như bí danh tương thích.
+- `BIẾN` khai báo biến; `HÀM` định nghĩa hàm. Đây là hai từ khóa chuẩn duy nhất cho hai mục đích này.
+- Lệnh điều hướng Android phải dùng đúng tên chuẩn trong danh sách bên dưới; các tên cũ và bí danh không được chấp nhận.
 - Tên biến, tham số và hàm tự định nghĩa cũng phải viết HOA: `SO_LAN`, `SỐ_LẦN`, `TINH_TONG`.
 - Tên có thể gồm chữ Unicode, chữ số và dấu gạch dưới `_`; tên phải bắt đầu bằng chữ hoặc `_`.
 - Mã phân biệt chính xác chữ hoa/thường và dấu tiếng Việt. `chạm()`, `CHAM()`, `tap()` đều không hợp lệ.
