@@ -156,10 +156,15 @@ object EditorGuideCatalog {
                 EditorGuideCommand("PHIÊN_BẢN_ANDROID() / MỨC_API_ANDROID()", "Đọc phiên bản Android và mức API."),
                 EditorGuideCommand("MÀN_HÌNH_BỊ_KHÓA()", "Kiểm tra trạng thái khóa màn hình."),
                 EditorGuideCommand("THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()", "Kiểm tra thiết bị có cấu hình bảo mật khóa màn hình."),
-                EditorGuideCommand("THỜI_GIAN_MS()", "Lấy thời gian hiện tại dạng mili giây.")
+                EditorGuideCommand("THỜI_GIAN_MS()", "Lấy thời gian hiện tại dạng mili giây."),
+                EditorGuideCommand("ÂM_LƯỢNG() / ĐỘ_SÁNG()", "Đọc âm lượng media và độ sáng màn hình hiện tại."),
+                EditorGuideCommand("ĐẶT_ÂM_LƯỢNG(phần_trăm)", "Đặt âm lượng media từ 0 đến 100%."),
+                EditorGuideCommand("ĐẶT_ĐỘ_SÁNG(phần_trăm)", "Đặt độ sáng từ 0 đến 100%; cần cấp quyền sửa đổi cài đặt hệ thống."),
+                EditorGuideCommand("RUNG(mili_giây)", "Rung thiết bị từ 1 đến 5.000 ms nếu thiết bị có bộ rung.")
             ),
             notes = listOf(
                 "Trên Android 11.0 (API 30) trở lên, quy tắc package visibility có thể giới hạn các gói mà ỨNG_DỤNG_ĐÃ_CÀI() truy vấn được.",
+                "ĐẶT_ĐỘ_SÁNG() cần quyền 'Cho phép sửa đổi cài đặt hệ thống'; quyền này không được tự cấp bởi AUTU-LIO.",
                 "Trạng thái mạng không thay thế việc kiểm tra phản hồi thực tế từ máy chủ."
             )
         ),
@@ -218,12 +223,17 @@ object EditorGuideCatalog {
             summary = "Các hàm dựng sẵn để tính toán, chuyển kiểu, tìm kiếm và chỉnh sửa văn bản.",
             commands = listOf(
                 EditorGuideCommand("SỐ(giá_trị) / CHUỖI(giá_trị)", "Chuyển giá trị sang số hoặc chuỗi."),
-                EditorGuideCommand("LÀM_TRÒN(số) / TUYỆT_ĐỐI(số)", "Làm tròn hoặc lấy giá trị tuyệt đối."),
+                EditorGuideCommand("LÀM_TRÒN(số) / LÀM_TRÒN_XUỐNG(số) / LÀM_TRÒN_LÊN(số)", "Làm tròn gần nhất, xuống hoặc lên."),
+                EditorGuideCommand("CĂN_BẬC_HAI(số) / TUYỆT_ĐỐI(số)", "Lấy căn bậc hai của số không âm hoặc giá trị tuyệt đối."),
+                EditorGuideCommand("SIN(radian) / COS(radian) / TAN(radian)", "Tính lượng giác với góc đầu vào theo radian."),
+                EditorGuideCommand("SỐ_NGẪU_NHIÊN() / SỐ_NGẪU_NHIÊN(min, max)", "Sinh số ngẫu nhiên từ 0 đến dưới 1 hoặc trong khoảng [min, max)."),
                 EditorGuideCommand("NHỎ_NHẤT(a, b) / LỚN_NHẤT(a, b)", "Lấy giá trị nhỏ nhất hoặc lớn nhất."),
                 EditorGuideCommand("ĐỘ_DÀI(giá_trị)", "Lấy số ký tự hoặc số phần tử."),
                 EditorGuideCommand("CHỮ_HOA(chuỗi) / CHỮ_THƯỜNG(chuỗi)", "Chuyển đổi chữ hoa hoặc chữ thường."),
                 EditorGuideCommand("CẮT_KHOẢNG_TRẮNG(chuỗi)", "Loại bỏ khoảng trắng ở hai đầu chuỗi."),
                 EditorGuideCommand("CHỨA_CHUỖI(a, b)", "Kiểm tra chuỗi a có chứa chuỗi b."),
+                EditorGuideCommand("TÌM_VỊ_TRÍ(chuỗi, chuỗi_cần_tìm)", "Trả vị trí bắt đầu, tính từ 0; trả về -1 nếu không tìm thấy."),
+                EditorGuideCommand("KIỂM_TRA_RỖNG(giá_trị)", "Kiểm tra chuỗi, danh sách, bản đồ hoặc giá trị RỖNG."),
                 EditorGuideCommand("BẮT_ĐẦU_BẰNG(a, b) / KẾT_THÚC_BẰNG(a, b)", "Kiểm tra tiền tố hoặc hậu tố."),
                 EditorGuideCommand("THAY_THẾ(chuỗi, cũ, mới)", "Thay các phần chuỗi khớp."),
                 EditorGuideCommand("TÁCH_CHUỖI(chuỗi, phân_cách) / NỐI_CHUỖI(danh_sách, phân_cách)", "Tách hoặc nối các phần tử văn bản."),
@@ -240,7 +250,10 @@ object EditorGuideCatalog {
                 EditorGuideCommand("THÊM_PHẦN_TỬ(danh_sách, giá_trị)", "Thêm phần tử vào cuối danh sách."),
                 EditorGuideCommand("ĐẶT_PHẦN_TỬ(danh_sách, chỉ_số, giá_trị)", "Thay giá trị tại một chỉ số."),
                 EditorGuideCommand("XÓA_PHẦN_TỬ(danh_sách, chỉ_số)", "Xóa phần tử theo chỉ số."),
-                EditorGuideCommand("CÓ_PHẦN_TỬ(danh_sách, giá_trị)", "Kiểm tra danh sách có chứa giá trị."),
+                EditorGuideCommand("CÓ_PHẦN_TỬ(danh_sách, giá_trị) / TÌM_PHẦN_TỬ(danh_sách, giá_trị)", "Kiểm tra phần tử hoặc tìm chỉ số đầu tiên; không thấy trả về -1."),
+                EditorGuideCommand("SẮP_XẾP(danh_sách)", "Tạo danh sách mới đã sắp xếp tăng dần; chỉ nhận toàn số hoặc toàn chuỗi."),
+                EditorGuideCommand("ĐẢO_NGƯỢC(danh_sách)", "Tạo danh sách mới theo thứ tự ngược, không sửa danh sách gốc."),
+                EditorGuideCommand("LỌC(danh_sách, tên_hàm)", "Lọc phần tử bằng hàm tự định nghĩa nhận một phần tử và trả về ĐÚNG/SAI."),
                 EditorGuideCommand("TẠO_BẢN_ĐỒ(khóa, giá_trị, ...)", "Tạo bản đồ theo từng cặp khóa và giá trị."),
                 EditorGuideCommand("LẤY_GIÁ_TRỊ(bản_đồ, khóa) / ĐẶT_GIÁ_TRỊ(bản_đồ, khóa, giá_trị)", "Đọc hoặc cập nhật giá trị theo khóa."),
                 EditorGuideCommand("XÓA_KHÓA(bản_đồ, khóa) / CÓ_KHÓA(bản_đồ, khóa)", "Xóa khóa hoặc kiểm tra khóa tồn tại."),
@@ -318,6 +331,32 @@ object EditorGuideCatalog {
             notes = listOf(
                 "Chỉ chấp nhận HTTPS và các phương thức mạng được runtime cho phép.",
                 "Dung lượng, timeout và redirect có giới hạn bảo vệ."
+            )
+        ),
+        EditorGuideSection(
+            id = "logging",
+            title = "17. Nhật ký, in nội dung và thông báo",
+            summary = "Ghi lại thông tin chạy kịch bản vào tệp riêng AUTU hoặc hiển thị thông báo ngắn.",
+            commands = listOf(
+                EditorGuideCommand("IN(nội_dung)", "Ghi nội dung vào nhật ký hệ thống Android (Logcat)."),
+                EditorGuideCommand("GHI_NHẬT_KÝ(nội_dung) / GHI_NHẬT_KÝ(mức, nội_dung)", "Ghi nhật ký có thời gian vào logs/script.log trong vùng dữ liệu AUTU."),
+                EditorGuideCommand("THÔNG_BÁO(nội_dung)", "Hiển thị thông báo nổi ngắn trên màn hình.")
+            ),
+            notes = listOf(
+                "Có thể đọc nhật ký đã lưu bằng ĐỌC_TỆP(\"logs/script.log\").",
+                "IN() chỉ dành cho nhật ký kỹ thuật; GHI_NHẬT_KÝ() lưu thêm bản ghi trong vùng riêng của ứng dụng."
+            )
+        ),
+        EditorGuideSection(
+            id = "screenshots",
+            title = "18. Chụp và lưu ảnh màn hình",
+            summary = "Chụp màn hình qua AccessibilityService và lưu JPEG vào vùng dữ liệu riêng AUTU.",
+            commands = listOf(
+                EditorGuideCommand("CHỤP_ẢNH_MÀN_HÌNH(đường_dẫn) / LƯU_ẢNH_MÀN_HÌNH(đường_dẫn)", "Chụp và lưu JPEG; trả về bản đồ gồm đường dẫn, kích thước và dung lượng.", minAndroidApi = 30)
+            ),
+            notes = listOf(
+                "Cần bật AccessibilityService cho AUTU-LIO và Android 11.0 (API 30) trở lên.",
+                "Tệp ảnh giới hạn 1 MB sau khi nén; đường dẫn phải nằm trong vùng dữ liệu riêng AUTU."
             )
         ),
         EditorGuideSection(
