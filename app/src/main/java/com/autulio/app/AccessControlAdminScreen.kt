@@ -161,10 +161,10 @@ internal fun AccessControlAdminScreen(
                 listOf(
                     "ALL" to "Tất cả",
                     "ACTIVE" to "Hoạt động",
-                    "SUSPENDED" to "Tạm khóa",
-                    "PAUSED" to "Tạm dừng",
+                    "SUSPENDED" to "Đã chặn đăng nhập",
+                    "PAUSED" to "Giấy phép tạm dừng",
                     "EXPIRED" to "Hết hạn",
-                    "REVOKED" to "Đã khóa / thu hồi"
+                    "REVOKED" to "Đã thu hồi quyền"
                 ).forEach { item ->
                     FilterChip(
                         selected = statusFilter == item.first,
@@ -216,22 +216,23 @@ internal fun AccessControlAdminScreen(
                                             extendDays = "30"
                                             editDeviceLimit = license.maxDevices.toString()
                                         }
-                                    ) { Text("Gia hạn / thiết bị", fontSize = 11.sp) }
+                                    ) { Text("Gia hạn / giới hạn thiết bị", fontSize = 11.sp) }
                                     if (license.status == "ACTIVE" || license.status == "PAUSED") {
                                         TextButton(
                                             onClick = {
                                                 val token = accessToken ?: return@TextButton
                                                 val next = if (license.status == "ACTIVE") "PAUSED" else "ACTIVE"
                                                 pendingConfirmation = AccessAdminConfirmation(
-                                                    title = if (next == "PAUSED") "Tạm dừng giấy phép?" else "Mở lại giấy phép?",
-                                                    message = if (next == "PAUSED") "Khách hàng sẽ không chạy được AUTU cho đến khi giấy phép được mở lại." else "Khách hàng sẽ được dùng lại giấy phép nếu tài khoản và thời hạn vẫn hợp lệ.",
-                                                    confirmLabel = if (next == "PAUSED") "Tạm dừng" else "Mở lại"
+                                                    title = if (next == "PAUSED") "Tạm dừng giấy phép?" else "Kích hoạt lại giấy phép?",
+                                                    message = if (next == "PAUSED") "Người dùng vẫn có thể đăng nhập, nhưng không thể tải hoặc chạy các gói AUTU cho đến khi giấy phép được kích hoạt lại." else "Giấy phép được kích hoạt lại. Người dùng có thể tải và chạy AUTU nếu tài khoản, thiết bị và thời hạn đều hợp lệ.",
+                                                    confirmLabel = if (next == "PAUSED") "Tạm dừng giấy phép" else "Kích hoạt lại giấy phép",
+                                                    destructive = next == "PAUSED"
                                                 ) {
                                                     repository.updateCustomerLicense(token, license.id, next, license.expiresAt, license.maxDevices)
-                                                    notice = "Đã cập nhật trạng thái giấy phép."
+                                                    notice = if (next == "PAUSED") "Đã tạm dừng giấy phép." else "Đã kích hoạt lại giấy phép."
                                                 }
                                             }
-                                        ) { Text(if (license.status == "ACTIVE") "Tạm dừng" else "Mở lại", fontSize = 11.sp) }
+                                        ) { Text(if (license.status == "ACTIVE") "Tạm dừng giấy phép" else "Kích hoạt lại giấy phép", fontSize = 11.sp) }
                                     }
                                 }
                                 if (license.status != "REVOKED") {
@@ -239,8 +240,8 @@ internal fun AccessControlAdminScreen(
                                         onClick = {
                                             val token = accessToken ?: return@TextButton
                                             pendingConfirmation = AccessAdminConfirmation(
-                                                title = "Thu hồi giấy phép?",
-                                                message = "Quyền chạy AUTU sẽ bị chấm dứt nhưng các đăng ký thiết bị và khóa bảo mật được giữ nguyên. Khi cấp giấy phép mới, những thiết bị đã đăng ký có thể tiếp tục sử dụng nếu vẫn trong giới hạn.",
+                                                title = "Thu hồi giấy phép này?",
+                                                message = "Giấy phép này sẽ kết thúc và không còn cho phép tải hoặc chạy AUTU. Người dùng vẫn có thể đăng nhập nếu tài khoản còn hoạt động. Đăng ký thiết bị và khóa bảo mật vẫn được giữ; muốn sử dụng AUTU lại cần cấp giấy phép mới.",
                                                 confirmLabel = "Thu hồi giấy phép"
                                             ) {
                                                 repository.updateCustomerLicense(token, license.id, "REVOKED", license.expiresAt, license.maxDevices)
@@ -268,7 +269,7 @@ internal fun AccessControlAdminScreen(
                                         Text(device.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Text(
-                                        if (device.status == "ACTIVE") "Đang hoạt động" else "Đã khóa / thu hồi",
+                                        if (device.status == "ACTIVE") "Đang hoạt động" else "Quyền thiết bị đã thu hồi",
                                         color = if (device.status == "ACTIVE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold
@@ -289,12 +290,12 @@ internal fun AccessControlAdminScreen(
                                         "LEGACY_REVOKED" -> "Thu hồi từ phiên bản cũ"
                                         else -> "Không rõ lý do"
                                     }
-                                    Text("Lý do khóa: $reasonText", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                                    Text("Lý do thu hồi: $reasonText", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
                                     OutlinedButton(
                                         onClick = { restoreDeviceTarget = device },
                                         enabled = !restoringDevice,
                                         modifier = Modifier.fillMaxWidth()
-                                    ) { Text("MỞ LẠI THIẾT BỊ") }
+                                    ) { Text("CHO PHÉP LẠI THIẾT BỊ") }
                                     deviceRestoreBlocker(device)?.let { blocked ->
                                         Text(
                                             "Chưa thể mở ngay: $blocked",
@@ -308,16 +309,16 @@ internal fun AccessControlAdminScreen(
                                         onClick = {
                                             val token = accessToken ?: return@OutlinedButton
                                             pendingConfirmation = AccessAdminConfirmation(
-                                                title = "Khóa thiết bị?",
-                                                message = "Thiết bị sẽ mất quyền chạy các gói AUTU. Chủ sở hữu có thể mở lại thiết bị sau khi tài khoản, giấy phép và giới hạn thiết bị đáp ứng điều kiện.",
-                                                confirmLabel = "Khóa thiết bị"
+                                                title = "Chặn thiết bị này?",
+                                                message = "Thiết bị sẽ không còn được phép tải hoặc chạy các gói AUTU. Thông tin đăng ký và khóa bảo mật vẫn được giữ, không bị xóa. Chủ ứng dụng có thể cho phép lại thiết bị khi tài khoản, giấy phép và giới hạn thiết bị hợp lệ.",
+                                                confirmLabel = "Chặn thiết bị"
                                             ) {
                                                 repository.revokeCustomerDevice(token, device.id)
-                                                notice = "Đã khóa thiết bị."
+                                                notice = "Đã chặn thiết bị. Thông tin đăng ký vẫn được giữ."
                                             }
                                         },
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                    ) { Text("KHÓA THIẾT BỊ") }
+                                    ) { Text("CHẶN THIẾT BỊ") }
                                 }
                             }
                         }
@@ -383,40 +384,58 @@ internal fun AccessControlAdminScreen(
                                     TextButton(
                                         onClick = {
                                             val token = accessToken ?: return@TextButton
-                                            val title = if (nextStatus == "SUSPENDED") "Tạm khóa khách hàng?" else "Mở khóa khách hàng?"
-                                            val message = if (nextStatus == "SUSPENDED") {
-                                                "Các phiên đăng nhập hiện tại sẽ bị chấm dứt. Giấy phép và thiết bị vẫn được giữ, nhưng tài khoản không thể sử dụng khi đang khóa."
-                                            } else if (customer.status == "REVOKED") {
-                                                "Tài khoản được kích hoạt lại để đăng nhập. Hãy cấp giấy phép mới; sau đó có thể mở lại các thiết bị đã thu hồi trong mục Thiết bị nếu còn giới hạn."
-                                            } else {
-                                                "Khách hàng có thể đăng nhập lại. Phiên cũ đã bị chấm dứt nên cần đăng nhập mới."
+                                            val title = when {
+                                                nextStatus == "SUSPENDED" -> "Chặn đăng nhập tài khoản?"
+                                                customer.status == "REVOKED" -> "Kích hoạt tài khoản?"
+                                                else -> "Cho phép đăng nhập lại?"
+                                            }
+                                            val message = when {
+                                                nextStatus == "SUSPENDED" -> "Người dùng sẽ bị đăng xuất khỏi các phiên hiện tại và không thể đăng nhập lại. Giấy phép và thiết bị đã đăng ký vẫn được giữ nguyên. Bạn có thể cho phép đăng nhập lại sau."
+                                                customer.status == "REVOKED" -> "Tài khoản được kích hoạt để có thể đăng nhập lại. Giấy phép và thiết bị đã thu hồi không tự khôi phục; cần cấp giấy phép mới và cho phép lại từng thiết bị đủ điều kiện."
+                                                else -> "Tài khoản được phép đăng nhập lại. Các phiên cũ đã bị chấm dứt nên người dùng cần đăng nhập mới. Giấy phép và thiết bị vẫn được giữ nguyên."
                                             }
                                             pendingConfirmation = AccessAdminConfirmation(
                                                 title = title,
                                                 message = message,
-                                                confirmLabel = if (nextStatus == "SUSPENDED") "Tạm khóa" else "Kích hoạt"
+                                                confirmLabel = when {
+                                                    nextStatus == "SUSPENDED" -> "Chặn đăng nhập"
+                                                    customer.status == "REVOKED" -> "Kích hoạt tài khoản"
+                                                    else -> "Cho phép đăng nhập"
+                                                },
+                                                destructive = nextStatus == "SUSPENDED"
                                             ) {
                                                 repository.updateCustomerStatus(token, customer.userId, nextStatus)
-                                                notice = if (nextStatus == "SUSPENDED") "Đã tạm khóa khách hàng." else "Đã kích hoạt tài khoản."
+                                                notice = when {
+                                                    nextStatus == "SUSPENDED" -> "Đã chặn đăng nhập tài khoản."
+                                                    customer.status == "REVOKED" -> "Đã kích hoạt tài khoản. Cần cấp giấy phép mới và cho phép lại thiết bị nếu cần."
+                                                    else -> "Đã cho phép đăng nhập lại."
+                                                }
                                             }
                                         }
-                                    ) { Text(if (customer.status == "ACTIVE") "Khóa" else "Mở", fontSize = 11.sp) }
+                                    ) { Text(
+                                        when {
+                                            customer.status == "ACTIVE" -> "Chặn đăng nhập"
+                                            customer.status == "REVOKED" -> "Kích hoạt tài khoản"
+                                            else -> "Cho phép đăng nhập"
+                                        },
+                                        fontSize = 11.sp
+                                    ) }
                                 }
                                 if (customer.status != "REVOKED") {
                                     TextButton(
                                         onClick = {
                                             val token = accessToken ?: return@TextButton
                                             pendingConfirmation = AccessAdminConfirmation(
-                                                title = "Xóa / thu hồi tài khoản?",
-                                                message = "Tài khoản sẽ bị đánh dấu đã thu hồi; mọi phiên đăng nhập, giấy phép và thiết bị đang hoạt động sẽ bị thu hồi ngay. Nhật ký và dữ liệu đối soát được giữ lại; đây là xóa quyền truy cập, không phải xóa vật lý hồ sơ.",
-                                                confirmLabel = "Xóa và thu hồi"
+                                                title = "Thu hồi tài khoản?",
+                                                message = "Tài khoản sẽ bị chặn đăng nhập và đăng xuất khỏi các phiên hiện tại. Tất cả giấy phép của tài khoản và thiết bị đang hoạt động sẽ bị thu hồi. Hồ sơ và nhật ký đối soát vẫn được giữ lại; thao tác này không xóa dữ liệu vĩnh viễn. Muốn cấp quyền lại, cần kích hoạt tài khoản, cấp giấy phép mới và cho phép lại từng thiết bị đủ điều kiện.",
+                                                confirmLabel = "Thu hồi tài khoản"
                                             ) {
                                                 repository.updateCustomerStatus(token, customer.userId, "REVOKED")
-                                                notice = "Đã thu hồi tài khoản và quyền truy cập liên quan."
+                                                notice = "Đã thu hồi tài khoản, giấy phép và quyền thiết bị liên quan."
                                             }
                                         },
                                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                    ) { Text("Xóa / thu hồi tài khoản", fontSize = 11.sp) }
+                                    ) { Text("Thu hồi tài khoản", fontSize = 11.sp) }
                                 }
                             }
                         }
@@ -465,20 +484,20 @@ internal fun AccessControlAdminScreen(
         val blocked = deviceRestoreBlocker(device)
         AlertDialog(
             onDismissRequest = { if (!restoringDevice) restoreDeviceTarget = null },
-            title = { Text("Mở lại thiết bị?") },
+            title = { Text("Cho phép lại thiết bị?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("${device.email} · ${device.label.ifBlank { device.model }}", fontSize = 12.sp)
-                    Text("Thiết bị sẽ được kích hoạt lại bằng khóa bảo mật đã đăng ký trước đây.")
+                    Text("Thiết bị được cấp lại quyền tải và chạy AUTU bằng khóa bảo mật đã đăng ký trước đây. Không tạo đăng ký hoặc khóa bảo mật mới.")
                     if (blocked != null) {
                         Text(
-                            "Chưa thể mở thiết bị: $blocked",
+                            "Chưa thể cho phép thiết bị: $blocked",
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 12.sp
                         )
                     } else {
                         Text(
-                            "Đủ điều kiện mở lại. Thiết bị sẽ được tính vào giới hạn giấy phép.",
+                            "Thiết bị đủ điều kiện được cho phép lại. Khi khôi phục, thiết bị sẽ được tính vào giới hạn giấy phép.",
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 12.sp
                         )
@@ -495,7 +514,7 @@ internal fun AccessControlAdminScreen(
                             error = ""
                             try {
                                 repository.updateCustomerDeviceStatus(token, device.id, "ACTIVE")
-                                notice = "Đã mở lại thiết bị ${device.email}."
+                                notice = "Đã cho phép lại thiết bị ${device.email}."
                                 restoreDeviceTarget = null
                                 refresh()
                             } catch (exception: Exception) {
@@ -505,7 +524,7 @@ internal fun AccessControlAdminScreen(
                             }
                         }
                     }
-                ) { Text(if (restoringDevice) "ĐANG MỞ…" else "MỞ LẠI THIẾT BỊ") }
+                ) { Text(if (restoringDevice) "ĐANG MỞ…" else "CHO PHÉP LẠI THIẾT BỊ") }
             },
             dismissButton = {
                 TextButton(
@@ -648,14 +667,15 @@ private fun accessDate(value: Long?): String {
     if (value == null || value <= 0L) return "Chưa có"
     return java.text.DateFormat.getDateTimeInstance(
         java.text.DateFormat.SHORT,
-        java.text.DateFormat.SHORT
+        java.text.DateFormat.SHORT,
+        java.util.Locale.forLanguageTag("vi-VN")
     ).format(java.util.Date(value * 1000L))
 }
 
 
 private fun deviceRestoreBlocker(device: DeviceRecord): String? = when {
-    device.customerStatus != "ACTIVE" -> "Tài khoản khách hàng đang bị khóa. Hãy kích hoạt lại tài khoản trước."
+    device.customerStatus != "ACTIVE" -> "Tài khoản đang bị chặn đăng nhập. Hãy cho phép đăng nhập hoặc kích hoạt lại tài khoản trước."
     device.licenseStatus != "ACTIVE" -> "Giấy phép chưa hoạt động hoặc đã hết hạn. Hãy cấp/kích hoạt giấy phép còn hiệu lực."
-    device.activeDeviceCount >= (device.maxDevices ?: 0) -> "Đã hết giới hạn thiết bị. Hãy khóa thiết bị khác hoặc tăng giới hạn giấy phép."
+    device.activeDeviceCount >= (device.maxDevices ?: 0) -> "Đã hết giới hạn thiết bị. Hãy chặn thiết bị khác hoặc tăng giới hạn giấy phép."
     else -> null
 }
