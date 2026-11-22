@@ -276,9 +276,9 @@ internal fun AppTheme(dark: Boolean, content: @Composable () -> Unit) {
     ) else lightColorScheme(
         primary = Color(0xFF2459A6),
         secondary = Color(0xFF176D70),
-        background = Color(0xFFF0F0EC),
-        surface = Color(0xFFF8F8F4),
-        surfaceVariant = Color(0xFFE8E8E2),
+        background = Color(0xFFE9E9E4),
+        surface = Color(0xFFF2F2ED),
+        surfaceVariant = Color(0xFFDEDED7),
         onBackground = Color(0xFF20211F),
         onSurface = Color(0xFF20211F),
         outline = Color(0xFF777971)
