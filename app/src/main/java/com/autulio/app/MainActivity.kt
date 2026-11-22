@@ -229,8 +229,10 @@ private fun RolePreviewChooser(
         }
     }
 }
-internal fun tr(vi: String, en: String): String =
-    if (Locale.getDefault().language.equals("vi", ignoreCase = true)) vi else en
+// AUTU-LIO is Vietnamese-first by product requirement. Keep English strings
+// in call sites only as reference/future localization source; never show raw
+// English UI labels to customers.
+internal fun tr(vi: String, en: String): String = vi
 
 internal fun localizedErrorMessage(error: Throwable?, fallback: String): String {
     val message = error?.message?.trim().orEmpty()
