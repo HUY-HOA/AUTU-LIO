@@ -237,6 +237,11 @@ object EditorGuideCatalog {
                 EditorGuideCommand("THAY_THẾ(chuỗi, cũ, mới)", "Thay các phần chuỗi khớp."),
                 EditorGuideCommand("TÁCH_CHUỖI(chuỗi, phân_cách) / NỐI_CHUỖI(danh_sách, phân_cách)", "Tách hoặc nối các phần tử văn bản."),
                 EditorGuideCommand("KÝ_TỰ_TẠI(chuỗi, vị_trí) / CẮT_CHUỖI(chuỗi, vị_trí, độ_dài)", "Đọc ký tự hoặc cắt chuỗi theo vị trí.")
+            ),
+            notes = listOf(
+                "Tên trong tài liệu là tên chuẩn nên dùng khi viết kịch bản mới.",
+                "Các tên rút gọn cũ như TÌM_VỊ_TRÍ(), SẮP_XẾP(), ĐẢO_NGƯỢC(), LỌC(), TÌM_PHẦN_TỬ(), ÂM_LƯỢNG() và ĐỘ_SÁNG() vẫn được nhận diện để chạy kịch bản cũ.",
+                "Quy ước tên: LẤY_ để đọc, ĐẶT_ để thiết lập, KIỂM_TRA_ để kiểm tra; thêm _CHUỖI hoặc _DANH_SÁCH để phân biệt loại dữ liệu."
             )
         ),
         EditorGuideSection(
@@ -331,12 +336,6 @@ object EditorGuideCatalog {
             notes = listOf(
                 "Chỉ chấp nhận HTTPS và các phương thức mạng được runtime cho phép.",
                 "Dung lượng, timeout và redirect có giới hạn bảo vệ."
-            )
-        ),
-            notes = listOf(
-                "Tên trong tài liệu là tên chuẩn nên dùng khi viết kịch bản mới.",
-                "Các tên rút gọn cũ như TÌM_VỊ_TRÍ(), SẮP_XẾP(), ĐẢO_NGƯỢC(), LỌC(), TÌM_PHẦN_TỬ(), ÂM_LƯỢNG() và ĐỘ_SÁNG() vẫn được nhận diện để chạy kịch bản cũ.",
-                "Các nhóm thao tác tuân theo mẫu: LẤY_ để đọc, ĐẶT_ để thiết lập, KIỂM_TRA_ để kiểm tra, và tên đối tượng như _DANH_SÁCH hoặc _TRONG_CHUỖI để nhận biết loại dữ liệu."
             )
         ),
         EditorGuideSection(
