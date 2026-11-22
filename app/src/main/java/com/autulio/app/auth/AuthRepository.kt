@@ -807,15 +807,11 @@ class AuthRepository(context: Context) {
             email = email,
             displayName = displayName,
             role = role,
-            googleSignIn = if (role == AccessRole.OWNER) {
-                parseGoogleSignInDetails(
-                    googleSub = optString("googleSub"),
-                    emailVerified = optBoolean("emailVerified"),
-                    latestSignIn = optJSONObject("latestSignIn")
-                )
-            } else {
-                null
-            }
+            googleSignIn = parseGoogleSignInDetails(
+                googleSub = optString("googleSub"),
+                emailVerified = optBoolean("emailVerified"),
+                latestSignIn = optJSONObject("latestSignIn")
+            )
         )
     }
 
