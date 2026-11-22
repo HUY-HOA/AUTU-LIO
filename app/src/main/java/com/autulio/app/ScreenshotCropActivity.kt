@@ -86,7 +86,7 @@ class ScreenshotCropActivity : ComponentActivity() {
 
     private fun showLoadingScreen() {
         setContent {
-            AppTheme(dark = true) {
+            PreferredAppTheme(this@ScreenshotCropActivity) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -102,7 +102,7 @@ class ScreenshotCropActivity : ComponentActivity() {
 
     private fun showOpenErrorScreen() {
         setContent {
-            AppTheme(dark = true) {
+            PreferredAppTheme(this@ScreenshotCropActivity) {
                 Scaffold { padding ->
                     Column(
                         Modifier.fillMaxSize().padding(padding).padding(20.dp),
@@ -119,7 +119,7 @@ class ScreenshotCropActivity : ComponentActivity() {
 
     private fun showCropScreen(bitmap: Bitmap) {
         setContent {
-            AppTheme(dark = true) {
+            PreferredAppTheme(this@ScreenshotCropActivity) {
                 ScreenshotCropScreen(
                     bitmap = bitmap,
                     onBack = { finish() },
