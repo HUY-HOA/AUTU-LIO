@@ -54,7 +54,7 @@ internal fun AuthenticatedAppHost() {
         }
         try {
             val verifiedUser = repository.currentUser(savedToken)
-            AutoClickAccessibilityService.markSessionVerified()
+            AutoClickAccessibilityService.markSessionVerified(verifiedUser.role, savedToken)
             accessToken = savedToken
             user = verifiedUser
             hasSavedSession = true
@@ -91,7 +91,7 @@ internal fun AuthenticatedAppHost() {
             try {
                 val verifiedUser = repository.currentUser(token)
                 if (accessToken == token) {
-                    AutoClickAccessibilityService.markSessionVerified()
+                    AutoClickAccessibilityService.markSessionVerified(verifiedUser.role, token)
                     user = verifiedUser
                 }
             } catch (cancelled: CancellationException) {
@@ -161,7 +161,7 @@ internal fun AuthenticatedAppHost() {
                     try {
                         val session = repository.signIn(activity)
                         store.save(session.accessToken)
-                        AutoClickAccessibilityService.markSessionVerified()
+                        AutoClickAccessibilityService.markSessionVerified(session.user.role, session.accessToken)
                         accessToken = session.accessToken
                         user = session.user
                         hasSavedSession = true

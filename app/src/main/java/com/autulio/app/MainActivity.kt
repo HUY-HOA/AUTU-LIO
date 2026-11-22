@@ -47,7 +47,6 @@ import java.util.Locale
 import java.io.File
 import com.autulio.app.access.AccessRole
 import com.autulio.app.accessibility.AutoClickAccessibilityService
-import com.autulio.app.auth.AuthApiException
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
 import com.autulio.app.script.ScriptCompiler
@@ -199,13 +198,12 @@ private fun RolePreviewChooser(
         }
     }
 }
-@Suppress("UNUSED_PARAMETER")
-internal fun tr(vi: String, en: String): String = vi
+internal fun tr(vi: String, en: String): String =
+    if (Locale.getDefault().language.equals("vi", ignoreCase = true)) vi else en
 
 internal fun localizedErrorMessage(error: Throwable?, fallback: String): String {
     val message = error?.message?.trim().orEmpty()
     if (message.isBlank()) return fallback
-    if (error is AuthApiException) return message
     val hasVietnamese = message.any { character ->
         "ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ".contains(
             character.lowercaseChar()
@@ -236,7 +234,7 @@ internal fun planText(value: String): String = when (value.trim().uppercase(Loca
     "YEARLY", "ANNUAL" -> "Theo năm"
     "LIFETIME" -> "Trọn đời"
     "TRIAL" -> "Dùng thử"
-    else -> value.trim().ifBlank { "Chưa xác định" }
+    else -> "Gói khác"
 }
 
 @Composable
@@ -1472,7 +1470,7 @@ private fun ScriptFileControls() {
             singleLine = true,
             enabled = !working,
             label = { Text(tr("Đường dẫn tệp trong AUTU", "AUTU file path")) },
-            placeholder = { Text("imports/baocao.csv") }
+            placeholder = { Text("nhap/baocao.csv") }
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
