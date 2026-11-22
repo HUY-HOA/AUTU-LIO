@@ -1,6 +1,6 @@
 # AUTU-LIO — Trạng thái phát triển ứng dụng Android
 
-**Cập nhật:** 21/11/2026  
+**Cập nhật:** 23/11/2026  
 **Repository:** `HUY-HOA/AUTU-LIO`  
 **Nhánh tích hợp:** `main`
 
@@ -16,11 +16,10 @@
 ## 2. Hạ tầng đã triển khai và xác nhận
 
 - Cloudflare Worker `autu-lio-auth-api` đã triển khai tại `https://autu-lio-auth-api.coc-lio-data.workers.dev`.
-- Cloudflare D1 `autu_lio_auth` đã áp dụng migration `0006_remove_collaboration_features.sql`; 7 bảng cộng tác đã bị xóa, còn 10 bảng ứng dụng.
-- Worker có D1 binding, hai rate-limit bindings, Google Web Client ID, Android OAuth Client ID allowlist và package master key.
-- Secret `OWNER_GOOGLE_SUB` đã được cấu hình trong Production và Worker đã triển khai phiên bản mới.
-- Đăng nhập Google trên thiết bị đã thành công. Truy vấn D1 xác nhận tài khoản chủ sở hữu có `role=OWNER`, `status=ACTIVE`.
-- D1 hiện có đúng một tài khoản OWNER và một CUSTOMER; chưa kiểm thử lại đăng nhập trên điện thoại sau lần deploy Worker mới nhất.
+- Cloudflare D1 `autu_lio_auth` đã áp dụng đầy đủ migrations `0001`–`0008`; migration 0008 bổ sung thời điểm hiện diện, thời điểm ứng dụng ở nền trước và trạng thái runtime. 7 bảng cộng tác đã bị xóa; vẫn còn 10 bảng ứng dụng.
+- Worker `autu-lio-auth-api` phiên bản 22 đã triển khai Production với 100% lưu lượng.
+- D1 binding, hai rate-limit bindings, các biến công khai và ba Worker secrets hiện có đã được xác minh sau triển khai.
+- D1 có đúng một tài khoản OWNER và một CUSTOMER theo lần kiểm tra trước; đăng nhập và nghiệm thu trên thiết bị thật vẫn cần kiểm tra lại sau khi cài APK mới.
 
 ## 3. Mã nguồn chức năng hiện có
 
@@ -39,7 +38,7 @@
 - CUSTOMER gửi tín hiệu khi ứng dụng đang ở nền trước mỗi 45 giây. Accessibility Service chỉ gửi tín hiệu nền khi AUTU đang chạy hoặc tạm dừng.
 - Màn hình quản trị phân loại: đang kết nối (tối đa 2 phút), vừa hoạt động (2–10 phút), ngoại tuyến (trên 10 phút), hoặc chưa có dữ liệu. Trạng thái AUTU cũ không được hiển thị như trạng thái hiện tại khi tín hiệu đã quá hạn.
 - Chỉ lưu dấu thời gian và trạng thái ứng dụng/bộ chạy; không thu thập nội dung màn hình, thao tác cá nhân hoặc vị trí.
-- Muốn dữ liệu xuất hiện trên môi trường Production, cần áp dụng migration 0008 cho D1 và triển khai phiên bản Worker có endpoint `POST /api/customer/presence`.
+- Migration 0008 đã áp dụng lên Production và Worker phiên bản 22 có endpoint `POST /api/customer/presence`; dữ liệu hiện diện mới sẽ xuất hiện sau khi CUSTOMER cài bản APK mới, có thiết bị đã đăng ký và mở ứng dụng.
 
 ### AUTU Script và chạy tự động
 - Parser/compiler tạo AST, báo lỗi theo dòng/cột; có giới hạn mã nguồn, số lệnh và thời lượng.
