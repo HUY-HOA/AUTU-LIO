@@ -9,8 +9,10 @@ Gộp khách hàng, giấy phép và thiết bị vào một màn hình duy nh�
 
 - Khóa/mở khóa khách hàng: chấm dứt phiên hiện tại; không tự thu hồi giấy phép hoặc thiết bị khi chỉ tạm khóa.
 - Thu hồi tài khoản: chấm dứt phiên, thu hồi giấy phép và thiết bị đang hoạt động. Đây là thu hồi mềm để giữ dấu vết đối soát; không xóa vật lý hồ sơ hoặc nhật ký.
-- Giấy phép: cấp mới, gia hạn, điều chỉnh giới hạn thiết bị, tạm dừng/mở lại và thu hồi.
-- Thiết bị: xem thông tin đã đăng ký và thu hồi quyền thiết bị.
+- Giấy phép: cấp mới, gia hạn, điều chỉnh giới hạn thiết bị, tạm dừng/mở lại và thu hồi. Thu hồi hoặc tạm dừng giấy phép không xóa đăng ký thiết bị; thiết bị được giữ trạng thái liên kết nhưng không thể chạy AUTU khi không có giấy phép hợp lệ.
+- Thiết bị: xem thông tin đã đăng ký, lý do thu hồi, trạng thái tài khoản/giấy phép và số khe thiết bị đang dùng; chủ ứng dụng có thể thu hồi hoặc mở lại thiết bị.
+- Mở lại thiết bị yêu cầu tài khoản ACTIVE, giấy phép còn hiệu lực và số thiết bị đang hoạt động nhỏ hơn giới hạn giấy phép.
+- Nếu khách hàng tự gỡ thiết bị, họ có thể đăng ký lại bằng khóa Android Keystore cũ sau khi có giấy phép hợp lệ. Thiết bị bị chủ ứng dụng hoặc tài khoản thu hồi không được tự mở lại; chủ ứng dụng phải thực hiện.
 - Các thao tác thu hồi, khóa hoặc mở lại đều cần hộp thoại xác nhận giải thích hậu quả.
 
 ## 2. Khách hàng
@@ -50,6 +52,7 @@ Hiển thị:
 - Lịch sử liên kết và gỡ liên kết.
 - Trạng thái giấy phép áp dụng trên máy.
 - Nút gỡ liên kết hoặc chặn thiết bị, có xác nhận.
+- Nút mở lại thiết bị đã thu hồi; máy chủ kiểm tra tình trạng khách hàng, giấy phép và số khe trước khi cho phép.
 
 Mã cài đặt có thể đổi sau khi gỡ/cài lại ứng dụng hoặc xóa dữ liệu. Không dùng IMEI, số sê-ri phần cứng hoặc MAC để nhận diện.
 
