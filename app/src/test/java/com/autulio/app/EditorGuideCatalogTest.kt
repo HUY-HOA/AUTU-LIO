@@ -86,7 +86,7 @@ class EditorGuideCatalogTest {
     @Test
     fun guideSectionsRemainInNumericOrderAfterCommandExpansion() {
         val numbers = EditorGuideCatalog.sections.map { section ->
-            Regex("""^(\\d+)\\.""").find(section.title)?.groupValues?.get(1)?.toInt()
+            Regex("""^(\d+)\.""").find(section.title)?.groupValues?.get(1)?.toInt()
         }
         assertTrue(numbers.all { it != null })
         assertEquals((1..EditorGuideCatalog.sections.size).toList(), numbers.filterNotNull())
