@@ -12,6 +12,7 @@ import android.view.WindowInsets
 import android.provider.Settings
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -235,7 +236,7 @@ internal fun tr(vi: String, en: String): String =
 
 @Composable
 internal fun AppBackHandler(onNavigateBack: () -> Boolean) {
-    val activity = LocalContext.current as? Activity
+    val activity = LocalActivity.current
     var showExitConfirmation by rememberSaveable { mutableStateOf(false) }
 
     BackHandler {
