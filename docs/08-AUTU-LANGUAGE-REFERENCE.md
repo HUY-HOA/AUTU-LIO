@@ -39,14 +39,14 @@ BIẾN CAC_GIA_TRI: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20, 30)
 ## 4. Điều kiện và vòng lặp
 
 ```text
-NẾU (PIN() > 20 VÀ CÓ_MẠNG()) {
-    CHẠM(200, 400)
+NẾU (LẤY_LẤY_PHẦN_TRĂM_PIN() > 20 VÀ KIỂM_TRA_KẾT_NỐI_MẠNG()) {
+    NHẤN(200, 400)
 } NGƯỢC_LẠI {
     CHỜ(500)
 }
 
 LẶP(3) {
-    CHẠM(200, 400)
+    NHẤN(200, 400)
 }
 
 BIẾN DEM = 0
@@ -60,7 +60,7 @@ LẶP_ĐẾN_KHI(DEM >= 10) {
 
 BIẾN DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(100, 200, 300)
 LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
-    CHẠM(TOA_DO_X, 400)
+    NHẤN(TOA_DO_X, 400)
     CHỜ(250)
 }
 ```
@@ -88,20 +88,20 @@ Trong Cài đặt → Tệp AUTU Script, người dùng có thể nhập một t
 |---|---|---|
 | ĐỌC_TỆP | ĐỌC_TỆP("settings/config.txt") | Đọc văn bản UTF-8 |
 | GHI_TỆP | GHI_TỆP("settings/config.txt", NỘI_DUNG) | Ghi/thay thế tệp UTF-8 |
-| TỆP_TỒN_TẠI | TỆP_TỒN_TẠI("settings/config.txt") | Kiểm tra tệp |
+| KIỂM_TRA_TỆP_TỒN_TẠI | KIỂM_TRA_TỆP_TỒN_TẠI("settings/config.txt") | Kiểm tra tệp |
 | XÓA_TỆP | XÓA_TỆP("settings/old.txt") | Xóa một tệp |
 | TẠO_THƯ_MỤC | TẠO_THƯ_MỤC("settings/backup") | Tạo thư mục |
 | LIỆT_KÊ_TỆP | LIỆT_KÊ_TỆP("settings") | Danh sách tệp trực tiếp trong thư mục |
 | ĐỌC_JSON_TỆP | ĐỌC_JSON_TỆP("settings/config.json") | Đọc và phân tích JSON |
 | GHI_JSON_TỆP | GHI_JSON_TỆP("settings/config.json", GIÁ_TRỊ) | Chuyển giá trị thành JSON rồi ghi |
-| GỬI_TỆP_HTTP | GỬI_TỆP_HTTP(PHƯƠNG_THỨC, URL, TỆP, TÊN_TRƯỜNG, TÊN_TỆP, MIME, TIÊU_ĐỀ, THỜI_HẠN) | Upload tệp bằng multipart/form-data; trả metadata HTTP |
-| TẢI_TỆP_HTTP | TẢI_TỆP_HTTP(URL, ĐƯỜNG_DẪN_ĐÍCH, TIÊU_ĐỀ, THỜI_HẠN) | Tải GET HTTPS và lưu bytes khi phản hồi 2xx |
+| TẢI_LÊN_TỆP_HTTP | TẢI_LÊN_TỆP_HTTP(PHƯƠNG_THỨC, URL, TỆP, TÊN_TRƯỜNG, TÊN_TỆP, MIME, TIÊU_ĐỀ, THỜI_HẠN) | Upload tệp bằng multipart/form-data; trả metadata HTTP |
+| TẢI_XUỐNG_TỆP_HTTP | TẢI_XUỐNG_TỆP_HTTP(URL, ĐƯỜNG_DẪN_ĐÍCH, TIÊU_ĐỀ, THỜI_HẠN) | Tải GET HTTPS và lưu bytes khi phản hồi 2xx |
 | CHỌN_TỆP | CHỌN_TỆP(MIME) | Mở SAF; trả BẢN_ĐỒ có ĐƯỜNG_DẪN, DUNG_LƯỢNG, TÊN_TỆP hoặc RỖNG nếu hủy |
 | LƯU_TỆP | LƯU_TỆP(ĐƯỜNG_DẪN, TÊN_GỢI_Ý) | Mở SAF để người dùng chọn đích lưu; trả ĐÚNG nếu lưu, SAI nếu hủy |
 
 CHỌN_TỆP(MIME) mở bộ chọn Android ngay trong lúc kịch bản chạy; ví dụ MIME có thể là "text/csv", "application/json" hoặc "image/*". Tệp người dùng chọn được sao chép vào kho riêng `imports/` và hàm trả về BẢN_ĐỒ chứa đường dẫn, dung lượng và tên tệp. Nếu người dùng hủy, hàm trả RỖNG. LƯU_TỆP(ĐƯỜNG_DẪN, TÊN_GỢI_Ý) đọc tệp trong kho riêng rồi mở SAF để người dùng tự chọn nơi lưu; hủy trả SAI. Cả hai thao tác chờ tối đa 120 giây, có thể hủy bằng cách dừng kịch bản và không giữ quyền URI bên ngoài sau khi hoàn tất. Mỗi tệp tối đa 1 MiB.
 
-GỬI_TỆP_HTTP chỉ hỗ trợ POST, PUT hoặc PATCH; tệp nguồn phải nằm trong kho riêng. Tên trường, tên tệp và MIME được kiểm tra; tên tệp không được chứa đường dẫn; không được tự đặt Content-Type vì OkHttp tạo multipart boundary. TẢI_TỆP_HTTP dùng GET và chỉ ghi tệp khi phản hồi HTTP là 2xx. Tệp upload, multipart tổng và phản hồi download tối đa 1 MiB; URL chỉ HTTPS, không theo redirect, timeout 100..30.000 ms.
+TẢI_LÊN_TỆP_HTTP chỉ hỗ trợ POST, PUT hoặc PATCH; tệp nguồn phải nằm trong kho riêng. Tên trường, tên tệp và MIME được kiểm tra; tên tệp không được chứa đường dẫn; không được tự đặt Content-Type vì OkHttp tạo multipart boundary. TẢI_XUỐNG_TỆP_HTTP dùng GET và chỉ ghi tệp khi phản hồi HTTP là 2xx. Tệp upload, multipart tổng và phản hồi download tối đa 1 MiB; URL chỉ HTTPS, không theo redirect, timeout 100..30.000 ms.
 
 Tệp chỉ được lưu trong vùng dữ liệu riêng của AUTU-LIO, không truy cập tùy ý bộ nhớ chung hoặc thư mục của ứng dụng khác. Đường dẫn phải tương đối; không chấp nhận đường dẫn tuyệt đối, phân đoạn "..", "." hoặc symlink thoát khỏi vùng lưu trữ. Mỗi tệp tối đa 1 MiB. GHI_TỆP thay thế tệp theo cách an toàn; LIỆT_KÊ_TỆP chỉ liệt kê tệp trực tiếp, tối đa 128 mục.
 
@@ -111,7 +111,7 @@ Ví dụ:
 TẠO_THƯ_MỤC("settings")
 GHI_JSON_TỆP("settings/config.json", TẠO_BẢN_ĐỒ("TÊN", "AUTU-LIO", "BẬT", ĐÚNG))
 BIẾN CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
-BIẾN TÊN: CHUỖI = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "TÊN")
+BIẾN TÊN: CHUỖI = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CẤU_HÌNH, "TÊN")
 ```
 
 ### SQLite riêng và di trú schema có phiên bản
@@ -200,8 +200,8 @@ Ví dụ:
 
 ```text
 BIẾN CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TÊN\":\"AUTU\",\"VẬT_THỂ\":[{\"X\":120,\"Y\":240},null]}")
-BIẾN DANH_SÁCH: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "VẬT_THỂ")
-BIẾN VẬT_THỂ: BẢN_ĐỒ = LẤY_PHẦN_TỬ(DANH_SÁCH, 0)
+BIẾN DANH_SÁCH: DANH_SÁCH = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CẤU_HÌNH, "VẬT_THỂ")
+BIẾN VẬT_THỂ: BẢN_ĐỒ = LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(DANH_SÁCH, 0)
 BIẾN JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
 ```
 
@@ -228,17 +228,17 @@ BIẾN JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
 | `KÝ_TỰ_TẠI` | `KÝ_TỰ_TẠI(CHUỖI, VỊ_TRÍ)` | Lấy code point, vị trí từ 0 |
 | `CẮT_CHUỖI` | `CẮT_CHUỖI(CHUỖI, VỊ_TRÍ, ĐỘ_DÀI)` | Cắt chuỗi theo code point |
 | `TẠO_DANH_SÁCH` | `TẠO_DANH_SÁCH(A, B, ...)` | Tạo danh sách, 0–64 phần tử |
-| `LẤY_PHẦN_TỬ` | `LẤY_PHẦN_TỬ(DS, CHI_SO)` | Lấy phần tử |
-| `THÊM_PHẦN_TỬ` | `THÊM_PHẦN_TỬ(DS, GIA_TRI)` | Thêm phần tử |
-| `ĐẶT_PHẦN_TỬ` | `ĐẶT_PHẦN_TỬ(DS, CHI_SO, GIA_TRI)` | Thay phần tử |
-| `XÓA_PHẦN_TỬ` | `XÓA_PHẦN_TỬ(DS, CHI_SO)` | Xóa và trả về phần tử |
-| `CÓ_PHẦN_TỬ` | `CÓ_PHẦN_TỬ(DS, GIA_TRI)` | Kiểm tra phần tử |
+| `LẤY_PHẦN_TỬ` | `LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(DS, CHI_SO)` | Lấy phần tử |
+| `THÊM_PHẦN_TỬ` | `THÊM_PHẦN_TỬ_VÀO_DANH_SÁCH(DS, GIA_TRI)` | Thêm phần tử |
+| `ĐẶT_PHẦN_TỬ` | `ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH(DS, CHI_SO, GIA_TRI)` | Thay phần tử |
+| `XÓA_PHẦN_TỬ` | `XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH(DS, CHI_SO)` | Xóa và trả về phần tử |
+| `CÓ_PHẦN_TỬ` | `KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH(DS, GIA_TRI)` | Kiểm tra phần tử |
 | `TẠO_BẢN_ĐỒ` | `TẠO_BẢN_ĐỒ(KHOA, GIA_TRI, ...)` | Tạo bản đồ, tối đa 64 cặp, số tham số chẵn |
-| `LẤY_GIÁ_TRỊ` | `LẤY_GIÁ_TRỊ(BD, KHOA)` | Lấy giá trị theo khóa |
-| `ĐẶT_GIÁ_TRỊ` | `ĐẶT_GIÁ_TRỊ(BD, KHOA, GIA_TRI)` | Thêm hoặc cập nhật giá trị |
-| `XÓA_KHÓA` | `XÓA_KHÓA(BD, KHOA)` | Xóa và trả về giá trị cũ |
-| `CÓ_KHÓA` | `CÓ_KHÓA(BD, KHOA)` | Kiểm tra khóa |
-| `DANH_SÁCH_KHÓA` | `DANH_SÁCH_KHÓA(BD)` | Lấy danh sách khóa |
+| `LẤY_GIÁ_TRỊ` | `LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(BD, KHOA)` | Lấy giá trị theo khóa |
+| `ĐẶT_GIÁ_TRỊ` | `ĐẶT_GIÁ_TRỊ_TRONG_BẢN_ĐỒ(BD, KHOA, GIA_TRI)` | Thêm hoặc cập nhật giá trị |
+| `XÓA_KHÓA` | `XÓA_KHÓA_KHỎI_BẢN_ĐỒ(BD, KHOA)` | Xóa và trả về giá trị cũ |
+| `CÓ_KHÓA` | `KIỂM_TRA_KHÓA_TRONG_BẢN_ĐỒ(BD, KHOA)` | Kiểm tra khóa |
+| `DANH_SÁCH_KHÓA` | `LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ(BD)` | Lấy danh sách khóa |
 
 Chỉ số danh sách và vị trí chuỗi bắt đầu từ 0. KÝ_TỰ_TẠI/CẮT_CHUỖI dùng code point Unicode. TÁCH_CHUỖI từ chối dấu phân cách rỗng và không trả quá 64 phần tử. Phần tử chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI. Truy cập ngoài phạm vi hoặc truyền sai kiểu sẽ báo lỗi runtime.
 
@@ -258,9 +258,9 @@ BIẾN PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
     TẠO_BẢN_ĐỒ("Accept", "application/json"),
     10000
 )
-BIẾN MÃ_TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
-BIẾN NỘI_DUNG: CHUỖI = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "NỘI_DUNG")
-NẾU (LẤY_GIÁ_TRỊ(PHẢN_HỒI, "THÀNH_CÔNG")) {
+BIẾN MÃ_TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(PHẢN_HỒI, "TRẠNG_THÁI")
+BIẾN NỘI_DUNG: CHUỖI = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(PHẢN_HỒI, "NỘI_DUNG")
+NẾU (LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(PHẢN_HỒI, "THÀNH_CÔNG")) {
     BIẾN DỮ_LIỆU: BẢN_ĐỒ = PHÂN_TÍCH_JSON(NỘI_DUNG)
 }
 ```
@@ -284,7 +284,7 @@ Chỉ chấp nhận URL HTTPS, không nhúng user/password và không theo chuy�
 
 ## 8. Hàm truy vấn Android
 
-`PIN()`, `PHẦN_TRĂM_PIN()`, `ĐANG_SẠC()`, `CÓ_MẠNG()`, `MÀN_HÌNH_SÁNG()`, `ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()`, `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()`, `MẬT_ĐỘ_MÀN_HÌNH()`, `GÓI_ỨNG_DỤNG_ĐANG_MỞ()`, `THỜI_GIAN_MS()`.
+`LẤY_LẤY_PHẦN_TRĂM_PIN()`, `PHẦN_TRĂM_LẤY_LẤY_PHẦN_TRĂM_PIN()`, `KIỂM_TRA_ĐANG_SẠC()`, `KIỂM_TRA_KẾT_NỐI_MẠNG()`, `KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG()`, `KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()`, `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()`, `MẬT_ĐỘ_MÀN_HÌNH()`, `GÓI_KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ()`, `THỜI_GIAN_MS()`.
 
 ### Quy đổi tọa độ và vùng an toàn
 
@@ -313,7 +313,7 @@ Ví dụ:
 BIẾN X: SỐ = TỌA_ĐỘ_X_VÙNG_AN_TOÀN(0.5)
 BIẾN Y: SỐ = TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(0.5)
 BIẾN TOA_DO_HIEN_TAI: DANH_SÁCH = TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(180, 420)
-CHẠM(X, Y)
+NHẤN(X, Y)
 ```
 
 ## 9. Đọc văn bản giao diện qua Trợ năng
@@ -324,11 +324,11 @@ AUTU-LIO kết hợp cây Android Accessibility với ML Kit chạy ngay trên t
 |---|---|---|
 | ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Văn bản từ cây Trợ năng và OCR màn hình |
 | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() | Khối/dòng văn bản kèm tọa độ bounds |
-| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("chuỗi") | Kiểm tra nhãn/văn bản có chứa chuỗi |
+| KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH | KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH("chuỗi") | Kiểm tra nhãn/văn bản có chứa chuỗi |
 | TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("chuỗi") | Danh sách [X, Y] là tâm vị trí tìm thấy |
-| ĐỌC_VĂN_BẢN_VÙNG | ĐỌC_VĂN_BẢN_VÙNG(X, Y, RỘNG, CAO) | OCR văn bản trong vùng |
-| MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG | MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG(CHUỖI, X, Y, RỘNG, CAO) | Kiểm tra chữ trong vùng |
-| TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG | TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG(CHUỖI, X, Y, RỘNG, CAO) | Tìm vị trí chữ trong vùng |
+| ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH | ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH(X, Y, RỘNG, CAO) | OCR văn bản trong vùng |
+| KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH | KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH(CHUỖI, X, Y, RỘNG, CAO) | Kiểm tra chữ trong vùng |
+| TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH | TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH(CHUỖI, X, Y, RỘNG, CAO) | Tìm vị trí chữ trong vùng |
 | NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH | NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH() | Nhãn ảnh nhận diện được |
 | QUÉT_MÃ_QR_MÀN_HÌNH | QUÉT_MÃ_QR_MÀN_HÌNH() | Nội dung QR tìm thấy |
 | QUÉT_MÃ_VẠCH_MÀN_HÌNH | QUÉT_MÃ_VẠCH_MÀN_HÌNH() | Nội dung mã vạch tìm thấy |
@@ -342,9 +342,9 @@ ML Kit được thực thi cục bộ trên thiết bị. Các hàm ảnh không
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
 | MÀU_TẠI | MÀU_TẠI(X, Y) | Bản đồ ĐỎ, XANH_LÁ, XANH_DƯƠNG, ĐỘ_TRONG_SUỐT và HEX |
-| MÀN_HÌNH_CÓ_MÀU | MÀN_HÌNH_CÓ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ) | ĐÚNG nếu ảnh mẫu có pixel gần màu chỉ định |
-| TÌM_VỊ_TRÍ_MÀU | TÌM_VỊ_TRÍ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ) | Tọa độ gần đúng [X, Y] của điểm khớp đầu tiên |
-| TỶ_LỆ_MÀU_TRONG_VÙNG | TỶ_LỆ_MÀU_TRONG_VÙNG(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO) | Phần trăm pixel mẫu gần màu chỉ định trong vùng |
+| KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH | KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ) | ĐÚNG nếu ảnh mẫu có pixel gần màu chỉ định |
+| TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH | TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ) | Tọa độ gần đúng [X, Y] của điểm khớp đầu tiên |
+| TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH | TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO) | Phần trăm pixel mẫu gần màu chỉ định trong vùng |
 
 Mỗi kênh RGB và SAI_SỐ là số nguyên từ 0 đến 255. SAI_SỐ áp dụng riêng cho từng kênh màu. Tọa độ là pixel tính từ góc trên bên trái. Phân tích màn hình dùng ảnh chụp tại thiết bị và lấy mẫu tối đa 262.144 điểm toàn màn hình hoặc 65.536 điểm trong vùng; tỷ lệ trả về là ước lượng, không phải phép đếm chính xác từng pixel. Không thể đọc màn hình bị Android hoặc ứng dụng đích chặn chụp.
 
@@ -352,10 +352,10 @@ Ví dụ:
 
 ```text
 BIẾN MAU_NUT: BẢN_ĐỒ = MÀU_TẠI(300, 500)
-NẾU (MÀN_HÌNH_CÓ_MÀU(0, 180, 80, 12)) {
-    BIẾN TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_MÀU(0, 180, 80, 12)
-    CHẠM(LẤY_PHẦN_TỬ(TOA_DO, 0), LẤY_PHẦN_TỬ(TOA_DO, 1))
+NẾU (KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(0, 180, 80, 12)) {
+    BIẾN TOA_DO: DANH_SÁCH = TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH(0, 180, 80, 12)
+    NHẤN(LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO, 0), LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO, 1))
 }
-BIẾN TY_LE_XANH: SỐ = TỶ_LỆ_MÀU_TRONG_VÙNG(0, 180, 80, 12, 100, 200, 400, 300)
+BIẾN TY_LE_XANH: SỐ = TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(0, 180, 80, 12, 100, 200, 400, 300)
 ```
 
