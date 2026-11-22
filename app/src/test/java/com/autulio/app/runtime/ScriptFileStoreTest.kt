@@ -6,6 +6,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
+import javax.crypto.Cipher
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.SecretKeySpec
 
 class ScriptFileStoreTest {
     @Test
@@ -92,15 +95,65 @@ class ScriptFileStoreTest {
         }
     }
 
+    @Test
+    fun encryptsFileContentsAtRestAndReadsThemBack() = withTemporaryStore { store, root ->
+        val secret = "private script content"
+        store.writeText("private/script.txt", secret)
+        val stored = File(root, "private/script.txt").readBytes()
+        assertFalse(stored.toString(Charsets.UTF_8).contains(secret))
+        assertEquals(secret, store.readText("private/script.txt"))
+    }
+
+    @Test
+    fun migratesLegacyPlaintextFilesWithoutChangingTheirContents() = withTemporaryStore { store, root ->
+        val legacy = File(root, "legacy.txt")
+        legacy.writeText("existing user script")
+        assertEquals("existing user script", store.readText("legacy.txt"))
+        assertFalse(legacy.readText().contains("existing user script"))
+        assertEquals("existing user script", store.readText("legacy.txt"))
+    }
+
+    @Test
+    fun rejectsTamperedEncryptedFiles() = withTemporaryStore { store, root ->
+        store.writeText("tampered.txt", "authenticated content")
+        val file = File(root, "tampered.txt")
+        val bytes = file.readBytes()
+        bytes[bytes.lastIndex] = (bytes.last().toInt() xor 0x01).toByte()
+        file.writeBytes(bytes)
+        assertFalse(runCatching { store.readText("tampered.txt") }.isSuccess)
+    }
+
     private fun withTemporaryStore(
         maxBytes: Int = ScriptFileStore.DEFAULT_MAX_FILE_BYTES,
         block: (ScriptFileStore, File) -> Unit
     ) {
         val root = Files.createTempDirectory("autu-script-store").toFile()
         try {
-            block(ScriptFileStore(root, maxBytes), root)
+            block(ScriptFileStore(root, maxBytes, TestScriptFileCipher), root)
         } finally {
             root.deleteRecursively()
         }
+    }
+}
+
+
+internal object TestScriptFileCipher : ScriptFileCipher {
+    private val key = SecretKeySpec(ByteArray(32) { (it * 7 + 11).toByte() }, "AES")
+
+    override fun encrypt(plaintext: ByteArray, associatedData: ByteArray): ByteArray {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key)
+        cipher.updateAAD(associatedData)
+        return cipher.iv + cipher.doFinal(plaintext)
+    }
+
+    override fun decrypt(payload: ByteArray, associatedData: ByteArray): ByteArray {
+        require(payload.size > 28)
+        val iv = payload.copyOfRange(0, 12)
+        val encrypted = payload.copyOfRange(12, payload.size)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
+        cipher.updateAAD(associatedData)
+        return cipher.doFinal(encrypted)
     }
 }
