@@ -45,7 +45,7 @@ class EditorGuideCatalogTest {
         assertEquals(30, apiFor("BẬT_TẮT_CHIA_MÀN_HÌNH"))
         assertEquals(30, apiFor("ĐỌC_VĂN_BẢN_MÀN_HÌNH"))
         assertEquals(30, apiFor("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH"))
-        assertEquals(30, apiFor("MÀU_TẠI"))
+        assertEquals(30, apiFor("LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH"))
         assertEquals(28, apiFor("CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH"))
     }
 
@@ -53,7 +53,7 @@ class EditorGuideCatalogTest {
     fun accessibilityTextFallbackDocumentsPartialSupportOnOlderAndroid() {
         val command = EditorGuideCatalog.sections
             .flatMap { it.commands }
-            .first { it.syntax.startsWith("MÀN_HÌNH_CHỨA_CHỮ(") }
+            .first { it.syntax.startsWith("KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH(") }
 
         assertEquals(26, command.minAndroidApi)
         assertTrue(command.androidNote.orEmpty().contains("Android 11.0 (API 30)"))
