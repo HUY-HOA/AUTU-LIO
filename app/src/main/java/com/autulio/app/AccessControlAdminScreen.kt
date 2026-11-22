@@ -469,10 +469,7 @@ internal fun AccessControlAdminScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    GoogleSignInDetailsButton(
-                        customer.googleSignIn,
-                        title = "Thông tin đăng nhập và thiết bị"
-                    )
+                    customer.googleSignIn?.let { GoogleSignInDetailsContent(it) }
                 }
             },
             confirmButton = { TextButton(onClick = { customerInfo = null }) { Text("Đóng") } }
