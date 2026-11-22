@@ -478,6 +478,27 @@ internal fun CustomerDeviceLicenseScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
+                        if (device.status == "REVOKED") {
+                            val revokeMessage = when (device.revokedReason) {
+                                "CUSTOMER_REMOVED" -> tr(
+                                    "Bạn đã gỡ thiết bị này. Có thể đăng ký lại bằng khóa bảo mật cũ khi giấy phép còn hiệu lực.",
+                                    "You removed this device. You can register it again with its existing security key while your license is active."
+                                )
+                                "OWNER_REVOKED" -> tr(
+                                    "Chủ ứng dụng đã thu hồi thiết bị này. Hãy liên hệ chủ ứng dụng để được mở lại.",
+                                    "The app owner revoked this device. Contact the owner to restore it."
+                                )
+                                "ACCOUNT_REVOKED" -> tr(
+                                    "Thiết bị bị thu hồi cùng tài khoản. Chủ ứng dụng cần kích hoạt lại tài khoản, cấp giấy phép và mở lại thiết bị.",
+                                    "This device was revoked with the account. The owner must reactivate the account, issue a license and restore the device."
+                                )
+                                else -> tr(
+                                    "Thiết bị đã bị thu hồi từ phiên bản cũ. Chủ ứng dụng cần mở lại thiết bị trong trang quản lý.",
+                                    "This device was revoked by an older version. The owner must restore it from device management."
+                                )
+                            }
+                            Text(revokeMessage, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                        }
                         if (device.status == "ACTIVE") {
                             TextButton(
                                 onClick = {

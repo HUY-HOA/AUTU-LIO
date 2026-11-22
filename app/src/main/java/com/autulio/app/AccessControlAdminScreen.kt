@@ -237,7 +237,7 @@ internal fun AccessControlAdminScreen(
                                             val token = accessToken ?: return@TextButton
                                             pendingConfirmation = AccessAdminConfirmation(
                                                 title = "Thu hồi giấy phép?",
-                                                message = "Quyền sử dụng của khách hàng sẽ bị chấm dứt. Các thiết bị đang hoạt động của khách hàng cũng sẽ bị thu hồi và phải đăng ký lại sau khi được cấp giấy phép mới.",
+                                                message = "Quyền chạy AUTU sẽ bị chấm dứt nhưng các đăng ký thiết bị và khóa bảo mật được giữ nguyên. Khi cấp giấy phép mới, những thiết bị đã đăng ký có thể tiếp tục sử dụng nếu vẫn trong giới hạn.",
                                                 confirmLabel = "Thu hồi giấy phép"
                                             ) {
                                                 repository.updateCustomerLicense(token, license.id, "REVOKED", license.expiresAt, license.maxDevices)
@@ -268,13 +268,53 @@ internal fun AccessControlAdminScreen(
                                 }
                                 Text("${device.manufacturer} ${device.model} · Android ${device.androidVersion}", fontSize = 12.sp)
                                 Text("AUTU-LIO ${device.appVersion} · Lần hoạt động: ${accessDate(device.lastSeenAt)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (device.status == "ACTIVE") {
+                                Text(
+                                    "Tài khoản: ${statusText(device.customerStatus)} · Giấy phép: ${device.licenseStatus?.let(::statusText) ?: "Chưa có"} · Thiết bị: ${device.activeDeviceCount}/${device.maxDevices ?: 0}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (device.status == "REVOKED") {
+                                    val reasonText = when (device.revokedReason) {
+                                        "OWNER_REVOKED" -> "Chủ ứng dụng đã thu hồi"
+                                        "ACCOUNT_REVOKED" -> "Tài khoản đã thu hồi"
+                                        "CUSTOMER_REMOVED" -> "Khách hàng tự gỡ"
+                                        "LEGACY_REVOKED" -> "Thu hồi từ phiên bản cũ"
+                                        else -> "Không rõ lý do"
+                                    }
+                                    Text("Lý do: $reasonText", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                                    val canRestore = device.customerStatus == "ACTIVE" &&
+                                        device.licenseStatus == "ACTIVE" &&
+                                        device.activeDeviceCount < (device.maxDevices ?: 0)
+                                    TextButton(
+                                        enabled = canRestore,
+                                        onClick = {
+                                            val token = accessToken ?: return@TextButton
+                                            pendingConfirmation = AccessAdminConfirmation(
+                                                title = "Mở lại thiết bị?",
+                                                message = "Thiết bị sẽ được kích hoạt lại bằng khóa bảo mật đã đăng ký trước đây. Cần tài khoản đang hoạt động, giấy phép còn hiệu lực và còn chỗ trong giới hạn thiết bị.",
+                                                confirmLabel = "Mở lại thiết bị",
+                                                destructive = false
+                                            ) {
+                                                repository.updateCustomerDeviceStatus(token, device.id, "ACTIVE")
+                                                notice = "Đã mở lại thiết bị."
+                                            }
+                                        }
+                                    ) { Text("Mở lại thiết bị") }
+                                    if (!canRestore) {
+                                        val blocked = when {
+                                            device.customerStatus != "ACTIVE" -> "Cần kích hoạt tài khoản trước"
+                                            device.licenseStatus != "ACTIVE" -> "Cần cấp giấy phép còn hiệu lực trước"
+                                            else -> "Đã hết giới hạn thiết bị; hãy thu hồi thiết bị khác hoặc tăng giới hạn"
+                                        }
+                                        Text(blocked, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                } else {
                                     TextButton(
                                         onClick = {
                                             val token = accessToken ?: return@TextButton
                                             pendingConfirmation = AccessAdminConfirmation(
                                                 title = "Thu hồi thiết bị?",
-                                                message = "Thiết bị này sẽ mất quyền truy cập các gói AUTU. Khách hàng cần đăng ký lại thiết bị để sử dụng.",
+                                                message = "Thiết bị sẽ mất quyền chạy các gói AUTU. Bạn có thể chủ động mở lại thiết bị sau này, nếu tài khoản, giấy phép và giới hạn thiết bị cho phép.",
                                                 confirmLabel = "Thu hồi thiết bị"
                                             ) {
                                                 repository.revokeCustomerDevice(token, device.id)
@@ -320,7 +360,7 @@ internal fun AccessControlAdminScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    if (customer.licenseId == null && customer.status == "ACTIVE") {
+                                    if ((customer.licenseId == null || customer.licenseStatus == "REVOKED") && customer.status == "ACTIVE") {
                                         OutlinedButton(
                                             onClick = {
                                                 createFor = customer
@@ -351,7 +391,7 @@ internal fun AccessControlAdminScreen(
                                             val message = if (nextStatus == "SUSPENDED") {
                                                 "Các phiên đăng nhập hiện tại sẽ bị chấm dứt. Giấy phép và thiết bị vẫn được giữ, nhưng tài khoản không thể sử dụng khi đang khóa."
                                             } else if (customer.status == "REVOKED") {
-                                                "Tài khoản được kích hoạt lại để đăng nhập. Giấy phép và thiết bị đã thu hồi sẽ không tự khôi phục; cần cấp giấy phép và đăng ký thiết bị lại."
+                                                "Tài khoản được kích hoạt lại để đăng nhập. Hãy cấp giấy phép mới; sau đó có thể mở lại các thiết bị đã thu hồi trong mục Thiết bị nếu còn giới hạn."
                                             } else {
                                                 "Khách hàng có thể đăng nhập lại. Phiên cũ đã bị chấm dứt nên cần đăng nhập mới."
                                             }

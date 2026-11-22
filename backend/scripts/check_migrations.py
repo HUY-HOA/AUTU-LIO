@@ -138,6 +138,22 @@ except sqlite3.IntegrityError:
 else:
     raise SystemExit("Database accepted a duplicate package version")
 
+device_columns = {
+    row[1]
+    for row in database.execute("PRAGMA table_info(devices)")
+}
+if "revoked_reason" not in device_columns:
+    raise SystemExit("Device revocation reason column is missing")
+
+database.execute(
+    "UPDATE devices SET status = 'REVOKED', revoked_reason = 'LEGACY_REVOKED' WHERE id = 'device-1'"
+)
+revoked_device = database.execute(
+    "SELECT status, revoked_reason FROM devices WHERE id = 'device-1'"
+).fetchone()
+if revoked_device != ("REVOKED", "LEGACY_REVOKED"):
+    raise SystemExit("Legacy device revocations are not represented explicitly")
+
 package_version_columns = {
     row[1]
     for row in database.execute("PRAGMA table_info(script_package_versions)")
@@ -167,5 +183,5 @@ if foreign_key_errors:
 
 print(
     f"OK: {len(required_tables)} required tables, {len(migrations)} migrations, "
-    "single-owner, removed collaboration schema, licenses, device limits, unique device keys, encrypted package schema and immutable versions"
+    "single-owner, removed collaboration schema, licenses, device limits, revocation reasons, unique device keys, encrypted package schema and immutable versions"
 )

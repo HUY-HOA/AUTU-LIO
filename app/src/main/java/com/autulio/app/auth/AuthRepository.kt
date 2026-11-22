@@ -121,7 +121,13 @@ data class DeviceRecord(
     val status: String,
     val registeredAt: Long,
     val lastSeenAt: Long,
-    val revokedAt: Long?
+    val revokedAt: Long?,
+    val revokedReason: String?,
+    val customerStatus: String,
+    val licenseStatus: String?,
+    val licenseExpiresAt: Long?,
+    val maxDevices: Int?,
+    val activeDeviceCount: Int
 )
 
 data class DeviceEnrollmentChallenge(
@@ -162,7 +168,8 @@ data class CustomerDeviceInfo(
     val status: String,
     val registeredAt: Long,
     val lastSeenAt: Long,
-    val revokedAt: Long?
+    val revokedAt: Long?,
+    val revokedReason: String?
 )
 
 data class AutuPackageRecord(
@@ -429,21 +436,32 @@ class AuthRepository(context: Context) {
                         status = item.optString("status"),
                         registeredAt = item.optLong("registered_at"),
                         lastSeenAt = item.optLong("last_seen_at"),
-                        revokedAt = item.optLong("revoked_at").takeIf { item.has("revoked_at") && !item.isNull("revoked_at") }
+                        revokedAt = item.optLong("revoked_at").takeIf { item.has("revoked_at") && !item.isNull("revoked_at") },
+                        revokedReason = item.optString("revoked_reason").takeIf { it.isNotBlank() && it != "null" },
+                        customerStatus = item.optString("customer_status"),
+                        licenseStatus = item.optString("license_status").takeIf { it.isNotBlank() && it != "null" },
+                        licenseExpiresAt = item.optLong("license_expires_at").takeIf { item.has("license_expires_at") && !item.isNull("license_expires_at") },
+                        maxDevices = item.optInt("max_devices").takeIf { item.has("max_devices") && !item.isNull("max_devices") },
+                        activeDeviceCount = item.optInt("active_device_count")
                     )
                 )
             }
         }
     }
 
-    suspend fun revokeCustomerDevice(accessToken: String, deviceId: String) {
+    suspend fun updateCustomerDeviceStatus(accessToken: String, deviceId: String, status: String) {
         require(deviceId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(status in setOf("ACTIVE", "REVOKED"))
         apiRequest(
             "/api/admin/devices/$deviceId",
             "PATCH",
-            JSONObject().put("status", "REVOKED"),
+            JSONObject().put("status", status),
             accessToken
         )
+    }
+
+    suspend fun revokeCustomerDevice(accessToken: String, deviceId: String) {
+        updateCustomerDeviceStatus(accessToken, deviceId, "REVOKED")
     }
 
     suspend fun listAdminAuditLogs(accessToken: String, limit: Int = 50): List<AuditLogRecord> {
@@ -713,7 +731,8 @@ class AuthRepository(context: Context) {
                             status = item.optString("status"),
                             registeredAt = item.optLong("registered_at"),
                             lastSeenAt = item.optLong("last_seen_at"),
-                            revokedAt = item.optLong("revoked_at").takeIf { item.has("revoked_at") && !item.isNull("revoked_at") }
+                            revokedAt = item.optLong("revoked_at").takeIf { item.has("revoked_at") && !item.isNull("revoked_at") },
+                            revokedReason = item.optString("revoked_reason").takeIf { it.isNotBlank() && it != "null" }
                         )
                     )
                 }
@@ -963,8 +982,9 @@ class AuthRepository(context: Context) {
         "invalid_device_public_key", "weak_device_public_key" -> "Khóa bảo mật của thiết bị không hợp lệ."
         "invalid_device_proof", "invalid_device_challenge", "invalid_device_signature",
         "device_challenge_already_used" -> "Không thể xác minh thiết bị. Vui lòng thử đăng ký lại."
-        "device_revoked" -> "Thiết bị này đã bị chủ ứng dụng thu hồi quyền."
+        "device_revoked" -> "Thiết bị đã bị chủ ứng dụng hoặc thao tác thu hồi tài khoản chặn. Hãy yêu cầu chủ ứng dụng mở lại thiết bị."
         "device_limit_reached" -> "Đã đạt giới hạn số thiết bị của giấy phép."
+        "device_limit_below_existing" -> "Giới hạn mới thấp hơn số thiết bị đang hoạt động. Hãy thu hồi bớt thiết bị hoặc tăng giới hạn."
         "device_key_already_registered" -> "Thiết bị này đã được đăng ký bằng một tài khoản khác."
         "active_device_required", "invalid_device_fingerprint" ->
             "Hãy đăng ký thiết bị này trước khi sử dụng kho AUTU."

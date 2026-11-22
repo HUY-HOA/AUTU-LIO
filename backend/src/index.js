@@ -461,11 +461,11 @@ async function listAdminCustomers(request, env, session) {
   const result = await env.DB.prepare(
     "SELECT u.id, u.google_sub, u.email, u.email_verified, u.display_name, u.status, u.created_at, u.last_login_at, " +
     "l.id AS license_id, l.plan_code, l.status AS license_status, l.starts_at, l.expires_at, l.max_devices, " +
-    "CASE WHEN l.id IS NULL THEN NULL WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_license_status, " +
+    "CASE WHEN l.id IS NULL THEN NULL WHEN l.status <> 'ACTIVE' THEN l.status WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_license_status, " +
     "(SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE') AS active_device_count, " +
     "(SELECT metadata_json FROM audit_logs a WHERE a.actor_user_id = u.id AND a.action = 'auth.google_sign_in' ORDER BY a.created_at DESC LIMIT 1) AS latest_sign_in_metadata_json, " +
     "(SELECT created_at FROM audit_logs a WHERE a.actor_user_id = u.id AND a.action = 'auth.google_sign_in' ORDER BY a.created_at DESC LIMIT 1) AS latest_sign_in_at " +
-    "FROM users u LEFT JOIN licenses l ON l.user_id = u.id AND l.status = 'ACTIVE' " +
+    "FROM users u LEFT JOIN licenses l ON l.id = (SELECT latest.id FROM licenses latest WHERE latest.user_id = u.id ORDER BY latest.created_at DESC, latest.rowid DESC LIMIT 1) " +
     "WHERE u.role = 'CUSTOMER' ORDER BY u.created_at DESC"
   ).bind(now, now).all();
   const customers = (result.results || []).map(row => {
@@ -522,7 +522,7 @@ async function updateAdminCustomer(request, env, session, customerId) {
         "UPDATE licenses SET status = 'REVOKED', updated_at = ? WHERE user_id = ? AND status <> 'REVOKED'"
       ).bind(now, customerId),
       env.DB.prepare(
-        "UPDATE devices SET status = 'REVOKED', revoked_at = ? WHERE user_id = ? AND status = 'ACTIVE'"
+        "UPDATE devices SET status = 'REVOKED', revoked_at = ?, revoked_reason = 'ACCOUNT_REVOKED' WHERE user_id = ? AND status = 'ACTIVE'"
       ).bind(now, customerId)
     );
   }
@@ -582,6 +582,12 @@ async function createCustomerLicense(request, env, session) {
   }
   if (customer.status !== "ACTIVE") {
     throw new HttpError(409, "customer_inactive", "A license cannot be issued to an inactive account.");
+  }
+  const enrolled = await env.DB.prepare(
+    "SELECT COUNT(*) AS active_count FROM devices WHERE user_id = ? AND status = 'ACTIVE'"
+  ).bind(userId).first();
+  if (Number(enrolled?.active_count || 0) > maxDevices) {
+    throw new HttpError(409, "device_limit_below_existing", "The new license device limit is lower than the customer's current active device count. Revoke extra devices or increase the limit.");
   }
 
   await env.DB.prepare(
@@ -643,6 +649,14 @@ async function updateCustomerLicense(request, env, session, licenseId) {
   if (status === "ACTIVE" && (startsAt > now || expiresAt <= now)) {
     throw new HttpError(400, "license_not_current", "An active license must have a start time in the past and an expiry time in the future.");
   }
+  if (status === "ACTIVE") {
+    const enrolled = await env.DB.prepare(
+      "SELECT COUNT(*) AS active_count FROM devices WHERE user_id = ? AND status = 'ACTIVE'"
+    ).bind(current.user_id).first();
+    if (Number(enrolled?.active_count || 0) > maxDevices) {
+      throw new HttpError(409, "device_limit_below_existing", "The new license device limit is lower than the customer's current active device count. Revoke extra devices or increase the limit.");
+    }
+  }
 
   try {
     const result = await env.DB.prepare(
@@ -657,12 +671,9 @@ async function updateCustomerLicense(request, env, session, licenseId) {
     throw error;
   }
 
-  if (status === "REVOKED") {
-    await env.DB.prepare(
-      "UPDATE devices SET status = 'REVOKED', revoked_at = ? WHERE user_id = ? AND status = 'ACTIVE'"
-    ).bind(now, current.user_id).run();
-  }
-
+  // License entitlement is independent from device enrollment. Keep device
+  // registrations intact so a newly issued license can restore access without
+  // forcing the customer to replace an already-trusted Android Keystore key.
   await audit(env, session.user_id, "license.updated", "license", licenseId, {
     status, planCode, startsAt, expiresAt, maxDevices
   });
@@ -671,28 +682,70 @@ async function updateCustomerLicense(request, env, session, licenseId) {
 
 async function listAdminDevices(request, env, session) {
   await requireRole(session, ["OWNER"]);
+  const now = Math.floor(Date.now() / 1000);
   const result = await env.DB.prepare(
-    "SELECT d.id, d.user_id, u.email, u.display_name, d.label, d.manufacturer, d.model, " +
-    "d.android_version, d.app_version, d.status, d.registered_at, d.last_seen_at, d.revoked_at " +
-    "FROM devices d JOIN users u ON u.id = d.user_id ORDER BY d.last_seen_at DESC"
-  ).all();
+    "SELECT d.id, d.user_id, u.email, u.display_name, u.status AS customer_status, " +
+    "d.label, d.manufacturer, d.model, d.android_version, d.app_version, d.status, d.revoked_reason, " +
+    "d.registered_at, d.last_seen_at, d.revoked_at, l.status AS raw_license_status, l.starts_at AS license_starts_at, " +
+    "l.expires_at AS license_expires_at, l.max_devices, " +
+    "CASE WHEN l.id IS NULL THEN NULL WHEN l.status <> 'ACTIVE' THEN l.status WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS license_status, " +
+    "(SELECT COUNT(*) FROM devices active WHERE active.user_id = d.user_id AND active.status = 'ACTIVE') AS active_device_count " +
+    "FROM devices d JOIN users u ON u.id = d.user_id " +
+    "LEFT JOIN licenses l ON l.id = (SELECT latest.id FROM licenses latest WHERE latest.user_id = u.id ORDER BY latest.created_at DESC, latest.rowid DESC LIMIT 1) " +
+    "ORDER BY d.last_seen_at DESC"
+  ).bind(now, now).all();
   return response(request, { devices: result.results || [] }, 200, env);
 }
 
-async function revokeCustomerDevice(request, env, session, deviceId) {
+async function updateAdminDeviceStatus(request, env, session, deviceId) {
   await requireRole(session, ["OWNER"]);
   if (!ID_PATTERN.test(deviceId)) throw new HttpError(400, "invalid_device_id", "Device ID is invalid.");
+  const body = await readBody(request);
+  const status = typeof body.status === "string" ? body.status.trim().toUpperCase() : "";
+  if (!["ACTIVE", "REVOKED"].includes(status)) {
+    throw new HttpError(400, "invalid_device_status", "Device status must be ACTIVE or REVOKED.");
+  }
   const device = await env.DB.prepare(
-    "SELECT id, user_id, status FROM devices WHERE id = ?"
+    "SELECT id, user_id, status, revoked_reason FROM devices WHERE id = ?"
   ).bind(deviceId).first();
   if (!device) throw new HttpError(404, "device_not_found", "Device was not found.");
-  if (device.status === "REVOKED") return response(request, { revoked: true, deviceId }, 200, env);
+  if (device.status === status) {
+    return response(request, { updated: true, deviceId, status, unchanged: true }, 200, env);
+  }
+
   const now = Math.floor(Date.now() / 1000);
+  if (status === "ACTIVE") {
+    const customer = await env.DB.prepare(
+      "SELECT status FROM users WHERE id = ? AND role = 'CUSTOMER'"
+    ).bind(device.user_id).first();
+    if (!customer || customer.status !== "ACTIVE") {
+      throw new HttpError(409, "customer_inactive", "Activate the customer account before restoring its device.");
+    }
+    const license = await getActiveLicense(env, device.user_id, now);
+    if (!license) {
+      throw new HttpError(409, "active_license_required", "Issue or activate a current license before restoring this device.");
+    }
+    const restored = await env.DB.prepare(
+      "UPDATE devices SET status = 'ACTIVE', revoked_at = NULL, revoked_reason = NULL, last_seen_at = ? " +
+      "WHERE id = ? AND user_id = ? AND status = 'REVOKED' " +
+      "AND (SELECT COUNT(*) FROM devices active WHERE active.user_id = ? AND active.status = 'ACTIVE') < ?"
+    ).bind(now, deviceId, device.user_id, device.user_id, license.max_devices).run();
+    if (restored.meta?.changes !== 1) {
+      throw new HttpError(409, "device_limit_reached", "The license has no free device slot. Revoke another active device or increase the device limit first.");
+    }
+    await audit(env, session.user_id, "device.reactivated_by_owner", "device", deviceId, {
+      customerId: device.user_id,
+      previousRevocationReason: device.revoked_reason
+    });
+    return response(request, { updated: true, deviceId, status, reactivated: true }, 200, env);
+  }
+
   await env.DB.prepare(
-    "UPDATE devices SET status = 'REVOKED', revoked_at = ? WHERE id = ? AND status = 'ACTIVE'"
+    "UPDATE devices SET status = 'REVOKED', revoked_at = ?, revoked_reason = 'OWNER_REVOKED' " +
+    "WHERE id = ? AND status = 'ACTIVE'"
   ).bind(now, deviceId).run();
   await audit(env, session.user_id, "device.revoked_by_owner", "device", deviceId, { customerId: device.user_id });
-  return response(request, { revoked: true, deviceId }, 200, env);
+  return response(request, { updated: true, deviceId, status }, 200, env);
 }
 
 async function getCustomerAccount(request, env, session) {
@@ -700,10 +753,10 @@ async function getCustomerAccount(request, env, session) {
   const now = Math.floor(Date.now() / 1000);
   const license = await env.DB.prepare(
     "SELECT id, plan_code, status, starts_at, expires_at, max_devices FROM licenses " +
-    "WHERE user_id = ? ORDER BY created_at DESC LIMIT 1"
+    "WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1"
   ).bind(session.user_id).first();
   const result = await env.DB.prepare(
-    "SELECT id, label, manufacturer, model, android_version, app_version, status, registered_at, last_seen_at, revoked_at " +
+    "SELECT id, label, manufacturer, model, android_version, app_version, status, revoked_at, revoked_reason, registered_at, last_seen_at " +
     "FROM devices WHERE user_id = ? ORDER BY registered_at DESC"
   ).bind(session.user_id).all();
 
@@ -822,11 +875,8 @@ async function registerCustomerDevice(request, env, session) {
   const digest = await crypto.subtle.digest("SHA-256", publicKeyBytes);
   const fingerprint = Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, "0")).join("");
   const existing = await env.DB.prepare(
-    "SELECT id, status FROM devices WHERE user_id = ? AND public_key_fingerprint = ?"
+    "SELECT id, status, revoked_reason FROM devices WHERE user_id = ? AND public_key_fingerprint = ?"
   ).bind(session.user_id, fingerprint).first();
-  if (existing?.status === "REVOKED") {
-    throw new HttpError(403, "device_revoked", "This device was revoked by the application owner.");
-  }
 
   const metadata = {
     label: cleanDeviceText(body.label, 100),
@@ -835,6 +885,32 @@ async function registerCustomerDevice(request, env, session) {
     androidVersion: cleanDeviceText(body.androidVersion, 40),
     appVersion: cleanDeviceText(body.appVersion, 40)
   };
+
+  if (existing?.status === "REVOKED" && existing.revoked_reason !== "CUSTOMER_REMOVED") {
+    throw new HttpError(403, "device_revoked", "This device was revoked by the application owner. Ask the owner to reactivate it.");
+  }
+
+  if (existing?.status === "REVOKED") {
+    const restored = await env.DB.prepare(
+      "UPDATE devices SET status = 'ACTIVE', revoked_at = NULL, revoked_reason = NULL, " +
+      "label = ?, manufacturer = ?, model = ?, android_version = ?, app_version = ?, last_seen_at = ? " +
+      "WHERE id = ? AND user_id = ? AND status = 'REVOKED' AND revoked_reason = 'CUSTOMER_REMOVED' " +
+      "AND (SELECT COUNT(*) FROM devices WHERE user_id = ? AND status = 'ACTIVE') < ?"
+    ).bind(
+      metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion,
+      now, existing.id, session.user_id, session.user_id, license.max_devices
+    ).run();
+    if (restored.meta?.changes !== 1) {
+      throw new HttpError(409, "device_limit_reached", "The license has reached its active device limit or the device state changed. Refresh and try again.");
+    }
+    await audit(env, session.user_id, "device.re_registered", "device", existing.id, { fingerprint });
+    return response(request, {
+      registered: true,
+      alreadyRegistered: true,
+      reactivated: true,
+      device: { id: existing.id, ...metadata, status: "ACTIVE", lastSeenAt: now }
+    }, 200, env);
+  }
 
   if (existing) {
     await env.DB.prepare(
@@ -882,7 +958,8 @@ async function removeOwnDevice(request, env, session, deviceId) {
   if (!ID_PATTERN.test(deviceId)) throw new HttpError(400, "invalid_device_id", "Device ID is invalid.");
   const now = Math.floor(Date.now() / 1000);
   const result = await env.DB.prepare(
-    "UPDATE devices SET status = 'REVOKED', revoked_at = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
+    "UPDATE devices SET status = 'REVOKED', revoked_at = ?, revoked_reason = 'CUSTOMER_REMOVED' " +
+    "WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
   ).bind(now, deviceId, session.user_id).run();
   if (result.meta?.changes !== 1) throw new HttpError(404, "device_not_found", "Active device was not found on this account.");
   await audit(env, session.user_id, "device.removed_by_customer", "device", deviceId);
@@ -1468,7 +1545,7 @@ async function route(request, env) {
   if (licenseMatch && method === "PATCH") return await updateCustomerLicense(request, env, session, licenseMatch[1]);
   if (method === "GET" && path === "/api/admin/devices") return await listAdminDevices(request, env, session);
   const deviceMatch = path.match(/^\/api\/admin\/devices\/([0-9a-f-]{36})$/i);
-  if (deviceMatch && method === "PATCH") return await revokeCustomerDevice(request, env, session, deviceMatch[1]);
+  if (deviceMatch && method === "PATCH") return await updateAdminDeviceStatus(request, env, session, deviceMatch[1]);
 
   if (method === "POST" && path === "/api/auth/logout") {
     const now = Math.floor(Date.now() / 1000);
