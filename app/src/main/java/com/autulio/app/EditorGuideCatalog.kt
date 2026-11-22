@@ -177,7 +177,7 @@ object EditorGuideCatalog {
                 EditorGuideCommand("TỶ_LỆ_X_THEO_TỌA_ĐỘ(x) / TỶ_LỆ_Y_THEO_TỌA_ĐỘ(y)", "Đổi tọa độ pixel thành tỷ lệ màn hình."),
                 EditorGuideCommand("TỌA_ĐỘ_X_VÙNG_AN_TOÀN(tỷ_lệ) / TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(tỷ_lệ)", "Tính tọa độ bên trong vùng thao tác an toàn."),
                 EditorGuideCommand("TỶ_LỆ_X_VÙNG_AN_TOÀN(x) / TỶ_LỆ_Y_VÙNG_AN_TOÀN(y)", "Đổi tọa độ vùng an toàn thành tỷ lệ."),
-                EditorGuideCommand("TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(x, y) / TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(x, y)", "Quy đổi tọa độ theo hướng màn hình gốc.")
+                EditorGuideCommand("TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(x, y) / TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(x, y)", "Quy đổi tọa độ theo hướng màn hình gốc."),
                 EditorGuideCommand("CHIỀU_RỘNG_VÙNG_AN_TOÀN() / CHIỀU_CAO_VÙNG_AN_TOÀN()", "Lấy kích thước vùng an toàn sau khi trừ lề hệ thống và vùng khuyết."),
                 EditorGuideCommand("LỀ_AN_TOÀN_TRÁI() / LỀ_AN_TOÀN_TRÊN() / LỀ_AN_TOÀN_PHẢI() / LỀ_AN_TOÀN_DƯỚI()", "Lấy các lề an toàn theo pixel."),
                 EditorGuideCommand("CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH()", "Kiểm tra Android có cung cấp dữ liệu để xác định vùng khuyết; Android 8 có thể trả về SAI.", minAndroidApi = 28),
@@ -186,7 +186,7 @@ object EditorGuideCatalog {
             ),
             notes = listOf(
                 "Tọa độ thao tác tính bằng pixel; nên dùng hàm quy đổi khi cần hỗ trợ nhiều kích thước màn hình.",
-                "Vùng an toàn giúp tránh lề hệ thống và các vùng khuyết được Android cung cấp."
+                "Vùng an toàn giúp tránh lề hệ thống và các vùng khuyết được Android cung cấp.",
                 "Dữ liệu vùng khuyết (DisplayCutout) cần Android 9.0 (API 28) trở lên; trên Android cũ, hàm xác định vùng khuyết có thể trả về SAI.",
             )
         ),
