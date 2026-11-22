@@ -359,6 +359,9 @@ test("customer account endpoint returns the signed-in account and empty license/
   assert.equal(response.status, 200);
   assert.equal(body.account.id, customerSession.user_id);
   assert.equal(body.account.email, customerSession.email);
+  assert.equal(Object.hasOwn(body.account, "googleSub"), false);
+  assert.equal(Object.hasOwn(body.account, "emailVerified"), false);
+  assert.equal(Object.hasOwn(body.account, "latestSignIn"), false);
   assert.equal(body.license, null);
   assert.deepEqual(body.devices, []);
   assert.equal(body.canRun, false);
