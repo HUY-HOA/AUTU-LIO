@@ -632,7 +632,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 vibrator.vibrate(android.os.VibrationEffect.createOneShot(duration.toLong(), android.os.VibrationEffect.DEFAULT_AMPLITUDE))
                 true
             }
-            "ÂM_LƯỢNG" -> {
+            "LẤY_ÂM_LƯỢNG" -> {
                 requireArgumentCount(name, arguments, 0)
                 val audio = getSystemService(android.media.AudioManager::class.java)
                     ?: throw IllegalStateException("Không đọc được âm lượng hệ thống.")
@@ -650,7 +650,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, target, 0)
                 true
             }
-            "ĐỘ_SÁNG" -> {
+            "LẤY_ĐỘ_SÁNG" -> {
                 requireArgumentCount(name, arguments, 0)
                 val value = android.provider.Settings.System.getInt(
                     contentResolver,
@@ -682,7 +682,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     raw
                 )
             }
-            "CHỤP_ẢNH_MÀN_HÌNH", "LƯU_ẢNH_MÀN_HÌNH" -> {
+            "CHỤP_ẢNH_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 1)
                 val relativePath = requireTextArgument(name, arguments[0]).trim()
                 require(relativePath.lowercase(Locale.ROOT).endsWith(".jpg") ||
@@ -754,10 +754,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
                 keyguard.isDeviceSecure
             }
-            "PIN", "PHẦN_TRĂM_PIN" -> batteryPercent()
-            "ĐANG_SẠC" -> isCharging()
-            "CÓ_MẠNG" -> hasNetworkConnection()
-            "MÀN_HÌNH_SÁNG" -> {
+            "LẤY_PHẦN_TRĂM_PIN", "LẤY_PHẦN_TRĂM_PIN" -> batteryPercent()
+            "KIỂM_TRA_ĐANG_SẠC" -> isCharging()
+            "KIỂM_TRA_KẾT_NỐI_MẠNG" -> hasNetworkConnection()
+            "KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG" -> {
                 val power = getSystemService(Context.POWER_SERVICE) as PowerManager
                 power.isInteractive
             }
@@ -826,12 +826,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 clearScreenAnnotations()
             }
-            "ỨNG_DỤNG_ĐÃ_CÀI" -> {
+            "KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI" -> {
                 requireArgumentCount(name, arguments, 1)
                 val packageName = arguments[0] as? String ?: return false
                 isPackageInstalled(packageName)
             }
-            "ỨNG_DỤNG_ĐANG_MỞ" -> {
+            "KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ" -> {
                 requireArgumentCount(name, arguments, 1)
                 val packageName = arguments[0] as? String ?: return false
                 foregroundPackage == packageName
@@ -981,7 +981,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 recognizeStructuredScreenText()
             }
-            "MÀN_HÌNH_CHỨA_CHỮ" -> {
+            "KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 1)
                 val query = arguments[0] as? String
                     ?: throw IllegalArgumentException("MÀN_HÌNH_CHỨA_CHỮ cần một chuỗi.")
@@ -999,17 +999,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     (match.bounds.top + match.bounds.bottom) / 2
                 )
             }
-            "ĐỌC_VĂN_BẢN_VÙNG" -> {
+            "ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 4)
                 readTextInScreenRegion(name, arguments.toTypedArray())
             }
-            "MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG" -> {
+            "KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 5)
                 val query = requireTextArgument(name, arguments[0])
                 readTextInScreenRegion(name, arguments.drop(1).toTypedArray())
                     .contains(query, ignoreCase = true)
             }
-            "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG" -> {
+            "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 5)
                 val query = requireTextArgument(name, arguments[0])
                 findTextInScreenRegion(name, query, arguments.drop(1).toTypedArray())
@@ -1018,7 +1018,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 recognizeScreenImageLabels()
             }
-            "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" -> {
+            "KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 1)
                 val query = requireTextArgument(name, arguments[0])
                 recognizeScreenImageLabels().any { it.contains(query, ignoreCase = true) }
@@ -1043,7 +1043,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 recognizeScreenObjects()
             }
-            "MÀN_HÌNH_CÓ_VẬT_THỂ" -> {
+            "KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 1)
                 val query = requireTextArgument(name, arguments[0])
                 recognizeScreenObjects().any { item ->
@@ -1075,7 +1075,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 recognizeScreenObjects().size
             }
-            "MÀU_TẠI" -> {
+            "LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 2)
                 withRequiredCapturedScreen { bitmap ->
                     val x = requirePositiveOrZeroInt(name, arguments[0], "X")
@@ -1086,7 +1086,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     ScreenColorAnalyzer.describe(bitmap.getPixel(x, y))
                 }
             }
-            "MÀN_HÌNH_CÓ_MÀU" -> {
+            "KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 4)
                 val target = requireColorArguments(name, arguments, 0)
                 withRequiredCapturedScreen { bitmap ->
@@ -1098,7 +1098,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     ) != null
                 }
             }
-            "TÌM_VỊ_TRÍ_MÀU" -> {
+            "TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 4)
                 val target = requireColorArguments(name, arguments, 0)
                 withRequiredCapturedScreen { bitmap ->
@@ -1110,7 +1110,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     ) ?: emptyList<Int>()
                 }
             }
-            "TỶ_LỆ_MÀU_TRONG_VÙNG" -> {
+            "TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 8)
                 val target = requireColorArguments(name, arguments, 0)
                 withRequiredCapturedScreen { bitmap ->
@@ -1178,7 +1178,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 }
                 scriptDatabaseStore.migrateSchema(version, statements)
             }
-            "GỬI_TỆP_HTTP" -> {
+            "TẢI_LÊN_TỆP_HTTP" -> {
                 requireArgumentCount(name, arguments, 8)
                 val method = requireTextArgument(name, arguments[0])
                 val url = requireTextArgument(name, arguments[1])
@@ -1211,7 +1211,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     timeoutMs = timeoutMs
                 )
             }
-            "TẢI_TỆP_HTTP" -> {
+            "TẢI_XUỐNG_TỆP_HTTP" -> {
                 requireArgumentCount(name, arguments, 4)
                 val url = requireTextArgument(name, arguments[0])
                 val destinationPath = requireTextArgument(name, arguments[1])
@@ -1281,7 +1281,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 val content = requireTextArgument(name, arguments[1])
                 scriptFileStore.writeText(path, content)
             }
-            "TỆP_TỒN_TẠI" -> {
+            "KIỂM_TRA_TỆP_TỒN_TẠI" -> {
                 requireArgumentCount(name, arguments, 1)
                 scriptFileStore.exists(requireTextArgument(name, arguments[0]))
             }
@@ -2717,7 +2717,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private fun showFloatingActionMenu(anchor: View) {
         val actions = listOf(
-            "Chạm" to "CHẠM(200, 400)",
+            "Chạm" to "NHẤN(200, 400)",
             "Nhấn giữ" to "NHẤN_GIỮ(200, 400, 800)",
             "Vuốt" to "VUỐT(360, 850, 360, 350, 450)",
             "Chờ" to "CHỜ(500)",
