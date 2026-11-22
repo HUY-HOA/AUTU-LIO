@@ -1,0 +1,132 @@
+package com.autulio.app
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+@Composable
+internal fun AdminIconValue(
+    icon: ImageVector,
+    description: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+internal fun AdminPresenceInfo(
+    presenceSeenAt: Long?,
+    appForegroundAt: Long?,
+    runtimeState: String
+) {
+    val nowSeconds = System.currentTimeMillis() / 1000L
+    val ageSeconds = presenceSeenAt
+        ?.takeIf { it > 0L }
+        ?.let { (nowSeconds - it).coerceAtLeast(0L) }
+
+    val connection = when {
+        ageSeconds == null -> "Chưa có dữ liệu"
+        ageSeconds <= 120L -> "Đang kết nối"
+        ageSeconds <= 600L -> "Vừa hoạt động"
+        else -> "Ngoại tuyến"
+    }
+    val connectionIcon = if (ageSeconds != null && ageSeconds <= 120L) {
+        Icons.Outlined.Wifi
+    } else {
+        Icons.Outlined.WifiOff
+    }
+
+    val appIsForeground = ageSeconds != null &&
+        ageSeconds <= 120L &&
+        appForegroundAt != null &&
+        appForegroundAt > 0L &&
+        nowSeconds - appForegroundAt <= 120L
+    val appLabel = when {
+        ageSeconds == null -> "Chưa rõ"
+        appIsForeground -> "Đang mở"
+        ageSeconds <= 600L -> "Đã chuyển nền"
+        else -> "Không rõ"
+    }
+
+    val runtimeFresh = ageSeconds != null && ageSeconds <= 120L
+    val runtimeIcon: ImageVector
+    val runtimeLabel: String
+    if (!runtimeFresh) {
+        runtimeIcon = Icons.Outlined.AccessTime
+        runtimeLabel = "Chưa rõ"
+    } else {
+        when (runtimeState) {
+            "RUNNING" -> {
+                runtimeIcon = Icons.Outlined.PlayArrow
+                runtimeLabel = "Đang chạy"
+            }
+            "PAUSED" -> {
+                runtimeIcon = Icons.Outlined.Pause
+                runtimeLabel = "Tạm dừng"
+            }
+            "STOPPED" -> {
+                runtimeIcon = Icons.Outlined.Stop
+                runtimeLabel = "Đã dừng"
+            }
+            else -> {
+                runtimeIcon = Icons.Outlined.AccessTime
+                runtimeLabel = "Chưa rõ"
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            AdminIconValue(connectionIcon, "Trạng thái kết nối", connection)
+            AdminIconValue(Icons.Outlined.Apps, "Ứng dụng", appLabel)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            AdminIconValue(runtimeIcon, "Trạng thái AUTU", runtimeLabel)
+            if (presenceSeenAt != null && presenceSeenAt > 0L) {
+                AdminIconValue(
+                    Icons.Outlined.AccessTime,
+                    "Lần gửi tín hiệu",
+                    accessDate(presenceSeenAt)
+                )
+            }
+        }
+    }
+}
