@@ -1418,10 +1418,6 @@ async function reportCustomerPresence(request, env, session) {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const license = await getActiveLicense(env, session.user_id, now);
-  if (!license) {
-    throw new HttpError(403, "active_license_required", "An active license is required to report app presence.");
-  }
   const device = await env.DB.prepare(
     "SELECT id FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'"
   ).bind(session.user_id, fingerprint).first();
