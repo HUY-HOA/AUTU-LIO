@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Search
@@ -66,7 +65,6 @@ class ScreenshotLibraryActivity : ComponentActivity() {
                     rootDirectory = screenshotRoot,
                     refreshVersion = refreshVersion.intValue,
                     statusMessage = statusMessage,
-                    onBack = { finish() },
                     onImport = { uris ->
                         statusMessage = "Đang nhập ${uris.size} ảnh..."
                         importSelectedImages(uris) { imported, failed ->
@@ -202,7 +200,6 @@ private fun ScreenshotLibraryScreen(
     rootDirectory: File,
     refreshVersion: Int,
     statusMessage: String,
-    onBack: () -> Unit,
     onImport: (List<Uri>) -> Unit,
     onDelete: (File) -> Unit,
     onOpenImage: (File) -> Unit,
