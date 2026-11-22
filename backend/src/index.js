@@ -742,7 +742,7 @@ async function getCustomerAccount(request, env, session) {
     "WHERE user_id = ? ORDER BY created_at DESC LIMIT 1"
   ).bind(session.user_id).first();
   const result = await env.DB.prepare(
-    "SELECT id, label, manufacturer, model, android_version, app_version, status, registered_at, last_seen_at, revoked_at " +
+    "SELECT id, label, manufacturer, model, android_version, app_version, status, revoked_at, revoked_reason, registered_at, last_seen_at " +
     "FROM devices WHERE user_id = ? ORDER BY registered_at DESC"
   ).bind(session.user_id).all();
 
