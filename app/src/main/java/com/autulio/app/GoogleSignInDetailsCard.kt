@@ -49,7 +49,7 @@ internal fun GoogleSignInDetailsCard(
             InfoLine(tr("Trang hồ sơ", "Profile page"), details.profileUrl)
             InfoLine(tr("Ngôn ngữ Google", "Google locale"), details.locale)
             InfoLine(tr("Miền Google Workspace", "Google Workspace domain"), details.hostedDomain)
-            InfoLine(tr("Thời điểm đăng nhập gần nhất", "Most recent sign-in"), details.signedInAt?.let(::formatEpoch))
+            InfoLine(tr("Thời điểm đăng nhập gần nhất", "Most recent sign-in"), details.signedInAt?.let(::formatGoogleSignInEpoch))
             InfoLine(tr("Nhãn thiết bị", "Device label"), details.deviceLabel)
 
             Text(
@@ -112,4 +112,13 @@ private fun InfoLine(label: String, value: String?) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+
+private fun formatGoogleSignInEpoch(value: Long): String {
+    if (value <= 0L) return "—"
+    return java.text.DateFormat.getDateTimeInstance(
+        java.text.DateFormat.MEDIUM,
+        java.text.DateFormat.SHORT
+    ).format(java.util.Date(value * 1000L))
 }
