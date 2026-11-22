@@ -25,7 +25,9 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.inputmethod.InputMethodManager
 import android.os.Handler
 import android.os.Looper
@@ -159,6 +161,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     @Volatile private var databaseMaintenanceActive = false
     @Volatile private var closeDatabaseWhenMaintenanceEnds = false
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val floatingDraftSaveRunnable = Runnable {
+        if (sessionVerified && sessionRole == AccessRole.OWNER && editorVisible) {
+            saveFloatingDraft()
+        }
+    }
     private val screenshotExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "AUTU-LIO-Screenshot").apply { isDaemon = true }
     }
@@ -282,6 +289,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         executionEngine = null
         authorizationMonitorTask?.cancel(true)
         authorizationMonitorExecutor.shutdownNow()
+        if (editorVisible) runCatching { saveFloatingDraft() }
+        mainHandler.removeCallbacks(floatingDraftSaveRunnable)
         screenshotExecutor.shutdownNow()
         if (screenVisionEngineLazy.isInitialized()) runCatching { screenVisionEngine.close() }
         synchronized(databaseMaintenanceLock) {
@@ -2205,6 +2214,15 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 setStroke(dp(1), 0x805C708C.toInt())
             }
         }
+
+        editor.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                mainHandler.removeCallbacks(floatingDraftSaveRunnable)
+                mainHandler.postDelayed(floatingDraftSaveRunnable, 450L)
+            }
+        })
 
         val editorArea = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
