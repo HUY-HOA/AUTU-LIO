@@ -587,7 +587,6 @@ internal fun CustomerDeviceLicenseScreen(
 internal fun AdminPackagesScreen(
     accessToken: String?,
     modifier: Modifier = Modifier,
-    onBack: () -> Unit,
     initialDraftName: String? = null
 ) {
     val context = LocalContext.current
@@ -644,7 +643,6 @@ internal fun AdminPackagesScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         BrandHeader(admin = true)
-        TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Heading(
