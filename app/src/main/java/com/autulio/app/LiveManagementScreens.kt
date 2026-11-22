@@ -548,10 +548,8 @@ internal fun CustomerLicenseCountdownBar(accessToken: String?) {
         active -> "Giấy phép còn: $remainingDays ngày"
         else -> "Giấy phép ${licenseStatus?.let(::statusText) ?: "chưa xác định"}"
     }
-    val remainingDetail = if (hasRemainingTime && expiresAt != null) {
-        "Thời gian chính xác: ${formatLicenseRemaining(expiresAt, nowEpochSeconds)}"
-    } else {
-        null
+    val remainingDetail = expiresAt?.takeIf { hasRemainingTime }?.let { expiry ->
+        "Thời gian chính xác: ${formatLicenseRemaining(expiry, nowEpochSeconds)}"
     }
     val labelColor = if (active || (lifetime && licenseStatus == "ACTIVE")) {
         MaterialTheme.colorScheme.primary
