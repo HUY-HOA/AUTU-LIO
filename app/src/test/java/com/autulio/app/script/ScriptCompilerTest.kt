@@ -507,7 +507,7 @@ class ScriptCompilerTest {
             """
             BIẾN MÀU: BẢN_ĐỒ = LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(20, 30)
             BIẾN CÓ_MÀU: LUẬN_LÝ = KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(255, 0, 0, 12)
-            BIẾN TỌA_ĐỘ: DANH_SÁCH = TÌM_VỊ_TRÍ_TRONG_CHUỖI_MÀU_TRÊN_MÀN_HÌNH(0, 255, 0, 8)
+            BIẾN TỌA_ĐỘ: DANH_SÁCH = TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH(0, 255, 0, 8)
             BIẾN TỶ_LỆ: SỐ = TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(0, 0, 255, 10, 10, 20, 300, 400)
             """.trimIndent()
         )
@@ -666,7 +666,7 @@ class ScriptCompilerTest {
             """
             BIẾN VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()
             BIẾN CO_CHU: LUẬN_LÝ = KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH("Đăng nhập")
-            BIẾN VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ("Đăng nhập")
+            BIẾN VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ("Đăng nhập")
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
@@ -676,7 +676,7 @@ class ScriptCompilerTest {
     @Test
     fun validatesAccessibilityTextFunctionArgumentCounts() {
         val missingQuery = ScriptCompiler.compile("BIẾN X = KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH()")
-        val tooMany = ScriptCompiler.compile("BIẾN X = TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ(\"A\", \"B\")")
+        val tooMany = ScriptCompiler.compile("BIẾN X = TÌM_VỊ_TRÍ_CHỮ(\"A\", \"B\")")
         assertEquals("function_argument_count", missingQuery.diagnostics.first().code)
         assertEquals("function_argument_count", tooMany.diagnostics.first().code)
     }
@@ -945,7 +945,7 @@ class ScriptCompilerTest {
             """
             BIẾN VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH(0, 0, 300, 200)
             BIẾN CO_CHU: LUẬN_LÝ = KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH("OK", 0, 0, 300, 200)
-            BIẾN VI_TRI_CHU: DANH_SÁCH = TÌM_VỊ_TRÍ_TRONG_CHUỖI_CHỮ_TRONG_VÙNG_MÀN_HÌNH("OK", 0, 0, 300, 200)
+            BIẾN VI_TRI_CHU: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH("OK", 0, 0, 300, 200)
             BIẾN NHAN: DANH_SÁCH = NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()
             BIẾN CO_NHAN: LUẬN_LÝ = KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH("Phone")
             BIẾN QR: DANH_SÁCH = QUÉT_MÃ_QR_MÀN_HÌNH()
@@ -1077,7 +1077,7 @@ class ScriptCompilerTest {
             BIẾN DS: DANH_SÁCH = TẠO_DANH_SÁCH(3, 1, 2)
             BIẾN SAP_XEP: DANH_SÁCH = SẮP_XẾP_DANH_SÁCH(DS)
             BIẾN DAO_NGUOC: DANH_SÁCH = ĐẢO_NGƯỢC_DANH_SÁCH(DS)
-            BIẾN VI_TRI: SỐ = TÌM_VỊ_TRÍ_TRONG_CHUỖI_PHẦN_TỬ_TRONG_DANH_SÁCH(DS, 1)
+            BIẾN VI_TRI: SỐ = TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH(DS, 1)
             BIẾN CHUOI: SỐ = TÌM_VỊ_TRÍ_TRONG_CHUỖI("AUTU-LIO", "LIO")
             BIẾN RONG: LUẬN_LÝ = KIỂM_TRA_RỖNG("  ")
             HÀM LA_SO_DUONG(V: SỐ): LUẬN_LÝ {
@@ -1091,8 +1091,8 @@ class ScriptCompilerTest {
             IN("Hoàn tất")
             THÔNG_BÁO("AUTU-LIO")
             RUNG(100)
-            ĐẶT_LẤY_ÂM_LƯỢNG(50)
-            ĐẶT_LẤY_ĐỘ_SÁNG(60)
+            ĐẶT_ÂM_LƯỢNG(50)
+            ĐẶT_ĐỘ_SÁNG(60)
             BIẾN ANH: BẢN_ĐỒ = CHỤP_ẢNH_MÀN_HÌNH("screens/test.jpg")
             BIẾN ANH_LUU: BẢN_ĐỒ = CHỤP_ẢNH_MÀN_HÌNH("screens/test-copy.jpg")
             BIẾN RONG_VUNG: SỐ = CHIỀU_RỘNG_VÙNG_AN_TOÀN()
