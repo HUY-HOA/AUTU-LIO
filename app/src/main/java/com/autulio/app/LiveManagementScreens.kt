@@ -35,6 +35,7 @@ import com.autulio.app.auth.LicenseRecord
 import com.autulio.app.auth.SecureDeviceIdentityStore
 import com.autulio.app.BuildConfig
 import com.autulio.app.script.ScriptCompiler
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -461,6 +462,86 @@ internal fun DevicesAdminScreen(accessToken: String?, modifier: Modifier = Modif
                 }
             }
         )
+    }
+}
+
+@Composable
+internal fun CustomerLicenseCountdownBar(accessToken: String?) {
+    if (accessToken.isNullOrBlank()) return
+
+    val context = LocalContext.current
+    val repository = remember(context) { AuthRepository(context) }
+    var expiresAt by remember { mutableStateOf<Long?>(null) }
+    var licenseStatus by remember { mutableStateOf<String?>(null) }
+    var planCode by remember { mutableStateOf<String?>(null) }
+    var checked by remember { mutableStateOf(false) }
+    var nowEpochSeconds by remember { mutableStateOf(System.currentTimeMillis() / 1000L) }
+
+    LaunchedEffect(accessToken) {
+        while (true) {
+            try {
+                val current = repository.customerAccount(accessToken)
+                expiresAt = current.license?.expiresAt
+                licenseStatus = current.license?.effectiveStatus
+                planCode = current.license?.planCode
+            } catch (_: Exception) {
+                // Keep the last server-verified expiry visible during temporary network errors.
+            } finally {
+                checked = true
+            }
+            delay(5 * 60 * 1000L)
+        }
+    }
+
+    LaunchedEffect(expiresAt) {
+        if (expiresAt == null) return@LaunchedEffect
+        while (true) {
+            nowEpochSeconds = System.currentTimeMillis() / 1000L
+            delay(1000L)
+        }
+    }
+
+    val expired = expiresAt != null && expiresAt!! <= nowEpochSeconds
+    val active = licenseStatus == "ACTIVE" && !expired
+    val label = when {
+        !checked -> "Đang kiểm tra thời hạn giấy phép…"
+        expiresAt == null -> "Chưa được cấp giấy phép"
+        planCode.equals("LIFETIME", ignoreCase = true) -> "Giấy phép trọn đời"
+        expired -> "Giấy phép đã hết hạn"
+        active -> "Giấy phép còn: ${formatLicenseRemaining(expiresAt!!, nowEpochSeconds)}"
+        else -> "Giấy phép ${licenseStatus?.let(::statusText) ?: "chưa xác định"} · Còn: ${formatLicenseRemaining(expiresAt!!, nowEpochSeconds)}"
+    }
+    val labelColor = if (active || (planCode.equals("LIFETIME", ignoreCase = true) && licenseStatus == "ACTIVE")) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.error
+    }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                Icons.Outlined.VerifiedUser,
+                contentDescription = null,
+                tint = labelColor,
+                modifier = Modifier.size(17.dp)
+            )
+            Text(
+                label,
+                color = labelColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+        }
     }
 }
 
@@ -1180,6 +1261,23 @@ private fun LiveManagementUnavailable() {
                 )
             }
         }
+    }
+}
+
+private fun formatLicenseRemaining(expiresAtSeconds: Long, nowSeconds: Long): String {
+    val remaining = (expiresAtSeconds - nowSeconds).coerceAtLeast(0L)
+    val days = remaining / 86_400L
+    val hours = (remaining % 86_400L) / 3_600L
+    val minutes = (remaining % 3_600L) / 60L
+    val seconds = remaining % 60L
+    val hh = hours.toString().padStart(2, '0')
+    val mm = minutes.toString().padStart(2, '0')
+    val ss = seconds.toString().padStart(2, '0')
+    return when {
+        days > 0L -> "${days} ngày ${hh} giờ ${mm} phút ${ss} giây"
+        hours > 0L -> "${hours} giờ ${minutes} phút ${ss} giây"
+        minutes > 0L -> "${minutes} phút ${ss} giây"
+        else -> "${seconds} giây"
     }
 }
 
