@@ -49,7 +49,7 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 
 - `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()` trả thông số kích thước theo density và pixel.
 - `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()` trả hướng và rotation hiện tại.
-- `GÓI_KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ()` trả package gần nhất từ sự kiện AccessibilityService; có thể rỗng nếu chưa có sự kiện.
+- `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` trả package gần nhất từ sự kiện AccessibilityService; có thể rỗng nếu chưa có sự kiện.
 - `TỌA_ĐỘ_X_VÙNG_AN_TOÀN()`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN()` đổi tỷ lệ 0–1 thành pixel trong vùng an toàn; hai hàm `TỶ_LỆ_*_VÙNG_AN_TOÀN()` thực hiện chiều ngược lại.
 - `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa ROTATION_0 và hệ trục logic hiện tại. Công thức bao quát thiết bị hướng gốc ngang và cả bốn mã xoay Android.
 - Chuyển đổi góc xoay chỉ đổi hệ tọa độ trả về; không đổi tự động các tham số CHẠM/VUỐT. Cần nghiệm thu thực tế trên thiết bị để xác nhận sự tương thích với từng OEM.
