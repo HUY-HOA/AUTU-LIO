@@ -289,7 +289,7 @@ internal fun AccessControlAdminScreen(
                                     AdminIconValue(Icons.Outlined.Apps, "Phiên bản AUTU", "AUTU-LIO ${device.appVersion}")
                                     AdminIconValue(Icons.Outlined.AccessTime, "Lần sử dụng", accessDate(device.lastSeenAt))
                                 }
-                                AdminPresenceInfo(device.presenceSeenAt, device.appForegroundAt, device.runtimeState)
+                                AdminPresenceInfo(device.presenceSeenAt, device.appForegroundAt, device.runtimeState, device.status == "ACTIVE" && device.customerStatus == "ACTIVE")
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     AdminIconValue(Icons.Outlined.Group, "Tài khoản", statusText(device.customerStatus))
                                     AdminIconValue(
@@ -371,7 +371,7 @@ internal fun AccessControlAdminScreen(
                                     AdminIconValue(Icons.Outlined.Devices, "Số thiết bị", "${customer.activeDeviceCount}/${customer.maxDevices ?: 0}")
                                     AdminIconValue(Icons.Outlined.AccessTime, "Đăng nhập gần nhất", accessDate(customer.lastLoginAt))
                                 }
-                                AdminPresenceInfo(customer.presenceSeenAt, customer.appForegroundAt, customer.runtimeState)
+                                AdminPresenceInfo(customer.presenceSeenAt, customer.appForegroundAt, customer.runtimeState, customer.status == "ACTIVE")
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     if ((customer.licenseId == null || customer.licenseStatus == "REVOKED") && customer.status == "ACTIVE") {
                                         OutlinedButton(
