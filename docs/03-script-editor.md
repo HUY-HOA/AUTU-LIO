@@ -333,6 +333,27 @@ Thông tin hãng/model, phiên bản Android và trạng thái Keyguard được
  
 Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.22 bổ sung dữ liệu hiển thị theo DP, hướng/xoay màn hình và package foreground.
 
+
+### Nhật ký, thông báo và thời gian
+
+| Hàm | Tham số | Tác dụng |
+|---|---|---|
+| `IN(NỘI_DUNG)` | 1 | Ghi nội dung vào Logcat |
+| `GHI_NHẬT_KÝ(NỘI_DUNG)` / `GHI_NHẬT_KÝ(MỨC, NỘI_DUNG)` | 1 hoặc 2 | Lưu nhật ký có dấu thời gian vào vùng dữ liệu riêng của AUTU |
+| `THÔNG_BÁO(NỘI_DUNG)` | 1 | Hiển thị thông báo nổi ngắn |
+| `RUNG(MILI_GIÂY)` | 1 | Rung thiết bị từ 1 đến 5.000 ms |
+| `THỜI_GIAN_ISO()` | 0 | Lấy thời gian hiện tại theo ISO 8601 |
+| `PHÂN_TÍCH_THỜI_GIAN_ISO(CHUỖI)` | 1 | Chuyển chuỗi ISO 8601 thành epoch milliseconds |
+| `ĐỊNH_DẠNG_THỜI_GIAN(EPOCH_MS, MẪU)` | 2 | Định dạng epoch milliseconds theo mẫu |
+
+### Chụp và lưu ảnh màn hình
+
+| Hàm | Tham số | Kết quả |
+|---|---|---|
+| `CHỤP_ẢNH_MÀN_HÌNH(ĐƯỜNG_DẪN)` | 1 | Lưu JPEG và trả bản đồ chứa đường dẫn, kích thước, dung lượng |
+
+Lệnh chụp ảnh yêu cầu Android 11.0 (API 30) trở lên và AccessibilityService của AUTU-LIO đã bật. Ảnh được lưu trong vùng dữ liệu riêng của ứng dụng, giới hạn 1 MiB sau khi nén; ứng dụng hoặc cửa sổ bảo mật có thể chặn chụp.
+
 ## 8. Kết nối API qua HTTPS
 
 AUTU Script cung cấp `GỬI_YÊU_CẦU_HTTP(PHƯƠNG_THỨC, URL, THÂN, TIÊU_ĐỀ, TIMEOUT_MS)`. Phương thức được hỗ trợ: GET, POST, PUT, PATCH, DELETE và HEAD. Thân phải là chuỗi hoặc RỖNG; tiêu đề là BẢN_ĐỒ; timeout từ 100 đến 30.000 ms. Thân yêu cầu được phép với POST, PUT, PATCH và DELETE; GET/HEAD không nhận thân.
@@ -392,7 +413,7 @@ Cây Trợ năng không đảm bảo hiển thị nội dung game canvas, video,
 
 | Hàm | Cú pháp |
 |---|---|
-| MÀU_TẠI | `LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(X, Y)` trả về các kênh RGB, alpha và HEX |
+| LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH | `LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(X, Y)` trả về các kênh RGB, alpha và HEX |
 | KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH | `KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
 | TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH | `TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
 | TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH | `TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO)` |
