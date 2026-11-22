@@ -134,7 +134,7 @@ private fun GoogleProfileAvatar(pictureUrl: String?) {
 
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .size(28.dp)
             .clip(CircleShape)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
         contentAlignment = Alignment.Center
