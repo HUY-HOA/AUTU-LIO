@@ -1593,3 +1593,101 @@ test("audit log endpoint rejects an invalid or excessive limit", async () => {
   assert.equal((await json(response)).error, "invalid_audit_limit");
   assert.equal(queries.some(sql => sql.includes("FROM audit_logs")), false);
 });
+
+
+test("customer app foreground heartbeat stores presence and runtime state on the matching active device", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const { env } = createEnv({
+    session: customerSession,
+    accountLicense: {
+      id: "license-presence",
+      user_id: customerSession.user_id,
+      status: "ACTIVE",
+      starts_at: now - 60,
+      expires_at: now + 86400
+    }
+  });
+  const operations = [];
+  const originalPrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = originalPrepare(sql);
+    if (sql.includes("SELECT id FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'")) {
+      statement.first = async () => ({ id: "device-presence" });
+    }
+    const originalRun = statement.run.bind(statement);
+    statement.run = async () => {
+      operations.push({ sql, values: statement.values });
+      return originalRun();
+    };
+    return statement;
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/customer/presence", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "P".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        deviceFingerprint: "a".repeat(64),
+        appForeground: true,
+        runtimeState: "STOPPED"
+      })
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.updated, true);
+  assert.equal(body.runtimeState, "STOPPED");
+  assert.ok(Number.isSafeInteger(body.presenceSeenAt));
+  assert.ok(operations.some(operation =>
+    operation.sql.includes("UPDATE devices SET presence_seen_at = ?") &&
+    operation.sql.includes("app_foreground_at = CASE") &&
+    operation.values[4] === "STOPPED"
+  ));
+});
+
+test("background presence is accepted only while AUTU is running or paused", async () => {
+  const response = await worker.fetch(
+    makeRequest("/api/customer/presence", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "Q".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        deviceFingerprint: "b".repeat(64),
+        appForeground: false,
+        runtimeState: "STOPPED"
+      })
+    }),
+    createEnv({ session: customerSession }).env
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal((await json(response)).error, "invalid_presence_report");
+});
+
+test("only a customer can report customer device presence", async () => {
+  const response = await worker.fetch(
+    makeRequest("/api/customer/presence", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "R".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        deviceFingerprint: "c".repeat(64),
+        appForeground: true,
+        runtimeState: "STOPPED"
+      })
+    }),
+    createEnv({ session: ownerSession }).env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "insufficient_permissions");
+});
