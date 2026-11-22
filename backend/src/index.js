@@ -461,11 +461,11 @@ async function listAdminCustomers(request, env, session) {
   const result = await env.DB.prepare(
     "SELECT u.id, u.google_sub, u.email, u.email_verified, u.display_name, u.status, u.created_at, u.last_login_at, " +
     "l.id AS license_id, l.plan_code, l.status AS license_status, l.starts_at, l.expires_at, l.max_devices, " +
-    "CASE WHEN l.id IS NULL THEN NULL WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_license_status, " +
+    "CASE WHEN l.id IS NULL THEN NULL WHEN l.status <> 'ACTIVE' THEN l.status WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS effective_license_status, " +
     "(SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id AND d.status = 'ACTIVE') AS active_device_count, " +
     "(SELECT metadata_json FROM audit_logs a WHERE a.actor_user_id = u.id AND a.action = 'auth.google_sign_in' ORDER BY a.created_at DESC LIMIT 1) AS latest_sign_in_metadata_json, " +
     "(SELECT created_at FROM audit_logs a WHERE a.actor_user_id = u.id AND a.action = 'auth.google_sign_in' ORDER BY a.created_at DESC LIMIT 1) AS latest_sign_in_at " +
-    "FROM users u LEFT JOIN licenses l ON l.user_id = u.id AND l.status = 'ACTIVE' " +
+    "FROM users u LEFT JOIN licenses l ON l.id = (SELECT latest.id FROM licenses latest WHERE latest.user_id = u.id ORDER BY latest.created_at DESC, latest.rowid DESC LIMIT 1) " +
     "WHERE u.role = 'CUSTOMER' ORDER BY u.created_at DESC"
   ).bind(now, now).all();
   const customers = (result.results || []).map(row => {
@@ -688,10 +688,10 @@ async function listAdminDevices(request, env, session) {
     "d.label, d.manufacturer, d.model, d.android_version, d.app_version, d.status, d.revoked_reason, " +
     "d.registered_at, d.last_seen_at, d.revoked_at, l.status AS raw_license_status, l.starts_at AS license_starts_at, " +
     "l.expires_at AS license_expires_at, l.max_devices, " +
-    "CASE WHEN l.id IS NULL THEN NULL WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS license_status, " +
+    "CASE WHEN l.id IS NULL THEN NULL WHEN l.status <> 'ACTIVE' THEN l.status WHEN l.starts_at > ? THEN 'NOT_STARTED' WHEN l.expires_at <= ? THEN 'EXPIRED' ELSE l.status END AS license_status, " +
     "(SELECT COUNT(*) FROM devices active WHERE active.user_id = d.user_id AND active.status = 'ACTIVE') AS active_device_count " +
     "FROM devices d JOIN users u ON u.id = d.user_id " +
-    "LEFT JOIN licenses l ON l.user_id = u.id AND l.status = 'ACTIVE' " +
+    "LEFT JOIN licenses l ON l.id = (SELECT latest.id FROM licenses latest WHERE latest.user_id = u.id ORDER BY latest.created_at DESC, latest.rowid DESC LIMIT 1) " +
     "ORDER BY d.last_seen_at DESC"
   ).bind(now, now).all();
   return response(request, { devices: result.results || [] }, 200, env);
