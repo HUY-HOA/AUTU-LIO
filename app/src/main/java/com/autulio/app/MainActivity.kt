@@ -18,6 +18,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -39,6 +41,9 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -48,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -658,6 +664,46 @@ private fun SyntaxHighlightLegend() {
 }
 
 @Composable
+private fun EditorImeQuickKeyBar(
+    quickKeys: List<EditorQuickKey>,
+    onInsert: (EditorQuickKey) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(10.dp),
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            quickKeys.forEach { quickKey ->
+                OutlinedButton(
+                    onClick = { onInsert(quickKey) },
+                    modifier = Modifier
+                        .heightIn(min = 36.dp)
+                        .focusProperties { canFocus = false },
+                    contentPadding = PaddingValues(horizontal = 9.dp, vertical = 2.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        quickKey.label,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun EditorScreen(
     name: String,
     code: String,
@@ -685,8 +731,19 @@ private fun EditorScreen(
         mutableStateOf(TextFieldValue(text = code, selection = TextRange(code.length)))
     }
     var showQuickKeys by rememberSaveable { mutableStateOf(true) }
+    var editorHasFocus by rememberSaveable { mutableStateOf(false) }
     val editorFocusRequester = remember { FocusRequester() }
+    val editorBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val editorScrollState = rememberScrollState()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val imeVisible = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
+    LaunchedEffect(imeVisible, editorHasFocus) {
+        if (imeVisible && editorHasFocus) {
+            delay(180)
+            editorBringIntoViewRequester.bringIntoView()
+        }
+    }
     LaunchedEffect(code) {
         if (editorValue.text != code) {
             editorValue = TextFieldValue(text = code, selection = TextRange(code.length))
@@ -738,7 +795,15 @@ private fun EditorScreen(
             }
         }
 
-    Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier.fillMaxSize().imePadding()) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(editorScrollState)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
         TextButton(onClick = onBack) { Text(tr("← Quay lại", "← Back")) }
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(
@@ -768,66 +833,27 @@ private fun EditorScreen(
                 Text(tr("Hướng dẫn", "Guide"))
             }
         }
-        Text(
-            tr("Mã nguồn AUTU-LIO · Bạn có thể tự nhập hoặc chỉnh sửa", "AUTU-LIO source · Write or edit your own code"),
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 12.sp
-        )
-        SyntaxHighlightLegend()
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                tr("Phím tắt ký tự", "Quick symbols"),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
+                tr("Mã nguồn AUTU-LIO", "AUTU-LIO source"),
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp
             )
             TextButton(
                 onClick = { showQuickKeys = !showQuickKeys },
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
             ) {
                 Text(
-                    if (showQuickKeys) tr("Ẩn ▲", "Hide ▲") else tr("Hiện ▼", "Show ▼"),
+                    if (showQuickKeys) tr("Phím tắt: bật", "Keys: on") else tr("Phím tắt: tắt", "Keys: off"),
                     fontSize = 11.sp
                 )
             }
         }
-        if (showQuickKeys) {
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                quickKeys.forEach { quickKey ->
-                    OutlinedButton(
-                        onClick = {
-                            editorValue = insertEditorQuickText(
-                                editorValue,
-                                quickKey.insertion,
-                                quickKey.cursorOffset
-                            )
-                            onCodeChange(editorValue.text)
-                            validationText = ""
-                            validationSucceeded = null
-                            editorFocusRequester.requestFocus()
-                            keyboardController?.show()
-                        },
-                        modifier = Modifier.heightIn(min = 34.dp),
-                        contentPadding = PaddingValues(horizontal = 11.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            quickKey.label,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-            }
-        }
+        SyntaxHighlightLegend()
         OutlinedTextField(
             value = editorValue,
             onValueChange = {
@@ -836,7 +862,12 @@ private fun EditorScreen(
                 validationText = ""
                 validationSucceeded = null
             },
-            modifier = Modifier.fillMaxWidth().weight(1f).focusRequester(editorFocusRequester),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 240.dp, max = 360.dp)
+                .bringIntoViewRequester(editorBringIntoViewRequester)
+                .focusRequester(editorFocusRequester)
+                .onFocusChanged { editorHasFocus = it.isFocused },
             minLines = 8,
             textStyle = TextStyle(
                 fontFamily = FontFamily.Monospace,
@@ -916,6 +947,25 @@ private fun EditorScreen(
                 Spacer(Modifier.width(7.dp))
                 Text(tr("Chuyển sang mã hóa & phát hành", "Continue to secure packaging"))
             }
+        }
+        }
+        if (showQuickKeys && imeVisible && editorHasFocus) {
+            EditorImeQuickKeyBar(
+                quickKeys = quickKeys,
+                onInsert = { quickKey ->
+                    val updatedValue = insertEditorQuickText(
+                        editorValue,
+                        quickKey.insertion,
+                        quickKey.cursorOffset
+                    )
+                    editorValue = updatedValue
+                    onCodeChange(updatedValue.text)
+                    validationText = ""
+                    validationSucceeded = null
+                    editorFocusRequester.requestFocus()
+                    keyboardController?.show()
+                }
+            )
         }
     }
 
@@ -2118,6 +2168,7 @@ class ScriptEditorActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         val scriptName = intent.getStringExtra(EXTRA_SCRIPT_NAME)?.trim().orEmpty()
         val namespace = intent.getStringExtra(EXTRA_NAMESPACE) ?: "admin"
         val allowTest = intent.getBooleanExtra(EXTRA_ALLOW_TEST, false)
