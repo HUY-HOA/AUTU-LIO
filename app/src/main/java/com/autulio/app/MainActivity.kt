@@ -736,7 +736,7 @@ private fun EditorScreen(
     val editorBringIntoViewRequester = remember { BringIntoViewRequester() }
     val editorScrollState = rememberScrollState()
     val keyboardController = LocalSoftwareKeyboardController.current
-    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val imeVisible = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     LaunchedEffect(imeVisible, editorHasFocus) {
         if (imeVisible && editorHasFocus) {
