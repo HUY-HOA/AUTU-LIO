@@ -229,16 +229,6 @@ private fun AuthScreen(
                         Spacer(Modifier.width(9.dp))
                         Text(tr("Đăng nhập bằng Google", "Continue with Google"))
                     }
-                    Text(
-                        tr(
-                            "Khi đăng nhập, AUTU-LIO gửi thông tin kỹ thuật cơ bản của thiết bị và trạng thái kết nối để bảo mật phiên, quản lý thiết bị và hỗ trợ tương thích. Không dùng chức năng này để đọc IMEI, số sê-ri hoặc vị trí GPS.",
-                            "At sign-in, AUTU-LIO sends basic device and connection diagnostics for session security, device management and compatibility. This feature does not read IMEI, serial numbers or GPS location."
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        textAlign = TextAlign.Center
-                    )
                     if (hasSavedSession) {
                         OutlinedButton(
                             onClick = onRetrySession,
@@ -247,18 +237,6 @@ private fun AuthScreen(
                         ) {
                             Text(tr("Thử xác minh phiên đã lưu", "Retry saved session verification"))
                         }
-                    }
-                    if (!isConfigured) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            tr(
-                                "Đăng nhập chưa được bật. Cần cấu hình Auth API URL và Google Server Client ID trước khi sử dụng.",
-                                "Sign-in is not enabled yet. Configure the Auth API URL and Google Server Client ID first."
-                            ),
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 12.sp,
-                            textAlign = TextAlign.Center
-                        )
                     }
                     if (errorMessage.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
@@ -269,16 +247,6 @@ private fun AuthScreen(
                             textAlign = TextAlign.Center
                         )
                     }
-                    Spacer(Modifier.height(18.dp))
-                    Text(
-                        tr(
-                            "AUTU-LIO không tự cấp quyền Admin. Vai trò được xác minh từ máy chủ sau khi Google xác thực tài khoản.",
-                            "AUTU-LIO never grants Admin access locally. The server verifies your role after Google authenticates your account."
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        textAlign = TextAlign.Center
-                    )
                 }
             }
         }
