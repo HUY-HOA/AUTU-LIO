@@ -3,7 +3,7 @@
 **Ngôn ngữ:** AUTU-LIO Script 1.22  
 **Quy tắc:** lệnh, từ khóa, hàm, kiểu và tên biến do người viết đặt đều phải VIẾT HOA. Từ khóa tiếng Việt phải có đầy đủ dấu.
 
-Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Tên lệnh Android đã được chuẩn hóa ở phiên bản 1.11; các tên cũ được giữ làm bí danh tương thích.
+Tài liệu tổng hợp cú pháp đã có trong parser và runtime. Không xem tính năng chưa triển khai là lệnh hợp lệ. Chỉ tên lệnh tiếng Việt chuẩn mới được chấp nhận; tên lệnh cũ và bí danh không được hỗ trợ.
 
 ## 1. Kiểu dữ liệu
 
@@ -27,7 +27,7 @@ BIẾN CAC_GIA_TRI: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20, 30)
 
 ## 2. Từ khóa điều khiển
 
-`BIẾN`, `HÀM`, `NẾU`, `NGƯỢC_LẠI_NẾU`, `NGƯỢC_LẠI`, `LẶP`, `LẶP_KHI`, `LẶP_ĐẾN_KHI`, `LẶP_MỖI`, `TRONG`, `CHỜ_ĐẾN_KHI`, `THOÁT_LẶP`, `BỎ_QUA_LƯỢT`, `TRẢ_VỀ`, `ĐÚNG`, `SAI`, `VÀ`, `HOẶC`, `KHÔNG`. Bí danh tương thích: `ĐẶT` tương đương `BIẾN`, `ĐỊNH_NGHĨA_HÀM` tương đương `HÀM`.
+`BIẾN`, `HÀM`, `NẾU`, `NGƯỢC_LẠI_NẾU`, `NGƯỢC_LẠI`, `LẶP`, `LẶP_KHI`, `LẶP_ĐẾN_KHI`, `LẶP_MỖI`, `TRONG`, `CHỜ_ĐẾN_KHI`, `THOÁT_LẶP`, `BỎ_QUA_LƯỢT`, `TRẢ_VỀ`, `ĐÚNG`, `SAI`, `VÀ`, `HOẶC`, `KHÔNG`. Chỉ dùng `BIẾN` để khai báo biến và `HÀM` để định nghĩa hàm; các từ khóa thay thế không được chấp nhận.
 
 ## 3. Toán tử
 
