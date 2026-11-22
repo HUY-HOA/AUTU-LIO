@@ -124,6 +124,39 @@ function createDeviceRegistrationEnv({
   return { env: { DB }, queries, operations };
 }
 
+async function makeSignedDeviceEnrollment() {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 3072,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256"
+    },
+    true,
+    ["sign", "verify"]
+  );
+  const publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey("spki", keyPair.publicKey));
+  const publicKeySpki = btoa(String.fromCharCode(...publicKeyBytes));
+  const challengeId = crypto.randomUUID();
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(32));
+  const nonce = btoa(String.fromCharCode(...nonceBytes))
+    .replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  const nonceDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(nonce));
+  const nonceHash = Array.from(new Uint8Array(nonceDigest), value => value.toString(16).padStart(2, "0")).join("");
+  const signatureBytes = new Uint8Array(await crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    keyPair.privateKey,
+    new TextEncoder().encode(challengeId + "." + nonce)
+  ));
+  return {
+    challengeId,
+    nonce,
+    nonceHash,
+    publicKeySpki,
+    signature: btoa(String.fromCharCode(...signatureBytes))
+  };
+}
+
 function makeRequest(path, options = {}) {
   return new Request(`https://autu-lio.test${path}`, options);
 }
@@ -595,6 +628,157 @@ test("device enrollment accepts a valid RSA-3072 proof of private-key ownership"
   assert.equal(body.device.status, "ACTIVE");
   assert.equal(body.device.label, "My Android");
   assert.equal(JSON.stringify(body).includes("privateKey"), false);
+});
+
+test("revoking a license keeps already-enrolled devices registered", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const statements = [];
+  const basePrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = basePrepare(sql);
+    if (sql.includes("FROM licenses WHERE id = ?")) {
+      statement.first = async () => ({
+        id: "123e4567-e89b-42d3-a456-426614174000",
+        user_id: customerSession.user_id,
+        plan_code: "MONTHLY",
+        status: "ACTIVE",
+        starts_at: Math.floor(Date.now() / 1000) - 60,
+        expires_at: Math.floor(Date.now() / 1000) + 86400,
+        max_devices: 1
+      });
+    }
+    const originalRun = statement.run.bind(statement);
+    statement.run = async () => {
+      statements.push(sql);
+      return originalRun();
+    };
+    return statement;
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/licenses/123e4567-e89b-42d3-a456-426614174000", {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer " + "E".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ status: "REVOKED" })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal((await json(response)).status, "REVOKED");
+  assert.equal(statements.some(sql => sql.includes("UPDATE devices")), false);
+});
+
+test("customer can re-enroll a device that they previously removed", async () => {
+  const proof = await makeSignedDeviceEnrollment();
+  const now = Math.floor(Date.now() / 1000);
+  const { env, operations } = createDeviceRegistrationEnv({
+    challenge: {
+      id: proof.challengeId,
+      nonce_hash: proof.nonceHash,
+      expires_at: now + 300,
+      consumed_at: null
+    },
+    license: {
+      id: "license-1",
+      user_id: customerSession.user_id,
+      max_devices: 2,
+      status: "ACTIVE",
+      starts_at: now - 60,
+      expires_at: now + 86400
+    },
+    existingDevice: {
+      id: "device-previous",
+      status: "REVOKED",
+      revoked_reason: "CUSTOMER_REMOVED"
+    }
+  });
+
+  const response = await worker.fetch(
+    makeRequest("/api/customer/devices", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "J".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        publicKeySpki: proof.publicKeySpki,
+        challengeId: proof.challengeId,
+        nonce: proof.nonce,
+        signature: proof.signature,
+        label: "My Android",
+        manufacturer: "Test",
+        model: "Phone",
+        androidVersion: "16",
+        appVersion: "0.1.0"
+      })
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.registered, true);
+  assert.equal(body.reactivated, true);
+  assert.equal(body.device.id, "device-previous");
+  assert.ok(operations.some(operation =>
+    operation.sql.includes("revoked_reason = 'CUSTOMER_REMOVED'") &&
+    operation.sql.includes("status = 'ACTIVE'")
+  ));
+});
+
+test("customer cannot self-reactivate a device revoked by the owner", async () => {
+  const proof = await makeSignedDeviceEnrollment();
+  const now = Math.floor(Date.now() / 1000);
+  const { env } = createDeviceRegistrationEnv({
+    challenge: {
+      id: proof.challengeId,
+      nonce_hash: proof.nonceHash,
+      expires_at: now + 300,
+      consumed_at: null
+    },
+    license: {
+      id: "license-1",
+      user_id: customerSession.user_id,
+      max_devices: 2,
+      status: "ACTIVE",
+      starts_at: now - 60,
+      expires_at: now + 86400
+    },
+    existingDevice: {
+      id: "device-blocked",
+      status: "REVOKED",
+      revoked_reason: "OWNER_REVOKED"
+    }
+  });
+
+  const response = await worker.fetch(
+    makeRequest("/api/customer/devices", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + "K".repeat(48),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        publicKeySpki: proof.publicKeySpki,
+        challengeId: proof.challengeId,
+        nonce: proof.nonce,
+        signature: proof.signature,
+        label: "My Android",
+        manufacturer: "Test",
+        model: "Phone",
+        androidVersion: "16",
+        appVersion: "0.1.0"
+      })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await json(response)).error, "device_revoked");
 });
 
 test("owner cannot create a license for an invalid customer identifier", async () => {
