@@ -151,7 +151,7 @@ object EditorGuideCatalog {
                 EditorGuideCommand("KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG()", "Kiểm tra màn hình đang bật hay tắt."),
                 EditorGuideCommand("KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI(\"tên.gói\")", "Kiểm tra ứng dụng theo tên gói đã cài trên thiết bị."),
                 EditorGuideCommand("KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ(\"tên.gói\")", "Kiểm tra ứng dụng theo tên gói có đang mở hay không."),
-                EditorGuideCommand("GÓI_KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ()", "Lấy tên gói của ứng dụng đang ở foreground."),
+                EditorGuideCommand("GÓI_ỨNG_DỤNG_ĐANG_MỞ()", "Lấy tên gói của ứng dụng đang ở foreground."),
                 EditorGuideCommand("HÃNG_SẢN_XUẤT() / MẪU_THIẾT_BỊ()", "Đọc hãng sản xuất và model thiết bị."),
                 EditorGuideCommand("PHIÊN_BẢN_ANDROID() / MỨC_API_ANDROID()", "Đọc phiên bản Android và mức API."),
                 EditorGuideCommand("MÀN_HÌNH_BỊ_KHÓA()", "Kiểm tra trạng thái khóa màn hình."),
@@ -164,7 +164,7 @@ object EditorGuideCatalog {
             ),
             notes = listOf(
                 "Trên Android 11.0 (API 30) trở lên, quy tắc package visibility có thể giới hạn các gói mà KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI() truy vấn được.",
-                "ĐẶT_LẤY_ĐỘ_SÁNG() cần quyền 'Cho phép sửa đổi cài đặt hệ thống'; quyền này không được tự cấp bởi AUTU-LIO.",
+                "ĐẶT_ĐỘ_SÁNG() cần quyền 'Cho phép sửa đổi cài đặt hệ thống'; quyền này không được tự cấp bởi AUTU-LIO.",
                 "Trạng thái mạng không thay thế việc kiểm tra phản hồi thực tế từ máy chủ."
             )
         ),
