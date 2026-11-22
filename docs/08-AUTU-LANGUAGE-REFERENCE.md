@@ -284,7 +284,7 @@ Chỉ chấp nhận URL HTTPS, không nhúng user/password và không theo chuy�
 
 ## 8. Hàm truy vấn Android
 
-`LẤY_PHẦN_TRĂM_PIN()`, `KIỂM_TRA_ĐANG_SẠC()`,  `KIỂM_TRA_ĐANG_SẠC()`, `KIỂM_TRA_KẾT_NỐI_MẠNG()`, `KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG()`, `KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `CHIỀU_RỘNG_MÀN_HÌNH()`, `CHIỀU_CAO_MÀN_HÌNH()`, `CHIỀU_RỘNG_DP()`, `CHIỀU_CAO_DP()`, `TỶ_LỆ_KHUNG_HÌNH()`, `HƯỚNG_MÀN_HÌNH()`, `XOAY_MÀN_HÌNH()`, `GÓC_XOAY_MÀN_HÌNH()`, `MẬT_ĐỘ_MÀN_HÌNH()`, `GÓI_ỨNG_DỤNG_ĐANG_MỞ()`, `THỜI_GIAN_MS()`.
+`LẤY_PHẦN_TRĂM_PIN()`, `KIỂM_TRA_ĐANG_SẠC()`,  `KIỂM_TRA_ĐANG_SẠC()`, `KIỂM_TRA_KẾT_NỐI_MẠNG()`, `KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG()`, `KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI("TÊN_GÓI")`, `KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ("TÊN_GÓI")`, `LẤY_CHIỀU_RỘNG_MÀN_HÌNH()`, `LẤY_CHIỀU_CAO_MÀN_HÌNH()`, `LẤY_CHIỀU_RỘNG_DP()`, `LẤY_CHIỀU_CAO_DP()`, `LẤY_TỶ_LỆ_KHUNG_HÌNH()`, `LẤY_HƯỚNG_MÀN_HÌNH()`, `LẤY_XOAY_MÀN_HÌNH()`, `LẤY_GÓC_LẤY_XOAY_MÀN_HÌNH()`, `LẤY_MẬT_ĐỘ_MÀN_HÌNH()`, `LẤY_GÓI_ỨNG_DỤNG_ĐANG_MỞ()`, `LẤY_THỜI_GIAN_MS()`.
 
 ### Quy đổi tọa độ và vùng an toàn
 
