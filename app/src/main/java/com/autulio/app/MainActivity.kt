@@ -33,6 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,6 +52,7 @@ import com.autulio.app.accessibility.AutoClickAccessibilityService
 import com.autulio.app.auth.AuthApiException
 import com.autulio.app.auth.AuthRepository
 import com.autulio.app.auth.AuthenticatedAppHost
+import com.autulio.app.script.AutuSyntaxHighlighter
 import com.autulio.app.script.ScriptCompiler
 import com.autulio.app.script.ScriptTemplate
 import com.autulio.app.script.ScriptTemplateCatalog
@@ -607,6 +610,30 @@ private fun ScriptsScreen(
 }
 
 @Composable
+private fun SyntaxHighlightLegend() {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AutuSyntaxHighlighter.legendItems.forEach { item ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("●", color = item.color, fontSize = 10.sp)
+                Text(
+                    item.label,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun EditorScreen(
     name: String,
     code: String,
@@ -665,6 +692,7 @@ private fun EditorScreen(
             fontWeight = FontWeight.SemiBold,
             fontSize = 12.sp
         )
+        SyntaxHighlightLegend()
         OutlinedTextField(
             value = code,
             onValueChange = {
@@ -674,6 +702,12 @@ private fun EditorScreen(
             },
             modifier = Modifier.fillMaxWidth().weight(1f),
             minLines = 8,
+            textStyle = TextStyle(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 13.sp,
+                lineHeight = 19.sp
+            ),
+            visualTransformation = AutuSyntaxHighlighter,
             label = { Text(tr("Mã nguồn", "Source code")) },
             placeholder = { Text(tr("Nhập mã kịch bản hoặc chọn một mẫu...", "Enter a script or choose a template...")) }
         )
