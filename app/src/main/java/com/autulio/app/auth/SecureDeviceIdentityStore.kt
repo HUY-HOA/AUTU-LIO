@@ -9,10 +9,6 @@ import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.PublicKey
 import java.security.Signature
-import java.security.spec.MGF1ParameterSpec
-import javax.crypto.Cipher
-import javax.crypto.spec.OAEPParameterSpec
-import javax.crypto.spec.PSource
 
 data class DeviceIdentity(
     val publicKeySpki: String,
@@ -86,13 +82,10 @@ class SecureDeviceIdentityStore(context: Context) {
             wrappedKeyBase64Url,
             Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
         )
-        val cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            entry.privateKey,
-            OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT)
-        )
-        return cipher.doFinal(wrappedKey)
+        // Android Keystore defaults MGF1 to SHA-1 unless a key explicitly
+        // authorizes additional MGF1 digests. Existing enrolled keys use that
+        // default, so the server wraps the AES data key with OAEP SHA-1/MGF1-SHA1.
+        return PackageKeyOaep.decrypt(entry.privateKey, wrappedKey)
     }
 
     @Synchronized
