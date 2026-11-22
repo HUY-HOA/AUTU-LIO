@@ -96,7 +96,7 @@ internal fun AdminPresenceInfo(
         nowSeconds - appForegroundAt <= 120L
     val appLabel = when {
         !isAllowed || ageSeconds == null -> "Chưa rõ"
-        appIsForeground -> "Đang mở"
+        appIsForeground -> "Mở gần đây"
         ageSeconds <= 600L -> "Đã chuyển nền"
         else -> "Không rõ"
     }
