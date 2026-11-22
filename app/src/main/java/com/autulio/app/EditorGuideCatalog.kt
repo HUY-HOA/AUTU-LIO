@@ -157,9 +157,8 @@ object EditorGuideCatalog {
                 EditorGuideCommand("MÀN_HÌNH_BỊ_KHÓA()", "Kiểm tra trạng thái khóa màn hình."),
                 EditorGuideCommand("THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()", "Kiểm tra thiết bị có cấu hình bảo mật khóa màn hình."),
                 EditorGuideCommand("THỜI_GIAN_MS()", "Lấy thời gian hiện tại dạng mili giây."),
-                EditorGuideCommand("LẤY_ÂM_LƯỢNG() / LẤY_ĐỘ_SÁNG()", "Đọc âm lượng media và độ sáng màn hình hiện tại."),
-                EditorGuideCommand("ĐẶT_ÂM_LƯỢNG(phần_trăm)", "Đặt âm lượng media từ 0 đến 100%."),
-                EditorGuideCommand("ĐẶT_ĐỘ_SÁNG(phần_trăm)", "Đặt độ sáng từ 0 đến 100%; cần cấp quyền sửa đổi cài đặt hệ thống."),
+                EditorGuideCommand("LẤY_ÂM_LƯỢNG() / LẤY_ĐỘ_SÁNG()", "Đọc giá trị hiện tại. Các hàm truy vấn dùng chung tiền tố LẤY_."),
+                EditorGuideCommand("ĐẶT_ÂM_LƯỢNG(phần_trăm) / ĐẶT_ĐỘ_SÁNG(phần_trăm)", "Thiết lập giá trị. Các hàm thay đổi dùng chung tiền tố ĐẶT_."),
                 EditorGuideCommand("RUNG(mili_giây)", "Rung thiết bị từ 1 đến 5.000 ms nếu thiết bị có bộ rung.")
             ),
             notes = listOf(
@@ -232,7 +231,7 @@ object EditorGuideCatalog {
                 EditorGuideCommand("CHỮ_HOA(chuỗi) / CHỮ_THƯỜNG(chuỗi)", "Chuyển đổi chữ hoa hoặc chữ thường."),
                 EditorGuideCommand("CẮT_KHOẢNG_TRẮNG(chuỗi)", "Loại bỏ khoảng trắng ở hai đầu chuỗi."),
                 EditorGuideCommand("CHỨA_CHUỖI(a, b)", "Kiểm tra chuỗi a có chứa chuỗi b."),
-                EditorGuideCommand("TÌM_VỊ_TRÍ_TRONG_CHUỖI(chuỗi, chuỗi_cần_tìm)", "Trả vị trí bắt đầu, tính từ 0; trả về -1 nếu không tìm thấy."),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_TRONG_CHUỖI(chuỗi, chuỗi_cần_tìm)", "Tên chuẩn cho thao tác tìm kiếm chuỗi; trả vị trí từ 0 hoặc -1 nếu không thấy."),
                 EditorGuideCommand("KIỂM_TRA_RỖNG(giá_trị)", "Kiểm tra chuỗi, danh sách, bản đồ hoặc giá trị RỖNG."),
                 EditorGuideCommand("BẮT_ĐẦU_BẰNG(a, b) / KẾT_THÚC_BẰNG(a, b)", "Kiểm tra tiền tố hoặc hậu tố."),
                 EditorGuideCommand("THAY_THẾ(chuỗi, cũ, mới)", "Thay các phần chuỗi khớp."),
@@ -250,7 +249,8 @@ object EditorGuideCatalog {
                 EditorGuideCommand("THÊM_PHẦN_TỬ_VÀO_DANH_SÁCH(danh_sách, giá_trị)", "Thêm phần tử vào cuối danh sách."),
                 EditorGuideCommand("ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, chỉ_số, giá_trị)", "Thay giá trị tại một chỉ số."),
                 EditorGuideCommand("XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH(danh_sách, chỉ_số)", "Xóa phần tử theo chỉ số."),
-                EditorGuideCommand("KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị) / TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị)", "Kiểm tra phần tử hoặc tìm chỉ số đầu tiên; không thấy trả về -1."),
+                EditorGuideCommand("KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị)", "Kiểm tra danh sách có chứa giá trị hay không."),
+                EditorGuideCommand("TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH(danh_sách, giá_trị)", "Tìm chỉ số đầu tiên; không thấy trả về -1."),
                 EditorGuideCommand("SẮP_XẾP_DANH_SÁCH(danh_sách)", "Tạo danh sách mới đã sắp xếp tăng dần; chỉ nhận toàn số hoặc toàn chuỗi."),
                 EditorGuideCommand("ĐẢO_NGƯỢC_DANH_SÁCH(danh_sách)", "Tạo danh sách mới theo thứ tự ngược, không sửa danh sách gốc."),
                 EditorGuideCommand("LỌC_DANH_SÁCH(danh_sách, tên_hàm)", "Lọc phần tử bằng hàm tự định nghĩa nhận một phần tử và trả về ĐÚNG/SAI."),
@@ -331,6 +331,12 @@ object EditorGuideCatalog {
             notes = listOf(
                 "Chỉ chấp nhận HTTPS và các phương thức mạng được runtime cho phép.",
                 "Dung lượng, timeout và redirect có giới hạn bảo vệ."
+            )
+        ),
+            notes = listOf(
+                "Tên trong tài liệu là tên chuẩn nên dùng khi viết kịch bản mới.",
+                "Các tên rút gọn cũ như TÌM_VỊ_TRÍ(), SẮP_XẾP(), ĐẢO_NGƯỢC(), LỌC(), TÌM_PHẦN_TỬ(), ÂM_LƯỢNG() và ĐỘ_SÁNG() vẫn được nhận diện để chạy kịch bản cũ.",
+                "Các nhóm thao tác tuân theo mẫu: LẤY_ để đọc, ĐẶT_ để thiết lập, KIỂM_TRA_ để kiểm tra, và tên đối tượng như _DANH_SÁCH hoặc _TRONG_CHUỖI để nhận biết loại dữ liệu."
             )
         ),
         EditorGuideSection(
