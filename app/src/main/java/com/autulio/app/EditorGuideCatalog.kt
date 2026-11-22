@@ -334,32 +334,6 @@ object EditorGuideCatalog {
             )
         ),
         EditorGuideSection(
-            id = "logging",
-            title = "17. Nhật ký, in nội dung và thông báo",
-            summary = "Ghi lại thông tin chạy kịch bản vào tệp riêng AUTU hoặc hiển thị thông báo ngắn.",
-            commands = listOf(
-                EditorGuideCommand("IN(nội_dung)", "Ghi nội dung vào nhật ký hệ thống Android (Logcat)."),
-                EditorGuideCommand("GHI_NHẬT_KÝ(nội_dung) / GHI_NHẬT_KÝ(mức, nội_dung)", "Ghi nhật ký có thời gian vào logs/script.log trong vùng dữ liệu AUTU."),
-                EditorGuideCommand("THÔNG_BÁO(nội_dung)", "Hiển thị thông báo nổi ngắn trên màn hình.")
-            ),
-            notes = listOf(
-                "Có thể đọc nhật ký đã lưu bằng ĐỌC_TỆP(\"logs/script.log\").",
-                "IN() chỉ dành cho nhật ký kỹ thuật; GHI_NHẬT_KÝ() lưu thêm bản ghi trong vùng riêng của ứng dụng."
-            )
-        ),
-        EditorGuideSection(
-            id = "screenshots",
-            title = "18. Chụp và lưu ảnh màn hình",
-            summary = "Chụp màn hình qua AccessibilityService và lưu JPEG vào vùng dữ liệu riêng AUTU.",
-            commands = listOf(
-                EditorGuideCommand("CHỤP_ẢNH_MÀN_HÌNH(đường_dẫn) / LƯU_ẢNH_MÀN_HÌNH(đường_dẫn)", "Chụp và lưu JPEG; trả về bản đồ gồm đường dẫn, kích thước và dung lượng.", minAndroidApi = 30)
-            ),
-            notes = listOf(
-                "Cần bật AccessibilityService cho AUTU-LIO và Android 11.0 (API 30) trở lên.",
-                "Tệp ảnh giới hạn 1 MB sau khi nén; đường dẫn phải nằm trong vùng dữ liệu riêng AUTU."
-            )
-        ),
-        EditorGuideSection(
             id = "overlay",
             title = "16. Vẽ và đánh dấu trên màn hình",
             summary = "Hiển thị chữ, khung, hình tròn, đường và mũi tên trên ứng dụng đang mở.",
@@ -376,5 +350,31 @@ object EditorGuideCatalog {
                 "Màu hỗ trợ HEX #RRGGBB hoặc #AARRGGBB; lớp đánh dấu cần quyền hiển thị phù hợp."
             )
         )
+        EditorGuideSection(
+            id = "logging",
+            title = "17. Nhật ký, in nội dung và thông báo",
+            summary = "Ghi lại thông tin chạy kịch bản vào tệp riêng AUTU hoặc hiển thị thông báo ngắn.",
+            commands = listOf(
+                EditorGuideCommand("IN(nội_dung)", "Ghi nội dung vào nhật ký hệ thống Android (Logcat)."),
+                EditorGuideCommand("GHI_NHẬT_KÝ(nội_dung) / GHI_NHẬT_KÝ(mức, nội_dung)", "Ghi nhật ký có thời gian vào logs/script.log trong vùng dữ liệu AUTU."),
+                EditorGuideCommand("THÔNG_BÁO(nội_dung)", "Hiển thị thông báo nổi ngắn trên màn hình.")
+            ),
+            notes = listOf(
+                "Có thể đọc nhật ký đã lưu bằng ĐỌC_TỆP(\"logs/script.log\").",
+                "IN() chỉ dành cho nhật ký kỹ thuật; GHI_NHẬT_KÝ() lưu thêm bản ghi trong vùng riêng của ứng dụng."
+            )
+        ),,
+        EditorGuideSection(
+            id = "screenshots",
+            title = "18. Chụp và lưu ảnh màn hình",
+            summary = "Chụp màn hình qua AccessibilityService và lưu JPEG vào vùng dữ liệu riêng AUTU.",
+            commands = listOf(
+                EditorGuideCommand("CHỤP_ẢNH_MÀN_HÌNH(đường_dẫn) / LƯU_ẢNH_MÀN_HÌNH(đường_dẫn)", "Chụp và lưu JPEG; trả về bản đồ gồm đường dẫn, kích thước và dung lượng.", minAndroidApi = 30)
+            ),
+            notes = listOf(
+                "Cần bật AccessibilityService cho AUTU-LIO và Android 11.0 (API 30) trở lên.",
+                "Tệp ảnh giới hạn 1 MB sau khi nén; đường dẫn phải nằm trong vùng dữ liệu riêng AUTU."
+            )
+        ),
     )
 }
