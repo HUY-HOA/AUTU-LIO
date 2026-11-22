@@ -537,15 +537,23 @@ internal fun CustomerLicenseCountdownBar(accessToken: String?) {
 
     val expired = expiresAt != null && expiresAt!! <= nowEpochSeconds
     val active = licenseStatus == "ACTIVE" && !expired
+    val lifetime = planCode.equals("LIFETIME", ignoreCase = true)
+    val hasRemainingTime = checked && expiresAt != null && !expired && !lifetime
+    val remainingDays = expiresAt?.let { licenseDaysRemaining(it, nowEpochSeconds) }
     val label = when {
         !checked -> "Đang kiểm tra thời hạn giấy phép…"
         expiresAt == null -> "Chưa được cấp giấy phép"
-        planCode.equals("LIFETIME", ignoreCase = true) -> "Giấy phép trọn đời"
+        lifetime -> "Giấy phép trọn đời"
         expired -> "Giấy phép đã hết hạn"
-        active -> "Giấy phép còn: ${formatLicenseRemaining(expiresAt!!, nowEpochSeconds)}"
-        else -> "Giấy phép ${licenseStatus?.let(::statusText) ?: "chưa xác định"} · Còn: ${formatLicenseRemaining(expiresAt!!, nowEpochSeconds)}"
+        active -> "Giấy phép còn: $remainingDays ngày"
+        else -> "Giấy phép ${licenseStatus?.let(::statusText) ?: "chưa xác định"}"
     }
-    val labelColor = if (active || (planCode.equals("LIFETIME", ignoreCase = true) && licenseStatus == "ACTIVE")) {
+    val remainingDetail = if (hasRemainingTime && expiresAt != null) {
+        "Thời gian chính xác: ${formatLicenseRemaining(expiresAt, nowEpochSeconds)}"
+    } else {
+        null
+    }
+    val labelColor = if (active || (lifetime && licenseStatus == "ACTIVE")) {
         MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.error
@@ -568,13 +576,26 @@ internal fun CustomerLicenseCountdownBar(accessToken: String?) {
                 tint = labelColor,
                 modifier = Modifier.size(17.dp)
             )
-            Text(
-                label,
-                color = labelColor,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    label,
+                    color = labelColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2
+                )
+                remainingDetail?.let { detail ->
+                    Text(
+                        detail,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        maxLines = 2
+                    )
+                }
+            }
         }
     }
 }
@@ -1304,6 +1325,11 @@ private fun LiveManagementUnavailable() {
             }
         }
     }
+}
+
+internal fun licenseDaysRemaining(expiresAtSeconds: Long, nowSeconds: Long): Long {
+    val remaining = (expiresAtSeconds - nowSeconds).coerceAtLeast(0L)
+    return if (remaining == 0L) 0L else (remaining - 1L) / 86_400L + 1L
 }
 
 private fun formatLicenseRemaining(expiresAtSeconds: Long, nowSeconds: Long): String {
