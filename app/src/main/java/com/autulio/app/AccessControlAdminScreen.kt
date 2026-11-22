@@ -59,6 +59,7 @@ internal fun AccessControlAdminScreen(
     var createFor by remember { mutableStateOf<CustomerRecord?>(null) }
     var editLicense by remember { mutableStateOf<LicenseRecord?>(null) }
     var createPlan by remember { mutableStateOf("MONTHLY") }
+    var createPlanExpanded by remember { mutableStateOf(false) }
     var createDays by remember { mutableStateOf("30") }
     var createDeviceLimit by remember { mutableStateOf("1") }
     var extendDays by remember { mutableStateOf("30") }
@@ -365,6 +366,7 @@ internal fun AccessControlAdminScreen(
                                             onClick = {
                                                 createFor = customer
                                                 createPlan = "MONTHLY"
+                                                createPlanExpanded = false
                                                 createDays = "30"
                                                 createDeviceLimit = "1"
                                             }
@@ -472,7 +474,35 @@ internal fun AccessControlAdminScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text(customer.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(createPlan, { createPlan = it.uppercase().take(32) }, label = { Text("Mã gói") }, singleLine = true)
+                    Box(Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { createPlanExpanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Loại gói: ${planText(createPlan)}")
+                        }
+                        DropdownMenu(
+                            expanded = createPlanExpanded,
+                            onDismissRequest = { createPlanExpanded = false }
+                        ) {
+                            listOf(
+                                "WEEKLY",
+                                "MONTHLY",
+                                "QUARTERLY",
+                                "YEARLY",
+                                "LIFETIME",
+                                "TRIAL"
+                            ).forEach { code ->
+                                DropdownMenuItem(
+                                    text = { Text(planText(code)) },
+                                    onClick = {
+                                        createPlan = code
+                                        createPlanExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                     OutlinedTextField(createDays, { createDays = it.filter(Char::isDigit).take(4) }, label = { Text("Thời hạn (ngày)") }, singleLine = true)
                     OutlinedTextField(createDeviceLimit, { createDeviceLimit = it.filter(Char::isDigit).take(2) }, label = { Text("Số thiết bị tối đa") }, singleLine = true)
                     Text("Giấy phép chỉ có hiệu lực sau khi máy chủ lưu thành công.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
