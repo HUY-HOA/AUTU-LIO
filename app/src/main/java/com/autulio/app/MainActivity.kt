@@ -167,6 +167,7 @@ private fun AutuLioAppEntry() {
             if (!BuildConfig.DEBUG) {
                 AuthenticatedAppHost()
             } else if (previewRole == null) {
+                AppBackHandler(onNavigateBack = { false })
                 RolePreviewChooser(onOpenRole = { previewRole = it.name })
             } else {
                 BackHandler { previewRole = null }
