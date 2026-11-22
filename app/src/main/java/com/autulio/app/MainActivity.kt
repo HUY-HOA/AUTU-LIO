@@ -18,6 +18,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -141,23 +142,39 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun AutuLioAppEntry() {
+    val context = LocalContext.current
+    var themeMode by remember(context) {
+        mutableStateOf(UiThemePreferences.load(context))
+    }
     var previewRole by rememberSaveable { mutableStateOf<String?>(null) }
+    val systemIsDark = isSystemInDarkTheme()
+    val updateThemeMode: (UiThemeMode) -> Unit = { mode ->
+        themeMode = mode
+        UiThemePreferences.save(context, mode)
+    }
 
-    if (!BuildConfig.DEBUG) {
-        AuthenticatedAppHost()
-    } else if (previewRole == null) {
-        RolePreviewChooser(onOpenRole = { previewRole = it.name })
-    } else {
-        BackHandler { previewRole = null }
-        val role = runCatching { AccessRole.valueOf(previewRole.orEmpty()) }
-            .getOrDefault(AccessRole.CUSTOMER)
-        when (role) {
-            AccessRole.OWNER -> AdminApp(accessToken = null, onLogout = { previewRole = null })
-            else -> CustomerApp(
-                accessToken = null,
-                email = tr("Tài khoản xem thử", "Preview account"),
-                onLogout = { previewRole = null }
-            )
+    CompositionLocalProvider(
+        LocalUiThemeMode provides themeMode,
+        LocalOnUiThemeModeChange provides updateThemeMode
+    ) {
+        AppTheme(dark = themeMode.isDark(systemIsDark)) {
+            if (!BuildConfig.DEBUG) {
+                AuthenticatedAppHost()
+            } else if (previewRole == null) {
+                RolePreviewChooser(onOpenRole = { previewRole = it.name })
+            } else {
+                BackHandler { previewRole = null }
+                val role = runCatching { AccessRole.valueOf(previewRole.orEmpty()) }
+                    .getOrDefault(AccessRole.CUSTOMER)
+                when (role) {
+                    AccessRole.OWNER -> AdminApp(accessToken = null, onLogout = { previewRole = null })
+                    else -> CustomerApp(
+                        accessToken = null,
+                        email = tr("Tài khoản xem thử", "Preview account"),
+                        onLogout = { previewRole = null }
+                    )
+                }
+            }
         }
     }
 }
@@ -165,7 +182,7 @@ private fun AutuLioAppEntry() {
 private fun RolePreviewChooser(
     onOpenRole: (AccessRole) -> Unit
 ) {
-    AppTheme(dark = true) {
+    AppTheme(dark = LocalUiThemeMode.current.isDark(isSystemInDarkTheme())) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
             Column(
                 modifier = Modifier
@@ -250,13 +267,21 @@ internal fun AppTheme(dark: Boolean, content: @Composable () -> Unit) {
     val scheme = if (dark) darkColorScheme(
         primary = Color(0xFF4F8CFF),
         secondary = Color(0xFF35C6C8),
-        background = Color(0xFF0B1220),
-        surface = Color(0xFF131E2E)
+        background = Color.Black,
+        surface = Color(0xFF101010),
+        surfaceVariant = Color(0xFF191919),
+        onBackground = Color(0xFFF2F2F2),
+        onSurface = Color(0xFFF2F2F2),
+        outline = Color(0xFF555555)
     ) else lightColorScheme(
-        primary = Color(0xFF2563C7),
-        secondary = Color(0xFF087F83),
-        background = Color(0xFFF4F7FB),
-        surface = Color.White
+        primary = Color(0xFF2459A6),
+        secondary = Color(0xFF176D70),
+        background = Color(0xFFF0F0EC),
+        surface = Color(0xFFF8F8F4),
+        surfaceVariant = Color(0xFFE8E8E2),
+        onBackground = Color(0xFF20211F),
+        onSurface = Color(0xFF20211F),
+        outline = Color(0xFF777971)
     )
     MaterialTheme(colorScheme = scheme, content = content)
 }
@@ -282,7 +307,6 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
     val context = LocalContext.current
     val draftStore = remember(context) { SecureScriptDraftStore(context) }
     val initialDrafts = remember(draftStore) { draftStore.load() }
-    var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("overview") }
     var createDialog by remember { mutableStateOf(false) }
     var publishDraftName by rememberSaveable { mutableStateOf<String?>(null) }
@@ -309,7 +333,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
             }
         }
     }
-    AppTheme(dark) {
+    AppTheme(dark = LocalUiThemeMode.current.isDark(isSystemInDarkTheme())) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(host) },
@@ -352,7 +376,6 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
                     Modifier.padding(padding),
                     page,
                     onSelect = { page = it },
-                    onTheme = { dark = !dark },
                     onLogout = onLogout,
                     accessToken = accessToken,
                     initialDraftName = publishDraftName,
@@ -393,10 +416,9 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 
 @Composable
 internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit) {
-    var dark by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableStateOf("home") }
 
-    AppTheme(dark) {
+    AppTheme(dark = LocalUiThemeMode.current.isDark(isSystemInDarkTheme())) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
@@ -428,7 +450,6 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
                 )
                 else -> SettingsScreen(
                     Modifier.padding(padding),
-                    onTheme = { dark = !dark },
                     onLogout = onLogout
                 )
             }
@@ -1216,7 +1237,6 @@ private fun MoreScreen(
     modifier: Modifier,
     page: String,
     onSelect: (String) -> Unit,
-    onTheme: () -> Unit,
     onLogout: () -> Unit,
     accessToken: String?,
     initialDraftName: String? = null,
@@ -1302,7 +1322,7 @@ private fun MoreScreen(
                 "logs" -> AdminAuditLogsScreen(accessToken = accessToken)
 
                 "settings" -> {
-                    SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
+                    ThemeModeSelector()
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
                     SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Vai trò được xác minh từ máy chủ; thông tin kỹ thuật thiết bị và kết nối được ghi nhận khi đăng nhập.", "Roles are verified by the server; basic device and network diagnostics are recorded at sign-in."))
                     DatabaseBackupControls()
@@ -1604,13 +1624,12 @@ private fun CustomerDeviceLicensePage(modifier: Modifier) {
 @Composable
 private fun SettingsScreen(
     modifier: Modifier,
-    onTheme: () -> Unit,
     onLogout: () -> Unit
 ) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         BrandHeader(admin = false)
         Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
-        SettingRow(Icons.Outlined.Palette, tr("Giao diện", "Appearance"), tr("Chuyển đổi sáng và tối", "Switch light and dark mode"), onTheme)
+        ThemeModeSelector()
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
         SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
         DatabaseBackupControls()
