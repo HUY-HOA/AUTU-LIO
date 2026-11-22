@@ -1185,4 +1185,50 @@ class ScriptExecutionEngineTest {
         }
     }
 
+    @Test
+    fun evaluatesExpandedMathTextAndCollectionFunctions() {
+        val dispatcher = RecordingDispatcher()
+        val completed = CountDownLatch(1)
+        val engine = ScriptExecutionEngine(dispatcher) {
+            if (it.state == ScriptExecutionState.COMPLETED) completed.countDown()
+        }
+        try {
+            val program = compile(
+                """
+                HÀM LA_SO_DUONG(V: SỐ): LUẬN_LÝ {
+                    TRẢ_VỀ V > 0
+                }
+                BIẾN GOC: DANH_SÁCH = TẠO_DANH_SÁCH(3, 1, 2)
+                BIẾN SAP_XEP: DANH_SÁCH = SẮP_XẾP(GOC)
+                BIẾN DAO_NGUOC: DANH_SÁCH = ĐẢO_NGƯỢC(GOC)
+                BIẾN LOC: DANH_SÁCH = LỌC(GOC, "LA_SO_DUONG")
+                BIẾN CAN: SỐ = CĂN_BẬC_HAI(81)
+                BIẾN XUONG: SỐ = LÀM_TRÒN_XUỐNG(3.9)
+                BIẾN LEN: SỐ = LÀM_TRÒN_LÊN(3.1)
+                BIẾN VI_TRI: SỐ = TÌM_VỊ_TRÍ("AUTU-LIO", "LIO")
+                BIẾN PHAN_TU: SỐ = TÌM_PHẦN_TỬ(GOC, 1)
+                BIẾN NGU_NHIEN: SỐ = SỐ_NGẪU_NHIÊN(2, 5)
+                BIẾN RONG: LUẬN_LÝ = KIỂM_TRA_RỖNG("   ")
+                NẾU (
+                    LẤY_PHẦN_TỬ(SAP_XEP, 0) == 1 VÀ
+                    LẤY_PHẦN_TỬ(DAO_NGUOC, 0) == 2 VÀ
+                    ĐỘ_DÀI(LOC) == 3 VÀ
+                    CAN == 9 VÀ XUONG == 3 VÀ LEN == 4 VÀ
+                    VI_TRI == 5 VÀ PHAN_TU == 1 VÀ
+                    NGU_NHIEN >= 2 VÀ NGU_NHIEN < 5 VÀ RONG
+                ) {
+                    CHẠM(10, 20)
+                }
+                """.trimIndent()
+            )
+            assertEquals(ScriptExecutionStartResult.Started, engine.start(program))
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            assertEquals(ScriptExecutionState.COMPLETED, engine.snapshot().state)
+            assertEquals(listOf("tap:10,20"), dispatcher.actions)
+        } finally {
+            engine.close()
+        }
+    }
+
+
 }
