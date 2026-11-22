@@ -118,7 +118,7 @@ object AutuSyntaxHighlighter : VisualTransformation {
             when {
                 source[index] == '/' && source.getOrNull(index + 1) == '/' -> {
                     val start = index
-                    while (index < source.length && source[index] != '\\n' && source[index] != '\\r') {
+                    while (index < source.length && source[index] != '\n' && source[index] != '\r') {
                         index++
                     }
                     addStyle(builder, commentColor, start, index)
@@ -129,12 +129,12 @@ object AutuSyntaxHighlighter : VisualTransformation {
                     index++
                     while (index < source.length) {
                         when (source[index]) {
-                            '\\\\' -> index = (index + 2).coerceAtMost(source.length)
+                            '\\' -> index = (index + 2).coerceAtMost(source.length)
                             '"' -> {
                                 index++
                                 break
                             }
-                            '\\n', '\\r' -> break
+                            '\n', '\r' -> break
                             else -> index++
                         }
                     }
