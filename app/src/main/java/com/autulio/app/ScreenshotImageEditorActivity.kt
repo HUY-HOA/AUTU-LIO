@@ -202,7 +202,7 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
 
     private fun showLoadingScreen() {
         setContent {
-            AppTheme(dark = true) {
+            PreferredAppTheme(this@ScreenshotImageEditorActivity) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -218,7 +218,7 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
 
     private fun showOpenErrorScreen() {
         setContent {
-            AppTheme(dark = true) {
+            PreferredAppTheme(this@ScreenshotImageEditorActivity) {
                 Scaffold { padding ->
                     Column(
                         Modifier.fillMaxSize().padding(padding).padding(20.dp),
@@ -235,7 +235,7 @@ class ScreenshotImageEditorActivity : ComponentActivity() {
 
     private fun showEditorScreen(bitmap: Bitmap) {
         setContent {
-            AppTheme(dark = true) {
+            PreferredAppTheme(this@ScreenshotImageEditorActivity) {
                 ScreenshotImageEditorScreen(
                     originalBitmap = bitmap,
                     onBack = { finish() },
