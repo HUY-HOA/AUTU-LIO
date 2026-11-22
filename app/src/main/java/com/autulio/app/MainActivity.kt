@@ -648,7 +648,9 @@ private fun EditorScreen(
     onPublishDraft: () -> Unit,
     allowPublish: Boolean,
     allowTest: Boolean,
-    onPrepareRun: (String) -> Unit
+    allowFloatingEditor: Boolean,
+    onPrepareRun: (String) -> Unit,
+    onOpenFloatingEditor: () -> Unit
 ) {
     var validationText by rememberSaveable { mutableStateOf("") }
     var validationSucceeded by rememberSaveable { mutableStateOf<Boolean?>(null) }
@@ -871,6 +873,17 @@ private fun EditorScreen(
         }
         OutlinedButton(onClick = onSaveDraft, modifier = Modifier.fillMaxWidth()) {
             Text(tr("Lưu bản nháp trên thiết bị", "Save draft on this device"))
+        }
+        if (allowFloatingEditor) {
+            OutlinedButton(
+                onClick = onOpenFloatingEditor,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(tr(
+                    "Mở cửa sổ nổi để viết khi dùng ứng dụng khác",
+                    "Open floating editor over other apps"
+                ))
+            }
         }
         if (allowPublish) {
             Button(
@@ -2091,6 +2104,42 @@ class ScriptEditorActivity : ComponentActivity() {
                         },
                         allowPublish = namespace == "admin",
                         allowTest = allowTest,
+                        allowFloatingEditor = namespace == "admin" && allowTest,
+                        onOpenFloatingEditor = {
+                            if (namespace != "admin" || !allowTest) {
+                                scope.launch {
+                                    host.showSnackbar(
+                                        tr("Cửa sổ nổi chỉ dành cho tài khoản chủ sở hữu.", "The floating editor is available to the owner account only.")
+                                    )
+                                }
+                            } else {
+                                store.save(initialNames, initial.contents + (scriptName to code))
+                                setResult(Activity.RESULT_OK)
+                                val service = AutoClickAccessibilityService.current()
+                                if (service == null) {
+                                    scope.launch {
+                                        host.showSnackbar(
+                                            tr(
+                                                "Hãy bật AUTU-LIO trong Cài đặt > Trợ năng, sau đó quay lại và mở cửa sổ nổi.",
+                                                "Enable AUTU-LIO in Settings > Accessibility, then return and open the floating editor."
+                                            )
+                                        )
+                                    }
+                                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                } else if (service.openFloatingEditor(scriptName, code)) {
+                                    finish()
+                                } else {
+                                    scope.launch {
+                                        host.showSnackbar(
+                                            tr(
+                                                "Không mở được cửa sổ nổi. Hãy kiểm tra quyền Trợ năng hoặc dừng kịch bản đang chạy.",
+                                                "Could not open the floating editor. Check Accessibility access or stop the running script."
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        },
                         onPrepareRun = { source ->
                             if (!allowTest) return@EditorScreen
                             store.save(initialNames, initial.contents + (scriptName to source))
@@ -2116,7 +2165,7 @@ class ScriptEditorActivity : ComponentActivity() {
                                         )
                                     }
                                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                } else if (service.prepareProgram(compilation.program!!)) {
+                                } else if (service.prepareProgram(compilation.program!!, scriptName)) {
                                     scope.launch {
                                         host.showSnackbar(
                                             tr(
