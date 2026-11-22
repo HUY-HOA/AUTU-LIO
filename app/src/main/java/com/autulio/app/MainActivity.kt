@@ -2139,9 +2139,7 @@ class ScriptEditorActivity : ComponentActivity() {
             val host = remember { SnackbarHostState() }
             val scope = rememberCoroutineScope()
 
-            val editorThemeMode = remember { UiThemePreferences.load(this@ScriptEditorActivity) }
-            val systemIsDark = isSystemInDarkTheme()
-            AppTheme(dark = editorThemeMode.isDark(systemIsDark)) {
+            PreferredAppTheme(this@ScriptEditorActivity) {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                     snackbarHost = { SnackbarHost(host) }
