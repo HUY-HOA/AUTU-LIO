@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "check": "node --check src/index.js && node --test tests/*.test.mjs && python3 scripts/check_migrations.py"
+    "check": "node --check src/index.js && node --test tests/*.test.mjs && python3 scripts/check_migrations.py",
+    "migrate:remote": "wrangler d1 migrations apply autu_lio_auth --remote",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.166.0"
   }
 }
