@@ -144,8 +144,7 @@ data class CustomerAccountOverview(
     val devices: List<CustomerDeviceInfo>,
     val activeDeviceCount: Int,
     val canRegisterDevice: Boolean,
-    val canRun: Boolean,
-    val googleSignIn: GoogleSignInDetails? = null
+    val canRun: Boolean
 )
 
 data class CustomerLicenseInfo(
@@ -160,15 +159,7 @@ data class CustomerLicenseInfo(
 
 data class CustomerDeviceInfo(
     val id: String,
-    val label: String,
-    val manufacturer: String,
-    val model: String,
-    val androidVersion: String,
-    val appVersion: String,
     val status: String,
-    val registeredAt: Long,
-    val lastSeenAt: Long,
-    val revokedAt: Long?,
     val revokedReason: String?
 )
 
@@ -723,15 +714,7 @@ class AuthRepository(context: Context) {
                     add(
                         CustomerDeviceInfo(
                             id = id,
-                            label = item.optString("label"),
-                            manufacturer = item.optString("manufacturer"),
-                            model = item.optString("model"),
-                            androidVersion = item.optString("android_version"),
-                            appVersion = item.optString("app_version"),
                             status = item.optString("status"),
-                            registeredAt = item.optLong("registered_at"),
-                            lastSeenAt = item.optLong("last_seen_at"),
-                            revokedAt = item.optLong("revoked_at").takeIf { item.has("revoked_at") && !item.isNull("revoked_at") },
                             revokedReason = item.optString("revoked_reason").takeIf { it.isNotBlank() && it != "null" }
                         )
                     )
@@ -746,12 +729,7 @@ class AuthRepository(context: Context) {
             devices = devices,
             activeDeviceCount = result.optInt("activeDeviceCount"),
             canRegisterDevice = result.optBoolean("canRegisterDevice"),
-            canRun = result.optBoolean("canRun"),
-            googleSignIn = parseGoogleSignInDetails(
-                googleSub = account.optString("googleSub"),
-                emailVerified = account.optBoolean("emailVerified"),
-                latestSignIn = account.optJSONObject("latestSignIn")
-            )
+            canRun = result.optBoolean("canRun")
         )
     }
 
@@ -829,11 +807,15 @@ class AuthRepository(context: Context) {
             email = email,
             displayName = displayName,
             role = role,
-            googleSignIn = parseGoogleSignInDetails(
-                googleSub = optString("googleSub"),
-                emailVerified = optBoolean("emailVerified"),
-                latestSignIn = optJSONObject("latestSignIn")
-            )
+            googleSignIn = if (role == AccessRole.OWNER) {
+                parseGoogleSignInDetails(
+                    googleSub = optString("googleSub"),
+                    emailVerified = optBoolean("emailVerified"),
+                    latestSignIn = optJSONObject("latestSignIn")
+                )
+            } else {
+                null
+            }
         )
     }
 
