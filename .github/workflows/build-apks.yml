@@ -6,17 +6,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      build_variant:
-        description: "Chọn Debug để phát triển hoặc Release để phát hành"
-        type: choice
-        options:
-          - debug
-          - release
-        default: release
-        required: true
-
+ 
 permissions:
   contents: read
 
@@ -26,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK'))
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK'
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -65,7 +55,7 @@ jobs:
         id: signing
         shell: bash
         env:
-          REQUESTED_BUILD_VARIANT: ${{ inputs.build_variant || 'release' }}
+          REQUESTED_BUILD_VARIANT: release
           AUTU_LIO_RELEASE_KEYSTORE_BASE64: ${{ secrets.AUTU_LIO_RELEASE_KEYSTORE_BASE64 }}
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
           AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
