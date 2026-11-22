@@ -742,15 +742,15 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     is ScriptFilePickerResult.Imported -> throw IllegalStateException("Kết quả lưu tệp không hợp lệ.")
                 }
             }
-            "HÃNG_SẢN_XUẤT" -> Build.MANUFACTURER.orEmpty()
-            "MẪU_THIẾT_BỊ" -> Build.MODEL.orEmpty()
-            "PHIÊN_BẢN_ANDROID" -> Build.VERSION.RELEASE.orEmpty()
-            "MỨC_API_ANDROID" -> Build.VERSION.SDK_INT
-            "MÀN_HÌNH_BỊ_KHÓA" -> {
+            "LẤY_HÃNG_SẢN_XUẤT" -> Build.MANUFACTURER.orEmpty()
+            "LẤY_MẪU_THIẾT_BỊ" -> Build.MODEL.orEmpty()
+            "LẤY_PHIÊN_BẢN_ANDROID" -> Build.VERSION.RELEASE.orEmpty()
+            "LẤY_MỨC_API_ANDROID" -> Build.VERSION.SDK_INT
+            "KIỂM_TRA_MÀN_HÌNH_BỊ_KHÓA" -> {
                 val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
                 keyguard.isKeyguardLocked
             }
-            "THIẾT_BỊ_ĐƯỢC_BẢO_MẬT" -> {
+            "KIỂM_TRA_THIẾT_BỊ_ĐƯỢC_BẢO_MẬT" -> {
                 val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
                 keyguard.isDeviceSecure
             }
@@ -836,26 +836,26 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 val packageName = arguments[0] as? String ?: return false
                 foregroundPackage == packageName
             }
-            "CHIỀU_RỘNG_DP" -> {
+            "LẤY_CHIỀU_RỘNG_DP" -> {
                 val metrics = readDisplayMetrics()
                 ScreenMetricsInfo.widthDp(metrics.widthPixels, metrics.density.toDouble())
             }
-            "CHIỀU_CAO_DP" -> {
+            "LẤY_CHIỀU_CAO_DP" -> {
                 val metrics = readDisplayMetrics()
                 ScreenMetricsInfo.heightDp(metrics.heightPixels, metrics.density.toDouble())
             }
-            "TỶ_LỆ_KHUNG_HÌNH" -> {
+            "LẤY_TỶ_LỆ_KHUNG_HÌNH" -> {
                 val metrics = readDisplayMetrics()
                 ScreenMetricsInfo.aspectRatio(metrics.widthPixels, metrics.heightPixels)
             }
-            "HƯỚNG_MÀN_HÌNH" -> {
+            "LẤY_HƯỚNG_MÀN_HÌNH" -> {
                 val metrics = readDisplayMetrics()
                 ScreenMetricsInfo.orientation(metrics.widthPixels, metrics.heightPixels)
             }
-            "XOAY_MÀN_HÌNH" -> readDisplayRotation()
-            "GÓC_XOAY_MÀN_HÌNH" -> ScreenMetricsInfo.rotationDegrees(readDisplayRotation())
-            "GÓI_ỨNG_DỤNG_ĐANG_MỞ" -> foregroundPackage.orEmpty()
-            "MẬT_ĐỘ_MÀN_HÌNH" -> readDisplayMetrics().density.toDouble()
+            "LẤY_XOAY_MÀN_HÌNH" -> readDisplayRotation()
+            "LẤY_GÓC_XOAY_MÀN_HÌNH" -> ScreenMetricsInfo.rotationDegrees(readDisplayRotation())
+            "LẤY_GÓI_ỨNG_DỤNG_ĐANG_MỞ" -> foregroundPackage.orEmpty()
+            "LẤY_MẬT_ĐỘ_MÀN_HÌNH" -> readDisplayMetrics().density.toDouble()
             "DP_SANG_PIXEL" -> {
                 requireArgumentCount(name, arguments, 1)
                 ScreenCoordinateConverter.dpToPx(
@@ -958,21 +958,21 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 )
                 listOf(point.first.toInt(), point.second.toInt())
             }
-            "CHIỀU_RỘNG_MÀN_HÌNH" -> readDisplayMetrics().widthPixels
-            "CHIỀU_CAO_MÀN_HÌNH" -> readDisplayMetrics().heightPixels
-            "CHIỀU_RỘNG_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeWidthPx
-            "CHIỀU_CAO_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeHeightPx
-            "LỀ_AN_TOÀN_TRÁI" -> readDisplayGeometry().safeInsets.left
-            "LỀ_AN_TOÀN_TRÊN" -> readDisplayGeometry().safeInsets.top
-            "LỀ_AN_TOÀN_PHẢI" -> readDisplayGeometry().safeInsets.right
-            "LỀ_AN_TOÀN_DƯỚI" -> readDisplayGeometry().safeInsets.bottom
-            "CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutDetectionKnown
-            "CÓ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().hasCutout
-            "SỐ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutCount
-            "TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().let { geometry ->
+            "LẤY_CHIỀU_RỘNG_MÀN_HÌNH" -> readDisplayMetrics().widthPixels
+            "LẤY_CHIỀU_CAO_MÀN_HÌNH" -> readDisplayMetrics().heightPixels
+            "LẤY_CHIỀU_RỘNG_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeWidthPx
+            "LẤY_CHIỀU_CAO_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeHeightPx
+            "LẤY_LỀ_AN_TOÀN_TRÁI" -> readDisplayGeometry().safeInsets.left
+            "LẤY_LỀ_AN_TOÀN_TRÊN" -> readDisplayGeometry().safeInsets.top
+            "LẤY_LỀ_AN_TOÀN_PHẢI" -> readDisplayGeometry().safeInsets.right
+            "LẤY_LỀ_AN_TOÀN_DƯỚI" -> readDisplayGeometry().safeInsets.bottom
+            "KIỂM_TRA_KHẢ_NĂNG_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutDetectionKnown
+            "KIỂM_TRA_CÓ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().hasCutout
+            "LẤY_SỐ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutCount
+            "LẤY_TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().let { geometry ->
                 if (geometry.cutoutDetectionKnown) geometry.flattenedCutoutBounds() else null
             }
-            "THỜI_GIAN_MS" -> System.currentTimeMillis()
+            "LẤY_THỜI_GIAN_MS" -> System.currentTimeMillis()
             "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
                 readScreenTextItems().joinToString("\n") { it.text }
