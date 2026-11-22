@@ -11,6 +11,10 @@ Thư mục `backend/` chứa Cloudflare Worker REST API phục vụ trực tiế
 
 Phạm vi vận hành hiện tại chỉ dùng OWNER và CUSTOMER. Quy trình cộng tác viên/nhà phát triển được để dành cho giai đoạn sau; hiện chưa triển khai onboarding người viết AUTU. Mọi quyền vẫn do máy chủ xác minh, không cấp quyền bằng bộ chọn vai trò cục bộ.
 
+## Ngôn ngữ giao diện
+
+Tiếng Việt là ngôn ngữ mặc định trên mọi màn hình OWNER và CUSTOMER, kể cả thông báo, lỗi, cửa sổ nổi và Trợ năng. Xem [quy tắc ngôn ngữ mặc định](docs/NGON_NGU_MAC_DINH_VI.md).
+
 ## Cấu trúc
 
 - `app/`: ứng dụng Android Kotlin/Jetpack Compose, AUTU Script, runtime và Accessibility Service.
