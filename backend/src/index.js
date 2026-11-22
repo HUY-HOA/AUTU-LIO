@@ -886,15 +886,21 @@ async function registerCustomerDevice(request, env, session) {
     appVersion: cleanDeviceText(body.appVersion, 40)
   };
 
-  if (existing?.status === "REVOKED" && existing.revoked_reason !== "CUSTOMER_REMOVED") {
-    throw new HttpError(403, "device_revoked", "This device was revoked by the application owner. Ask the owner to reactivate it.");
+  // A customer may re-enroll a device they removed, or a device that was
+  // disabled only because the whole account was revoked. A fresh one-time
+  // challenge signed by the device's private key is still required, and the
+  // account must now have a current license with a free device slot.
+  const customerReenrollmentReasons = new Set(["CUSTOMER_REMOVED", "ACCOUNT_REVOKED"]);
+  if (existing?.status === "REVOKED" && !customerReenrollmentReasons.has(existing.revoked_reason)) {
+    throw new HttpError(403, "device_revoked", "This device was explicitly revoked by the application owner. Ask the owner to reactivate it.");
   }
 
   if (existing?.status === "REVOKED") {
     const restored = await env.DB.prepare(
       "UPDATE devices SET status = 'ACTIVE', revoked_at = NULL, revoked_reason = NULL, " +
       "label = ?, manufacturer = ?, model = ?, android_version = ?, app_version = ?, last_seen_at = ? " +
-      "WHERE id = ? AND user_id = ? AND status = 'REVOKED' AND revoked_reason = 'CUSTOMER_REMOVED' " +
+      "WHERE id = ? AND user_id = ? AND status = 'REVOKED' " +
+      "AND revoked_reason IN ('CUSTOMER_REMOVED', 'ACCOUNT_REVOKED') " +
       "AND (SELECT COUNT(*) FROM devices WHERE user_id = ? AND status = 'ACTIVE') < ?"
     ).bind(
       metadata.label, metadata.manufacturer, metadata.model, metadata.androidVersion, metadata.appVersion,
@@ -903,7 +909,10 @@ async function registerCustomerDevice(request, env, session) {
     if (restored.meta?.changes !== 1) {
       throw new HttpError(409, "device_limit_reached", "The license has reached its active device limit or the device state changed. Refresh and try again.");
     }
-    await audit(env, session.user_id, "device.re_registered", "device", existing.id, { fingerprint });
+    await audit(env, session.user_id, "device.re_registered", "device", existing.id, {
+      fingerprint,
+      previousRevocationReason: existing.revoked_reason
+    });
     return response(request, {
       registered: true,
       alreadyRegistered: true,
