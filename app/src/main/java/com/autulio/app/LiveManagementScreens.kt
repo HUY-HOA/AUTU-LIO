@@ -961,7 +961,7 @@ internal fun AdminPackagesScreen(
                         Text(actionLabel)
                     }
                     Text(
-                        "Luồng bảo mật: nén GZIP khi có lợi → AES-256-GCM 256-bit với khóa ngẫu nhiên riêng từng phiên bản → RSA-3072 OAEP SHA-256 bọc khóa cho từng thiết bị khi tải. D1 chỉ lưu ciphertext và phong bì khóa đã mã hóa.",
+                        "Luồng bảo mật: nén GZIP khi có lợi → AES-256-GCM 256-bit với khóa ngẫu nhiên riêng từng phiên bản → RSA-3072 OAEP SHA-1/MGF1-SHA1 bọc khóa AES cho từng thiết bị khi tải; mã nguồn vẫn dùng AES-256-GCM. D1 chỉ lưu ciphertext và phong bì khóa đã mã hóa.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         lineHeight = 16.sp
@@ -1220,13 +1220,16 @@ internal fun CustomerPackagesScreen(
                                 runningId = item.id
                                 error = ""
                                 notice = ""
+                                var operationStage = "tải gói từ máy chủ"
                                 try {
                                     val encryptedPackage = repository.downloadCustomerPackage(
                                         token,
                                         item.id,
                                         deviceIdentity.fingerprintSha256
                                     )
+                                    operationStage = "mở khóa và giải mã gói trên thiết bị"
                                     val source = EncryptedAutuPackageDecryptor.decryptSource(identityStore, encryptedPackage)
+                                    operationStage = "biên dịch AUTU Script"
                                     val compilation = ScriptCompiler.compile(source)
                                     if (!compilation.isSuccess || compilation.program == null) {
                                         val details = compilation.diagnostics.joinToString("; ") {
@@ -1241,6 +1244,7 @@ internal fun CustomerPackagesScreen(
                                             tr("Phiên bản ngôn ngữ của gói không tương thích với ứng dụng.", "The package language version is incompatible with this app.")
                                         )
                                     }
+                                    operationStage = "chuẩn bị bộ chạy AUTU"
                                     val service = AutoClickAccessibilityService.current()
                                     if (service == null) {
                                         notice = tr(
@@ -1259,7 +1263,13 @@ internal fun CustomerPackagesScreen(
                                         )
                                     }
                                 } catch (exception: Exception) {
-                                    error = localizedErrorMessage(exception, tr("Không thể tải hoặc chạy gói AUTU.", "Could not download or prepare this AUTU."))
+                                    val localized = localizedErrorMessage(exception, "")
+                                    error = localized.ifBlank {
+                                        tr(
+                                            "Lỗi ở bước $operationStage (${exception.javaClass.simpleName}).",
+                                            "Failed while trying to $operationStage (${exception.javaClass.simpleName})."
+                                        )
+                                    }
                                 } finally {
                                     runningId = null
                                 }
