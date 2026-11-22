@@ -19,7 +19,7 @@ object ScriptTemplateCatalog {
             descriptionEn = "Tap at a screen coordinate.",
             source = """
                 // Thay tọa độ X và Y theo ứng dụng mục tiêu
-                CHẠM(200, 400)
+                NHẤN(200, 400)
             """.trimIndent()
         ),
         ScriptTemplate(
@@ -29,9 +29,9 @@ object ScriptTemplateCatalog {
             descriptionVi = "Chạm vị trí thứ nhất, chờ 500 ms rồi chạm vị trí thứ hai.",
             descriptionEn = "Tap the first point, wait 500 ms, then tap the second point.",
             source = """
-                CHẠM(200, 400)
+                NHẤN(200, 400)
                 CHỜ(500)
-                CHẠM(500, 400)
+                NHẤN(500, 400)
             """.trimIndent()
         ),
         ScriptTemplate(
@@ -63,7 +63,7 @@ object ScriptTemplateCatalog {
             source = """
                 BIẾN SO_LAN = 3
                 LẶP(SO_LAN) {
-                    CHẠM(200, 400)
+                    NHẤN(200, 400)
                     CHỜ(500)
                 }
             """.trimIndent()
@@ -75,8 +75,8 @@ object ScriptTemplateCatalog {
             descriptionVi = "Chỉ tiếp tục thao tác khi pin còn trên 20%.",
             descriptionEn = "Only continue when the battery is above 20%.",
             source = """
-                NẾU (PIN() > 20) {
-                    CHẠM(200, 400)
+                NẾU (LẤY_PHẦN_TRĂM_PIN() > 20) {
+                    NHẤN(200, 400)
                 } NGƯỢC_LẠI {
                     CHỜ(1000)
                 }
@@ -102,7 +102,7 @@ object ScriptTemplateCatalog {
                 BIẾN DEM = 0
                 LẶP_KHI (DEM < 5) {
                     DEM = DEM + 1
-                    CHẠM(200, 400)
+                    NHẤN(200, 400)
                     CHỜ(300)
                 }
             """.trimIndent()
@@ -114,8 +114,8 @@ object ScriptTemplateCatalog {
             descriptionVi = "Kiểm tra điều kiện định kỳ và tự dừng khi hết thời hạn.",
             descriptionEn = "Poll a condition and stop safely when the timeout is reached.",
             source = """
-                CHỜ_ĐẾN_KHI(ỨNG_DỤNG_ĐANG_MỞ("com.example.game"), 15000, 250)
-                CHẠM(200, 400)
+                CHỜ_ĐẾN_KHI(KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ("com.example.game"), 15000, 250)
+                NHẤN(200, 400)
             """.trimIndent()
         ),
         ScriptTemplate(
@@ -128,7 +128,7 @@ object ScriptTemplateCatalog {
                 BIẾN DEM = 0
                 LẶP_ĐẾN_KHI(DEM >= 5) {
                     DEM = DEM + 1
-                    CHẠM(200, 400)
+                    NHẤN(200, 400)
                     CHỜ(300)
                 }
             """.trimIndent()
@@ -142,7 +142,7 @@ object ScriptTemplateCatalog {
             source = """
                 BIẾN CAC_TOA_DO: DANH_SÁCH = TẠO_DANH_SÁCH(120, 240, 360)
                 LẶP_MỖI (TOA_DO_X TRONG CAC_TOA_DO) {
-                    CHẠM(TOA_DO_X, 400)
+                    NHẤN(TOA_DO_X, 400)
                     CHỜ(300)
                 }
             """.trimIndent()
@@ -155,9 +155,9 @@ object ScriptTemplateCatalog {
             descriptionEn = "Create a settings map and iterate through keys to read their values.",
             source = """
                 BIẾN CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TOA_DO_X", 120, "TOA_DO_Y", 400)
-                BIẾN DANH_SACH_KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+                BIẾN DANH_SACH_KHOA: DANH_SÁCH = LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ(CAU_HINH)
                 LẶP_MỖI (KHOA TRONG DANH_SACH_KHOA) {
-                    CHẠM(LẤY_GIÁ_TRỊ(CAU_HINH, KHOA), 500)
+                    NHẤN(LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CAU_HINH, KHOA), 500)
                 }
             """.trimIndent()
         ),

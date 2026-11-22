@@ -45,15 +45,15 @@ class EditorGuideCatalogTest {
         assertEquals(30, apiFor("BẬT_TẮT_CHIA_MÀN_HÌNH"))
         assertEquals(30, apiFor("ĐỌC_VĂN_BẢN_MÀN_HÌNH"))
         assertEquals(30, apiFor("NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH"))
-        assertEquals(30, apiFor("MÀU_TẠI"))
-        assertEquals(28, apiFor("CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH"))
+        assertEquals(30, apiFor("LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH"))
+        assertEquals(28, apiFor("KIỂM_TRA_KHẢ_NĂNG_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH"))
     }
 
     @Test
     fun accessibilityTextFallbackDocumentsPartialSupportOnOlderAndroid() {
         val command = EditorGuideCatalog.sections
             .flatMap { it.commands }
-            .first { it.syntax.startsWith("MÀN_HÌNH_CHỨA_CHỮ(") }
+            .first { it.syntax.startsWith("KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH(") }
 
         assertEquals(26, command.minAndroidApi)
         assertTrue(command.androidNote.orEmpty().contains("Android 11.0 (API 30)"))
@@ -67,8 +67,14 @@ class EditorGuideCatalogTest {
             assertTrue(template.nameVi.isNotBlank())
             assertTrue(template.descriptionVi.isNotBlank())
             assertTrue(template.source.isNotBlank())
+            val compiled = com.autulio.app.script.ScriptCompiler.compile(template.source)
+            assertTrue(
+                "Mẫu ${template.id} không biên dịch được: ${compiled.diagnostics}",
+                compiled.isSuccess
+            )
         }
     }
+
     @Test
     fun screenAnnotationExamplesCompile() {
         val source = """
@@ -81,6 +87,15 @@ class EditorGuideCatalogTest {
         """.trimIndent()
 
         assertTrue(com.autulio.app.script.ScriptCompiler.compile(source).isSuccess)
+    }
+
+    @Test
+    fun guideSectionsRemainInNumericOrderAfterCommandExpansion() {
+        val numbers = EditorGuideCatalog.sections.map { section ->
+            Regex("""^(\d+)\.""").find(section.title)?.groupValues?.get(1)?.toInt()
+        }
+        assertTrue(numbers.all { it != null })
+        assertEquals((1..EditorGuideCatalog.sections.size).toList(), numbers.filterNotNull())
     }
 
 }

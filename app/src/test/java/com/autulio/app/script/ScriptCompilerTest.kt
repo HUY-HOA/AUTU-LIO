@@ -15,7 +15,7 @@ class ScriptCompilerTest {
             ĐỊNH_NGHĨA_HÀM TINH_DOI(A: SỐ): SỐ {
                 TRẢ_VỀ A * 2
             }
-            CHẠM(1, 2)
+            NHẤN(1, 2)
             """.trimIndent()
         )
         assertFalse(legacyVariable.isSuccess)
@@ -26,7 +26,7 @@ class ScriptCompilerTest {
 
     @Test
     fun rejectsBuiltInFunctionNamesAsVariableNames() {
-        val result = ScriptCompiler.compile("BIẾN PIN = 10")
+        val result = ScriptCompiler.compile("BIẾN LẤY_PHẦN_TRĂM_PIN = 10")
         assertFalse(result.isSuccess)
         assertEquals("reserved_identifier", result.diagnostics.first().code)
     }
@@ -37,7 +37,7 @@ class ScriptCompilerTest {
             """
             BIẾN SỐ_LẦN = 2 + 1
             NẾU (SỐ_LẦN == 3 VÀ ĐÚNG) {
-                CHẠM(120, 240)
+                NHẤN(120, 240)
             } NGƯỢC_LẠI {
                 CHỜ(100)
             }
@@ -57,7 +57,7 @@ class ScriptCompilerTest {
         val result = ScriptCompiler.compile(
             """
             LẶP(2) {
-                CHẠM(10, 20)
+                NHẤN(10, 20)
                 CHỜ(100)
             }
             """.trimIndent()
@@ -78,7 +78,7 @@ class ScriptCompilerTest {
                 NẾU (I == 5) {
                     THOÁT_LẶP
                 }
-                CHẠM(I, 20)
+                NHẤN(I, 20)
             }
             """.trimIndent()
         )
@@ -116,7 +116,7 @@ class ScriptCompilerTest {
         val result = ScriptCompiler.compile(
             """
             BIẾN TEN_GOI = "com.example.game"
-            NẾU (ỨNG_DỤNG_ĐÃ_CÀI(TEN_GOI) == ĐÚNG HOẶC PIN() < 10) {
+            NẾU (KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI(TEN_GOI) == ĐÚNG HOẶC LẤY_PHẦN_TRĂM_PIN() < 10) {
                 MỞ_ỨNG_DỤNG(TEN_GOI)
             }
             """.trimIndent()
@@ -173,7 +173,7 @@ class ScriptCompilerTest {
 
     @Test
     fun rejectsIncorrectMultiTouchCommandArgumentCounts() {
-        val tap = ScriptCompiler.compile("CHẠM_ĐA_ĐIỂM(TẠO_DANH_SÁCH(), 100, 200)")
+        val tap = ScriptCompiler.compile("NHẤN_ĐA_ĐIỂM(TẠO_DANH_SÁCH(), 100, 200)")
         val swipe = ScriptCompiler.compile("VUỐT_ĐA_ĐIỂM(TẠO_DANH_SÁCH(), 100, 200)")
 
         assertEquals("argument_count", tap.diagnostics.first().code)
@@ -196,10 +196,10 @@ class ScriptCompilerTest {
     @Test
     fun everyRegisteredSystemCommandHasTheCorrectVietnameseSignature() {
         val validCommands = listOf(
-            "CHẠM(1, 2)",
+            "NHẤN(1, 2)",
             "NHẤN_GIỮ(1, 2, 100)",
             "VUỐT(1, 2, 3, 4, 100)",
-            "CHẠM_ĐA_ĐIỂM(TẠO_DANH_SÁCH(TẠO_DANH_SÁCH(10, 20), TẠO_DANH_SÁCH(30, 40)), 100)",
+            "NHẤN_ĐA_ĐIỂM(TẠO_DANH_SÁCH(TẠO_DANH_SÁCH(10, 20), TẠO_DANH_SÁCH(30, 40)), 100)",
             "VUỐT_ĐA_ĐIỂM(TẠO_DANH_SÁCH(TẠO_DANH_SÁCH(10, 20, 30, 40), TẠO_DANH_SÁCH(50, 60, 70, 80)), 200)",
             "CHỜ(100)",
             "MỞ_ỨNG_DỤNG(\"com.example.game\")",
@@ -238,7 +238,7 @@ class ScriptCompilerTest {
             BIẾN SỐ_LẦN = 2
             NẾU (SỐ_LẦN > 1 VÀ ĐÚNG) {
                 LẶP(SỐ_LẦN) {
-                    CHẠM(10, 20)
+                    NHẤN(10, 20)
                 }
             } NGƯỢC_LẠI {
                 CHỜ(100)
@@ -258,7 +258,7 @@ class ScriptCompilerTest {
 
     @Test
     fun rejectsIncorrectArgumentCount() {
-        val result = ScriptCompiler.compile("CHẠM(10)")
+        val result = ScriptCompiler.compile("NHẤN(10)")
 
         assertFalse(result.isSuccess)
         assertEquals("argument_count", result.diagnostics.first().code)
@@ -266,7 +266,7 @@ class ScriptCompilerTest {
 
     @Test
     fun rejectsRepeatCountOutsideSupportedRange() {
-        val result = ScriptCompiler.compile("LẶP(0) { CHẠM(1, 2) }")
+        val result = ScriptCompiler.compile("LẶP(0) { NHẤN(1, 2) }")
 
         assertFalse(result.isSuccess)
         assertEquals("repeat_range", result.diagnostics.first().code)
@@ -278,7 +278,7 @@ class ScriptCompilerTest {
             """
             LẶP(100) {
                 LẶP(100) {
-                    CHẠM(1, 2)
+                    NHẤN(1, 2)
                 }
             }
             """.trimIndent()
@@ -306,7 +306,7 @@ class ScriptCompilerTest {
 
     @Test
     fun rejectsUnclosedBlocksAndOversizedSource() {
-        val unclosed = ScriptCompiler.compile("LẶP(2) { CHẠM(1, 2)")
+        val unclosed = ScriptCompiler.compile("LẶP(2) { NHẤN(1, 2)")
         val oversized = ScriptCompiler.compile(" ".repeat(ScriptCompiler.MAX_SOURCE_LENGTH + 1))
 
         assertEquals("missing_brace", unclosed.diagnostics.first().code)
@@ -318,11 +318,11 @@ class ScriptCompilerTest {
         val result = ScriptCompiler.compile(
             """
             // Chú thích đầu
-            CHẠM(10, 20); CHỜ(100)
+            NHẤN(10, 20); CHỜ(100)
 
             LẶP(2) {
                 // Một thao tác lặp
-                CHẠM(30, 40)
+                NHẤN(30, 40)
             }
             """.trimIndent()
         )
@@ -356,7 +356,7 @@ class ScriptCompilerTest {
             BIẾN DA_SANG: LUẬN_LÝ = ĐÚNG
             NẾU (DA_SANG VÀ ĐỘ_DÀI(NOI_DUNG) > 0) {
                 LẶP(SO_LAN) {
-                    CHẠM(100, 200)
+                    NHẤN(100, 200)
                 }
             }
             """.trimIndent()
@@ -369,7 +369,7 @@ class ScriptCompilerTest {
     @Test
     fun validatesBuiltinFunctionNamesAndArgumentCounts() {
         val unknown = ScriptCompiler.compile("BIẾN GIA_TRI = OCR(\"nội dung\")")
-        val wrongCount = ScriptCompiler.compile("BIẾN GIA_TRI = PIN(1)")
+        val wrongCount = ScriptCompiler.compile("BIẾN GIA_TRI = LẤY_PHẦN_TRĂM_PIN(1)")
 
         assertEquals("unknown_function", unknown.diagnostics.first().code)
         assertEquals("function_argument_count", wrongCount.diagnostics.first().code)
@@ -391,7 +391,7 @@ class ScriptCompilerTest {
                 TRẢ_VỀ A + B
             }
             BIẾN KET_QUA: SỐ = TINH_TONG(10, 20)
-            CHẠM(KET_QUA, 30)
+            NHẤN(KET_QUA, 30)
             """.trimIndent()
         )
         assertTrue(result.diagnostics.toString(), result.isSuccess)
@@ -404,7 +404,7 @@ class ScriptCompilerTest {
             BIẾN DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(10, 20, 30)
             BIẾN SO_LUONG: SỐ = ĐỘ_DÀI(DANH_SÁCH)
             LẶP_MỖI (PHAN_TU TRONG DANH_SÁCH) {
-                CHẠM(PHAN_TU, 40)
+                NHẤN(PHAN_TU, 40)
             }
             """.trimIndent()
         )
@@ -427,7 +427,7 @@ class ScriptCompilerTest {
 
     @Test
     fun validatesListBuiltinFunctionArgumentCountsAndSize() {
-        val wrongGetCount = ScriptCompiler.compile("BIẾN X = LẤY_PHẦN_TỬ(TẠO_DANH_SÁCH(), 1, 2)")
+        val wrongGetCount = ScriptCompiler.compile("BIẾN X = LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TẠO_DANH_SÁCH(), 1, 2)")
         val tooManyItems = ScriptCompiler.compile(
             "BIẾN X = TẠO_DANH_SÁCH(" + (0 until ScriptCompiler.MAX_LIST_ITEMS + 1).joinToString(",") + ")"
         )
@@ -441,9 +441,9 @@ class ScriptCompilerTest {
             """
             BIẾN CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TEN", "AUTU-LIO", "SO", 3)
             BIẾN SO_LUONG: SỐ = ĐỘ_DÀI(CAU_HINH)
-            BIẾN DANH_SACH_KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+            BIẾN DANH_SACH_KHOA: DANH_SÁCH = LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ(CAU_HINH)
             LẶP_MỖI (KHOA TRONG DANH_SACH_KHOA) {
-                BIẾN GIA_TRI = LẤY_GIÁ_TRỊ(CAU_HINH, KHOA)
+                BIẾN GIA_TRI = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CAU_HINH, KHOA)
                 CHỜ(1)
             }
             """.trimIndent()
@@ -505,10 +505,10 @@ class ScriptCompilerTest {
     fun supportsScreenColorAnalysisBuiltins() {
         val result = ScriptCompiler.compile(
             """
-            BIẾN MÀU: BẢN_ĐỒ = MÀU_TẠI(20, 30)
-            BIẾN CÓ_MÀU: LUẬN_LÝ = MÀN_HÌNH_CÓ_MÀU(255, 0, 0, 12)
-            BIẾN TỌA_ĐỘ: DANH_SÁCH = TÌM_VỊ_TRÍ_MÀU(0, 255, 0, 8)
-            BIẾN TỶ_LỆ: SỐ = TỶ_LỆ_MÀU_TRONG_VÙNG(0, 0, 255, 10, 10, 20, 300, 400)
+            BIẾN MÀU: BẢN_ĐỒ = LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(20, 30)
+            BIẾN CÓ_MÀU: LUẬN_LÝ = KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(255, 0, 0, 12)
+            BIẾN TỌA_ĐỘ: DANH_SÁCH = TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH(0, 255, 0, 8)
+            BIẾN TỶ_LỆ: SỐ = TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(0, 0, 255, 10, 10, 20, 300, 400)
             """.trimIndent()
         )
 
@@ -518,9 +518,9 @@ class ScriptCompilerTest {
 
     @Test
     fun rejectsIncorrectScreenColorBuiltinArgumentCounts() {
-        val point = ScriptCompiler.compile("BIẾN MÀU = MÀU_TẠI(10)")
-        val screen = ScriptCompiler.compile("BIẾN CÓ_MÀU = MÀN_HÌNH_CÓ_MÀU(255, 0, 0)")
-        val region = ScriptCompiler.compile("BIẾN TỶ_LỆ = TỶ_LỆ_MÀU_TRONG_VÙNG(0, 0, 0, 0, 1, 2, 3)")
+        val point = ScriptCompiler.compile("BIẾN MÀU = LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(10)")
+        val screen = ScriptCompiler.compile("BIẾN CÓ_MÀU = KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(255, 0, 0)")
+        val region = ScriptCompiler.compile("BIẾN TỶ_LỆ = TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(0, 0, 0, 0, 1, 2, 3)")
 
         assertEquals("function_argument_count", point.diagnostics.first().code)
         assertEquals("function_argument_count", screen.diagnostics.first().code)
@@ -595,7 +595,7 @@ class ScriptCompilerTest {
             BIẾN Y_TƯƠNG_ĐỐI: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.75)
             BIẾN TỶ_LỆ_X: SỐ = TỶ_LỆ_X_THEO_TỌA_ĐỘ(100)
             BIẾN TỶ_LỆ_Y: SỐ = TỶ_LỆ_Y_THEO_TỌA_ĐỘ(200)
-            CHẠM(X_TƯƠNG_ĐỐI, Y_TƯƠNG_ĐỐI)
+            NHẤN(X_TƯƠNG_ĐỐI, Y_TƯƠNG_ĐỐI)
             """.trimIndent()
         )
 
@@ -624,10 +624,10 @@ class ScriptCompilerTest {
             BIẾN TY_LE_Y: SỐ = TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y_AN_TOAN)
             BIẾN TOA_DO_HIEN_TAI: DANH_SÁCH = TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(100, 200)
             BIẾN TOA_DO_GOC: DANH_SÁCH = TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(
-                LẤY_PHẦN_TỬ(TOA_DO_HIEN_TAI, 0),
-                LẤY_PHẦN_TỬ(TOA_DO_HIEN_TAI, 1)
+                LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO_HIEN_TAI, 0),
+                LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO_HIEN_TAI, 1)
             )
-            CHẠM(LẤY_PHẦN_TỬ(TOA_DO_HIEN_TAI, 0), LẤY_PHẦN_TỬ(TOA_DO_HIEN_TAI, 1))
+            NHẤN(LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO_HIEN_TAI, 0), LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(TOA_DO_HIEN_TAI, 1))
             """.trimIndent()
         )
 
@@ -665,7 +665,7 @@ class ScriptCompilerTest {
         val result = ScriptCompiler.compile(
             """
             BIẾN VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_MÀN_HÌNH()
-            BIẾN CO_CHU: LUẬN_LÝ = MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập")
+            BIẾN CO_CHU: LUẬN_LÝ = KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH("Đăng nhập")
             BIẾN VI_TRI: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ("Đăng nhập")
             """.trimIndent()
         )
@@ -675,7 +675,7 @@ class ScriptCompilerTest {
 
     @Test
     fun validatesAccessibilityTextFunctionArgumentCounts() {
-        val missingQuery = ScriptCompiler.compile("BIẾN X = MÀN_HÌNH_CHỨA_CHỮ()")
+        val missingQuery = ScriptCompiler.compile("BIẾN X = KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH()")
         val tooMany = ScriptCompiler.compile("BIẾN X = TÌM_VỊ_TRÍ_CHỮ(\"A\", \"B\")")
         assertEquals("function_argument_count", missingQuery.diagnostics.first().code)
         assertEquals("function_argument_count", tooMany.diagnostics.first().code)
@@ -688,9 +688,9 @@ class ScriptCompilerTest {
             THỬ {
                 MỞ_ỨNG_DỤNG("invalid")
             } BẮT_LỖI (LỖI) {
-                BIẾN MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
+                BIẾN MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(LỖI, "MÃ")
             } LUÔN_THỰC_HIỆN {
-                CHẠM(10, 20)
+                NHẤN(10, 20)
             }
             """.trimIndent()
         )
@@ -768,9 +768,9 @@ class ScriptCompilerTest {
         val result = ScriptCompiler.compile(
             """
             BIẾN CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TEN\":\"AUTU\",\"ITEMS\":[1,{\"X\":2},null]}")
-            BIẾN CÁC_MỤC: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "ITEMS")
-            BIẾN PHẦN_TỬ: BẢN_ĐỒ = LẤY_PHẦN_TỬ(CÁC_MỤC, 1)
-            BIẾN TỌA_ĐỘ_X: SỐ = LẤY_GIÁ_TRỊ(PHẦN_TỬ, "X")
+            BIẾN CÁC_MỤC: DANH_SÁCH = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CẤU_HÌNH, "ITEMS")
+            BIẾN PHẦN_TỬ: BẢN_ĐỒ = LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(CÁC_MỤC, 1)
+            BIẾN TỌA_ĐỘ_X: SỐ = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(PHẦN_TỬ, "X")
             BIẾN GIÁ_TRỊ_RỖNG: BẤT_KỲ = RỖNG
             BIẾN BẢN_SAO: DANH_SÁCH = TẠO_DANH_SÁCH(CẤU_HÌNH, RỖNG)
             BIẾN JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
@@ -792,7 +792,7 @@ class ScriptCompilerTest {
     fun supportsSandboxedFileAndJsonFileFunctions() {
         val result = ScriptCompiler.compile(
             """
-            BIẾN CÓ_TỆP: LUẬN_LÝ = TỆP_TỒN_TẠI("settings/config.json")
+            BIẾN CÓ_TỆP: LUẬN_LÝ = KIỂM_TRA_TỆP_TỒN_TẠI("settings/config.json")
             BIẾN NỘI_DUNG: CHUỖI = ĐỌC_TỆP("settings/config.json")
             GHI_TỆP("settings/config.json", NỘI_DUNG)
             BIẾN CẤU_HÌNH: BẢN_ĐỒ = ĐỌC_JSON_TỆP("settings/config.json")
@@ -943,17 +943,17 @@ class ScriptCompilerTest {
     fun supportsOnDeviceMlVisionBuiltins() {
         val result = ScriptCompiler.compile(
             """
-            BIẾN VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_VÙNG(0, 0, 300, 200)
-            BIẾN CO_CHU: LUẬN_LÝ = MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG("OK", 0, 0, 300, 200)
-            BIẾN VI_TRI_CHU: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG("OK", 0, 0, 300, 200)
+            BIẾN VAN_BAN: CHUỖI = ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH(0, 0, 300, 200)
+            BIẾN CO_CHU: LUẬN_LÝ = KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH("OK", 0, 0, 300, 200)
+            BIẾN VI_TRI_CHU: DANH_SÁCH = TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH("OK", 0, 0, 300, 200)
             BIẾN NHAN: DANH_SÁCH = NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()
-            BIẾN CO_NHAN: LUẬN_LÝ = MÀN_HÌNH_CHỨA_NHÃN_ẢNH("Phone")
+            BIẾN CO_NHAN: LUẬN_LÝ = KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH("Phone")
             BIẾN QR: DANH_SÁCH = QUÉT_MÃ_QR_MÀN_HÌNH()
             BIẾN MA_VACH: DANH_SÁCH = QUÉT_MÃ_VẠCH_MÀN_HÌNH()
             BIẾN QR_CHI_TIET: DANH_SÁCH = CHI_TIẾT_MÃ_QR_MÀN_HÌNH()
             BIẾN VACH_CHI_TIET: DANH_SÁCH = CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH()
             BIẾN VAT_THE: DANH_SÁCH = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()
-            BIẾN CO_VAT_THE: LUẬN_LÝ = MÀN_HÌNH_CÓ_VẬT_THỂ("Food")
+            BIẾN CO_VAT_THE: LUẬN_LÝ = KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH("Food")
             BIẾN TOA_DO: DANH_SÁCH = TÌM_TỌA_ĐỘ_VẬT_THỂ("Food")
             BIẾN SO_LUONG: SỐ = ĐẾM_VẬT_THỂ_MÀN_HÌNH()
             """.trimIndent()
@@ -964,8 +964,8 @@ class ScriptCompilerTest {
 
     @Test
     fun validatesOnDeviceMlVisionFunctionArgumentCounts() {
-        val wrongRegion = ScriptCompiler.compile("BIẾN X = ĐỌC_VĂN_BẢN_VÙNG(1, 2, 3)")
-        val wrongLabel = ScriptCompiler.compile("BIẾN X = MÀN_HÌNH_CHỨA_NHÃN_ẢNH()")
+        val wrongRegion = ScriptCompiler.compile("BIẾN X = ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH(1, 2, 3)")
+        val wrongLabel = ScriptCompiler.compile("BIẾN X = KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH()")
         val wrongQr = ScriptCompiler.compile("BIẾN X = QUÉT_MÃ_QR_MÀN_HÌNH(1)")
         val wrongObjects = ScriptCompiler.compile("BIẾN X = PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH(1)")
         assertEquals("function_argument_count", wrongRegion.diagnostics.first().code)
@@ -1001,11 +1001,11 @@ class ScriptCompilerTest {
     fun compilesMultipartUploadAndFileDownloadFunctions() {
         val result = ScriptCompiler.compile(
             """
-            BIẾN TẢI_LÊN: BẢN_ĐỒ = GỬI_TỆP_HTTP(
+            BIẾN TẢI_LÊN: BẢN_ĐỒ = TẢI_LÊN_TỆP_HTTP(
                 "POST", "https://api.example.com/upload", "data/report.csv",
                 "file", "report.csv", "text/csv", TẠO_BẢN_ĐỒ(), 10000
             )
-            BIẾN TẢI_VỀ: BẢN_ĐỒ = TẢI_TỆP_HTTP(
+            BIẾN TẢI_VỀ: BẢN_ĐỒ = TẢI_XUỐNG_TỆP_HTTP(
                 "https://api.example.com/report.csv", "data/result.csv",
                 TẠO_BẢN_ĐỒ(), 10000
             )
@@ -1017,10 +1017,10 @@ class ScriptCompilerTest {
     @Test
     fun validatesMultipartUploadAndFileDownloadArgumentCounts() {
         val upload = ScriptCompiler.compile(
-            """BIẾN KQ = GỬI_TỆP_HTTP("POST", "https://api.example.com", "a")"""
+            """BIẾN KQ = TẢI_LÊN_TỆP_HTTP("POST", "https://api.example.com", "a")"""
         )
         val download = ScriptCompiler.compile(
-            """BIẾN KQ = TẢI_TỆP_HTTP("https://api.example.com", "a")"""
+            """BIẾN KQ = TẢI_XUỐNG_TỆP_HTTP("https://api.example.com", "a")"""
         )
         assertEquals("function_argument_count", upload.diagnostics.first().code)
         assertEquals("function_argument_count", download.diagnostics.first().code)
@@ -1063,5 +1063,93 @@ class ScriptCompilerTest {
         assertEquals("function_argument_count", selectWrong.diagnostics.first().code)
         assertEquals("function_argument_count", saveWrong.diagnostics.first().code)
     }
+
+    @Test
+    fun compilesExpandedMathTextCollectionAndAndroidFunctions() {
+        val result = ScriptCompiler.compile(
+            """
+            BIẾN A: SỐ = CĂN_BẬC_HAI(81)
+            BIẾN B: SỐ = LÀM_TRÒN_XUỐNG(3.9)
+            BIẾN C: SỐ = LÀM_TRÒN_LÊN(3.1)
+            BIẾN D: SỐ = SIN(0) + COS(0) + TAN(0)
+            BIẾN R1: SỐ = SỐ_NGẪU_NHIÊN()
+            BIẾN R2: SỐ = SỐ_NGẪU_NHIÊN(1, 10)
+            BIẾN DS: DANH_SÁCH = TẠO_DANH_SÁCH(3, 1, 2)
+            BIẾN SAP_XEP: DANH_SÁCH = SẮP_XẾP_DANH_SÁCH(DS)
+            BIẾN DAO_NGUOC: DANH_SÁCH = ĐẢO_NGƯỢC_DANH_SÁCH(DS)
+            BIẾN VI_TRI: SỐ = TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH(DS, 1)
+            BIẾN CHUOI: SỐ = TÌM_VỊ_TRÍ_TRONG_CHUỖI("AUTU-LIO", "LIO")
+            BIẾN RONG: LUẬN_LÝ = KIỂM_TRA_RỖNG("  ")
+            HÀM LA_SO_DUONG(V: SỐ): LUẬN_LÝ {
+                TRẢ_VỀ V > 0
+            }
+            BIẾN LOC: DANH_SÁCH = LỌC_DANH_SÁCH(DS, "LA_SO_DUONG")
+            BIẾN AM_LUONG: SỐ = LẤY_ÂM_LƯỢNG()
+            BIẾN DO_SANG: BẤT_KỲ = LẤY_ĐỘ_SÁNG()
+            GHI_NHẬT_KÝ("Bắt đầu")
+            GHI_NHẬT_KÝ("WARN", "Cảnh báo")
+            IN("Hoàn tất")
+            THÔNG_BÁO("AUTU-LIO")
+            RUNG(100)
+            ĐẶT_ÂM_LƯỢNG(50)
+            ĐẶT_ĐỘ_SÁNG(60)
+            BIẾN ANH: BẢN_ĐỒ = CHỤP_ẢNH_MÀN_HÌNH("screens/test.jpg")
+            BIẾN ANH_LUU: BẢN_ĐỒ = CHỤP_ẢNH_MÀN_HÌNH("screens/test-copy.jpg")
+            BIẾN RONG_VUNG: SỐ = CHIỀU_RỘNG_VÙNG_AN_TOÀN()
+            BIẾN CO_NOTCH: LUẬN_LÝ = CÓ_VÙNG_KHUYẾT_MÀN_HÌNH()
+            """.trimIndent()
+        )
+        assertTrue(result.diagnostics.toString(), result.isSuccess)
+    }
+
+    @Test
+    fun rejectsInvalidOptionalBuiltinArgumentCounts() {
+        val random = ScriptCompiler.compile("BIẾN X = SỐ_NGẪU_NHIÊN(1)")
+        val log = ScriptCompiler.compile("BIẾN X = GHI_NHẬT_KÝ()")
+        val tooManyRandom = ScriptCompiler.compile("BIẾN X = SỐ_NGẪU_NHIÊN(1, 2, 3)")
+        assertEquals("function_argument_count", random.diagnostics.first().code)
+        assertEquals("function_argument_count", log.diagnostics.first().code)
+        assertEquals("function_argument_count", tooManyRandom.diagnostics.first().code)
+    }
+
+
+    @Test
+    fun normalizesLegacyGestureAndBuiltinNamesToCanonicalNames() {
+        val legacyGestures = ScriptCompiler.compile(
+            """
+            CHẠM(10, 20)
+            CHẠM_ĐA_ĐIỂM(TẠO_DANH_SÁCH(TẠO_DANH_SÁCH(10, 20), TẠO_DANH_SÁCH(30, 40)), 100)
+            """.trimIndent()
+        )
+        assertTrue(legacyGestures.diagnostics.toString(), legacyGestures.isSuccess)
+        assertEquals(
+            listOf("NHẤN", "NHẤN_ĐA_ĐIỂM"),
+            legacyGestures.program!!.instructions
+                .filterIsInstance<ScriptInstruction.Command>()
+                .map { it.name }
+        )
+
+        val legacyFunctions = ScriptCompiler.compile(
+            """
+            BIẾN PIN_CU: SỐ = PIN()
+            BIẾN CHU_CU: LUẬN_LÝ = MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập")
+            BIẾN PHAN_TU_CU: SỐ = LẤY_PHẦN_TỬ(TẠO_DANH_SÁCH(1), 0)
+            BIẾN GIA_TRI_CU: SỐ = LẤY_GIÁ_TRỊ(TẠO_BẢN_ĐỒ("A", 1), "A")
+            """.trimIndent()
+        )
+        assertTrue(legacyFunctions.diagnostics.toString(), legacyFunctions.isSuccess)
+        assertEquals(
+            listOf(
+                "LẤY_PHẦN_TRĂM_PIN",
+                "KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH",
+                "LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH",
+                "LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ"
+            ),
+            legacyFunctions.program!!.instructions
+                .filterIsInstance<ScriptInstruction.SetVariable>()
+                .map { (it.value as ScriptExpression.FunctionCall).name }
+        )
+    }
+
 
 }

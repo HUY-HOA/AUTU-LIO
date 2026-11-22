@@ -16,7 +16,7 @@ AUTU-LIO có **Android tối thiểu 8.0 (API 26)**. Vì vậy, các lệnh AUTU
 | `KHÓA_MÀN_HÌNH()` | Android 9.0 (API 28) | Vẫn cần Trợ năng và thiết bị cho phép hành động khóa màn hình. |
 | `BẬT_TẮT_CHIA_MÀN_HÌNH()` | Android 11.0 (API 30) | Còn phụ thuộc thiết bị có cung cấp hành động chia màn hình. |
 | OCR ảnh màn hình, OCR theo vùng, nhận diện nhãn ảnh, QR/mã vạch, vật thể và phân tích màu | Android 11.0 (API 30) | Dùng API chụp màn hình của AccessibilityService; phải bật Trợ năng. |
-| `MÀN_HÌNH_CHỨA_CHỮ()`, `TÌM_VỊ_TRÍ_CHỮ()` | Android 8.0 (API 26) | Trên Android 8–10 chỉ tìm văn bản trong cây Trợ năng; OCR từ ảnh cần Android 11+. |
+| `KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH()`, `TÌM_VỊ_TRÍ_CHỮ()` | Android 8.0 (API 26) | Trên Android 8–10 chỉ tìm văn bản trong cây Trợ năng; OCR từ ảnh cần Android 11+. |
 | Phát hiện vùng khuyết màn hình (`DisplayCutout`) | Android 9.0 (API 28) | Android 8 có thể không xác định được vùng khuyết; hàm kiểm tra khả năng có thể trả về `SAI`. |
 
 Trong Hướng dẫn ngay trong trình soạn thảo, mỗi lệnh hiển thị riêng mức Android tối thiểu và ghi chú tương thích (nếu có). Mức API là căn cứ kỹ thuật; hãng sản xuất, ứng dụng đích, quyền Trợ năng và chính sách hệ thống vẫn có thể giới hạn hành động.
@@ -81,9 +81,9 @@ Các tệp nằm trong thư mục riêng của AUTU-LIO. Đường dẫn phải 
 
 ```text
 BIẾN CẤU_HÌNH: BẢN_ĐỒ = PHÂN_TÍCH_JSON("{\"TÊN\":\"AUTU\",\"ITEMS\":[1,{\"X\":120},null]}")
-BIẾN ITEMS: DANH_SÁCH = LẤY_GIÁ_TRỊ(CẤU_HÌNH, "ITEMS")
-BIẾN ITEM: BẢN_ĐỒ = LẤY_PHẦN_TỬ(ITEMS, 1)
-BIẾN X: SỐ = LẤY_GIÁ_TRỊ(ITEM, "X")
+BIẾN ITEMS: DANH_SÁCH = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CẤU_HÌNH, "ITEMS")
+BIẾN ITEM: BẢN_ĐỒ = LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(ITEMS, 1)
+BIẾN X: SỐ = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(ITEM, "X")
 BIẾN JSON_KẾT_QUẢ: CHUỖI = CHUYỂN_JSON(CẤU_HÌNH)
 BIẾN KHÔNG_CÓ_GIÁ_TRỊ: BẤT_KỲ = RỖNG
 ```
@@ -94,12 +94,12 @@ JSON hỗ trợ object/array lồng nhau, chuỗi Unicode, số hữu hạn, boo
 
 ```text
 BIẾN CAU_HINH: BẢN_ĐỒ = TẠO_BẢN_ĐỒ("TOA_DO_X", 120, "TOA_DO_Y", 400)
-BIẾN X: SỐ = LẤY_GIÁ_TRỊ(CAU_HINH, "TOA_DO_X")
-ĐẶT_GIÁ_TRỊ(CAU_HINH, "TOA_DO_X", 180)
-BIẾN KHOA: DANH_SÁCH = DANH_SÁCH_KHÓA(CAU_HINH)
+BIẾN X: SỐ = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CAU_HINH, "TOA_DO_X")
+ĐẶT_GIÁ_TRỊ_TRONG_BẢN_ĐỒ(CAU_HINH, "TOA_DO_X", 180)
+BIẾN KHOA: DANH_SÁCH = LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ(CAU_HINH)
 
 LẶP_MỖI (TEN_KHOA TRONG KHOA) {
-    CHẠM(LẤY_GIÁ_TRỊ(CAU_HINH, TEN_KHOA), 500)
+    NHẤN(LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(CAU_HINH, TEN_KHOA), 500)
 }
 ```
 
@@ -123,9 +123,9 @@ Phép cộng với ít nhất một toán hạng là chuỗi sẽ nối chuỗi.
 ### Điều kiện
 
 ```text
-NẾU (PIN() > 20 VÀ CÓ_MẠNG()) {
-    CHẠM(200, 400)
-} NGƯỢC_LẠI_NẾU (PIN() > 10) {
+NẾU (LẤY_PHẦN_TRĂM_PIN() > 20 VÀ KIỂM_TRA_KẾT_NỐI_MẠNG()) {
+    NHẤN(200, 400)
+} NGƯỢC_LẠI_NẾU (LẤY_PHẦN_TRĂM_PIN() > 10) {
     CHỜ(500)
 } NGƯỢC_LẠI {
     QUAY_LẠI()
@@ -137,7 +137,7 @@ NẾU (PIN() > 20 VÀ CÓ_MẠNG()) {
 ```text
 BIẾN SỐ_LẦN = 3
 LẶP(SỐ_LẦN) {
-    CHẠM(200, 400)
+    NHẤN(200, 400)
     CHỜ(500)
 }
 ```
@@ -147,7 +147,7 @@ LẶP(SỐ_LẦN) {
 ```text
 BIẾN BỘ_ĐẾM = 0
 LẶP_KHI (BỘ_ĐẾM < 5) {
-    CHẠM(200, 400)
+    NHẤN(200, 400)
     BỘ_ĐẾM = BỘ_ĐẾM + 1
 }
 ```
@@ -167,7 +167,7 @@ LẶP_ĐẾN_KHI(BỘ_ĐẾM >= 5) {
 ```text
 BIẾN DANH_SÁCH: DANH_SÁCH = TẠO_DANH_SÁCH(120, 240, 360)
 LẶP_MỖI (TOA_DO_X TRONG DANH_SÁCH) {
-    CHẠM(TOA_DO_X, 400)
+    NHẤN(TOA_DO_X, 400)
     CHỜ(300)
 }
 ```
@@ -199,7 +199,7 @@ HÀM TINH_TONG(A: SỐ, B: SỐ): SỐ {
 }
 
 BIẾN KẾT_QUẢ: SỐ = TINH_TONG(12, 30)
-CHẠM(KẾT_QUẢ, 300)
+NHẤN(KẾT_QUẢ, 300)
 ```
 
 Hàm có thể gọi hàm khác và tự gọi lại chính nó. Độ sâu gọi hàm tối đa 16 cấp. Runtime kiểm tra số tham số, kiểu tham số, kiểu trả về, lỗi thiếu TRẢ_VỀ và ngân sách lệnh. Mỗi lần gọi hàm có phạm vi biến cục bộ riêng; hàm đọc được giá trị biến của nơi gọi tại thời điểm gọi, nhưng phép gán bên trong hàm không ghi ngược thay đổi vào biến của nơi gọi.
@@ -207,7 +207,7 @@ Hàm có thể gọi hàm khác và tự gọi lại chính nó. Độ sâu gọ
 ### Cử chỉ đa điểm
 
 ```text
-CHẠM_ĐA_ĐIỂM(
+NHẤN_ĐA_ĐIỂM(
     TẠO_DANH_SÁCH(TẠO_DANH_SÁCH(100, 200), TẠO_DANH_SÁCH(300, 200)),
     100
 )
@@ -220,24 +220,24 @@ VUỐT_ĐA_ĐIỂM(
 )
 ```
 
-`CHẠM_ĐA_ĐIỂM` chạm đồng thời 2–5 điểm. `VUỐT_ĐA_ĐIỂM` nhận danh sách 2–5 đường; mỗi đường là dãy tọa độ X/Y phẳng, có 2–16 điểm. Các đường chạy đồng thời cùng thời lượng. Ứng dụng đích hoặc Android có thể từ chối thao tác đa chạm.
+`NHẤN_ĐA_ĐIỂM` chạm đồng thời 2–5 điểm. `VUỐT_ĐA_ĐIỂM` nhận danh sách 2–5 đường; mỗi đường là dãy tọa độ X/Y phẳng, có 2–16 điểm. Các đường chạy đồng thời cùng thời lượng. Ứng dụng đích hoặc Android có thể từ chối thao tác đa chạm.
 
 ### Tọa độ DP và tỷ lệ màn hình
 
 ```text
 BIẾN X: SỐ = TỌA_ĐỘ_X_THEO_TỶ_LỆ(0.5)
 BIẾN Y: SỐ = TỌA_ĐỘ_Y_THEO_TỶ_LỆ(0.75)
-CHẠM(X, Y)
+NHẤN(X, Y)
 BIẾN KHOẢNG_CÁCH: SỐ = DP_SANG_PIXEL(24)
 ```
 
-Dùng `MẬT_ĐỘ_MÀN_HÌNH()`, `DP_SANG_PIXEL(DP)`, `PIXEL_SANG_DP(PIXEL)`, `TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỶ_LỆ_X_THEO_TỌA_ĐỘ(X)` và `TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)`. Tỷ lệ 0–1 ánh xạ từ pixel đầu đến pixel cuối của màn hình. Từ phiên bản 1.22 có thêm `TỌA_ĐỘ_X_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỶ_LỆ_X_VÙNG_AN_TOÀN(X)` và `TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y)` để quy đổi trong vùng an toàn theo system bars/cutout mà Android xác định được. `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa hướng tự nhiên ROTATION_0 và hệ tọa độ logic hiện tại, bao gồm thiết bị có hướng gốc ngang. Tọa độ đầu vào và đầu ra của hai hàm này là pixel nguyên; chuyển đổi không tự thay tham số CHẠM/VUỐT.
+Dùng `LẤY_MẬT_ĐỘ_MÀN_HÌNH()`, `DP_SANG_PIXEL(DP)`, `PIXEL_SANG_DP(PIXEL)`, `TỌA_ĐỘ_X_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỌA_ĐỘ_Y_THEO_TỶ_LỆ(TỶ_LỆ)`, `TỶ_LỆ_X_THEO_TỌA_ĐỘ(X)` và `TỶ_LỆ_Y_THEO_TỌA_ĐỘ(Y)`. Tỷ lệ 0–1 ánh xạ từ pixel đầu đến pixel cuối của màn hình. Từ phiên bản 1.22 có thêm `TỌA_ĐỘ_X_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỌA_ĐỘ_Y_VÙNG_AN_TOÀN(TỶ_LỆ)`, `TỶ_LỆ_X_VÙNG_AN_TOÀN(X)` và `TỶ_LỆ_Y_VÙNG_AN_TOÀN(Y)` để quy đổi trong vùng an toàn theo system bars/cutout mà Android xác định được. `TỌA_ĐỘ_TỪ_HƯỚNG_GỐC(X,Y)` và `TỌA_ĐỘ_VỀ_HƯỚNG_GỐC(X,Y)` chuyển tọa độ giữa hướng tự nhiên ROTATION_0 và hệ tọa độ logic hiện tại, bao gồm thiết bị có hướng gốc ngang. Tọa độ đầu vào và đầu ra của hai hàm này là pixel nguyên; chuyển đổi không tự thay tham số CHẠM/VUỐT.
 
 ## 6. Lệnh thao tác Android đã nối runtime
 
 | Lệnh | Tham số | Ý nghĩa |
 |---|---|---|
-| `CHẠM(X, Y)` | 2 tọa độ | Chạm một lần |
+| `NHẤN(X, Y)` | 2 tọa độ | Chạm một lần |
 | `NHẤN_GIỮ(X, Y, MS)` | tọa độ và thời lượng | Nhấn giữ |
 | `VUỐT(X1, Y1, X2, Y2, MS)` | điểm đầu, điểm cuối, thời lượng | Vuốt theo đường thẳng |
 | `CHỜ(MS)` | thời lượng | Chờ |
@@ -261,7 +261,11 @@ Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ th
 |---|---|---|
 | `SỐ(GIÁ_TRỊ)` | 1 | Chuyển số hoặc chuỗi số thành số |
 | `CHUỖI(GIÁ_TRỊ)` | 1 | Chuyển thành chuỗi |
-| `LÀM_TRÒN(SỐ)` | 1 | Làm tròn |
+| `LÀM_TRÒN(SỐ)` | 1 | Làm tròn gần nhất |
+| `CĂN_BẬC_HAI(SỐ)` | 1 | Căn bậc hai; báo lỗi với số âm |
+| `LÀM_TRÒN_XUỐNG(SỐ)` / `LÀM_TRÒN_LÊN(SỐ)` | 1 | Làm tròn xuống hoặc lên |
+| `SIN(RADIAN)` / `COS(RADIAN)` / `TAN(RADIAN)` | 1 | Lượng giác; góc tính bằng radian |
+| `SỐ_NGẪU_NHIÊN()` / `SỐ_NGẪU_NHIÊN(MIN, MAX)` | 0 hoặc 2 | Sinh số trong [0,1) hoặc [MIN,MAX) |
 | `TUYỆT_ĐỐI(SỐ)` | 1 | Giá trị tuyệt đối |
 | `ĐỘ_DÀI(CHUỖI)` | 1 | Độ dài chuỗi |
 | `NHỎ_NHẤT(A, B)` | 2 | Số nhỏ hơn |
@@ -277,19 +281,25 @@ Tọa độ là pixel tuyệt đối. Dispatcher kiểm tra lại tọa độ th
 | `NỐI_CHUỖI(DANH_SÁCH, PHÂN_CÁCH)` | 2 | Nối danh sách chuỗi |
 | `KÝ_TỰ_TẠI(CHUỖI, VỊ_TRÍ)` | 2 | Lấy ký tự theo vị trí bắt đầu từ 0 |
 | `CẮT_CHUỖI(CHUỖI, VỊ_TRÍ, ĐỘ_DÀI)` | 3 | Cắt theo vị trí và số ký tự |
+| `TÌM_VỊ_TRÍ_TRONG_CHUỖI(CHUỖI, CHUỖI_CẦN_TÌM)` | 2 | Vị trí bắt đầu từ 0; không thấy trả về -1 |
+| `KIỂM_TRA_RỖNG(GIÁ_TRỊ)` | 1 | Kiểm tra chuỗi trống/khoảng trắng, danh sách, bản đồ hoặc RỖNG |
 | `TẠO_DANH_SÁCH(...)` | 0–64 | Tạo danh sách mới |
 | `ĐỘ_DÀI(DANH_SÁCH)` | 1 | Số phần tử trong danh sách |
-| `LẤY_PHẦN_TỬ(DANH_SÁCH, CHỈ_SỐ)` | 2 | Lấy phần tử theo chỉ số bắt đầu từ 0 |
-| `THÊM_PHẦN_TỬ(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Thêm phần tử, trả về số lượng mới |
-| `ĐẶT_PHẦN_TỬ(DANH_SÁCH, CHỈ_SỐ, GIÁ_TRỊ)` | 3 | Thay phần tử theo chỉ số |
-| `XÓA_PHẦN_TỬ(DANH_SÁCH, CHỈ_SỐ)` | 2 | Xóa và trả về phần tử đã xóa |
-| `CÓ_PHẦN_TỬ(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Kiểm tra phần tử có trong danh sách |
+| `LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH(DANH_SÁCH, CHỈ_SỐ)` | 2 | Lấy phần tử theo chỉ số bắt đầu từ 0 |
+| `THÊM_PHẦN_TỬ_VÀO_DANH_SÁCH(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Thêm phần tử, trả về số lượng mới |
+| `ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH(DANH_SÁCH, CHỈ_SỐ, GIÁ_TRỊ)` | 3 | Thay phần tử theo chỉ số |
+| `XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH(DANH_SÁCH, CHỈ_SỐ)` | 2 | Xóa và trả về phần tử đã xóa |
+| `KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Kiểm tra phần tử có trong danh sách |
+| `TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH(DANH_SÁCH, GIÁ_TRỊ)` | 2 | Tìm chỉ số đầu tiên; không thấy trả về -1 |
+| `SẮP_XẾP_DANH_SÁCH(DANH_SÁCH)` | 1 | Trả về bản sao tăng dần; danh sách phải toàn số hoặc toàn chuỗi |
+| `ĐẢO_NGƯỢC_DANH_SÁCH(DANH_SÁCH)` | 1 | Trả về bản sao đảo thứ tự |
+| `LỌC_DANH_SÁCH(DANH_SÁCH, TÊN_HÀM)` | 2 | Lọc theo hàm tự định nghĩa nhận một phần tử và trả ĐÚNG/SAI |
 | `TẠO_BẢN_ĐỒ(KHÓA, GIÁ_TRỊ, ...)` | 0–64 cặp | Tạo bản đồ mới, số tham số phải chẵn |
-| `LẤY_GIÁ_TRỊ(BẢN_ĐỒ, KHÓA)` | 2 | Lấy giá trị theo khóa |
-| `ĐẶT_GIÁ_TRỊ(BẢN_ĐỒ, KHÓA, GIÁ_TRỊ)` | 3 | Thêm hoặc cập nhật giá trị |
-| `XÓA_KHÓA(BẢN_ĐỒ, KHÓA)` | 2 | Xóa và trả về giá trị cũ |
-| `CÓ_KHÓA(BẢN_ĐỒ, KHÓA)` | 2 | Kiểm tra khóa có tồn tại |
-| `DANH_SÁCH_KHÓA(BẢN_ĐỒ)` | 1 | Lấy danh sách khóa theo thứ tự thêm |
+| `LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(BẢN_ĐỒ, KHÓA)` | 2 | Lấy giá trị theo khóa |
+| `ĐẶT_GIÁ_TRỊ_TRONG_BẢN_ĐỒ(BẢN_ĐỒ, KHÓA, GIÁ_TRỊ)` | 3 | Thêm hoặc cập nhật giá trị |
+| `XÓA_KHÓA_KHỎI_BẢN_ĐỒ(BẢN_ĐỒ, KHÓA)` | 2 | Xóa và trả về giá trị cũ |
+| `KIỂM_TRA_KHÓA_TRONG_BẢN_ĐỒ(BẢN_ĐỒ, KHÓA)` | 2 | Kiểm tra khóa có tồn tại |
+| `LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ(BẢN_ĐỒ)` | 1 | Lấy danh sách khóa theo thứ tự thêm |
 
 Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `CẮT_CHUỖI` tính theo mã Unicode (code point), bắt đầu từ 0. `TÁCH_CHUỖI` từ chối dấu phân cách rỗng và không trả quá 64 phần tử. Danh sách chỉ nhận số hữu hạn, chuỗi hoặc ĐÚNG/SAI; chỉ số bắt đầu từ 0. Bản đồ chỉ nhận khóa chuỗi không rỗng và giá trị số, chuỗi hoặc ĐÚNG/SAI. Các thao tác truy cập/sửa/xóa ngoài phạm vi hoặc khóa không tồn tại sẽ báo lỗi runtime.
 
@@ -297,35 +307,58 @@ Hàm chuỗi xử lý văn bản Unicode. Vị trí của `KÝ_TỰ_TẠI` và `
 
 | Hàm | Tham số | Trả về |
 |---|---|---|
-| `PIN()` / `PHẦN_TRĂM_PIN()` | 0 | Phần trăm pin |
-| `ĐANG_SẠC()` | 0 | ĐÚNG nếu đang sạc hoặc pin đầy |
-| `CÓ_MẠNG()` | 0 | ĐÚNG nếu kết nối Internet đã được xác thực |
-| `MÀN_HÌNH_SÁNG()` | 0 | Trạng thái tương tác của màn hình |
-| `ỨNG_DỤNG_ĐÃ_CÀI("tên.gói")` | 1 | Kiểm tra gói ứng dụng đã cài |
-| `ỨNG_DỤNG_ĐANG_MỞ("tên.gói")` | 1 | Kiểm tra gói đang ở foreground |
-| `CHIỀU_RỘNG_MÀN_HÌNH()` | 0 | Chiều rộng pixel |
-| `CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
-| `CHIỀU_RỘNG_DP()` / `CHIỀU_CAO_DP()` | 0 | Kích thước màn hình theo DP hiện tại |
-| `TỶ_LỆ_KHUNG_HÌNH()` | 0 | Tỷ lệ chiều rộng pixel / chiều cao pixel |
-| `HƯỚNG_MÀN_HÌNH()` | 0 | `NGANG`, `DỌC` hoặc `VUÔNG` |
-| `XOAY_MÀN_HÌNH()` | 0 | Chỉ số rotation Android 0–3 |
-| `GÓC_XOAY_MÀN_HÌNH()` | 0 | Góc xoay 0°, 90°, 180° hoặc 270° |
-| `GÓI_ỨNG_DỤNG_ĐANG_MỞ()` | 0 | Package foreground gần nhất được gửi từ sự kiện Trợ năng |
-| `HÀNG_SẢN_XUẤT()` / `MẪU_THIẾT_BỊ()` | 0 | Nhà sản xuất và model thiết bị |
-| `PHIÊN_BẢN_ANDROID()` / `MỨC_API_ANDROID()` | 0 | Chuỗi phiên bản và mức API Android |
-| `MÀN_HÌNH_BỊ_KHÓA()` | 0 | ĐÚNG khi Keyguard đang khóa màn hình |
-| `THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()` | 0 | ĐÚNG nếu thiết bị có khóa bảo mật được cấu hình |
-| `THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
+| `LẤY_PHẦN_TRĂM_PIN()` | 0 | Phần trăm pin |
+| `KIỂM_TRA_ĐANG_SẠC()` | 0 | ĐÚNG nếu đang sạc hoặc pin đầy |
+| `KIỂM_TRA_KẾT_NỐI_MẠNG()` | 0 | ĐÚNG nếu kết nối Internet đã được xác thực |
+| `KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG()` | 0 | Trạng thái tương tác của màn hình |
+| `KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI("tên.gói")` | 1 | Kiểm tra gói ứng dụng đã cài |
+| `KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ("tên.gói")` | 1 | Kiểm tra gói đang ở foreground |
+| `LẤY_CHIỀU_RỘNG_MÀN_HÌNH()` | 0 | Chiều rộng pixel |
+| `LẤY_CHIỀU_CAO_MÀN_HÌNH()` | 0 | Chiều cao pixel |
+| `LẤY_CHIỀU_RỘNG_DP()` / `LẤY_CHIỀU_CAO_DP()` | 0 | Kích thước màn hình theo DP hiện tại |
+| `LẤY_TỶ_LỆ_KHUNG_HÌNH()` | 0 | Tỷ lệ chiều rộng pixel / chiều cao pixel |
+| `LẤY_HƯỚNG_MÀN_HÌNH()` | 0 | `NGANG`, `DỌC` hoặc `VUÔNG` |
+| `LẤY_XOAY_MÀN_HÌNH()` | 0 | Chỉ số rotation Android 0–3 |
+| `LẤY_GÓC_XOAY_MÀN_HÌNH()` | 0 | Góc xoay 0°, 90°, 180° hoặc 270° |
+| `LẤY_GÓI_ỨNG_DỤNG_ĐANG_MỞ()` | 0 | Package foreground gần nhất được gửi từ sự kiện Trợ năng |
+| `LẤY_HÃNG_SẢN_XUẤT()` / `LẤY_MẪU_THIẾT_BỊ()` | 0 | Nhà sản xuất và model thiết bị |
+| `LẤY_PHIÊN_BẢN_ANDROID()` / `LẤY_MỨC_API_ANDROID()` | 0 | Chuỗi phiên bản và mức API Android |
+| `KIỂM_TRA_MÀN_HÌNH_BỊ_KHÓA()` | 0 | ĐÚNG khi Keyguard đang khóa màn hình |
+| `KIỂM_TRA_THIẾT_BỊ_ĐƯỢC_BẢO_MẬT()` | 0 | ĐÚNG nếu thiết bị có khóa bảo mật được cấu hình |
+| `LẤY_THỜI_GIAN_MS()` | 0 | Unix time theo mili giây |
+| `LẤY_ÂM_LƯỢNG()` / `LẤY_ĐỘ_SÁNG()` | 0 | Giá trị hiện tại theo phần trăm |
+| `ĐẶT_ÂM_LƯỢNG(PHẦN_TRĂM)` / `ĐẶT_ĐỘ_SÁNG(PHẦN_TRĂM)` | 1 | Đặt giá trị 0–100; độ sáng cần quyền sửa đổi cài đặt hệ thống |
 
 Thông tin hãng/model, phiên bản Android và trạng thái Keyguard được đọc cục bộ tại thiết bị, không gửi lên máy chủ. Các hàm Keyguard chỉ đọc trạng thái, không mở khóa hoặc thay đổi thiết lập bảo mật. Các hàm DP dùng density hiện tại; tỷ lệ khung hình và hướng được suy ra từ kích thước pixel thực. Chỉ số xoay 0–3 là rotation Android, góc xoay là 0°/90°/180°/270°. Package foreground chỉ có khi AccessibilityService nhận được sự kiện cửa sổ, nên có thể rỗng khi dịch vụ chưa bật hoặc chưa nhận sự kiện.
  
 Các hàm thiết bị trả về thông tin Android hiện được dispatcher cung cấp. AUTU Script 1.22 bổ sung dữ liệu hiển thị theo DP, hướng/xoay màn hình và package foreground.
 
+
+### Nhật ký, thông báo và thời gian
+
+| Hàm | Tham số | Tác dụng |
+|---|---|---|
+| `IN(NỘI_DUNG)` | 1 | Ghi nội dung vào Logcat |
+| `GHI_NHẬT_KÝ(NỘI_DUNG)` / `GHI_NHẬT_KÝ(MỨC, NỘI_DUNG)` | 1 hoặc 2 | Lưu nhật ký có dấu thời gian vào vùng dữ liệu riêng của AUTU |
+| `THÔNG_BÁO(NỘI_DUNG)` | 1 | Hiển thị thông báo nổi ngắn |
+| `RUNG(MILI_GIÂY)` | 1 | Rung thiết bị từ 1 đến 5.000 ms |
+| `THỜI_GIAN_ISO()` | 0 | Lấy thời gian hiện tại theo ISO 8601 |
+| `PHÂN_TÍCH_THỜI_GIAN_ISO(CHUỖI)` | 1 | Chuyển chuỗi ISO 8601 thành epoch milliseconds |
+| `ĐỊNH_DẠNG_THỜI_GIAN(EPOCH_MS, MẪU)` | 2 | Định dạng epoch milliseconds theo mẫu |
+
+### Chụp và lưu ảnh màn hình
+
+| Hàm | Tham số | Kết quả |
+|---|---|---|
+| `CHỤP_ẢNH_MÀN_HÌNH(ĐƯỜNG_DẪN)` | 1 | Lưu JPEG và trả bản đồ chứa đường dẫn, kích thước, dung lượng |
+
+Lệnh chụp ảnh yêu cầu Android 11.0 (API 30) trở lên và AccessibilityService của AUTU-LIO đã bật. Ảnh được lưu trong vùng dữ liệu riêng của ứng dụng, giới hạn 1 MiB sau khi nén; ứng dụng hoặc cửa sổ bảo mật có thể chặn chụp.
+
 ## 8. Kết nối API qua HTTPS
 
 AUTU Script cung cấp `GỬI_YÊU_CẦU_HTTP(PHƯƠNG_THỨC, URL, THÂN, TIÊU_ĐỀ, TIMEOUT_MS)`. Phương thức được hỗ trợ: GET, POST, PUT, PATCH, DELETE và HEAD. Thân phải là chuỗi hoặc RỖNG; tiêu đề là BẢN_ĐỒ; timeout từ 100 đến 30.000 ms. Thân yêu cầu được phép với POST, PUT, PATCH và DELETE; GET/HEAD không nhận thân.
 
-Kết quả là bản đồ gồm `TRẠNG_THÁI`, `THÀNH_CÔNG`, `NỘI_DUNG`, `TIÊU_ĐỀ` và `URL`. Dùng `PHÂN_TÍCH_JSON(LẤY_GIÁ_TRỊ(PHẢN_HỒI, "NỘI_DUNG"))` để đọc JSON server trả về.
+Kết quả là bản đồ gồm `TRẠNG_THÁI`, `THÀNH_CÔNG`, `NỘI_DUNG`, `TIÊU_ĐỀ` và `URL`. Dùng `PHÂN_TÍCH_JSON(LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(PHẢN_HỒI, "NỘI_DUNG"))` để đọc JSON server trả về.
 
 Client chỉ chấp nhận HTTPS, không tự theo redirect, không cho phép URL nhúng mật khẩu, giới hạn thân gửi/nhận 1 MiB, tối đa 32 tiêu đề và không cho đặt Host/Content-Length/Connection. Các header nhạy cảm như Set-Cookie không được trả lại cho kịch bản. Lỗi HTTP transport, timeout, dữ liệu quá lớn hoặc header không hợp lệ sẽ phát sinh lỗi runtime.
 
@@ -339,7 +372,7 @@ BIẾN PHẢN_HỒI: BẢN_ĐỒ = GỬI_YÊU_CẦU_HTTP(
     TẠO_BẢN_ĐỒ("Accept", "application/json"),
     10000
 )
-BIẾN TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ(PHẢN_HỒI, "TRẠNG_THÁI")
+BIẾN TRẠNG_THÁI: SỐ = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(PHẢN_HỒI, "TRẠNG_THÁI")
 ```
 
 ### SQLite nội bộ
@@ -354,13 +387,24 @@ AUTU-LIO dùng một database SQLite nội bộ trong vùng riêng ứng dụng.
 
 ## 9. Văn bản giao diện qua Trợ năng và màu màn hình
 
-AUTU-LIO không tích hợp OCR, nhận diện ảnh, quét QR/mã vạch hoặc phát hiện vật thể. Văn bản chỉ được đọc cục bộ từ cây Android Accessibility mà ứng dụng đang mở chủ động công khai.
+AUTU-LIO tích hợp OCR, gán nhãn hình ảnh, phát hiện vật thể và quét QR/mã vạch bằng Google ML Kit chạy trực tiếp trên thiết bị. Ảnh được lấy qua AccessibilityService; các tác vụ nhận diện không gửi ảnh lên dịch vụ AI đám mây. OCR từ ảnh màn hình và các tác vụ thị giác cần Android 11.0 (API 30) trở lên cùng AccessibilityService đã bật. Trên Android 8–10, việc đọc/tìm chữ chỉ dùng nội dung mà ứng dụng đích công khai qua cây Android Accessibility.
 
 | Hàm | Cú pháp | Kết quả |
 |---|---|---|
 | ĐỌC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_VĂN_BẢN_MÀN_HÌNH() | Văn bản và nhãn có thể truy cập qua cây Trợ năng |
-| MÀN_HÌNH_CHỨA_CHỮ | MÀN_HÌNH_CHỨA_CHỮ("Đăng nhập") | ĐÚNG nếu một nhãn được công khai có chứa chuỗi |
-| TÌM_VỊ_TRÍ_CHỮ | TÌM_VỊ_TRÍ_CHỮ("Đăng nhập") | Danh sách [X, Y] là tâm bounds của nhãn tìm thấy |
+| KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH | KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH("Đăng nhập") | ĐÚNG nếu một nhãn được công khai có chứa chuỗi |
+| TÌM_VỊ_TRÍ_CHỮ | `TÌM_VỊ_TRÍ_CHỮ("Đăng nhập")` | Danh sách [X, Y] là tâm bounds của nhãn tìm thấy |
+| ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH | `ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH(X,Y,RỘNG,CAO)` | OCR văn bản trong vùng |
+| KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH | `KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH(CHUỖI,X,Y,RỘNG,CAO)` | Kiểm tra chữ trong vùng |
+| TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH | `TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH(CHUỖI,X,Y,RỘNG,CAO)` | Tọa độ tâm chữ tìm thấy |
+| NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH | `NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH()` | Danh sách nhãn ảnh |
+| KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH | `KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH(NHÃN)` | Kiểm tra nhãn có trong ảnh |
+| PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH | `PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH()` | Danh sách vật thể, nhãn và vùng bao |
+| KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH | `KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH(NHÃN)` | Kiểm tra vật thể theo nhãn |
+| TÌM_TỌA_ĐỘ_VẬT_THỂ | `TÌM_TỌA_ĐỘ_VẬT_THỂ(NHÃN)` | Tọa độ tâm vật thể đầu tiên khớp |
+| ĐẾM_VẬT_THỂ_MÀN_HÌNH | `ĐẾM_VẬT_THỂ_MÀN_HÌNH()` | Số vật thể nhận diện được |
+| QUÉT_MÃ_QR_MÀN_HÌNH / QUÉT_MÃ_VẠCH_MÀN_HÌNH | Không tham số | Danh sách nội dung mã quét được |
+| CHI_TIẾT_MÃ_QR_MÀN_HÌNH / CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH | Không tham số | Chi tiết, loại nội dung và tọa độ |
 | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH | ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH() | Cấu trúc khối/dòng và tọa độ từ cây Trợ năng |
 
 Cây Trợ năng không đảm bảo hiển thị nội dung game canvas, video, nội dung vẽ trực tiếp hoặc thành phần tùy chỉnh không cung cấp nhãn. Ảnh màn hình chỉ được xử lý cục bộ cho các lệnh màu RGB, không được gửi tới dịch vụ AI.
@@ -369,10 +413,10 @@ Cây Trợ năng không đảm bảo hiển thị nội dung game canvas, video,
 
 | Hàm | Cú pháp |
 |---|---|
-| MÀU_TẠI | `MÀU_TẠI(X, Y)` trả về các kênh RGB, alpha và HEX |
-| MÀN_HÌNH_CÓ_MÀU | `MÀN_HÌNH_CÓ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
-| TÌM_VỊ_TRÍ_MÀU | `TÌM_VỊ_TRÍ_MÀU(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
-| TỶ_LỆ_MÀU_TRONG_VÙNG | `TỶ_LỆ_MÀU_TRONG_VÙNG(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO)` |
+| LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH | `LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH(X, Y)` trả về các kênh RGB, alpha và HEX |
+| KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH | `KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
+| TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH | `TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ)` |
+| TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH | `TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH(ĐỎ, XANH_LÁ, XANH_DƯƠNG, SAI_SỐ, X, Y, RỘNG, CAO)` |
 
 Kênh RGB và sai số nằm trong khoảng 0–255. Phân tích màu dùng ảnh chụp tại thiết bị và lấy mẫu có giới hạn; tỷ lệ trong vùng là ước lượng. Màn hình bảo mật hoặc ứng dụng chặn chụp có thể không sử dụng được.
 
@@ -400,8 +444,8 @@ Các API tìm kiếm chạy trên cây giao diện do Android và ứng dụng m
 THỬ {
     MỞ_ỨNG_DỤNG("invalid")
 } BẮT_LỖI (LỖI) {
-    BIẾN MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "MÃ")
-    BIẾN THÔNG_BÁO: CHUỖI = LẤY_GIÁ_TRỊ(LỖI, "THÔNG_BÁO")
+    BIẾN MÃ_LỖI: CHUỖI = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(LỖI, "MÃ")
+    BIẾN THÔNG_BÁO: CHUỖI = LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ(LỖI, "THÔNG_BÁO")
 } LUÔN_THỰC_HIỆN {
     CHỜ(100)
 }

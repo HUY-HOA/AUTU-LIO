@@ -96,8 +96,8 @@ object ScriptCompiler {
     private const val DURATION_CAP = MAX_TOTAL_DURATION_MS + 1
 
     private val commandArgumentCounts = mapOf(
-        "CHẠM" to 2, "NHẤN_GIỮ" to 3, "VUỐT" to 5,
-        "CHẠM_ĐA_ĐIỂM" to 2, "VUỐT_ĐA_ĐIỂM" to 2,
+        "NHẤN" to 2, "NHẤN_GIỮ" to 3, "VUỐT" to 5,
+        "NHẤN_ĐA_ĐIỂM" to 2, "VUỐT_ĐA_ĐIỂM" to 2,
         "CHỜ" to 1, "MỞ_ỨNG_DỤNG" to 1,
         "QUAY_LẠI" to 0, "VỀ_MÀN_HÌNH_CHÍNH" to 0,
         "MỞ_ỨNG_DỤNG_GẦN_ĐÂY" to 0, "MỞ_THANH_THÔNG_BÁO" to 0,
@@ -105,31 +105,50 @@ object ScriptCompiler {
         "KHÓA_MÀN_HÌNH" to 0, "BẬT_TẮT_CHIA_MÀN_HÌNH" to 0
     )
 
+    private val commandAliases = mapOf(
+        "CHẠM" to "NHẤN",
+        "CHẠM_ĐA_ĐIỂM" to "NHẤN_ĐA_ĐIỂM"
+    )
+
     private val builtinFunctionArities = mapOf(
         "SỐ" to 1, "CHUỖI" to 1, "LÀM_TRÒN" to 1,
+        "CĂN_BẬC_HAI" to 1, "LÀM_TRÒN_XUỐNG" to 1, "LÀM_TRÒN_LÊN" to 1,
+        "SIN" to 1, "COS" to 1, "TAN" to 1, "SỐ_NGẪU_NHIÊN" to -3,
         "TUYỆT_ĐỐI" to 1, "ĐỘ_DÀI" to 1,
         "CHỮ_HOA" to 1, "CHỮ_THƯỜNG" to 1, "CẮT_KHOẢNG_TRẮNG" to 1,
         "CHỨA_CHUỖI" to 2, "BẮT_ĐẦU_BẰNG" to 2, "KẾT_THÚC_BẰNG" to 2,
         "THAY_THẾ" to 3, "TÁCH_CHUỖI" to 2, "NỐI_CHUỖI" to 2,
         "KÝ_TỰ_TẠI" to 2, "CẮT_CHUỖI" to 3,
+        "TÌM_VỊ_TRÍ_TRONG_CHUỖI" to 2, "KIỂM_TRA_RỖNG" to 1,
         "NHỎ_NHẤT" to 2, "LỚN_NHẤT" to 2,
-        "PIN" to 0, "PHẦN_TRĂM_PIN" to 0,
-        "ĐANG_SẠC" to 0, "CÓ_MẠNG" to 0, "MÀN_HÌNH_SÁNG" to 0,
-        "ỨNG_DỤNG_ĐÃ_CÀI" to 1, "ỨNG_DỤNG_ĐANG_MỞ" to 1,
-        "CHIỀU_RỘNG_MÀN_HÌNH" to 0, "CHIỀU_CAO_MÀN_HÌNH" to 0,
-        "THỜI_GIAN_MS" to 0,
+        "SẮP_XẾP_DANH_SÁCH" to 1, "ĐẢO_NGƯỢC_DANH_SÁCH" to 1, "LỌC_DANH_SÁCH" to 2, "TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH" to 2,
+        "LẤY_PHẦN_TRĂM_PIN" to 0,
+        "KIỂM_TRA_ĐANG_SẠC" to 0, "KIỂM_TRA_KẾT_NỐI_MẠNG" to 0, "KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG" to 0,
+        "KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI" to 1, "KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ" to 1,
+        "LẤY_CHIỀU_RỘNG_MÀN_HÌNH" to 0, "LẤY_CHIỀU_CAO_MÀN_HÌNH" to 0,
+        "LẤY_THỜI_GIAN_MS" to 0,
+        "LẤY_CHIỀU_RỘNG_VÙNG_AN_TOÀN" to 0, "LẤY_CHIỀU_CAO_VÙNG_AN_TOÀN" to 0,
+        "LẤY_LỀ_AN_TOÀN_TRÁI" to 0, "LẤY_LỀ_AN_TOÀN_TRÊN" to 0,
+        "LẤY_LỀ_AN_TOÀN_PHẢI" to 0, "LẤY_LỀ_AN_TOÀN_DƯỚI" to 0,
+        "KIỂM_TRA_KHẢ_NĂNG_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH" to 0,
+        "KIỂM_TRA_CÓ_VÙNG_KHUYẾT_MÀN_HÌNH" to 0, "LẤY_SỐ_VÙNG_KHUYẾT_MÀN_HÌNH" to 0,
+        "LẤY_TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH" to 0,
+        "GHI_NHẬT_KÝ" to -4, "IN" to 1, "THÔNG_BÁO" to 1,
+        "LẤY_ÂM_LƯỢNG" to 0, "LẤY_ĐỘ_SÁNG" to 0, "RUNG" to 1,
+        "ĐẶT_ÂM_LƯỢNG" to 1, "ĐẶT_ĐỘ_SÁNG" to 1,
+        "CHỤP_ẢNH_MÀN_HÌNH" to 1,
         "TẠO_DANH_SÁCH" to -1,
-        "LẤY_PHẦN_TỬ" to 2,
-        "THÊM_PHẦN_TỬ" to 2,
-        "ĐẶT_PHẦN_TỬ" to 3,
-        "XÓA_PHẦN_TỬ" to 2,
-        "CÓ_PHẦN_TỬ" to 2,
+        "LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH" to 2,
+        "THÊM_PHẦN_TỬ_VÀO_DANH_SÁCH" to 2,
+        "ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH" to 3,
+        "XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH" to 2,
+        "KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH" to 2,
         "TẠO_BẢN_ĐỒ" to -2,
-        "LẤY_GIÁ_TRỊ" to 2,
-        "ĐẶT_GIÁ_TRỊ" to 3,
-        "XÓA_KHÓA" to 2,
-        "CÓ_KHÓA" to 2,
-        "DANH_SÁCH_KHÓA" to 1,
+        "LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ" to 2,
+        "ĐẶT_GIÁ_TRỊ_TRONG_BẢN_ĐỒ" to 3,
+        "XÓA_KHÓA_KHỎI_BẢN_ĐỒ" to 2,
+        "KIỂM_TRA_KHÓA_TRONG_BẢN_ĐỒ" to 2,
+        "LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ" to 1,
         "THỜI_GIAN_ISO" to 0,
         "PHÂN_TÍCH_THỜI_GIAN_ISO" to 1,
         "ĐỊNH_DẠNG_THỜI_GIAN" to 2,
@@ -139,20 +158,20 @@ object ScriptCompiler {
         "ĐỌC_CẤU_TRÚC_VĂN_BẢN_MÀN_HÌNH" to 0,
         "CHI_TIẾT_MÃ_QR_MÀN_HÌNH" to 0,
         "CHI_TIẾT_MÃ_VẠCH_MÀN_HÌNH" to 0,
-        "HÃNG_SẢN_XUẤT" to 0,
-        "MẪU_THIẾT_BỊ" to 0,
-        "PHIÊN_BẢN_ANDROID" to 0,
-        "MỨC_API_ANDROID" to 0,
-        "MÀN_HÌNH_BỊ_KHÓA" to 0,
-        "THIẾT_BỊ_ĐƯỢC_BẢO_MẬT" to 0,
-        "CHIỀU_RỘNG_DP" to 0,
-        "CHIỀU_CAO_DP" to 0,
-        "TỶ_LỆ_KHUNG_HÌNH" to 0,
-        "HƯỚNG_MÀN_HÌNH" to 0,
-        "XOAY_MÀN_HÌNH" to 0,
-        "GÓC_XOAY_MÀN_HÌNH" to 0,
-        "GÓI_ỨNG_DỤNG_ĐANG_MỞ" to 0,
-        "MẬT_ĐỘ_MÀN_HÌNH" to 0,
+        "LẤY_HÃNG_SẢN_XUẤT" to 0,
+        "LẤY_MẪU_THIẾT_BỊ" to 0,
+        "LẤY_PHIÊN_BẢN_ANDROID" to 0,
+        "LẤY_MỨC_API_ANDROID" to 0,
+        "KIỂM_TRA_MÀN_HÌNH_BỊ_KHÓA" to 0,
+        "KIỂM_TRA_THIẾT_BỊ_ĐƯỢC_BẢO_MẬT" to 0,
+        "LẤY_CHIỀU_RỘNG_DP" to 0,
+        "LẤY_CHIỀU_CAO_DP" to 0,
+        "LẤY_TỶ_LỆ_KHUNG_HÌNH" to 0,
+        "LẤY_HƯỚNG_MÀN_HÌNH" to 0,
+        "LẤY_XOAY_MÀN_HÌNH" to 0,
+        "LẤY_GÓC_XOAY_MÀN_HÌNH" to 0,
+        "LẤY_GÓI_ỨNG_DỤNG_ĐANG_MỞ" to 0,
+        "LẤY_MẬT_ĐỘ_MÀN_HÌNH" to 0,
         "DP_SANG_PIXEL" to 1,
         "PIXEL_SANG_DP" to 1,
         "TỌA_ĐỘ_X_THEO_TỶ_LỆ" to 1,
@@ -165,7 +184,7 @@ object ScriptCompiler {
         "TỶ_LỆ_Y_VÙNG_AN_TOÀN" to 1,
         "TỌA_ĐỘ_TỪ_HƯỚNG_GỐC" to 2,
         "TỌA_ĐỘ_VỀ_HƯỚNG_GỐC" to 2,
-        "MÀN_HÌNH_CHỨA_CHỮ" to 1,
+        "KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH" to 1,
         "TÌM_VỊ_TRÍ_CHỮ" to 1,
         "TÌM_THÀNH_PHẦN_VĂN_BẢN" to 1,
         "NHẤN_THÀNH_PHẦN_VĂN_BẢN" to 1,
@@ -176,24 +195,24 @@ object ScriptCompiler {
         "NHẬP_VĂN_BẢN_THEO_ID" to 2,
         "CUỘN_XUỐNG" to 0,
         "CUỘN_LÊN" to 0,
-        "ĐỌC_VĂN_BẢN_VÙNG" to 4,
-        "MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG" to 5,
-        "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG" to 5,
+        "ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH" to 4,
+        "KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH" to 5,
+        "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH" to 5,
         "NHẬN_DIỆN_NHÃN_ẢNH_MÀN_HÌNH" to 0,
-        "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" to 1,
+        "KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH" to 1,
         "QUÉT_MÃ_QR_MÀN_HÌNH" to 0,
         "QUÉT_MÃ_VẠCH_MÀN_HÌNH" to 0,
         "PHÁT_HIỆN_VẬT_THỂ_MÀN_HÌNH" to 0,
-        "MÀN_HÌNH_CÓ_VẬT_THỂ" to 1,
+        "KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH" to 1,
         "TÌM_TỌA_ĐỘ_VẬT_THỂ" to 1,
         "ĐẾM_VẬT_THỂ_MÀN_HÌNH" to 0,
-        "MÀU_TẠI" to 2,
-        "MÀN_HÌNH_CÓ_MÀU" to 4,
-        "TÌM_VỊ_TRÍ_MÀU" to 4,
-        "TỶ_LỆ_MÀU_TRONG_VÙNG" to 8,
+        "LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH" to 2,
+        "KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH" to 4,
+        "TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH" to 4,
+        "TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH" to 8,
         "ĐỌC_TỆP" to 1,
         "GHI_TỆP" to 2,
-        "TỆP_TỒN_TẠI" to 1,
+        "KIỂM_TRA_TỆP_TỒN_TẠI" to 1,
         "XÓA_TỆP" to 1,
         "TẠO_THƯ_MỤC" to 1,
         "LIỆT_KÊ_TỆP" to 1,
@@ -202,8 +221,8 @@ object ScriptCompiler {
         "PHÂN_TÍCH_CSV" to 2,
         "CHUYỂN_CSV" to 2,
         "GỬI_YÊU_CẦU_HTTP" to 5,
-        "GỬI_TỆP_HTTP" to 8,
-        "TẢI_TỆP_HTTP" to 4,
+        "TẢI_LÊN_TỆP_HTTP" to 8,
+        "TẢI_XUỐNG_TỆP_HTTP" to 4,
         "CHỌN_TỆP" to 1,
         "LƯU_TỆP" to 2,
         "SQL_THỰC_THI" to 2,
@@ -217,6 +236,75 @@ object ScriptCompiler {
         "VẼ_ĐƯỜNG" to 6,
         "VẼ_MŨI_TÊN" to 6,
         "XÓA_ĐÁNH_DẤU_MÀN_HÌNH" to 0
+    )
+
+    // Older saved scripts are normalized to the canonical names above.
+    private val builtinFunctionAliases = mapOf(
+        "PIN" to "LẤY_PHẦN_TRĂM_PIN",
+        "PHẦN_TRĂM_PIN" to "LẤY_PHẦN_TRĂM_PIN",
+        "ĐANG_SẠC" to "KIỂM_TRA_ĐANG_SẠC",
+        "CÓ_MẠNG" to "KIỂM_TRA_KẾT_NỐI_MẠNG",
+        "MÀN_HÌNH_SÁNG" to "KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG",
+        "ỨNG_DỤNG_ĐÃ_CÀI" to "KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI",
+        "ỨNG_DỤNG_ĐANG_MỞ" to "KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ",
+        "ÂM_LƯỢNG" to "LẤY_ÂM_LƯỢNG",
+        "ĐỘ_SÁNG" to "LẤY_ĐỘ_SÁNG",
+        "MÀN_HÌNH_CHỨA_CHỮ" to "KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH",
+        "MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG" to "KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH",
+        "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" to "KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH",
+        "MÀN_HÌNH_CÓ_VẬT_THỂ" to "KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH",
+        "MÀN_HÌNH_CÓ_MÀU" to "KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH",
+        "TÌM_VỊ_TRÍ" to "TÌM_VỊ_TRÍ_TRONG_CHUỖI",
+        "ĐỌC_VĂN_BẢN_VÙNG" to "ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH",
+        "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG" to "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH",
+        "MÀU_TẠI" to "LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH",
+        "TÌM_VỊ_TRÍ_MÀU" to "TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH",
+        "TỶ_LỆ_MÀU_TRONG_VÙNG" to "TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH",
+        "LẤY_PHẦN_TỬ" to "LẤY_PHẦN_TỬ_TỪ_DANH_SÁCH",
+        "THÊM_PHẦN_TỬ" to "THÊM_PHẦN_TỬ_VÀO_DANH_SÁCH",
+        "ĐẶT_PHẦN_TỬ" to "ĐẶT_PHẦN_TỬ_TRONG_DANH_SÁCH",
+        "XÓA_PHẦN_TỬ" to "XÓA_PHẦN_TỬ_KHỎI_DANH_SÁCH",
+        "CÓ_PHẦN_TỬ" to "KIỂM_TRA_PHẦN_TỬ_TRONG_DANH_SÁCH",
+        "TÌM_PHẦN_TỬ" to "TÌM_VỊ_TRÍ_PHẦN_TỬ_TRONG_DANH_SÁCH",
+        "SẮP_XẾP" to "SẮP_XẾP_DANH_SÁCH",
+        "ĐẢO_NGƯỢC" to "ĐẢO_NGƯỢC_DANH_SÁCH",
+        "LỌC" to "LỌC_DANH_SÁCH",
+        "LẤY_GIÁ_TRỊ" to "LẤY_GIÁ_TRỊ_TỪ_BẢN_ĐỒ",
+        "ĐẶT_GIÁ_TRỊ" to "ĐẶT_GIÁ_TRỊ_TRONG_BẢN_ĐỒ",
+        "XÓA_KHÓA" to "XÓA_KHÓA_KHỎI_BẢN_ĐỒ",
+        "CÓ_KHÓA" to "KIỂM_TRA_KHÓA_TRONG_BẢN_ĐỒ",
+        "DANH_SÁCH_KHÓA" to "LẤY_DANH_SÁCH_KHÓA_TỪ_BẢN_ĐỒ",
+        "LƯU_ẢNH_MÀN_HÌNH" to "CHỤP_ẢNH_MÀN_HÌNH",
+        "TỆP_TỒN_TẠI" to "KIỂM_TRA_TỆP_TỒN_TẠI",
+        "GỬI_TỆP_HTTP" to "TẢI_LÊN_TỆP_HTTP",
+        "TẢI_TỆP_HTTP" to "TẢI_XUỐNG_TỆP_HTTP",
+        "CHIỀU_RỘNG_MÀN_HÌNH" to "LẤY_CHIỀU_RỘNG_MÀN_HÌNH",
+        "CHIỀU_CAO_MÀN_HÌNH" to "LẤY_CHIỀU_CAO_MÀN_HÌNH",
+        "THỜI_GIAN_MS" to "LẤY_THỜI_GIAN_MS",
+        "HÃNG_SẢN_XUẤT" to "LẤY_HÃNG_SẢN_XUẤT",
+        "MẪU_THIẾT_BỊ" to "LẤY_MẪU_THIẾT_BỊ",
+        "PHIÊN_BẢN_ANDROID" to "LẤY_PHIÊN_BẢN_ANDROID",
+        "MỨC_API_ANDROID" to "LẤY_MỨC_API_ANDROID",
+        "MÀN_HÌNH_BỊ_KHÓA" to "KIỂM_TRA_MÀN_HÌNH_BỊ_KHÓA",
+        "THIẾT_BỊ_ĐƯỢC_BẢO_MẬT" to "KIỂM_TRA_THIẾT_BỊ_ĐƯỢC_BẢO_MẬT",
+        "CHIỀU_RỘNG_DP" to "LẤY_CHIỀU_RỘNG_DP",
+        "CHIỀU_CAO_DP" to "LẤY_CHIỀU_CAO_DP",
+        "TỶ_LỆ_KHUNG_HÌNH" to "LẤY_TỶ_LỆ_KHUNG_HÌNH",
+        "HƯỚNG_MÀN_HÌNH" to "LẤY_HƯỚNG_MÀN_HÌNH",
+        "XOAY_MÀN_HÌNH" to "LẤY_XOAY_MÀN_HÌNH",
+        "GÓC_XOAY_MÀN_HÌNH" to "LẤY_GÓC_XOAY_MÀN_HÌNH",
+        "GÓI_ỨNG_DỤNG_ĐANG_MỞ" to "LẤY_GÓI_ỨNG_DỤNG_ĐANG_MỞ",
+        "MẬT_ĐỘ_MÀN_HÌNH" to "LẤY_MẬT_ĐỘ_MÀN_HÌNH",
+        "CHIỀU_RỘNG_VÙNG_AN_TOÀN" to "LẤY_CHIỀU_RỘNG_VÙNG_AN_TOÀN",
+        "CHIỀU_CAO_VÙNG_AN_TOÀN" to "LẤY_CHIỀU_CAO_VÙNG_AN_TOÀN",
+        "LỀ_AN_TOÀN_TRÁI" to "LẤY_LỀ_AN_TOÀN_TRÁI",
+        "LỀ_AN_TOÀN_TRÊN" to "LẤY_LỀ_AN_TOÀN_TRÊN",
+        "LỀ_AN_TOÀN_PHẢI" to "LẤY_LỀ_AN_TOÀN_PHẢI",
+        "LỀ_AN_TOÀN_DƯỚI" to "LẤY_LỀ_AN_TOÀN_DƯỚI",
+        "CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH" to "KIỂM_TRA_KHẢ_NĂNG_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH",
+        "CÓ_VÙNG_KHUYẾT_MÀN_HÌNH" to "KIỂM_TRA_CÓ_VÙNG_KHUYẾT_MÀN_HÌNH",
+        "SỐ_VÙNG_KHUYẾT_MÀN_HÌNH" to "LẤY_SỐ_VÙNG_KHUYẾT_MÀN_HÌNH",
+        "TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH" to "LẤY_TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH"
     )
 
     private val supportedTypes = setOf("SỐ", "CHUỖI", "LUẬN_LÝ", "DANH_SÁCH", "BẢN_ĐỒ", "BẤT_KỲ")
@@ -538,7 +626,7 @@ object ScriptCompiler {
                         ScriptInstruction.SetVariable(name.text, parseExpression())
                     } else if (
                         isSymbol("(") &&
-                        (name.text in builtinFunctionArities || name.text in functionNames)
+                        (name.text in builtinFunctionArities || name.text in builtinFunctionAliases || name.text in functionNames)
                     ) {
                         val expression = parseStatementFunctionCall(name)
                         ScriptInstruction.ExpressionStatement(expression)
@@ -549,18 +637,23 @@ object ScriptCompiler {
 
         private fun parseStatementFunctionCall(name: Token): ScriptExpression.FunctionCall {
             val arguments = parseArguments()
-            val expected = builtinFunctionArities[name.text]
+            val normalizedName = builtinFunctionAliases[name.text] ?: name.text
+            val expected = builtinFunctionArities[normalizedName]
             if (expected == -1 && arguments.size > MAX_LIST_ITEMS) {
                 fail(name.line, name.column, "list_too_large", "Danh sách không được vượt quá $MAX_LIST_ITEMS phần tử.", "A list cannot exceed $MAX_LIST_ITEMS items.")
             } else if (expected == -2 && arguments.size > MAX_MAP_ENTRIES * 2) {
                 fail(name.line, name.column, "map_too_large", "Bản đồ không được vượt quá $MAX_MAP_ENTRIES cặp khóa–giá trị.", "A map cannot exceed $MAX_MAP_ENTRIES key-value pairs.")
             } else if (expected == -2 && arguments.size % 2 != 0) {
                 fail(name.line, name.column, "map_argument_count", "TẠO_BẢN_ĐỒ cần số tham số chẵn theo cặp KHÓA, GIÁ_TRỊ.", "TẠO_BẢN_ĐỒ requires an even number of KEY, VALUE arguments.")
+            } else if (expected == -3 && arguments.size !in setOf(0, 2)) {
+                fail(name.line, name.column, "function_argument_count", "Hàm '" + name.text + "' nhận 0 hoặc 2 tham số.", "Function '" + name.text + "' accepts 0 or 2 arguments.")
+            } else if (expected == -4 && arguments.size !in 1..2) {
+                fail(name.line, name.column, "function_argument_count", "Hàm '" + name.text + "' nhận 1 hoặc 2 tham số.", "Function '" + name.text + "' accepts 1 or 2 arguments.")
             } else if (expected != null && expected >= 0 && arguments.size != expected) {
                 fail(name.line, name.column, "function_argument_count", "Hàm '" + name.text + "' cần đúng " + expected + " tham số.", "Function '" + name.text + "' requires exactly " + expected + " arguments.")
             }
             if (expected == null) functionCallTokens += name
-            return ScriptExpression.FunctionCall(name.text, arguments)
+            return ScriptExpression.FunctionCall(normalizedName, arguments)
         }
 
         private fun parseFunctionDefinition(name: Token, depth: Int, loopDepth: Int): ScriptInstruction.FunctionDefinition {
@@ -569,7 +662,7 @@ object ScriptCompiler {
             }
             val functionName = expect(TokenType.IDENTIFIER, "expected_function_name", "Sau HÀM cần có tên hàm viết HOA.", "Expected an uppercase function name after HÀM.")
             requireUppercaseIdentifier(functionName, "tên hàm")
-            if (functionName.text in reservedWords || functionName.text in commandArgumentCounts || functionName.text in builtinFunctionArities) {
+            if (functionName.text in reservedWords || functionName.text in commandArgumentCounts || functionName.text in commandAliases || functionName.text in builtinFunctionArities || functionName.text in builtinFunctionAliases) {
                 fail(functionName.line, functionName.column, "reserved_function_name", "Tên hàm bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Function name conflicts with a keyword, command or built-in function.")
             }
             if (!functionNames.add(functionName.text)) {
@@ -583,7 +676,7 @@ object ScriptCompiler {
                 while (true) {
                     val parameter = expect(TokenType.IDENTIFIER, "expected_parameter_name", "Tham số hàm phải có tên viết HOA.", "Function parameters must have uppercase names.")
                     requireUppercaseIdentifier(parameter, "tên tham số")
-                    if (parameter.text in reservedWords || parameter.text in commandArgumentCounts || builtinFunctionArities.containsKey(parameter.text)) {
+                    if (parameter.text in reservedWords || parameter.text in commandArgumentCounts || commandAliases.containsKey(parameter.text) || builtinFunctionArities.containsKey(parameter.text) || builtinFunctionAliases.containsKey(parameter.text)) {
                         fail(parameter.line, parameter.column, "reserved_parameter_name", "Tên tham số bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Parameter name conflicts with a keyword, command or built-in function.")
                     }
                     if (!parameterNames.add(parameter.text)) {
@@ -630,7 +723,7 @@ object ScriptCompiler {
         private fun parseVariableDeclaration(name: Token): ScriptInstruction.SetVariable {
             val variable = expect(TokenType.IDENTIFIER, "expected_variable_name", "Sau BIẾN cần có tên biến viết HOA.", "Expected an uppercase variable name after BIẾN.")
             requireUppercaseIdentifier(variable, "tên biến")
-            if (variable.text in reservedWords || variable.text in commandArgumentCounts || variable.text in builtinFunctionArities) {
+            if (variable.text in reservedWords || variable.text in commandArgumentCounts || variable.text in commandAliases || variable.text in builtinFunctionArities || variable.text in builtinFunctionAliases) {
                 fail(variable.line, variable.column, "reserved_identifier", "Tên biến trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "Variable name conflicts with a keyword, command or built-in function.")
             }
             val declaredType = if (isSymbol(":")) {
@@ -685,7 +778,7 @@ object ScriptCompiler {
                 expectSymbol("(", "expected_catch_variable", "BẮT_LỖI cần biến lỗi trong dấu ngoặc.", "BẮT_LỖI requires an error variable in parentheses.")
                 val variable = expect(TokenType.IDENTIFIER, "expected_catch_variable", "Cần tên biến lỗi viết HOA.", "Expected an uppercase error variable.")
                 requireUppercaseIdentifier(variable, "biến lỗi")
-                if (variable.text in reservedWords || variable.text in commandArgumentCounts || builtinFunctionArities.containsKey(variable.text)) {
+                if (variable.text in reservedWords || variable.text in commandArgumentCounts || commandAliases.containsKey(variable.text) || builtinFunctionArities.containsKey(variable.text) || builtinFunctionAliases.containsKey(variable.text)) {
                     fail(variable.line, variable.column, "reserved_catch_variable", "Tên biến lỗi bị trùng với từ khóa, lệnh hoặc hàm dựng sẵn.", "The error variable conflicts with a keyword, command or built-in function.")
                 }
                 expectSymbol(")", "expected_catch_parenthesis", "Thiếu ')' sau biến lỗi.", "Expected ')' after the error variable.")
@@ -807,7 +900,7 @@ object ScriptCompiler {
         }
 
         private fun parseCommand(name: Token): ScriptInstruction.Command {
-            val command = name.text
+            val command = commandAliases[name.text] ?: name.text
             val expected = commandArgumentCounts[command]
                 ?: fail(name.line, name.column, "unknown_command", "Không nhận ra lệnh '" + command + "'. AUTU Script 1.22 chỉ nhận tên lệnh tiếng Việt chuẩn, viết HOA và đúng dấu.", "Unknown command '" + command + "'. AUTU Script 1.22 accepts only canonical uppercase Vietnamese command names with correct diacritics.")
             val args = parseArguments()
@@ -818,7 +911,7 @@ object ScriptCompiler {
 
         private fun validateLiteralArguments(name: Token, command: String, args: List<ScriptExpression>) {
             val coordinateIndexes = when (command) {
-                "CHẠM", "NHẤN_GIỮ" -> setOf(0, 1)
+                "NHẤN", "NHẤN_GIỮ" -> setOf(0, 1)
                 "VUỐT" -> setOf(0, 1, 2, 3)
                 else -> emptySet()
             }
@@ -932,7 +1025,7 @@ object ScriptCompiler {
                     }
                 }
                 expectSymbol(")", "expected_right_parenthesis", "Thiếu dấu ')' đóng hàm.", "Expected ')' after function arguments.")
-                val normalizedName = token.text
+                val normalizedName = builtinFunctionAliases[token.text] ?: token.text
                 val expected = builtinFunctionArities[normalizedName]
                 if (expected == -1 && args.size > MAX_LIST_ITEMS) {
                     fail(token.line, token.column, "list_too_large", "Danh sách không được vượt quá $MAX_LIST_ITEMS phần tử.", "A list cannot exceed $MAX_LIST_ITEMS items.")
@@ -940,6 +1033,10 @@ object ScriptCompiler {
                     fail(token.line, token.column, "map_too_large", "Bản đồ không được vượt quá $MAX_MAP_ENTRIES cặp khóa–giá trị.", "A map cannot exceed $MAX_MAP_ENTRIES key-value pairs.")
                 } else if (expected == -2 && args.size % 2 != 0) {
                     fail(token.line, token.column, "map_argument_count", "TẠO_BẢN_ĐỒ cần số tham số chẵn theo cặp KHÓA, GIÁ_TRỊ.", "TẠO_BẢN_ĐỒ requires an even number of KEY, VALUE arguments.")
+                } else if (expected == -3 && args.size !in setOf(0, 2)) {
+                    fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' nhận 0 hoặc 2 tham số.", "Function '" + token.text + "' accepts 0 or 2 arguments.")
+                } else if (expected == -4 && args.size !in 1..2) {
+                    fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' nhận 1 hoặc 2 tham số.", "Function '" + token.text + "' accepts 1 or 2 arguments.")
                 } else if (expected != null && expected >= 0 && args.size != expected) {
                     fail(token.line, token.column, "function_argument_count", "Hàm '" + token.text + "' cần đúng " + expected + " tham số.", "Function '" + token.text + "' requires exactly " + expected + " arguments.")
                 }

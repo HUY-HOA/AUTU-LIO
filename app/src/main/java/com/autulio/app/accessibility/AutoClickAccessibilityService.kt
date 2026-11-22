@@ -583,6 +583,133 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     override fun evaluateFunction(name: String, arguments: List<Any?>): Any? {
         return when (name) {
+            "GHI_NHẬT_KÝ" -> {
+                require(arguments.size in 1..2) { "GHI_NHẬT_KÝ nhận 1 hoặc 2 tham số." }
+                val level = if (arguments.size == 2) requireTextArgument(name, arguments[0]).uppercase(Locale.ROOT) else "INFO"
+                val message = requireTextArgument(name, arguments.last()).take(2_000)
+                val priority = when (level) {
+                    "DEBUG" -> android.util.Log.DEBUG
+                    "WARN", "WARNING" -> android.util.Log.WARN
+                    "ERROR" -> android.util.Log.ERROR
+                    else -> android.util.Log.INFO
+                }
+                val normalizedLevel = when (priority) {
+                    android.util.Log.DEBUG -> "DEBUG"
+                    android.util.Log.WARN -> "WARN"
+                    android.util.Log.ERROR -> "ERROR"
+                    else -> "INFO"
+                }
+                val logPath = "logs/script.log"
+                val previous = if (scriptFileStore.exists(logPath)) scriptFileStore.readText(logPath) else ""
+                val entry = System.currentTimeMillis().toString() + " [" + normalizedLevel + "] " + message + "\n"
+                scriptFileStore.writeText(logPath, (previous + entry).takeLast(256 * 1024))
+                android.util.Log.println(priority, "AUTU-LIO-Script", message)
+                true
+            }
+            "IN" -> {
+                requireArgumentCount(name, arguments, 1)
+                android.util.Log.i("AUTU-LIO-Script", requireTextArgument(name, arguments[0]).take(2_000))
+                true
+            }
+            "THÔNG_BÁO" -> {
+                requireArgumentCount(name, arguments, 1)
+                val message = requireTextArgument(name, arguments[0]).take(500)
+                mainHandler.post {
+                    android.widget.Toast.makeText(applicationContext, message, android.widget.Toast.LENGTH_LONG).show()
+                }
+                true
+            }
+            "RUNG" -> {
+                requireArgumentCount(name, arguments, 1)
+                val duration = requirePositiveOrZeroInt(name, arguments[0], "THỜI_LƯỢNG")
+                require(duration in 1..5_000) { "RUNG cần thời lượng từ 1 đến 5.000 ms." }
+                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    getSystemService(android.os.VibratorManager::class.java)?.defaultVibrator
+                } else {
+                    getSystemService(android.os.Vibrator::class.java)
+                } ?: throw IllegalStateException("Thiết bị không cung cấp bộ rung.")
+                require(vibrator.hasVibrator()) { "Thiết bị không có phần cứng rung." }
+                vibrator.vibrate(android.os.VibrationEffect.createOneShot(duration.toLong(), android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                true
+            }
+            "LẤY_ÂM_LƯỢNG" -> {
+                requireArgumentCount(name, arguments, 0)
+                val audio = getSystemService(android.media.AudioManager::class.java)
+                    ?: throw IllegalStateException("Không đọc được âm lượng hệ thống.")
+                val maximum = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                if (maximum <= 0) 0.0 else audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) * 100.0 / maximum
+            }
+            "ĐẶT_ÂM_LƯỢNG" -> {
+                requireArgumentCount(name, arguments, 1)
+                val percent = requireNonNegativeFiniteNumber(name, arguments[0], "PHẦN_TRĂM")
+                require(percent <= 100.0) { "ĐẶT_ÂM_LƯỢNG chỉ nhận giá trị từ 0 đến 100." }
+                val audio = getSystemService(android.media.AudioManager::class.java)
+                    ?: throw IllegalStateException("Không điều khiển được âm lượng hệ thống.")
+                val maximum = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                val target = (maximum * percent / 100.0).toInt().coerceIn(0, maximum)
+                audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, target, 0)
+                true
+            }
+            "LẤY_ĐỘ_SÁNG" -> {
+                requireArgumentCount(name, arguments, 0)
+                val value = android.provider.Settings.System.getInt(
+                    contentResolver,
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS,
+                    -1
+                )
+                if (value < 0) null else value.coerceIn(0, 255) * 100.0 / 255.0
+            }
+            "ĐẶT_ĐỘ_SÁNG" -> {
+                requireArgumentCount(name, arguments, 1)
+                val percent = requireNonNegativeFiniteNumber(name, arguments[0], "PHẦN_TRĂM")
+                require(percent <= 100.0) { "ĐẶT_ĐỘ_SÁNG chỉ nhận giá trị từ 0 đến 100." }
+                if (!android.provider.Settings.System.canWrite(this)) {
+                    val settingsIntent = Intent(
+                        android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                        android.net.Uri.parse("package:$packageName")
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    mainHandler.post {
+                        runCatching { startActivity(settingsIntent) }
+                    }
+                    throw IllegalStateException(
+                        "Đã mở cài đặt quyền hệ thống. Hãy bật 'Cho phép sửa đổi cài đặt hệ thống' cho AUTU-LIO rồi chạy lại kịch bản."
+                    )
+                }
+                val raw = (percent * 255.0 / 100.0).toInt().coerceIn(0, 255)
+                android.provider.Settings.System.putInt(
+                    contentResolver,
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS,
+                    raw
+                )
+            }
+            "CHỤP_ẢNH_MÀN_HÌNH" -> {
+                requireArgumentCount(name, arguments, 1)
+                val relativePath = requireTextArgument(name, arguments[0]).trim()
+                require(relativePath.lowercase(Locale.ROOT).endsWith(".jpg") ||
+                    relativePath.lowercase(Locale.ROOT).endsWith(".jpeg")) {
+                    "Đường dẫn ảnh cần có phần mở rộng .jpg hoặc .jpeg."
+                }
+                withRequiredCapturedScreen { bitmap ->
+                    var encoded: ByteArray? = null
+                    for (quality in listOf(90, 80, 70, 60, 50)) {
+                        val output = java.io.ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, output)
+                        val candidate = output.toByteArray()
+                        if (candidate.size <= ScriptFileStore.DEFAULT_MAX_FILE_BYTES) {
+                            encoded = candidate
+                            break
+                        }
+                    }
+                    val bytes = encoded ?: throw IllegalStateException("Ảnh vượt giới hạn 1 MB ngay cả sau khi nén. Hãy chụp vùng nhỏ hơn hoặc dùng ảnh có ít chi tiết hơn.")
+                    scriptFileStore.writeBytes(relativePath, bytes)
+                    linkedMapOf(
+                        "ĐƯỜNG_DẪN" to relativePath,
+                        "RỘNG" to bitmap.width,
+                        "CAO" to bitmap.height,
+                        "DUNG_LƯỢNG" to bytes.size
+                    )
+                }
+            }
             "CHỌN_TỆP" -> {
                 requireArgumentCount(name, arguments, 1)
                 val mimeType = requireTextArgument(name, arguments[0]).trim()
@@ -615,22 +742,22 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     is ScriptFilePickerResult.Imported -> throw IllegalStateException("Kết quả lưu tệp không hợp lệ.")
                 }
             }
-            "HÃNG_SẢN_XUẤT" -> Build.MANUFACTURER.orEmpty()
-            "MẪU_THIẾT_BỊ" -> Build.MODEL.orEmpty()
-            "PHIÊN_BẢN_ANDROID" -> Build.VERSION.RELEASE.orEmpty()
-            "MỨC_API_ANDROID" -> Build.VERSION.SDK_INT
-            "MÀN_HÌNH_BỊ_KHÓA" -> {
+            "LẤY_HÃNG_SẢN_XUẤT" -> Build.MANUFACTURER.orEmpty()
+            "LẤY_MẪU_THIẾT_BỊ" -> Build.MODEL.orEmpty()
+            "LẤY_PHIÊN_BẢN_ANDROID" -> Build.VERSION.RELEASE.orEmpty()
+            "LẤY_MỨC_API_ANDROID" -> Build.VERSION.SDK_INT
+            "KIỂM_TRA_MÀN_HÌNH_BỊ_KHÓA" -> {
                 val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
                 keyguard.isKeyguardLocked
             }
-            "THIẾT_BỊ_ĐƯỢC_BẢO_MẬT" -> {
+            "KIỂM_TRA_THIẾT_BỊ_ĐƯỢC_BẢO_MẬT" -> {
                 val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
                 keyguard.isDeviceSecure
             }
-            "PIN", "PHẦN_TRĂM_PIN" -> batteryPercent()
-            "ĐANG_SẠC" -> isCharging()
-            "CÓ_MẠNG" -> hasNetworkConnection()
-            "MÀN_HÌNH_SÁNG" -> {
+            "LẤY_PHẦN_TRĂM_PIN" -> batteryPercent()
+            "KIỂM_TRA_ĐANG_SẠC" -> isCharging()
+            "KIỂM_TRA_KẾT_NỐI_MẠNG" -> hasNetworkConnection()
+            "KIỂM_TRA_MÀN_HÌNH_ĐANG_SÁNG" -> {
                 val power = getSystemService(Context.POWER_SERVICE) as PowerManager
                 power.isInteractive
             }
@@ -699,36 +826,36 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 clearScreenAnnotations()
             }
-            "ỨNG_DỤNG_ĐÃ_CÀI" -> {
+            "KIỂM_TRA_ỨNG_DỤNG_ĐÃ_CÀI" -> {
                 requireArgumentCount(name, arguments, 1)
                 val packageName = arguments[0] as? String ?: return false
                 isPackageInstalled(packageName)
             }
-            "ỨNG_DỤNG_ĐANG_MỞ" -> {
+            "KIỂM_TRA_ỨNG_DỤNG_ĐANG_MỞ" -> {
                 requireArgumentCount(name, arguments, 1)
                 val packageName = arguments[0] as? String ?: return false
                 foregroundPackage == packageName
             }
-            "CHIỀU_RỘNG_DP" -> {
+            "LẤY_CHIỀU_RỘNG_DP" -> {
                 val metrics = readDisplayMetrics()
                 ScreenMetricsInfo.widthDp(metrics.widthPixels, metrics.density.toDouble())
             }
-            "CHIỀU_CAO_DP" -> {
+            "LẤY_CHIỀU_CAO_DP" -> {
                 val metrics = readDisplayMetrics()
                 ScreenMetricsInfo.heightDp(metrics.heightPixels, metrics.density.toDouble())
             }
-            "TỶ_LỆ_KHUNG_HÌNH" -> {
+            "LẤY_TỶ_LỆ_KHUNG_HÌNH" -> {
                 val metrics = readDisplayMetrics()
                 ScreenMetricsInfo.aspectRatio(metrics.widthPixels, metrics.heightPixels)
             }
-            "HƯỚNG_MÀN_HÌNH" -> {
+            "LẤY_HƯỚNG_MÀN_HÌNH" -> {
                 val metrics = readDisplayMetrics()
                 ScreenMetricsInfo.orientation(metrics.widthPixels, metrics.heightPixels)
             }
-            "XOAY_MÀN_HÌNH" -> readDisplayRotation()
-            "GÓC_XOAY_MÀN_HÌNH" -> ScreenMetricsInfo.rotationDegrees(readDisplayRotation())
-            "GÓI_ỨNG_DỤNG_ĐANG_MỞ" -> foregroundPackage.orEmpty()
-            "MẬT_ĐỘ_MÀN_HÌNH" -> readDisplayMetrics().density.toDouble()
+            "LẤY_XOAY_MÀN_HÌNH" -> readDisplayRotation()
+            "LẤY_GÓC_XOAY_MÀN_HÌNH" -> ScreenMetricsInfo.rotationDegrees(readDisplayRotation())
+            "LẤY_GÓI_ỨNG_DỤNG_ĐANG_MỞ" -> foregroundPackage.orEmpty()
+            "LẤY_MẬT_ĐỘ_MÀN_HÌNH" -> readDisplayMetrics().density.toDouble()
             "DP_SANG_PIXEL" -> {
                 requireArgumentCount(name, arguments, 1)
                 ScreenCoordinateConverter.dpToPx(
@@ -831,21 +958,21 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 )
                 listOf(point.first.toInt(), point.second.toInt())
             }
-            "CHIỀU_RỘNG_MÀN_HÌNH" -> readDisplayMetrics().widthPixels
-            "CHIỀU_CAO_MÀN_HÌNH" -> readDisplayMetrics().heightPixels
-            "CHIỀU_RỘNG_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeWidthPx
-            "CHIỀU_CAO_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeHeightPx
-            "LỀ_AN_TOÀN_TRÁI" -> readDisplayGeometry().safeInsets.left
-            "LỀ_AN_TOÀN_TRÊN" -> readDisplayGeometry().safeInsets.top
-            "LỀ_AN_TOÀN_PHẢI" -> readDisplayGeometry().safeInsets.right
-            "LỀ_AN_TOÀN_DƯỚI" -> readDisplayGeometry().safeInsets.bottom
-            "CÓ_THỂ_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutDetectionKnown
-            "CÓ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().hasCutout
-            "SỐ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutCount
-            "TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().let { geometry ->
+            "LẤY_CHIỀU_RỘNG_MÀN_HÌNH" -> readDisplayMetrics().widthPixels
+            "LẤY_CHIỀU_CAO_MÀN_HÌNH" -> readDisplayMetrics().heightPixels
+            "LẤY_CHIỀU_RỘNG_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeWidthPx
+            "LẤY_CHIỀU_CAO_VÙNG_AN_TOÀN" -> readDisplayGeometry().safeHeightPx
+            "LẤY_LỀ_AN_TOÀN_TRÁI" -> readDisplayGeometry().safeInsets.left
+            "LẤY_LỀ_AN_TOÀN_TRÊN" -> readDisplayGeometry().safeInsets.top
+            "LẤY_LỀ_AN_TOÀN_PHẢI" -> readDisplayGeometry().safeInsets.right
+            "LẤY_LỀ_AN_TOÀN_DƯỚI" -> readDisplayGeometry().safeInsets.bottom
+            "KIỂM_TRA_KHẢ_NĂNG_XÁC_ĐỊNH_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutDetectionKnown
+            "KIỂM_TRA_CÓ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().hasCutout
+            "LẤY_SỐ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().cutoutCount
+            "LẤY_TỌA_ĐỘ_VÙNG_KHUYẾT_MÀN_HÌNH" -> readDisplayGeometry().let { geometry ->
                 if (geometry.cutoutDetectionKnown) geometry.flattenedCutoutBounds() else null
             }
-            "THỜI_GIAN_MS" -> System.currentTimeMillis()
+            "LẤY_THỜI_GIAN_MS" -> System.currentTimeMillis()
             "ĐỌC_VĂN_BẢN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 0)
                 readScreenTextItems().joinToString("\n") { it.text }
@@ -854,10 +981,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 recognizeStructuredScreenText()
             }
-            "MÀN_HÌNH_CHỨA_CHỮ" -> {
+            "KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 1)
                 val query = arguments[0] as? String
-                    ?: throw IllegalArgumentException("MÀN_HÌNH_CHỨA_CHỮ cần một chuỗi.")
+                    ?: throw IllegalArgumentException("KIỂM_TRA_CHỮ_TRÊN_MÀN_HÌNH cần một chuỗi.")
                 readScreenTextItems().any { it.text.contains(query, ignoreCase = true) }
             }
             "TÌM_VỊ_TRÍ_CHỮ" -> {
@@ -872,17 +999,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     (match.bounds.top + match.bounds.bottom) / 2
                 )
             }
-            "ĐỌC_VĂN_BẢN_VÙNG" -> {
+            "ĐỌC_VĂN_BẢN_TRONG_VÙNG_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 4)
                 readTextInScreenRegion(name, arguments.toTypedArray())
             }
-            "MÀN_HÌNH_CHỨA_CHỮ_TRONG_VÙNG" -> {
+            "KIỂM_TRA_CHỮ_TRONG_VÙNG_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 5)
                 val query = requireTextArgument(name, arguments[0])
                 readTextInScreenRegion(name, arguments.drop(1).toTypedArray())
                     .contains(query, ignoreCase = true)
             }
-            "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG" -> {
+            "TÌM_VỊ_TRÍ_CHỮ_TRONG_VÙNG_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 5)
                 val query = requireTextArgument(name, arguments[0])
                 findTextInScreenRegion(name, query, arguments.drop(1).toTypedArray())
@@ -891,7 +1018,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 recognizeScreenImageLabels()
             }
-            "MÀN_HÌNH_CHỨA_NHÃN_ẢNH" -> {
+            "KIỂM_TRA_NHÃN_ẢNH_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 1)
                 val query = requireTextArgument(name, arguments[0])
                 recognizeScreenImageLabels().any { it.contains(query, ignoreCase = true) }
@@ -916,7 +1043,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 recognizeScreenObjects()
             }
-            "MÀN_HÌNH_CÓ_VẬT_THỂ" -> {
+            "KIỂM_TRA_VẬT_THỂ_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 1)
                 val query = requireTextArgument(name, arguments[0])
                 recognizeScreenObjects().any { item ->
@@ -948,7 +1075,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 requireArgumentCount(name, arguments, 0)
                 recognizeScreenObjects().size
             }
-            "MÀU_TẠI" -> {
+            "LẤY_MÀU_TẠI_TỌA_ĐỘ_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 2)
                 withRequiredCapturedScreen { bitmap ->
                     val x = requirePositiveOrZeroInt(name, arguments[0], "X")
@@ -959,7 +1086,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     ScreenColorAnalyzer.describe(bitmap.getPixel(x, y))
                 }
             }
-            "MÀN_HÌNH_CÓ_MÀU" -> {
+            "KIỂM_TRA_MÀU_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 4)
                 val target = requireColorArguments(name, arguments, 0)
                 withRequiredCapturedScreen { bitmap ->
@@ -971,7 +1098,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     ) != null
                 }
             }
-            "TÌM_VỊ_TRÍ_MÀU" -> {
+            "TÌM_VỊ_TRÍ_MÀU_TRÊN_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 4)
                 val target = requireColorArguments(name, arguments, 0)
                 withRequiredCapturedScreen { bitmap ->
@@ -983,7 +1110,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     ) ?: emptyList<Int>()
                 }
             }
-            "TỶ_LỆ_MÀU_TRONG_VÙNG" -> {
+            "TÍNH_TỶ_LỆ_MÀU_TRONG_VÙNG_MÀN_HÌNH" -> {
                 requireArgumentCount(name, arguments, 8)
                 val target = requireColorArguments(name, arguments, 0)
                 withRequiredCapturedScreen { bitmap ->
@@ -1051,7 +1178,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 }
                 scriptDatabaseStore.migrateSchema(version, statements)
             }
-            "GỬI_TỆP_HTTP" -> {
+            "TẢI_LÊN_TỆP_HTTP" -> {
                 requireArgumentCount(name, arguments, 8)
                 val method = requireTextArgument(name, arguments[0])
                 val url = requireTextArgument(name, arguments[1])
@@ -1084,7 +1211,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     timeoutMs = timeoutMs
                 )
             }
-            "TẢI_TỆP_HTTP" -> {
+            "TẢI_XUỐNG_TỆP_HTTP" -> {
                 requireArgumentCount(name, arguments, 4)
                 val url = requireTextArgument(name, arguments[0])
                 val destinationPath = requireTextArgument(name, arguments[1])
@@ -1154,7 +1281,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 val content = requireTextArgument(name, arguments[1])
                 scriptFileStore.writeText(path, content)
             }
-            "TỆP_TỒN_TẠI" -> {
+            "KIỂM_TRA_TỆP_TỒN_TẠI" -> {
                 requireArgumentCount(name, arguments, 1)
                 scriptFileStore.exists(requireTextArgument(name, arguments[0]))
             }
@@ -2590,7 +2717,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
 
     private fun showFloatingActionMenu(anchor: View) {
         val actions = listOf(
-            "Chạm" to "CHẠM(200, 400)",
+            "Chạm" to "NHẤN(200, 400)",
             "Nhấn giữ" to "NHẤN_GIỮ(200, 400, 800)",
             "Vuốt" to "VUỐT(360, 850, 360, 350, 450)",
             "Chờ" to "CHỜ(500)",
