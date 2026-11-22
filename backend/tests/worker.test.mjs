@@ -47,7 +47,7 @@ function createEnv({
         },
         async first() {
           if (sql.includes("FROM sessions s JOIN users u")) return session;
-          if (sql.includes("FROM licenses") && sql.includes("ORDER BY created_at DESC LIMIT 1")) return accountLicense;
+          if (sql.includes("FROM licenses") && sql.includes("ORDER BY created_at DESC")) return accountLicense;
           return null;
         },
         async all() {
