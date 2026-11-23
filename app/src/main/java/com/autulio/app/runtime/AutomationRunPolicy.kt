@@ -9,8 +9,16 @@ package com.autulio.app.runtime
 object AutomationRunPolicy {
     const val MAX_QUEUED_RUNS = 10
     const val MAX_AUTOMATIC_RETRIES = 2
+    const val MAX_SCHEDULE_DELAY_MINUTES = 24 * 60
     const val MIN_RETRY_DELAY_MS = 1_000L
     const val MAX_RETRY_DELAY_MS = 60_000L
+
+    fun scheduledStartAt(nowEpochMs: Long, delayMinutes: Long): Long =
+        if (delayMinutes <= 0L) 0L else nowEpochMs +
+            delayMinutes.coerceAtMost(MAX_SCHEDULE_DELAY_MINUTES.toLong()) * 60_000L
+
+    fun isScheduledStartDue(startAtEpochMs: Long, nowEpochMs: Long): Boolean =
+        startAtEpochMs <= 0L || startAtEpochMs <= nowEpochMs
 
     fun shouldRetry(retryOnFailure: Boolean, attempts: Int, maxRetries: Int): Boolean =
         retryOnFailure &&
