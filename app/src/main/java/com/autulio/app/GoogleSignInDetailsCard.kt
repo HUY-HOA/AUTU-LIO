@@ -46,19 +46,48 @@ internal fun GoogleSignInDetailsCard(
     }
 
     if (showDetails) {
-        AlertDialog(
-            onDismissRequest = { showDetails = false },
-            title = { Text(title) },
-            text = {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 480.dp)
-                        .verticalScroll(rememberScrollState())
-                        .padding(end = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(7.dp)
-                ) {
-                    Text(tr("Dữ liệu Google", "Google data"), fontWeight = FontWeight.Medium, fontSize = 12.sp)
+        GoogleSignInDetailsDialog(
+            details = details,
+            title = title,
+            onDismiss = { showDetails = false }
+        )
+    }
+}
+
+@Composable
+internal fun GoogleSignInDetailsDialog(
+    details: GoogleSignInDetails?,
+    displayName: String? = null,
+    email: String? = null,
+    title: String = tr("Thông tin tài khoản và thiết bị", "Account and device information"),
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(end = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                Text(
+                    tr(
+                        "Thông tin bên dưới được dùng để quản lý tài khoản, phiên đăng nhập và thiết bị truy cập AUTU-LIO.",
+                        "The information below is used to manage the account, sign-in sessions, and devices accessing AUTU-LIO."
+                    ),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(tr("Tài khoản", "Account"), fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                InfoLine(tr("Tên hiển thị", "Display name"), displayName)
+                InfoLine(tr("Địa chỉ Gmail", "Gmail address"), email)
+
+                if (details != null) {
+                    Text(tr("Thông tin đăng nhập", "Sign-in information"), fontWeight = FontWeight.Medium, fontSize = 12.sp)
                     InfoLine(tr("Google ID (sub)", "Google ID (sub)"), details.googleSub)
                     InfoLine(tr("Email đã xác minh", "Email verified"), if (details.emailVerified) tr("Đúng", "Yes") else tr("Không", "No"))
                     InfoLine(tr("Tên", "Given name"), details.givenName)
@@ -71,21 +100,27 @@ internal fun GoogleSignInDetailsCard(
 
                     if (details.deviceInfo?.hasCollectedValues() == true) {
                         Text(
-                            tr("Thông tin kỹ thuật thiết bị lúc đăng nhập", "Device technical information at sign-in"),
+                            tr("Thông tin kỹ thuật thiết bị", "Device technical information"),
                             fontWeight = FontWeight.Medium,
                             fontSize = 12.sp
                         )
                         DeviceInfoLines(details.deviceInfo)
                     }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showDetails = false }) {
-                    Text(tr("Đóng", "Close"))
+                } else {
+                    Text(
+                        tr("Chưa có dữ liệu đăng nhập bổ sung cho tài khoản này.", "No additional sign-in details are available for this account."),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-        )
-    }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(tr("Đóng", "Close"))
+            }
+        }
+    )
 }
 
 @Composable
