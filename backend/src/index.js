@@ -420,7 +420,8 @@ async function updateAppUpdatePolicy(request, env, session) {
     throw new HttpError(400, "update_version_invalid", "Phiên bản công bố không hợp lệ.");
   }
   const announcedManifest = await normalizeAnnouncedUpdateManifest(body.manifest, version);
-  const messageId = await sendFcmTopicUpdate(env, "autu-lio-update-notices", "AUTU-LIO", version);
+
+  // Activate the published snapshot before attempting the optional FCM push.
   const previous = await env.DB.prepare("SELECT updated_at FROM app_update_policy WHERE id = 1").bind().first();
   const now = Math.max(Math.floor(Date.now() / 1000), Number(previous?.updated_at || 0) + 1);
   await env.DB.prepare(
@@ -430,16 +431,31 @@ async function updateAppUpdatePolicy(request, env, session) {
     "announced_manifest_json = excluded.announced_manifest_json, updated_at = excluded.updated_at, " +
     "updated_by_user_id = excluded.updated_by_user_id"
   ).bind(version, JSON.stringify(announcedManifest), now, session.user_id).run();
-  await audit(env, session.user_id, "app_update_announcement.sent", "app_update_policy", "1", {
+
+  let notificationSent = false;
+  let pushMessageId = null;
+  try {
+    pushMessageId = await sendFcmTopicUpdate(env, "autu-lio-update-notices", "AUTU-LIO", version);
+    notificationSent = true;
+  } catch (error) {
+    console.warn(JSON.stringify({
+      message: "AUTU-LIO update was published but optional FCM push was not sent",
+      error: error instanceof HttpError ? error.code : "fcm_send_failed"
+    }));
+  }
+
+  await audit(env, session.user_id, "app_update_announcement.published", "app_update_policy", "1", {
     mandatory: false,
     announcementSent: true,
-    notificationSent: true,
+    notificationSent,
     version
   });
   return {
-    updated: true, announcementSent: true, notificationSent: true,
-    pushMessageId: messageId, target: "autu-lio-update-notices", version,
-    mandatory: false, requiredVersion: version, announcedManifest, updatedAt: now
+    updated: true, announcementSent: true, notificationSent,
+    ...(pushMessageId ? { pushMessageId } : {}),
+    target: "autu-lio-update-notices", version,
+    mandatory: false, requiredVersion: version, announcedManifest, updatedAt: now,
+    notificationError: notificationSent ? null : "fcm_unavailable"
   };
 }
 async function audit(env, actorId, action, targetType = null, targetId = null, metadata = {}) {
