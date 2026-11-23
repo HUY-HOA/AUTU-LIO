@@ -58,12 +58,13 @@ object AppUpdateManager {
             if (manifest.optString("applicationId") != context.packageName) return@Thread
             val version = manifest.optString("versionName").trim()
             val downloadUrl = manifest.optString("downloadUrl").trim()
-            if (version.isBlank() || !isNewerVersion(currentVersion(context), version)) return@Thread
+            if (version.isBlank()) return@Thread
             val uri = runCatching { Uri.parse(downloadUrl) }.getOrNull() ?: return@Thread
             if (uri.scheme != "https" || uri.host != DOWNLOAD_HOST || uri.path?.startsWith("/v1/download/") != true) return@Thread
-            // Store the cooldown only after a valid manifest is received. A transient network failure
-            // must not suppress the next update check for six hours.
+            // Start the cooldown only after the correct app receives a valid manifest.
+            // A transient network failure must never suppress a retry for six hours.
             prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
+            if (!isNewerVersion(currentVersion(context), version)) return@Thread
             val notes = manifest.optString("releaseNotes").trim().take(900)
             val sha = manifest.optString("sha256").takeIf { it.matches(Regex("(?i)^[a-f0-9]{64}$")) }
             val mandatory = manifest.optBoolean("mandatory", false)
