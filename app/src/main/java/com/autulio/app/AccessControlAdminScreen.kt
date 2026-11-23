@@ -161,18 +161,27 @@ internal fun AccessControlAdminScreen(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                listOf(
-                    "ALL" to "Tất cả",
-                    "ACTIVE" to "Hoạt động",
-                    "SUSPENDED" to "Đã chặn đăng nhập",
-                    "PAUSED" to "Giấy phép tạm dừng",
-                    "EXPIRED" to "Hết hạn",
-                    "REVOKED" to when (section) {
-                        "customers" -> "Đã thu hồi đăng nhập"
-                        "licenses" -> "Đã thu hồi giấy phép"
-                        else -> "Thiết bị đã thu hồi"
-                    }
-                ).forEach { item ->
+                val statusOptions = when (section) {
+                    "customers" -> listOf(
+                        "ALL" to "Tất cả",
+                        "ACTIVE" to "Đang hoạt động",
+                        "SUSPENDED" to "Đã chặn đăng nhập",
+                        "REVOKED" to "Đã thu hồi đăng nhập"
+                    )
+                    "licenses" -> listOf(
+                        "ALL" to "Tất cả",
+                        "ACTIVE" to "Đang hiệu lực",
+                        "PAUSED" to "Tạm dừng",
+                        "EXPIRED" to "Hết hạn",
+                        "REVOKED" to "Đã thu hồi"
+                    )
+                    else -> listOf(
+                        "ALL" to "Tất cả",
+                        "ACTIVE" to "Được cấp quyền",
+                        "REVOKED" to "Đã thu hồi thiết bị"
+                    )
+                }
+                statusOptions.forEach { item ->
                     FilterChip(
                         selected = statusFilter == item.first,
                         onClick = { statusFilter = item.first },
