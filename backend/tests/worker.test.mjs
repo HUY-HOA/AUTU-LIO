@@ -170,7 +170,7 @@ async function json(response) {
   return response.json();
 }
 
-test("OWNER update announcements fail closed until Firebase push credentials are configured", async () => {
+test("OWNER can publish an update without Firebase push credentials", async () => {
   const { env, queries } = createEnv({ session: ownerSession });
   const response = await worker.fetch(
     makeRequest("/api/admin/app-update-policy", {
@@ -183,12 +183,14 @@ test("OWNER update announcements fail closed until Firebase push credentials are
     }),
     env
   );
-  assert.equal(response.status, 503);
+  assert.equal(response.status, 200);
   const body = await json(response);
-  assert.equal(body.error, "fcm_not_configured");
-  assert.ok(!queries.some(sql => sql.includes("INSERT INTO app_update_policy")));
+  assert.equal(body.updated, true);
+  assert.equal(body.announcementSent, true);
+  assert.equal(body.requiredVersion, "0.2.0");
+  assert.equal(body.notificationSent, false);
+  assert.ok(queries.some(sql => sql.includes("INSERT INTO app_update_policy")));
 });
-
 test("owner bootstrap matches the verified Google sub, not the email address", () => {
   const env = { OWNER_GOOGLE_SUB: "google-sub-owner-123" };
 
