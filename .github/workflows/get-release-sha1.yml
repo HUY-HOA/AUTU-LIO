@@ -2,11 +2,6 @@ name: AUTU-LIO - Lấy SHA-1 khóa ký Release
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/get-release-sha1.yml"
 
 permissions:
   contents: read
@@ -21,7 +16,7 @@ jobs:
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
-          java-version: 21
+          java-version: "21"
 
       - name: Read public certificate fingerprints
         shell: bash
@@ -74,10 +69,8 @@ jobs:
               printf -- "- SHA-256: %s\\n" "$SHA256"
             fi
             echo
-            echo "Only public certificate fingerprints are reported. Private signing material is not printed or uploaded."
+            echo "These are public certificate fingerprints. The keystore, passwords and private key were not uploaded as artifacts or printed."
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "SHA-1 certificate fingerprint:"
           echo "$SHA1"
-          echo "SHA-256 certificate fingerprint:"
-          echo "$SHA256"
