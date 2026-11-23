@@ -37,8 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.platform.LocalContext
-import com.autulio.app.auth.AuthRepository
+import com.autulio.app.auth.AuthenticatedUser
+import com.autulio.app.auth.GoogleSignInDetails
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -49,27 +49,21 @@ import java.net.URL
 @Composable
 internal fun GoogleAccountHeader(
     accessToken: String?,
+    authenticatedUser: AuthenticatedUser? = null,
     fallbackEmail: String? = null
 ) {
     if (accessToken.isNullOrBlank()) return
 
-    val context = LocalContext.current
-    val repository = remember(context) { AuthRepository(context) }
-    var account by remember(accessToken) { mutableStateOf<com.autulio.app.auth.AuthenticatedUser?>(null) }
-    var showAccountDetails by remember(accessToken) { mutableStateOf(false) }
-
-    LaunchedEffect(accessToken) {
-        account = runCatching { repository.currentUser(accessToken) }.getOrNull()
-    }
-
-    val name = account?.displayName
-        ?: account?.googleSignIn?.let { details ->
-            listOfNotNull(details.givenName, details.familyName)
+    val details = authenticatedUser?.googleSignIn
+    val name = authenticatedUser?.displayName
+        ?: details?.let { profile ->
+            listOfNotNull(profile.givenName, profile.familyName)
                 .filter { it.isNotBlank() }
                 .joinToString(" ")
                 .takeIf { it.isNotBlank() }
         }
-    val email = account?.email ?: fallbackEmail.orEmpty()
+    val email = authenticatedUser?.email ?: fallbackEmail.orEmpty()
+    var showAccountDetails by remember(accessToken) { mutableStateOf(false) }
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -82,7 +76,7 @@ internal fun GoogleAccountHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            GoogleProfileAvatar(account?.googleSignIn?.pictureUrl)
+            GoogleProfileAvatar(details?.pictureUrl)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(1.dp)
@@ -127,7 +121,7 @@ internal fun GoogleAccountHeader(
 
     if (showAccountDetails) {
         GoogleSignInDetailsDialog(
-            details = account?.googleSignIn,
+            details = details,
             displayName = name,
             email = email,
             title = tr("Thông tin tài khoản", "Account information"),
