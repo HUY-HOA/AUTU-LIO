@@ -20,6 +20,9 @@ object AutomationRunPolicy {
             packageName.length <= 255 &&
             packageNamePattern.matches(packageName)
 
+    fun matchesTargetAppForeground(targetPackage: String?, foregroundPackage: String?): Boolean =
+        isValidTargetPackage(targetPackage) && foregroundPackage == targetPackage
+
     fun scheduledStartAt(nowEpochMs: Long, delayMinutes: Long): Long =
         if (delayMinutes <= 0L) 0L else nowEpochMs +
             delayMinutes.coerceAtMost(MAX_SCHEDULE_DELAY_MINUTES.toLong()) * 60_000L
