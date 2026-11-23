@@ -3419,6 +3419,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             pendingProgram = null
             pendingProgramName = null
             pendingProgramSource = null
+            pendingStartAtEpochMs = 0L
+            requiresResumeConfirmation = false
+            interruptedRunRestored = false
             removeFloatingWindow()
             val state = executionEngine?.snapshot()?.state
             if (state != ScriptExecutionState.RUNNING &&
