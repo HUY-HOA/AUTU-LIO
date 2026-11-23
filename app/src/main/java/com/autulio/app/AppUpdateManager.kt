@@ -178,6 +178,7 @@ object AppUpdateManager {
 
                 val apiBase = context.getString(R.string.api_base_url).trim().trimEnd('/')
                 if (!apiBase.startsWith("https://")) throw IOException("Máy chủ quản lý cập nhật chưa dùng HTTPS.")
+                var notificationSent = false
                 val connection = (URL(apiBase + "/api/admin/app-update-policy").openConnection() as HttpURLConnection)
                 try {
                     connection.requestMethod = "POST"
@@ -200,7 +201,7 @@ object AppUpdateManager {
                             else "Máy chủ từ chối yêu cầu (HTTP $status)."
                         })
                     }
-                    val notificationSent = runCatching {
+                    notificationSent = runCatching {
                         JSONObject(responseText).optBoolean("notificationSent", false)
                     }.getOrDefault(false)
                 } finally {
