@@ -16,7 +16,7 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 - Package metadata accepts legacy AUTU Script versions 0.2, 0.3, 1.19 and 1.20, plus current Android compiler version 1.22. The Android app publishes the compiler's exact version and checks that version again before executing a downloaded package.
 - AES-256-GCM encryption with a fresh random 256-bit data key and 96-bit nonce for every published version; only ciphertext is stored in D1.
 - Versioned Worker master keys protect package data keys and support controlled key rotation.
-- Customer package listing and download require an active license and the requesting device's registered RSA-3072 public key.
+- Customer package listing and download require an active license, the requesting device's registered RSA-3072 public key and the package distribution policy. Existing/new packages default to `ALL_LICENSED` for backward compatibility; OWNER can restrict one package to explicit CUSTOMER accounts with `SELECTED_CUSTOMERS`. Direct downloads enforce the same policy as package listing.
 - At download time, the Worker re-wraps the package data key to that device; the private key remains in Android Keystore.
 
 Only OWNER can manage customers, licenses, devices and AUTU packages; CUSTOMER accounts are limited to their own licensed devices and packages.
@@ -31,7 +31,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001`–`0009` are applied to the remote `autu_lio_auth` D1 database. Migration `0007_device_revocation_reasons.sql` records why a device was revoked; migration `0008_device_presence.sql` adds app-presence and AUTU runtime-state timestamps; `0009_persistent_sessions.sql` makes every non-revoked login session persistent. `licenses.expires_at` remains unchanged and still controls customer license validity. All 9 migrations are recorded in `d1_migrations`; keep every SQL migration in source control as schema history.
+Migrations `0001`–`0010` are applied to the remote `autu_lio_auth` D1 database. Migration `0007_device_revocation_reasons.sql` records why a device was revoked; migration `0008_device_presence.sql` adds app-presence and AUTU runtime-state timestamps; `0009_persistent_sessions.sql` makes every non-revoked login session persistent; `0010_package_customer_distribution.sql` adds customer targeting for each published package. `licenses.expires_at` remains unchanged and still controls customer license validity. All 10 migrations are recorded in `d1_migrations`; keep every SQL migration in source control as schema history.
 
 ## Required Worker secrets
 
@@ -63,7 +63,7 @@ From this directory:
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
 
-The Worker source is deployed and all nine D1 migrations are applied. Production secrets and OAuth allowlist are configured; the owner has signed in successfully and D1 confirms exactly one active OWNER. Other Google accounts are assigned CUSTOMER by default. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Presence reports are accepted at `POST /api/customer/presence`.
+The Worker source is deployed and all ten D1 migrations are applied. Production secrets and OAuth allowlist are configured; the owner has signed in successfully and D1 confirms exactly one active OWNER. Other Google accounts are assigned CUSTOMER by default. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Presence reports are accepted at `POST /api/customer/presence`.
 
 ## API
 
@@ -106,6 +106,8 @@ These controls are deliberately separate:
 - `POST /api/admin/packages` — OWNER publishes version 1 of a package.
 - `POST /api/admin/packages/:packageId/versions` — OWNER publishes the next immutable version.
 - `PATCH /api/admin/packages/:packageId` — OWNER activates or archives a package.
+- `GET /api/admin/packages/:packageId/distribution` — OWNER reads package recipients and the current distribution mode.
+- `PUT /api/admin/packages/:packageId/distribution` — OWNER sets `ALL_LICENSED` or `SELECTED_CUSTOMERS` and supplies selected CUSTOMER IDs.
 
 Package source is encrypted by the Worker before D1 writes. The package-version row stores ciphertext, content nonce, a server-encrypted data key, its nonce, the master-key version and a source SHA-256 hash; it does not store plaintext source. Every customer download checks a live license and active registered device. The data key is wrapped to that device's RSA-3072 public key, then Android unwraps it with the non-exportable private key in Android Keystore, decrypts AES-GCM and verifies SHA-256 before compiling or running.
 
