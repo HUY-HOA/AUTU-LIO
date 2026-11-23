@@ -47,7 +47,8 @@ import java.net.URL
 @Composable
 internal fun GoogleAccountSettingsCard(
     authenticatedUser: AuthenticatedUser?,
-    fallbackEmail: String? = null
+    fallbackEmail: String? = null,
+    onLogout: () -> Unit
 ) {
     val details = authenticatedUser?.googleSignIn
     val email = authenticatedUser?.email ?: fallbackEmail.orEmpty()
@@ -67,32 +68,46 @@ internal fun GoogleAccountSettingsCard(
         shape = RoundedCornerShape(14.dp),
         tonalElevation = 1.dp
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            GoogleProfileAvatar(details?.pictureUrl, 48.dp)
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    name ?: tr("Tài khoản Google", "Google account"),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (email.isNotBlank()) {
+                GoogleProfileAvatar(details?.pictureUrl, 48.dp)
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     Text(
-                        email,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        name ?: tr("Tài khoản Google", "Google account"),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (email.isNotBlank()) {
+                        Text(
+                            email,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
+            }
+            androidx.compose.material3.HorizontalDivider()
+            androidx.compose.material3.TextButton(
+                onClick = onLogout,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Icon(Icons.Outlined.Logout, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(tr("Đăng xuất", "Sign out"))
             }
         }
     }
