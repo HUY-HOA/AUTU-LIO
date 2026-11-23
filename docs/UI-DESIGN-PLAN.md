@@ -85,3 +85,15 @@ Một tính năng chỉ được coi là nghiệm thu khi:
 5. Ghi rõ giới hạn Android hoặc ứng dụng đích không cho phép thao tác.
 
 Xem [trạng thái phát triển](PROJECT-STATUS.md), [phạm vi AUTU Script](09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md) và [bảo mật package](10-AUTU-PACKAGE-SECURITY.md) để biết chi tiết kỹ thuật.
+
+
+## 9. Chuẩn hóa trải nghiệm ngày 23/11/2026
+
+- Điều hướng OWNER giữ bốn mục dưới cùng: Tổng quan, Kịch bản, Khách hàng và Thêm. Giấy phép, thiết bị, gói AUTU, thư viện mẫu, nhật ký và cài đặt được gom theo nhóm chức năng; không tạo thêm tab chỉ để tách một mục con.
+- Trang Tổng quan OWNER có hai đường tắt hoạt động thật: tạo AUTU và mở quản lý khách hàng.
+- Điều hướng CUSTOMER giữ bốn mục: Trang chủ, Kho AUTU, Thiết bị và Cài đặt. Tên Kho AUTU mô tả đúng nội dung package đã phát hành hơn tên chung Kịch bản.
+- Trang chủ CUSTOMER có đường tắt trực tiếp tới Kho AUTU và Thiết bị; trạng thái tài khoản có thể thử tải lại khi API gặp lỗi. Email không lặp lại trong nội dung trang chủ vì đã nằm ở thanh tài khoản.
+- Bảng màu được chuẩn hóa theo nền xanh than/xanh lam ở chế độ tối và nền sáng trung tính ở chế độ sáng; màu nhấn dành cho hành động và trạng thái, tránh nền đen thuần hoặc xám ngả vàng.
+- Không bổ sung mục Đang chạy riêng khi thao tác thực tế vẫn được điều khiển bằng cửa sổ nổi của Accessibility Service. Không hiển thị trạng thái chạy mẫu giả.
+- Nhãn điều hướng tăng từ 10sp lên 11sp; vùng thao tác chính có chiều cao tối thiểu 48–52dp.
+

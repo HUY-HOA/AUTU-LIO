@@ -110,3 +110,21 @@
 - Không phát hành APK Debug cho người dùng.
 - Chỉ chạy workflow tạo APK khi chủ ứng dụng gửi đúng cụm `BUILD APK`.
 - Mọi báo cáo Release phải có trạng thái workflow, xác nhận chữ ký và artifact thực tế.
+
+
+## 6. Cập nhật rà soát và tối ưu UX/UI — 23/11/2026
+
+- Đã rà soát cấu trúc Android native Jetpack Compose, hai vai trò OWNER/CUSTOMER, màn hình quản lý truy cập, thư viện/gói AUTU, theme, đăng nhập và trạng thái chạy.
+- Giữ nguyên một APK, xác minh vai trò từ máy chủ, phân quyền API, dữ liệu, Accessibility Service, luồng mã hóa package và các chức năng hiện có.
+- Chuẩn hóa bảng màu sáng/tối để tăng phân cấp nền–bề mặt–nội dung và giảm tương phản gắt.
+- Đổi tên mục điều hướng CUSTOMER từ Kịch bản thành Kho AUTU; giữ bốn mục điều hướng chính để không làm thanh dưới chật.
+- Thêm đường tắt Tạo AUTU và Khách hàng trên Tổng quan OWNER; các nút điều hướng tới luồng đang có, không tạo thao tác mô phỏng.
+- Thêm đường tắt Kho AUTU và Thiết bị trên Trang chủ CUSTOMER; bổ sung thao tác thử lại khi tải trạng thái tài khoản thất bại; bỏ email trùng lặp trong phần nội dung.
+- Tăng cỡ chữ nhãn điều hướng từ 10sp lên 11sp.
+- Không bổ sung quyền Android, không thay đổi API/nghiệp vụ/phân quyền, không thêm tab Đang chạy giả.
+- Kiểm tra tự động Android sẽ được chạy trên commit tối ưu UI. Chưa có kiểm tra thiết bị thật trong đợt này; không build APK.
+
+### Hạng mục kiến trúc cần xử lý ở các đợt tiếp theo
+- Tách tệp MainActivity.kt thành các tệp theo feature (dashboard, navigation, editor, customer home/settings) và giữ nguyên API công khai của các composable để giảm rủi ro hồi quy.
+- Tách tệp LiveManagementScreens.kt thành khách hàng, giấy phép, thiết bị và package distribution; không đổi hợp đồng API.
+- Bổ sung UI tests/instrumented tests cho điều hướng, trạng thái loading/empty/error và các luồng OWNER/CUSTOMER; kiểm thử trên Android thực tế cho overlay/Accessibility Service.

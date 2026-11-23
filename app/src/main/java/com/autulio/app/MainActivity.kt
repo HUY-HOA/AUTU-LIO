@@ -273,23 +273,27 @@ internal fun planText(value: String): String = when (value.trim().uppercase(Loca
 @Composable
 internal fun AppTheme(dark: Boolean, content: @Composable () -> Unit) {
     val scheme = if (dark) darkColorScheme(
-        primary = Color(0xFF4F8CFF),
-        secondary = Color(0xFF35C6C8),
-        background = Color.Black,
-        surface = Color(0xFF101010),
-        surfaceVariant = Color(0xFF191919),
-        onBackground = Color(0xFFF2F2F2),
-        onSurface = Color(0xFFF2F2F2),
-        outline = Color(0xFF555555)
+        primary = Color(0xFF79A7FF),
+        secondary = Color(0xFF54D6D0),
+        background = Color(0xFF0B1220),
+        surface = Color(0xFF121C2D),
+        surfaceVariant = Color(0xFF1B2A40),
+        onBackground = Color(0xFFF3F6FC),
+        onSurface = Color(0xFFF3F6FC),
+        onSurfaceVariant = Color(0xFFA7B5C9),
+        outline = Color(0xFF3A4A60),
+        error = Color(0xFFFF7078)
     ) else lightColorScheme(
-        primary = Color(0xFF2459A6),
-        secondary = Color(0xFF176D70),
-        background = Color(0xFFE9E9E4),
-        surface = Color(0xFFF2F2ED),
-        surfaceVariant = Color(0xFFDEDED7),
-        onBackground = Color(0xFF20211F),
-        onSurface = Color(0xFF20211F),
-        outline = Color(0xFF777971)
+        primary = Color(0xFF2859A8),
+        secondary = Color(0xFF177A7A),
+        background = Color(0xFFF4F7FC),
+        surface = Color(0xFFFFFFFF),
+        surfaceVariant = Color(0xFFE8EEF7),
+        onBackground = Color(0xFF172033),
+        onSurface = Color(0xFF172033),
+        onSurfaceVariant = Color(0xFF56657A),
+        outline = Color(0xFFBFCADB),
+        error = Color(0xFFB3261E)
     )
     MaterialTheme(colorScheme = scheme, content = content)
 }
@@ -305,7 +309,7 @@ private val adminTabs = listOf(
 
 private val customerTabs = listOf(
     Tab("home", "Trang chủ", "Home", Icons.Outlined.Home),
-    Tab("scripts", "Kịch bản", "Scripts", Icons.Outlined.ListAlt),
+    Tab("scripts", "Kho AUTU", "AUTU library", Icons.Outlined.Code),
     Tab("device", "Thiết bị", "Device", Icons.Outlined.Smartphone),
     Tab("settings", "Cài đặt", "Settings", Icons.Outlined.Settings)
 )
@@ -359,7 +363,7 @@ internal fun AdminApp(
                             selected = page == tab.key || (page !in adminTabs.map { it.key } && tab.key == "more"),
                             onClick = { page = tab.key },
                             icon = { Icon(tab.icon, contentDescription = tr(tab.vi, tab.en)) },
-                            label = { Text(tr(tab.vi, tab.en), fontSize = 10.sp) }
+                            label = { Text(tr(tab.vi, tab.en), fontSize = 11.sp) }
                         )
                     }
                 }
@@ -368,7 +372,9 @@ internal fun AdminApp(
             when (page) {
                 "overview" -> OverviewScreen(
                     Modifier.padding(padding),
-                    accessToken = accessToken
+                    accessToken = accessToken,
+                    onCreateScript = { createDialog = true },
+                    onOpenCustomers = { page = "customers" }
                 )
                 "scripts" -> ScriptsScreen(
                     Modifier.padding(padding),
@@ -454,7 +460,7 @@ internal fun CustomerApp(
                             selected = page == tab.key,
                             onClick = { page = tab.key },
                             icon = { Icon(tab.icon, contentDescription = tr(tab.vi, tab.en)) },
-                            label = { Text(tr(tab.vi, tab.en), fontSize = 10.sp) }
+                            label = { Text(tr(tab.vi, tab.en), fontSize = 11.sp) }
                         )
                     }
                 }
@@ -463,8 +469,9 @@ internal fun CustomerApp(
             when (page) {
                 "home" -> CustomerHome(
                     modifier = Modifier.padding(padding),
-                    email = email,
-                    accessToken = accessToken
+                    accessToken = accessToken,
+                    onOpenPackages = { page = "scripts" },
+                    onOpenDevices = { page = "device" }
                 )
                 "scripts" -> CustomerPackagesScreen(
                     accessToken = accessToken,
@@ -486,7 +493,9 @@ internal fun CustomerApp(
 @Composable
 private fun OverviewScreen(
     modifier: Modifier,
-    accessToken: String?
+    accessToken: String?,
+    onCreateScript: () -> Unit,
+    onOpenCustomers: () -> Unit
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -579,6 +588,32 @@ private fun OverviewScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
                 )
+                Text(
+                    tr("Truy cập nhanh", "Quick actions"),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onCreateScript,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    ) {
+                        Icon(Icons.Outlined.Add, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(tr("Tạo AUTU", "New AUTU"), fontSize = 12.sp, maxLines = 1)
+                    }
+                    OutlinedButton(
+                        onClick = onOpenCustomers,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    ) {
+                        Icon(Icons.Outlined.Group, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(tr("Khách hàng", "Customers"), fontSize = 12.sp, maxLines = 1)
+                    }
+                }
             }
         }
 
@@ -1462,42 +1497,64 @@ private fun AdminModulePage(
 @Composable
 private fun CustomerHome(
     modifier: Modifier,
-    email: String,
-    accessToken: String?
+    accessToken: String?,
+    onOpenPackages: () -> Unit,
+    onOpenDevices: () -> Unit
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
+    val scope = rememberCoroutineScope()
     var account by remember { mutableStateOf<com.autulio.app.auth.CustomerAccountOverview?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
 
-    LaunchedEffect(accessToken) {
-        if (!accessToken.isNullOrBlank()) {
-            loading = true
-            error = ""
-            try {
-                account = repository.customerAccount(accessToken)
-            } catch (exception: Exception) {
-                error = localizedErrorMessage(exception, tr("Không tải được trạng thái tài khoản.", "Could not load account status."))
-            } finally {
-                loading = false
-            }
-        } else {
+    suspend fun refresh() {
+        val token = accessToken
+        if (token.isNullOrBlank()) {
+            loading = false
+            return
+        }
+        loading = true
+        error = ""
+        try {
+            account = repository.customerAccount(token)
+        } catch (exception: Exception) {
+            error = localizedErrorMessage(exception, tr("Không tải được trạng thái tài khoản.", "Could not load account status."))
+        } finally {
             loading = false
         }
     }
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
+    LaunchedEffect(accessToken) { refresh() }
+
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
         BrandHeader(admin = false)
-        Heading(tr("Xin chào!", "Welcome!"), tr("Trung tâm sử dụng AUTU-LIO", "AUTU-LIO customer center"))
+        Heading(
+            tr("Xin chào!", "Welcome!"),
+            tr("Trung tâm sử dụng AUTU-LIO", "Your AUTU-LIO workspace")
+        )
         CardBox {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Icon(Icons.Outlined.VerifiedUser, null, tint = MaterialTheme.colorScheme.primary)
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(tr("Trạng thái giấy phép", "License status"), fontWeight = FontWeight.SemiBold)
                     when {
-                        loading -> Text(tr("Đang kiểm tra với máy chủ…", "Checking with the server…"), fontSize = 12.sp)
-                        account?.license == null -> Text(tr("Chưa được cấp giấy phép.", "No license has been issued."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        loading -> Text(
+                            tr("Đang kiểm tra với máy chủ…", "Checking with the server…"),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        account?.license == null -> Text(
+                            tr("Chưa được cấp giấy phép.", "No license has been issued."),
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
                         else -> {
                             Text(
                                 "${account?.license?.planCode?.let(::planText)} · ${account?.license?.effectiveStatus?.let(::statusText)}",
@@ -1515,19 +1572,58 @@ private fun CustomerHome(
                             )
                         }
                     }
-                    if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                    if (error.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(error, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                        TextButton(
+                            onClick = { scope.launch { refresh() } },
+                            enabled = !loading,
+                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(5.dp))
+                            Text(tr("Thử lại", "Retry"), fontSize = 12.sp)
+                        }
+                    }
                 }
             }
         }
-        Text(tr("Gói AUTU của bạn", "Your AUTU packages"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+
         Text(
-            tr("Chỉ các gói đã phát hành, có giấy phép hợp lệ và được cấp cho thiết bị này mới có thể tải và chạy.",
-                "Only published packages allowed by your active license and registered device can be downloaded and run."),
+            tr("Truy cập nhanh", "Quick access"),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FilledTonalButton(
+                onClick = onOpenPackages,
+                modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+            ) {
+                Icon(Icons.Outlined.Code, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(tr("Kho AUTU", "AUTU library"), fontSize = 12.sp, maxLines = 1)
+            }
+            OutlinedButton(
+                onClick = onOpenDevices,
+                modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+            ) {
+                Icon(Icons.Outlined.Smartphone, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(tr("Thiết bị", "Devices"), fontSize = 12.sp, maxLines = 1)
+            }
+        }
+        Text(
+            tr(
+                "Chỉ những gói AUTU được cấp cho tài khoản và thiết bị hợp lệ mới có thể tải và sử dụng.",
+                "Only AUTU packages assigned to this account and an eligible device can be downloaded and used."
+            ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             lineHeight = 18.sp
         )
-        Text(email, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

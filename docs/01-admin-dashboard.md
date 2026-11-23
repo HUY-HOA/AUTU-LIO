@@ -128,3 +128,9 @@ Dark mode là bản thiết kế chuẩn đầu tiên. Light mode phải dùng c
 - Chưa nối các nút với chức năng thật.
 
 **Bước tiếp theo sau khi duyệt:** thiết kế màn hình Kịch bản và thanh điều hướng Admin; sau đó mới thiết kế trình soạn thảo.
+
+
+## Cập nhật điều hướng đã triển khai — 23/11/2026
+
+Trong APK hiện tại, thanh điều hướng OWNER dùng bốn mục: **Tổng quan**, **Kịch bản**, **Khách hàng** và **Thêm**. Mục **Thêm** chứa thư viện mẫu, gói AUTU, nhật ký và cài đặt. Các phần giấy phép và thiết bị được quản lý trong khu vực Khách hàng để giữ các thao tác liên quan ở cùng một nơi. Trang Tổng quan có đường tắt tạo AUTU và mở quản lý khách hàng.
+
