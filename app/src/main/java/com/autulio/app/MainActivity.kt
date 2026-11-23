@@ -92,6 +92,8 @@ class MainActivity : ComponentActivity() {
         FirebasePushManager.initialize(this)
         if (FirebasePushManager.isUpdateIntent(intent)) {
             window.decorView.post { AppUpdateManager.check(this) }
+        } else {
+            window.decorView.post { AppUpdateManager.checkOnStartup(this) }
         }
         prepareDisplayGeometryCapture()
         setContent {
