@@ -50,7 +50,6 @@ object AppUpdateManager {
                 lastManualCheckAtMs = now
             }
         }
-        resume(activity)
         Thread {
             val apiBase = context.getString(R.string.api_base_url).trim().trimEnd('/')
             if (!apiBase.startsWith("https://")) {
@@ -89,11 +88,21 @@ object AppUpdateManager {
                 return@Thread
             }
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            if (prefs.getLong(KEY_DOWNLOAD_ID, -1L) > 0L) {
-                if (!startup) showUpdateMessage(activity, "Bản cập nhật $version đang được tải hoặc cài đặt.")
+            val pendingVersion = prefs.getString(KEY_PENDING_VERSION, null)
+            val existingDownloadId = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
+            if (existingDownloadId > 0L && pendingVersion == version) {
+                handler.post {
+                    if (activity.isFinishing || activity.isDestroyed) return@post
+                    resume(activity)
+                    if (!startup) showUpdateMessage(activity, "Bản cập nhật $version đang được tải hoặc chờ Android cài đặt.")
+                }
                 return@Thread
             }
-            val pendingVersion = prefs.getString(KEY_PENDING_VERSION, null)
+            if (existingDownloadId > 0L && pendingVersion != version) {
+                val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                runCatching { downloadManager.remove(existingDownloadId) }
+                clearPending(context)
+            }
             handler.post {
                 if (activity.isFinishing || activity.isDestroyed) return@post
                 if (pendingVersion == version && canInstallPackages(context)) {
@@ -212,13 +221,51 @@ object AppUpdateManager {
     fun resume(activity: Activity) {
         val context = activity.applicationContext
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val id = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
-        if (id > 0L) { pollDownload(activity, id); return }
-        val url = prefs.getString(KEY_PENDING_URL, null) ?: return
-        if (canInstallPackages(context)) {
-            beginDownload(activity, prefs.getString(KEY_PENDING_VERSION, "new") ?: "new",
-                url, prefs.getString(KEY_PENDING_SHA256, null))
-        }
+        val pendingUrl = prefs.getString(KEY_PENDING_URL, null) ?: return
+        val pendingVersion = prefs.getString(KEY_PENDING_VERSION, null).orEmpty()
+        val pendingSha = prefs.getString(KEY_PENDING_SHA256, null).orEmpty()
+        if (pendingVersion.isBlank() || pendingSha.isBlank()) { clearPending(context); return }
+        Thread {
+            val apiBase = context.getString(R.string.api_base_url).trim().trimEnd('/')
+            val published = try {
+                val connection = URL(apiBase + "/api/app-update-policy").openConnection() as HttpURLConnection
+                try {
+                    connection.requestMethod = "GET"
+                    connection.connectTimeout = 8_000
+                    connection.readTimeout = 8_000
+                    connection.setRequestProperty("Accept", "application/json")
+                    connection.setRequestProperty("Cache-Control", "no-store")
+                    if (connection.responseCode !in 200..299) throw IOException("HTTP ${connection.responseCode}")
+                    JSONObject(connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
+                } finally { connection.disconnect() }
+            } catch (_: Exception) { return@Thread }
+            val manifest = published.optJSONObject("announcedManifest")
+            val currentPublishedVersion = manifest?.optString("versionName")?.trim().orEmpty()
+            val currentPublishedUrl = manifest?.optString("downloadUrl")?.trim().orEmpty()
+            val currentPublishedSha = manifest?.optString("sha256")?.trim().orEmpty()
+            val isStillPublished = manifest != null &&
+                published.optString("requiredVersion") == pendingVersion &&
+                currentPublishedVersion == pendingVersion &&
+                manifest.optString("applicationId") == context.packageName &&
+                currentPublishedUrl == pendingUrl &&
+                currentPublishedSha.equals(pendingSha, ignoreCase = true)
+            if (!isStillPublished) {
+                val oldId = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
+                if (oldId > 0L) {
+                    val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                    runCatching { manager.remove(oldId) }
+                }
+                clearPending(context)
+                return@Thread
+            }
+            if (!canInstallPackages(context)) return@Thread
+            val id = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
+            if (id > 0L) {
+                pollDownload(activity, id)
+            } else {
+                beginDownload(activity, pendingVersion, pendingUrl, pendingSha)
+            }
+        }.start()
     }
 
     private fun requestUpdate(activity: Activity, version: String, url: String, sha: String?) {
