@@ -179,7 +179,7 @@ test("OWNER update announcements fail closed until Firebase push credentials are
         Authorization: `Bearer ${"O".repeat(48)}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ announcement: true, version: "0.2.0" })
+      body: JSON.stringify({ announcement: true, version: "0.2.0", manifest: { applicationId: "com.autulio.app", versionName: "0.2.0", tag: "v0.2.0", downloadUrl: "https://autu-lio-updates.coc-lio-data.workers.dev/v1/download/v0.2.0", sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", releaseNotes: "Test release" } })
     }),
     env
   );
