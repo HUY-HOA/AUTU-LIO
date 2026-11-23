@@ -1,4 +1,5 @@
 name: Verify AUTU-LIO in-app APK updater
+# Re-run after AUTU-LIO v0.1.283 release publication.
 
 on:
   push:
