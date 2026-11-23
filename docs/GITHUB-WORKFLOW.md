@@ -1,60 +1,64 @@
-# AUTU-LIO — Quy trình làm việc với GitHub
+# AUTU-LIO — Quy trình GitHub, Cloudflare và phát hành APK
 
-## 1. Repository chính thức
-- Repository: `HUY-HOA/AUTU-LIO`
-- Nhánh mặc định: `main`
-- Repository đang ở chế độ public.
-- Chủ repository hiện tại: `HUY-HOA`.
-- Không tạo repository trùng lặp và không chuyển quyền sở hữu nếu chưa có yêu cầu rõ ràng.
+## 1. Repository và website
 
-## 2. Quy tắc trước khi thay đổi
-1. Đọc cấu trúc repository và nội dung file liên quan trước khi sửa.
-2. Không ghi đè hoặc xóa file khi chưa đọc nội dung và kiểm tra mục đích sử dụng.
-3. Giữ các thay đổi trong phạm vi yêu cầu; không tự ý thay đổi kiến trúc hoặc tính năng đã thống nhất.
-4. Với mã nguồn ứng dụng, ưu tiên nhánh riêng cho từng nhóm công việc và kiểm tra diff trước khi đưa vào nhánh chính.
-5. Với tài liệu thiết kế ban đầu của repository trống, có thể commit trực tiếp lên main để lưu tiến độ.
+- Repository chính thức: `HUY-HOA/AUTU-LIO`, nhánh `main`, chế độ Public.
+- Website công khai: https://autu-lio.coc-lio-data.workers.dev/
+- API: https://autu-lio-auth-api.coc-lio-data.workers.dev/
+- Website là trang thông tin và tải APK; không phải web editor hoặc dashboard. Ứng dụng chính vẫn là Android native `com.autulio.app`.
 
-## 3. Quy tắc commit
-- Mỗi nhóm thay đổi có một commit riêng, nội dung ngắn gọn, mô tả đúng việc đã làm.
-- Không commit file bí mật, token, mật khẩu, khóa riêng, keystore hoặc thông tin OAuth client secret.
-- Không đưa dữ liệu cá nhân thật của khách hàng vào repository.
-- Sau mỗi lần ghi file phải đọc lại hoặc kiểm tra metadata để xác nhận nội dung đã được lưu.
-- Báo cáo rõ file nào được thêm/sửa, commit nào được tạo và đường dẫn GitHub để người dùng kiểm tra.
+## 2. Triển khai Cloudflare tự động
 
-## 4. Quy tắc build APK và GitHub Actions
-- Chỉ bắt đầu build khi chủ ứng dụng gửi đúng toàn bộ nội dung tin nhắn `BUILD APK` viết hoa.
-- Không chạy build khi người dùng chỉ hỏi trạng thái, nhắc đến APK hoặc dùng cụm từ này trong câu khác.
-- Workflow `.github/workflows/build-apks.yml` chỉ sử dụng `workflow_dispatch` từ nhánh `main`; không có trigger tự động theo push. Job từ nhánh khác `main` bị từ chối.
-- Khi đủ cả bốn GitHub Actions secrets ký APK và chọn Release, workflow tạo APK Release có chữ ký cố định, bật R8 và shrink resources. Chỉ chọn Debug khi chủ ứng dụng yêu cầu kiểm thử; thiếu hoặc cấu hình dở dang secrets khi chọn Release thì workflow dừng.
-- Sau lệnh độc lập `BUILD APK`, chỉ dispatch workflow trên `main`. Nếu kết nối không hỗ trợ dispatch, báo rõ giới hạn; không tạo nhánh phụ hoặc marker để thay thế.
-- Chỉ báo build đã bắt đầu khi nhìn thấy một workflow run thực tế. Theo dõi run khi chủ ứng dụng yêu cầu hoặc cần xác minh một lần chạy.
-- Khi báo cáo build, phân biệt rõ đang chờ, đang chạy, thành công, thất bại hoặc bị hủy; không suy đoán kết quả.
-- Không tuyên bố APK đã được tạo nếu chưa xác minh artifact tải được; không tự động phát hành APK cho người dùng cuối.
+Workflow `.github/workflows/worker-deploy.yml` chạy khi backend thay đổi trên `main`, hoặc khi chạy thủ công bằng `workflow_dispatch`. Các bước:
 
-## 5. Bộ công cụ build hiện tại
+1. Cài Node.js, Python và Wrangler.
+2. Chạy kiểm tra cú pháp Worker, 52 bài kiểm tra API hiện có và kiểm tra toàn bộ D1 migrations trên SQLite tạm.
+3. Xác nhận hai GitHub Secrets Cloudflare.
+4. Áp dụng các D1 migrations còn thiếu cho `autu_lio_auth`.
+5. Triển khai API Worker `autu-lio-auth-api`.
+6. Triển khai website Worker `autu-lio` từ `backend/website/`.
 
-- Ứng dụng chỉ có một application ID `com.autulio.app`; không sử dụng product flavor Admin/Client.
-- Workflow có lựa chọn rõ ràng giữa Debug thử nghiệm và Release phát hành. Release là lựa chọn mặc định và chỉ build khi đủ bốn signing secrets; Debug phải được chọn rõ ràng.
-- Artifact có tên tương ứng `AUTU-LIO-Release` hoặc `AUTU-LIO-Debug`; không dùng APK Debug làm bản phát hành hoặc bản cập nhật ổn định.
-- AGP `9.3.1`, Kotlin Gradle Plugin `2.4.21`, Compose Compiler plugin `2.4.21`.
-- GitHub Actions dùng JDK `21`, Gradle `9.6.0`, Android SDK API `37` và Build Tools `37.0.0`.
-- Ứng dụng vẫn tạo bytecode tương thích Java/Kotlin `17`.
-- `gradle.properties` đang tạm tắt built-in Kotlin và Android new DSL để dùng Kotlin Android plugin 2.4.21. Phải rà soát lại khi nâng AGP hoặc chuyển sang built-in Kotlin.
-- Android source workflow chạy unit tests và lint; Worker workflow chạy kiểm tra cú pháp/API và D1 migrations trên SQLite tạm. Các workflow kiểm tra mã nguồn không đóng gói APK và không chứng minh backend production đã triển khai.
+### Hai GitHub Secrets Cloudflare
 
-## 6. Phân biệt hai tài khoản GitHub
-- Repository AUTU-LIO hiện thuộc HUY-HOA; các thay đổi phải dùng đúng kết nối có quyền quản trị repository.
-- Quy trình của COC-LIO không được áp dụng máy móc sang tài khoản/repository khác khi quyền truy cập khác nhau.
+- `CLOUDFLARE_API_TOKEN`: API Token giới hạn vào tài khoản AUTU-LIO; cần quyền Workers Scripts Edit và D1 Read/Edit.
+- `CLOUDFLARE_ACCOUNT_ID`: `b1e6af9f0ef491fb7557747974a863f9`.
 
-## 7. Kiểm tra chất lượng
-- Đọc lại file sau khi tạo/sửa.
-- Kiểm tra tên file, đường dẫn, nhánh và commit.
-- Khi đã có mã nguồn: rà soát lỗi biên dịch, cảnh báo, quyền Android, bảo mật và khả năng tương thích trước khi đề nghị build.
-- Chỉ nói đã kiểm thử khi thực sự có kết quả kiểm thử.
+Đây là hai secret triển khai backend, không thay thế bốn secret ký APK. Token không được đưa vào mã nguồn hoặc APK.
 
-## 8. Trạng thái hiện tại
-- Repository có prototype Android Kotlin/Jetpack Compose trong một APK duy nhất, có giao diện theo vai trò.
-- Đã tích hợp mã nguồn Google Credential Manager, Cloudflare Worker API, phân quyền cộng tác viên, workspace dự án dùng chung và kiểm duyệt; các kiểm tra Kotlin compilation và Worker/D1 đã đạt trên PR.
-- Worker chưa deploy, D1 `autu_lio_auth` có 0 bảng và Google OAuth chưa cấu hình; đăng nhập/API thật chưa hoạt động. Các migration trong Git mới được kiểm tra cục bộ.
-- Không lưu keystore, mật khẩu hoặc khóa riêng trong repository. Release signing chỉ sử dụng GitHub Actions secrets có tên quy định trong `docs/SECURITY-AND-SIGNING.md`.
-- Chưa có giấy phép thật, compiler/runtime AUTU-LIO hoặc engine Auto Click.
+### Cloudflare Worker Secrets
+
+Các giá trị runtime `GOOGLE_CLIENT_ID`, `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` được lưu riêng trong Cloudflare Worker Secrets. Workflow deploy không yêu cầu người dùng gửi chúng qua GitHub hoặc chat. Không xóa hoặc thay thế các khóa mã hóa package nếu chưa có quy trình xoay khóa và di chuyển dữ liệu.
+
+## 3. Bốn GitHub Secrets ký APK
+
+GitHub → Settings → Secrets and variables → Actions:
+
+- `AUTU_LIO_RELEASE_KEYSTORE_BASE64`
+- `AUTU_LIO_RELEASE_STORE_PASSWORD`
+- `AUTU_LIO_RELEASE_KEY_ALIAS`
+- `AUTU_LIO_RELEASE_KEY_PASSWORD`
+
+Không commit hoặc gửi các giá trị này qua chat, issue hay log. Không thay keystore sau khi đã phát hành APK chính thức, nếu không người dùng có thể không cập nhật đè được ứng dụng cũ.
+
+## 4. Build và phát hành APK
+
+- Workflow: `.github/workflows/build-apks.yml`.
+- Workflow chỉ được phép tạo Release khi có push lên `main` với thông điệp commit chính xác `BUILD APK`; các push khác sẽ bị bỏ qua.
+- Release build cần đủ cả bốn signing secrets. Workflow giải mã keystore trong vùng tạm, kiểm tra alias, chạy lint, build APK Release, xác minh chữ ký, xóa keystore tạm và tải artifact Actions.
+- Sau khi xác minh thành công, workflow tạo GitHub Release có tag `v0.1.<run_number>`, đồng thời đính kèm APK với tên tải `AUTU-LIO.apk`.
+- Website `/download/` dẫn đến trang GitHub Releases.
+- APK Debug không được đưa vào GitHub Releases.
+- Không chạy build khi người dùng chỉ hỏi trạng thái, nhắc đến APK hoặc dùng cụm từ trong câu khác. Chỉ build sau lệnh độc lập chính xác `BUILD APK`.
+
+## 5. Kiểm tra sau phát hành
+
+- Kiểm tra Actions run thành công, artifact có thể tải và release/tag xuất hiện trên GitHub.
+- Xác minh APK có chữ ký hợp lệ; kiểm tra SHA-256 trong summary của workflow.
+- Cài bản Release trên thiết bị Android thật, kiểm tra đăng nhập OWNER/CUSTOMER, giấy phép, đăng ký thiết bị, tải package, giải mã và chạy AUTU.
+- Không xem việc build thành công là bằng chứng toàn bộ chức năng đã nghiệm thu.
+
+## 6. Bảo mật repository
+
+- Mã nguồn và lịch sử GitHub là công khai; mọi bí mật chỉ để trong GitHub Actions Secrets hoặc Cloudflare Worker Secrets.
+- Không đưa keystore, mật khẩu, API token, session token, khóa mã hóa hoặc dữ liệu cá nhân thật vào repository.
+- Mỗi nhóm thay đổi cần được kiểm tra CI; triển khai backend chỉ xảy ra khi thay đổi nằm trong `backend/**` trên `main`.
