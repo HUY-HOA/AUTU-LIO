@@ -256,6 +256,40 @@ async function requireRole(session, roles) {
   }
 }
 
+async function readAppUpdatePolicy(env) {
+  const row = await env.DB.prepare(
+    "SELECT mandatory, required_version, updated_at FROM app_update_policy WHERE id = 1"
+  ).first();
+  return {
+    mandatory: Number(row?.mandatory || 0) === 1,
+    requiredVersion: row?.required_version || null,
+    updatedAt: Number(row?.updated_at || 0)
+  };
+}
+
+async function updateAppUpdatePolicy(request, env, session) {
+  await requireRole(session, ["OWNER"]);
+  const body = await readBody(request, 4000);
+  const mandatory = body.mandatory === true;
+  const requiredVersion = mandatory ? String(body.requiredVersion || "").trim() : null;
+  if (mandatory && !/^\\d+(?:\\.\\d+){1,3}$/.test(requiredVersion || "")) {
+    throw new HttpError(400, "invalid_required_version", "The required app version is invalid.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.prepare(
+    "INSERT INTO app_update_policy (id, mandatory, required_version, updated_at, updated_by_user_id) " +
+    "VALUES (1, ?, ?, ?, ?) " +
+    "ON CONFLICT(id) DO UPDATE SET mandatory = excluded.mandatory, " +
+    "required_version = excluded.required_version, updated_at = excluded.updated_at, " +
+    "updated_by_user_id = excluded.updated_by_user_id"
+  ).bind(mandatory ? 1 : 0, requiredVersion, now, session.user_id).run();
+  await audit(env, session.user_id, "app_update_policy.changed", "app_update_policy", "1", {
+    mandatory,
+    requiredVersion
+  });
+  return { updated: true, mandatory, requiredVersion, updatedAt: now };
+}
+
 async function audit(env, actorId, action, targetType = null, targetId = null, metadata = {}) {
   await env.DB.prepare(
     "INSERT INTO audit_logs (id, actor_user_id, action, target_type, target_id, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -1695,8 +1729,14 @@ async function route(request, env) {
 
   if (method === "POST" && path === "/api/auth/challenge") return await createChallenge(request, env);
   if (method === "POST" && path === "/api/auth/google") return await googleLogin(request, env);
+  if (method === "GET" && path === "/api/app-update-policy") {
+    return response(request, await readAppUpdatePolicy(env), 200, env);
+  }
 
   const session = await getSession(request, env);
+  if (method === "POST" && path === "/api/admin/app-update-policy") {
+    return response(request, await updateAppUpdatePolicy(request, env, session), 200, env);
+  }
 
   if (method === "GET" && path === "/api/auth/me") {
     const user = {
