@@ -176,7 +176,23 @@ data class AutuPackageRecord(
     val status: String,
     val latestVersion: Int,
     val languageVersion: String,
-    val publishedAt: Long?
+    val publishedAt: Long?,
+    val distributionMode: String = "ALL_LICENSED"
+)
+
+data class PackageCustomerAccessInfo(
+    val id: String,
+    val email: String,
+    val displayName: String?,
+    val status: String,
+    val assigned: Boolean
+)
+
+data class PackageDistributionInfo(
+    val packageId: String,
+    val packageName: String,
+    val distributionMode: String,
+    val customers: List<PackageCustomerAccessInfo>
 )
 
 data class CustomerAutuPackageCatalog(
@@ -660,11 +676,80 @@ class AuthRepository(context: Context) {
                         status = item.optString("status"),
                         latestVersion = item.optInt("latest_version"),
                         languageVersion = item.optString("language_version"),
-                        publishedAt = item.optLong("published_at").takeIf { item.has("published_at") && !item.isNull("published_at") }
+                        publishedAt = item.optLong("published_at").takeIf { item.has("published_at") && !item.isNull("published_at") },
+                        distributionMode = item.optString("distribution_mode").ifBlank { "ALL_LICENSED" }
                     )
                 )
             }
         }
+    }
+
+    suspend fun getAdminPackageDistribution(
+        accessToken: String,
+        packageId: String
+    ): PackageDistributionInfo {
+        require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/admin/packages/$packageId/distribution",
+            "GET",
+            bearerToken = accessToken
+        )
+        val pkg = result.optJSONObject("package")
+            ?: throw IOException("Máy chủ không trả về cấu hình phân phối gói AUTU.")
+        if (pkg.optString("id") != packageId) {
+            throw IOException("Máy chủ trả về sai gói AUTU.")
+        }
+        val items = result.optJSONArray("customers") ?: JSONArray()
+        val customers = buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val email = item.optString("email")
+                if (id.isBlank() || email.isBlank()) continue
+                add(
+                    PackageCustomerAccessInfo(
+                        id = id,
+                        email = email,
+                        displayName = item.optString("displayName")
+                            .takeIf { it.isNotBlank() && it != "null" },
+                        status = item.optString("status"),
+                        assigned = item.optBoolean("assigned")
+                    )
+                )
+            }
+        }
+        val mode = pkg.optString("distributionMode").ifBlank { "ALL_LICENSED" }
+        if (mode !in setOf("ALL_LICENSED", "SELECTED_CUSTOMERS")) {
+            throw IOException("Cấu hình phân phối gói AUTU không hợp lệ.")
+        }
+        return PackageDistributionInfo(
+            packageId = packageId,
+            packageName = pkg.optString("name"),
+            distributionMode = mode,
+            customers = customers
+        )
+    }
+
+    suspend fun updateAdminPackageDistribution(
+        accessToken: String,
+        packageId: String,
+        distributionMode: String,
+        customerIds: List<String>
+    ) {
+        require(packageId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        require(distributionMode in setOf("ALL_LICENSED", "SELECTED_CUSTOMERS"))
+        require(customerIds.size <= 500)
+        require(customerIds.all { it.matches(Regex("^[0-9a-fA-F-]{36}$")) })
+        require(customerIds.distinct().size == customerIds.size)
+        require(distributionMode != "SELECTED_CUSTOMERS" || customerIds.isNotEmpty())
+        apiRequest(
+            "/api/admin/packages/$packageId/distribution",
+            "PUT",
+            JSONObject()
+                .put("distributionMode", distributionMode)
+                .put("customerIds", JSONArray(customerIds)),
+            accessToken
+        )
     }
 
     suspend fun publishAdminPackage(
@@ -1029,6 +1114,9 @@ class AuthRepository(context: Context) {
         "invalid_package_version", "package_version_conflict" ->
             "Phiên bản gói đã thay đổi. Vui lòng tải lại rồi thử lại."
         "invalid_package_status" -> "Trạng thái gói AUTU không hợp lệ."
+        "invalid_package_distribution" -> "Phạm vi phân phối gói AUTU không hợp lệ."
+        "invalid_package_recipients" -> "Danh sách khách hàng nhận gói AUTU không hợp lệ."
+        "package_distribution_conflict" -> "Cấu hình phân phối vừa thay đổi. Vui lòng tải lại rồi thử lại."
         "package_name_exists" -> "Tên gói AUTU này đã được sử dụng."
         "invalid_audit_limit" -> "Số lượng nhật ký yêu cầu không hợp lệ."
         "route_not_found" -> "Không tìm thấy chức năng được yêu cầu."
