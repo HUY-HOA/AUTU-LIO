@@ -2,7 +2,6 @@ package com.autulio.app.runtime
 
 import android.content.Context
 import com.autulio.app.SecureScriptDraftStore
-import com.autulio.app.script.ScriptCompiler
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -89,7 +88,7 @@ class SecureAutomationQueueStore(context: Context) {
         val name = json.optString("name", "").trim()
         val source = json.optString("source", "")
         if (name.isBlank() || name.length > 96 ||
-            source.isBlank() || source.length > ScriptCompiler.MAX_SOURCE_LENGTH
+            source.isBlank() || source.length > MAX_SOURCE_LENGTH
         ) return null
 
         val requestedRetries = json.optInt("maxRetries", 0)
@@ -116,6 +115,7 @@ class SecureAutomationQueueStore(context: Context) {
     private companion object {
         const val STORAGE_NAMESPACE = "automation_queue"
         const val STORAGE_KEY = "__AUTU_AUTOMATION_QUEUE_V1__"
-        const val FORMAT_VERSION = 1
+        const val FORMAT_VERSION = 2
+        const val MAX_SOURCE_LENGTH = 32_768
     }
 }
