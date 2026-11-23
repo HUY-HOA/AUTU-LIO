@@ -76,7 +76,22 @@ object AppUpdateManager {
             if (!isNewerVersion(currentVersion(context), version)) return@Thread
             val notes = manifest.optString("releaseNotes").trim().take(900)
             val sha = manifest.optString("sha256").takeIf { it.matches(Regex("(?i)^[a-f0-9]{64}$")) }
-            val mandatory = manifest.optBoolean("mandatory", false)
+            val policyUrl = context.getString(R.string.api_base_url).trim().trimEnd('/') + "/api/app-update-policy"
+            val policy = try {
+                val policyConnection = URL(policyUrl).openConnection() as HttpURLConnection
+                try {
+                    policyConnection.requestMethod = "GET"
+                    policyConnection.connectTimeout = 8_000
+                    policyConnection.readTimeout = 8_000
+                    policyConnection.setRequestProperty("Accept", "application/json")
+                    policyConnection.setRequestProperty("Cache-Control", "no-store")
+                    if (policyConnection.responseCode !in 200..299) JSONObject()
+                    else JSONObject(policyConnection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
+                } finally { policyConnection.disconnect() }
+            } catch (_: Exception) { JSONObject() }
+            val requiredVersion = policy.optString("requiredVersion").trim()
+            val mandatory = policy.optBoolean("mandatory", false) && requiredVersion.isNotBlank() &&
+                isNewerVersion(currentVersion(context), requiredVersion)
 
             handler.post {
                 if (activity.isFinishing || activity.isDestroyed) return@post
