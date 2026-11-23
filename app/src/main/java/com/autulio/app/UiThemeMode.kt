@@ -2,7 +2,13 @@ package com.autulio.app
 
 import android.content.Context
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 
@@ -54,8 +60,14 @@ internal fun PreferredAppTheme(context: Context, content: @Composable () -> Unit
     val mode = remember(context.applicationContext) {
         UiThemePreferences.load(context.applicationContext)
     }
-    AppTheme(
-        dark = mode.isDark(isSystemInDarkTheme()),
-        content = content
-    )
+    AppTheme(dark = mode.isDark(isSystemInDarkTheme())) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+                content()
+            }
+        }
+    }
 }
