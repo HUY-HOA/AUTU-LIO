@@ -2253,7 +2253,7 @@ private fun DatabaseBackupControls() {
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
-                onClick = { createBackup.launch("AUTU-LIO-SQLite-${System.currentTimeMillis()}.autubak") },
+                onClick = { createBackup.launch("SQLite-${System.currentTimeMillis()}.autubak") },
                 enabled = !working,
                 modifier = Modifier.weight(1f)
             ) {
@@ -2285,8 +2285,8 @@ private fun DatabaseBackupControls() {
             text = {
                 Text(
                     tr(
-                        "Khôi phục sẽ thay thế cơ sở dữ liệu AUTU-LIO hiện tại bằng bản sao lưu đã chọn. Tệp sẽ được kiểm tra định dạng, tính toàn vẹn và SHA-256 trước khi thay thế. Tiếp tục?",
-                        "Restore replaces the current AUTU-LIO database with the selected backup. Format, integrity and SHA-256 are checked before replacement. Continue?"
+                        "Khôi phục sẽ thay thế cơ sở dữ liệu hiện tại bằng bản sao lưu đã chọn. Tệp sẽ được kiểm tra định dạng, tính toàn vẹn và SHA-256 trước khi thay thế. Tiếp tục?",
+                        "Restore replaces the current database with the selected backup. Format, integrity and SHA-256 are checked before replacement. Continue?"
                     )
                 )
             },
