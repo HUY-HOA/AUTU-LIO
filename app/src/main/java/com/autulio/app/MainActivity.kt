@@ -89,6 +89,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebasePushManager.initialize(this)
+        if (FirebasePushManager.isUpdateIntent(intent)) {
+            window.decorView.post { AppUpdateManager.check(this) }
+        }
         prepareDisplayGeometryCapture()
         setContent {
             AutuLioAppEntry()
