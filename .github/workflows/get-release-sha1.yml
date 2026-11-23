@@ -42,7 +42,8 @@ jobs:
 
           KEYSTORE_PATH="$RUNNER_TEMP/autu-lio-release.p12"
           INFO_PATH="$RUNNER_TEMP/autu-lio-certificate-info.txt"
-          trap 'rm -f "$KEYSTORE_PATH" "$INFO_PATH"' EXIT
+          CSR_PATH="$RUNNER_TEMP/autu-lio-private-key-check.csr"
+          trap 'rm -f "$KEYSTORE_PATH" "$INFO_PATH" "$CSR_PATH"' EXIT
 
           printf '%s' "$AUTU_LIO_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           chmod 600 "$KEYSTORE_PATH"
@@ -52,6 +53,8 @@ jobs:
             -storetype PKCS12 \
             -storepass "$AUTU_LIO_RELEASE_STORE_PASSWORD" \
             -alias "$AUTU_LIO_RELEASE_KEY_ALIAS" > "$INFO_PATH"
+
+          keytool -certreq -keystore "$KEYSTORE_PATH" -storepass "$AUTU_LIO_RELEASE_STORE_PASSWORD" -keypass "$AUTU_LIO_RELEASE_KEY_PASSWORD" -alias "$AUTU_LIO_RELEASE_KEY_ALIAS" -file "$CSR_PATH" >/dev/null
 
           SHA1="$(awk 'tolower($1) == "sha1:" {print $2; exit}' "$INFO_PATH")"
           SHA256="$(awk 'tolower($1) == "sha256:" {print $2; exit}' "$INFO_PATH")"
