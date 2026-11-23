@@ -212,10 +212,10 @@ private fun RolePreviewChooser(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(13.dp)
             ) {
-                BrandHeader(admin = false)
-                Heading(
+                Text(
                     tr("Chọn giao diện kiểm thử", "Choose a test view"),
-                    tr("Một ứng dụng AUTU-LIO, giao diện được mở theo quyền tài khoản.", "One AUTU-LIO app; the interface is selected by the account role.")
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
                 )
                 CardBox {
                     Text(
@@ -852,8 +852,8 @@ private fun EditorScreen(
         Heading(name, tr("Bản nháp · Lưu trên thiết bị", "Draft · Saved on this device"))
         Text(
             tr(
-                "Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. ngôn ngữ lệnh AUTU-LIO ${ScriptCompiler.LANGUAGE_VERSION} hỗ trợ lệnh thao tác, biến, biểu thức, điều kiện, vòng lặp và trạng thái thiết bị.",
-                "Choose a built-in template, or write and edit your own source below. ngôn ngữ lệnh AUTU-LIO ${ScriptCompiler.LANGUAGE_VERSION} supports gestures, variables, expressions, conditions, loops and device state."
+                "Chọn mẫu có sẵn để bắt đầu, hoặc tự viết và sửa mã nguồn bên dưới. Ngôn ngữ lệnh phiên bản ${ScriptCompiler.LANGUAGE_VERSION} hỗ trợ lệnh thao tác, biến, biểu thức, điều kiện, vòng lặp và trạng thái thiết bị.",
+                "Choose a built-in template, or write and edit your own source below. The scripting language version ${ScriptCompiler.LANGUAGE_VERSION} supports gestures, variables, expressions, conditions, loops and device state."
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
@@ -882,7 +882,7 @@ private fun EditorScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                tr("Mã nguồn AUTU-LIO", "AUTU-LIO source"),
+                tr("Mã nguồn", "Source code"),
                 modifier = Modifier.weight(1f),
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 12.sp
@@ -930,10 +930,10 @@ private fun EditorScreen(
                     validationText = if (result.isSuccess) {
                         val program = result.program!!
                         tr(
-                            "Mã hợp lệ · AUTU-LIO " + program.languageVersion +
+                            "Mã hợp lệ · phiên bản " + program.languageVersion +
                                 "\nSố lệnh sau khi mở rộng: " + program.expandedInstructionCount +
                                 "\nTổng thời lượng tĩnh: " + program.estimatedDurationMs + " ms",
-                            "Valid source · AUTU-LIO " + program.languageVersion +
+                            "Valid source · version " + program.languageVersion +
                                 "\nExpanded instructions: " + program.expandedInstructionCount +
                                 "\nStatic duration: " + program.estimatedDurationMs + " ms"
                         )
@@ -1283,7 +1283,7 @@ private fun EditorScreen(
         }
         AlertDialog(
             onDismissRequest = { showHelp = false },
-            title = { Text("Danh mục lệnh AUTU-LIO") },
+            title = { Text("Danh mục lệnh") },
             text = {
                 Column(
                     modifier = Modifier.heightIn(max = 500.dp),
@@ -1490,7 +1490,7 @@ private fun MoreScreen(
     ) {
         BrandHeader(admin = true)
         if (page == "more") {
-            Heading(tr("Quản lý khác", "More management"), tr("Công cụ quản trị AUTU-LIO", "AUTU-LIO administration tools"))
+            Heading(tr("Quản lý khác", "More management"), tr("Công cụ quản trị", "Administration tools"))
             items.forEach { item ->
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { onSelect(item.first) },
@@ -1603,7 +1603,6 @@ private fun MoreScreen(
                 "settings" -> {
                     GoogleAccountSettingsCard(authenticatedUser = authenticatedUser, onLogout = onLogout)
                     ThemeModeSelector()
-                    SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
                     DatabaseBackupControls()
         ScriptFileControls()
                 }
@@ -1692,7 +1691,7 @@ private fun CustomerHome(
         BrandHeader(admin = false)
         Heading(
             tr("Xin chào!", "Welcome!"),
-            tr("Trung tâm sử dụng AUTU-LIO", "Your AUTU-LIO workspace")
+            tr("Trung tâm sử dụng", "Your workspace")
         )
         CardBox {
             Row(
@@ -1962,7 +1961,7 @@ private fun ThemeModeSelector() {
                 Column {
                     Text(tr("Giao diện", "Appearance"), fontWeight = FontWeight.SemiBold)
                     Text(
-                        tr("Chọn chế độ hiển thị của AUTU-LIO", "Choose how AUTU-LIO looks"),
+                        tr("Chọn chế độ hiển thị", "Choose the display mode"),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp
                     )
@@ -2012,7 +2011,7 @@ private fun SettingsScreen(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(tr("Cài đặt", "Settings"), style = MaterialTheme.typography.titleLarge)
-                Text(tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tr("Tùy chỉnh", "Customization"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box {
                 IconButton(onClick = { showSettingsMenu = true }) {
@@ -2048,7 +2047,6 @@ private fun SettingsScreen(
         }
         GoogleAccountSettingsCard(authenticatedUser = authenticatedUser, fallbackEmail = fallbackEmail, onLogout = onLogout)
         ThemeModeSelector()
-        SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
         SettingRow(
             Icons.Outlined.Chat,
             tr("Liên hệ nhà phát triển", "Contact developer"),
@@ -2364,21 +2362,7 @@ private fun EmptyPage(modifier: Modifier, title: String, subtitle: String, icon:
 
 @Composable
 internal fun BrandHeader(admin: Boolean) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)) {
-                Icon(Icons.Outlined.Code, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(10.dp).size(22.dp))
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("AUTU-LIO", fontWeight = FontWeight.Bold, fontSize = 17.sp, letterSpacing = 0.5.sp)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(if (admin) "BẢNG ĐIỀU HÀNH" else "TỰ ĐỘNG HÓA", fontSize = 10.sp, letterSpacing = 1.1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("·", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("v${BuildConfig.VERSION_NAME}", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-    }
+    // App name and the branding tagline are intentionally hidden in the UI.
 }
 
 @Composable
@@ -2567,8 +2551,8 @@ class ScriptEditorActivity : ComponentActivity() {
                                     scope.launch {
                                         host.showSnackbar(
                                             tr(
-                                                "Hãy bật AUTU-LIO trong Cài đặt > Trợ năng, sau đó quay lại và mở cửa sổ nổi.",
-                                                "Enable AUTU-LIO in Settings > Accessibility, then return and open the floating editor."
+                                                "Hãy bật dịch vụ thao tác tự động trong Cài đặt > Trợ năng, sau đó quay lại và mở cửa sổ nổi.",
+                                                "Enable the automation accessibility service in Settings > Accessibility, then return and open the floating editor."
                                             )
                                         )
                                     }
@@ -2606,8 +2590,8 @@ class ScriptEditorActivity : ComponentActivity() {
                                     scope.launch {
                                         host.showSnackbar(
                                             tr(
-                                                "Hãy bật AUTU-LIO trong Cài đặt > Trợ năng, sau đó quay lại chuẩn bị chạy.",
-                                                "Enable AUTU-LIO in Settings > Accessibility, then return to prepare the runner."
+                                                "Hãy bật dịch vụ thao tác tự động trong Cài đặt > Trợ năng, sau đó quay lại chuẩn bị chạy.",
+                                                "Enable the automation accessibility service in Settings > Accessibility, then return to prepare the runner."
                                             )
                                         )
                                     }
