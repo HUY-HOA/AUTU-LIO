@@ -27,7 +27,7 @@ Workflow `.github/workflows/worker-deploy.yml` chạy khi backend thay đổi tr
 
 ### Cloudflare Worker Secrets
 
-Các giá trị runtime `GOOGLE_CLIENT_ID`, `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` được lưu riêng trong Cloudflare Worker Secrets. Workflow deploy không yêu cầu người dùng gửi chúng qua GitHub hoặc chat. Không xóa hoặc thay thế các khóa mã hóa package nếu chưa có quy trình xoay khóa và di chuyển dữ liệu.
+`GOOGLE_CLIENT_ID` là Web OAuth Client ID công khai, được khai báo trong `backend/wrangler.jsonc` dưới `vars` và không phải Worker Secret. `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` vẫn được lưu riêng trong Cloudflare Worker Secrets; workflow deploy không yêu cầu người dùng gửi chúng qua GitHub hoặc chat. Không xóa hoặc thay thế khóa mã hóa package nếu chưa có quy trình xoay khóa và di chuyển dữ liệu.
 
 ## 3. Bốn GitHub Secrets ký APK dùng chung AILIO
 
