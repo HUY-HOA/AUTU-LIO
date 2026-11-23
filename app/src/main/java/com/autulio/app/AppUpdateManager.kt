@@ -163,7 +163,7 @@ object AppUpdateManager {
                     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     connection.setRequestProperty("Cache-Control", "no-store")
                     connection.setRequestProperty("Authorization", "Bearer " + token)
-                    val body = JSONObject().put("announcement", true)
+                    val body = JSONObject().put("announcement", true).put("version", version)
                     connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
                     val status = connection.responseCode
                     val stream = if (status in 200..299) connection.inputStream else connection.errorStream
@@ -175,6 +175,12 @@ object AppUpdateManager {
                             else "Máy chủ từ chối yêu cầu (HTTP $status)."
                         })
                     }
+                    val notificationSent = runCatching {
+                        JSONObject(responseText).optBoolean("notificationSent", false)
+                    }.getOrDefault(false)
+                    if (!notificationSent) {
+                        throw IOException("Máy chủ chưa xác nhận gửi FCM. Hãy kiểm tra cấu hình Firebase trên Cloudflare.")
+                    }
                 } finally {
                     connection.disconnect()
                 }
@@ -182,7 +188,7 @@ object AppUpdateManager {
                 handler.post {
                     Toast.makeText(
                         activity,
-                        "Đã gửi thông báo cập nhật AUTU-LIO phiên bản $version. Người dùng đang mở ứng dụng sẽ nhận trong khoảng 1 phút; người khác sẽ nhận khi mở lại có Internet.",
+                        "Đã gửi thông báo cập nhật AUTU-LIO phiên bản $version qua FCM đến các thiết bị đã đăng ký.",
                         Toast.LENGTH_LONG
                     ).show()
                 }
