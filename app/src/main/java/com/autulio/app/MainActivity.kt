@@ -1546,6 +1546,31 @@ private fun MoreScreen(
                                 }
                             )
                             DropdownMenuItem(
+                                text = { Text(tr("Kiểm tra cập nhật", "Check for updates")) },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    (context as? Activity)?.let { AppUpdateManager.check(it, forceCheck = true) }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(tr("Yêu cầu cập nhật bắt buộc", "Require mandatory update")) },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    (context as? Activity)?.let {
+                                        AppUpdateManager.setMandatoryUpdate(it, accessToken, true)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(tr("Tắt yêu cầu cập nhật bắt buộc", "Disable mandatory update")) },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    (context as? Activity)?.let {
+                                        AppUpdateManager.setMandatoryUpdate(it, accessToken, false)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text(tr("Danh sách người dùng", "User list")) },
                                 onClick = {
                                     showSettingsMenu = false
@@ -2007,6 +2032,13 @@ private fun SettingsScreen(
                         onClick = {
                             showSettingsMenu = false
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/privacy/")))
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(tr("Kiểm tra cập nhật", "Check for updates")) },
+                        onClick = {
+                            showSettingsMenu = false
+                            (context as? Activity)?.let { AppUpdateManager.check(it, forceCheck = true) }
                         }
                     )
                 }
