@@ -89,7 +89,8 @@ Không có khóa giải mã chung trong APK. Tuy nhiên, khi script được gi�
 
 - API Worker `autu-lio-auth-api` và website Worker `autu-lio` đã được triển khai trên Cloudflare; D1 migrations `0001`–`0008` đã áp dụng.
 - GitHub Actions deploy dùng hai repository secrets `CLOUDFLARE_API_TOKEN` và `CLOUDFLARE_ACCOUNT_ID`. Chúng độc lập với bốn signing secrets của APK.
-- Các Worker secrets `GOOGLE_CLIENT_ID`, `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` được cấu hình riêng trong Cloudflare. `OWNER_GOOGLE_SUB` là claim `sub` từ ID token của chủ sở hữu đã xác minh; không dùng email, Firebase UID hoặc GitHub ID.
+- `GOOGLE_CLIENT_ID` là Web OAuth Client ID công khai, được cấu hình dưới `vars` trong `backend/wrangler.jsonc`, không phải Worker Secret.
+- `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` là Cloudflare Worker Secrets. `OWNER_GOOGLE_SUB` là claim `sub` từ ID token của chủ sở hữu đã xác minh; không dùng email, Firebase UID hoặc GitHub ID.
 - Cần tiếp tục nghiệm thu đăng nhập thật, cấp license, đăng ký thiết bị, phát hành, tải/giải mã và thu hồi trên thiết bị Android thật.
 - Cần duy trì keystore ký Release AILIO dùng chung cho AUTU-LIO, COC-LIO và GPS-LIO; cấu hình đủ bốn GitHub Actions secrets `AILIO_*` trong từng repository và lưu bản sao lưu an toàn.
 - Kiểm thử cài đặt/cập nhật Release bằng cùng một chữ ký ổn định; không tự động xoay hoặc thay signing key sau khi đã phát hành.
