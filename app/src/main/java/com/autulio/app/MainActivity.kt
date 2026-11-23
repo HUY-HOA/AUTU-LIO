@@ -78,12 +78,18 @@ import com.autulio.app.runtime.ScreenCutoutBounds
 import com.autulio.app.runtime.ScreenDisplayGeometryStore
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        AppUpdateManager.resume(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prepareDisplayGeometryCapture()
         setContent {
             AutuLioAppEntry()
         }
+        window.decorView.postDelayed({ AppUpdateManager.check(this) }, 2_500L)
     }
 
     private fun prepareDisplayGeometryCapture() {

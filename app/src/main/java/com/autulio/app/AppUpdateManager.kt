@@ -69,8 +69,8 @@ object AppUpdateManager {
                 if (activity.isFinishing || activity.isDestroyed) return@post
                 val message = buildString {
                     append("Phiên bản hiện tại: ").append(currentVersion(context))
-                    append("\\nPhiên bản mới: ").append(version)
-                    if (notes.isNotBlank()) append("\\n\\n").append(notes)
+                    append("\nPhiên bản mới: ").append(version)
+                    if (notes.isNotBlank()) append("\n\n").append(notes)
                 }
                 val builder = AlertDialog.Builder(activity)
                     .setTitle("Có bản cập nhật AUTU-LIO")
