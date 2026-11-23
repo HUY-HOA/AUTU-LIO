@@ -35,16 +35,16 @@ R8 là làm rối và thu gọn mã, không phải mã hóa tuyệt đối. Mã 
 
 Tạo bốn **Repository secrets** tại GitHub → Settings → Secrets and variables → Actions:
 
-- `AUTU_LIO_RELEASE_KEYSTORE_BASE64`: toàn bộ file keystore ở dạng Base64.
-- `AUTU_LIO_RELEASE_STORE_PASSWORD`: mật khẩu keystore.
-- `AUTU_LIO_RELEASE_KEY_ALIAS`: alias của khóa ký.
-- `AUTU_LIO_RELEASE_KEY_PASSWORD`: mật khẩu private key.
+- `AILIO_KEYSTORE_BASE64`: toàn bộ file keystore ở dạng Base64.
+- `AILIO_KEYSTORE_PASSWORD`: mật khẩu keystore.
+- `AILIO_KEY_ALIAS`: alias của khóa ký.
+- `AILIO_KEY_PASSWORD`: mật khẩu private key.
 
 Không gửi các giá trị này qua chat, issue, commit hoặc log.
 
 ### Tạo khóa ký trên máy tính do chủ sở hữu kiểm soát
 
-Mỗi ứng dụng nên có keystore riêng. Không dùng chung keystore của COC-LIO cho AUTU-LIO; khóa này là danh tính ký riêng của gói `com.autulio.app`.
+Theo cấu hình dùng chung đã chọn, AUTU-LIO, COC-LIO và GPS-LIO sử dụng cùng keystore AILIO và cùng chứng thư ký. Sao chép đúng bốn giá trị AILIO vào Repository secrets của từng kho GitHub. GitHub Repository secrets không tự đồng bộ giữa các kho. Dùng chung chứng thư giúp thống nhất vận hành nhưng làm tăng phạm vi ảnh hưởng nếu khóa ký bị lộ; phải sao lưu keystore và mật khẩu an toàn.
 
 Dùng JDK `keytool` trên máy tính riêng, tạo một lần duy nhất:
 
@@ -63,7 +63,7 @@ Chuyển file sang Base64 để nhập vào secret:
 - Linux/macOS: `base64 < autu-lio-release.p12 | tr -d '\n'`
 - Windows PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("autu-lio-release.p12"))`
 
-Chỉ nhập chuỗi Base64 vào `AUTU_LIO_RELEASE_KEYSTORE_BASE64`; nhập riêng ba giá trị còn lại vào các secret tương ứng. Không commit file .p12 hoặc file chứa mật khẩu. Bản Debug đang cài có thể phải gỡ trước khi cài Release lần đầu vì chứng thư ký khác nhau; sau đó mọi bản Release cập nhật phải dùng cùng keystore.
+Trong từng kho `AUTU-LIO`, `COC-LIO` và `GPS-LIO`, nhập chuỗi Base64 vào `AILIO_KEYSTORE_BASE64`; nhập mật khẩu keystore vào `AILIO_KEYSTORE_PASSWORD`, alias vào `AILIO_KEY_ALIAS`, mật khẩu khóa vào `AILIO_KEY_PASSWORD`. Nếu ba ứng dụng dùng chung một chứng thư thì bốn giá trị phải tương ứng với cùng một keystore AILIO. Không commit file .p12 hoặc file chứa mật khẩu. Bản Debug đang cài có thể phải gỡ trước khi cài Release lần đầu vì chứng thư ký khác nhau; sau đó mọi bản Release cập nhật phải dùng cùng keystore.
 
 ### Cách workflow xử lý
 
@@ -101,6 +101,6 @@ Không có khóa giải mã chung trong APK. Tuy nhiên, khi script được gi�
 - GitHub Actions deploy dùng hai repository secrets `CLOUDFLARE_API_TOKEN` và `CLOUDFLARE_ACCOUNT_ID`. Chúng độc lập với bốn signing secrets của APK.
 - Các Worker secrets `GOOGLE_CLIENT_ID`, `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` được cấu hình riêng trong Cloudflare. `OWNER_GOOGLE_SUB` là claim `sub` từ ID token của chủ sở hữu đã xác minh; không dùng email, Firebase UID hoặc GitHub ID.
 - Cần tiếp tục nghiệm thu đăng nhập thật, cấp license, đăng ký thiết bị, phát hành, tải/giải mã và thu hồi trên thiết bị Android thật.
-- Cần tạo keystore ký Release riêng cho AUTU-LIO, lưu bản sao lưu an toàn và cấu hình đủ bốn GitHub Actions secrets.
+- Cần duy trì keystore ký Release AILIO dùng chung cho AUTU-LIO, COC-LIO và GPS-LIO; cấu hình đủ bốn GitHub Actions secrets `AILIO_*` trong từng repository và lưu bản sao lưu an toàn.
 - Kiểm thử cài đặt/cập nhật Release bằng cùng một chữ ký ổn định; không tự động xoay hoặc thay signing key sau khi đã phát hành.
 - Tiếp tục bổ sung kiểm thử runtime và chống giả mạo phù hợp; không xem R8 hay mã hóa package là ranh giới bảo mật duy nhất.
