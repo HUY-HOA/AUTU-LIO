@@ -2387,7 +2387,7 @@ class ScriptEditorActivity : ComponentActivity() {
                                         )
                                     }
                                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                } else if (service.prepareProgram(compilation.program!!, scriptName)) {
+                                } else if (service.prepareProgram(compilation.program!!, scriptName, source)) {
                                     scope.launch {
                                         host.showSnackbar(
                                             tr(
