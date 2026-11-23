@@ -81,11 +81,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         AppUpdateManager.resume(this)
-        AppUpdateManager.startAnnouncementPolling(this)
     }
 
     override fun onPause() {
-        AppUpdateManager.stopAnnouncementPolling(this)
         super.onPause()
     }
 
@@ -1540,7 +1538,7 @@ private fun MoreScreen(
                                 text = { Text(tr("Kiểm tra cập nhật", "Check for updates")) },
                                 onClick = {
                                     showSettingsMenu = false
-                                    (context as? Activity)?.let { AppUpdateManager.check(it, forceCheck = true) }
+                                    (context as? Activity)?.let { AppUpdateManager.check(it) }
                                 }
                             )
                             DropdownMenuItem(
@@ -2019,7 +2017,7 @@ private fun SettingsScreen(
                         text = { Text(tr("Kiểm tra cập nhật", "Check for updates")) },
                         onClick = {
                             showSettingsMenu = false
-                            (context as? Activity)?.let { AppUpdateManager.check(it, forceCheck = true) }
+                            (context as? Activity)?.let { AppUpdateManager.check(it) }
                         }
                     )
                     DropdownMenuItem(

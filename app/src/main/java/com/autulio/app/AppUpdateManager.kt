@@ -14,7 +14,6 @@ import android.provider.Settings
 import android.widget.Toast
 import org.json.JSONObject
 import java.io.InputStream
-import java.lang.ref.WeakReference
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -26,56 +25,24 @@ object AppUpdateManager {
     private const val UPDATE_URL = "https://autu-lio-updates.coc-lio-data.workers.dev/v1/latest"
     private const val DOWNLOAD_HOST = "autu-lio-updates.coc-lio-data.workers.dev"
     private const val PREFS = "app_update_manager"
-    private const val KEY_LAST_CHECK = "last_check_ms"
     private const val KEY_LAST_ANNOUNCEMENT = "last_announcement_at"
-    private const val ANNOUNCEMENT_POLL_INTERVAL_MS = 60_000L
     private const val KEY_DOWNLOAD_ID = "download_id"
     private const val KEY_PENDING_URL = "pending_url"
     private const val KEY_PENDING_VERSION = "pending_version"
     private const val KEY_PENDING_SHA256 = "pending_sha256"
     private const val APK_MIME = "application/vnd.android.package-archive"
-    private const val CHECK_INTERVAL_MS = 6L * 60L * 60L * 1000L
     private val handler = Handler(Looper.getMainLooper())
     private val activeDownloads = ConcurrentHashMap.newKeySet<Long>()
-    @Volatile private var lastForcedCheckAtMs = 0L
-    @Volatile private var foregroundActivity: WeakReference<Activity>? = null
-    private val announcementPoller = object : Runnable {
-        override fun run() {
-            val activity = foregroundActivity?.get() ?: return
-            if (activity.isFinishing || activity.isDestroyed) {
-                stopAnnouncementPolling(activity)
-                return
-            }
-            check(activity, forceCheck = true, showAnyAvailable = false)
-            handler.postDelayed(this, ANNOUNCEMENT_POLL_INTERVAL_MS)
-        }
-    }
-
-    fun startAnnouncementPolling(activity: Activity) {
-        foregroundActivity = WeakReference(activity)
-        handler.removeCallbacks(announcementPoller)
-        handler.post(announcementPoller)
-    }
-
-    fun stopAnnouncementPolling(activity: Activity) {
-        if (foregroundActivity?.get() === activity) {
-            handler.removeCallbacks(announcementPoller)
-            foregroundActivity = null
-        }
-    }
-
-    fun check(activity: Activity, forceCheck: Boolean = false, showAnyAvailable: Boolean = forceCheck) {
+    @Volatile private var lastManualCheckAtMs = 0L
+    /** Runs only after the user explicitly selects "Kiểm tra cập nhật". */
+    fun check(activity: Activity) {
         resume(activity)
         val context = activity.applicationContext
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
-        if (forceCheck) {
-            synchronized(this) {
-                if (now - lastForcedCheckAtMs < 5_000L) return
-                lastForcedCheckAtMs = now
-            }
-        } else if (now - prefs.getLong(KEY_LAST_CHECK, 0L) < CHECK_INTERVAL_MS) {
-            return
+        synchronized(this) {
+            if (now - lastManualCheckAtMs < 5_000L) return
+            lastManualCheckAtMs = now
         }
 
         Thread {
@@ -100,7 +67,6 @@ object AppUpdateManager {
             if (uri.scheme != "https" || uri.host != DOWNLOAD_HOST || uri.path?.startsWith("/v1/download/") != true) return@Thread
             // Start the cooldown only after the correct app receives a valid manifest.
             // A transient network failure must never suppress a retry for six hours.
-            prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
             if (!isNewerVersion(currentVersion(context), version)) return@Thread
             val notes = manifest.optString("releaseNotes").trim().take(900)
             val sha = manifest.optString("sha256").takeIf { it.matches(Regex("(?i)^[a-f0-9]{64}$")) }
@@ -120,7 +86,6 @@ object AppUpdateManager {
             val announcementAt = policy.optLong("updatedAt", 0L)
             val lastAnnouncementAt = prefs.getLong(KEY_LAST_ANNOUNCEMENT, 0L)
             val hasNewAnnouncement = announcementAt > lastAnnouncementAt
-            if (!showAnyAvailable && !hasNewAnnouncement) return@Thread
 
             handler.post {
                 if (activity.isFinishing || activity.isDestroyed) return@post
