@@ -276,7 +276,7 @@ async function updateAppUpdatePolicy(request, env, session) {
   }
   const previous = await env.DB.prepare(
     "SELECT updated_at FROM app_update_policy WHERE id = 1"
-  ).first();
+  ).bind().first();
   const now = Math.max(Math.floor(Date.now() / 1000), Number(previous?.updated_at || 0) + 1);
   await env.DB.prepare(
     "INSERT INTO app_update_policy (id, mandatory, required_version, updated_at, updated_by_user_id) " +
