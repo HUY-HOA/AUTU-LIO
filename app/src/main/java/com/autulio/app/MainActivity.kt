@@ -2388,12 +2388,20 @@ class ScriptEditorActivity : ComponentActivity() {
                                     }
                                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                                 } else if (service.prepareProgram(compilation.program!!, scriptName, source)) {
+                                    val queuedCount = service.queuedProgramCount()
                                     scope.launch {
                                         host.showSnackbar(
-                                            tr(
-                                                "Cửa sổ chạy đã sẵn sàng. Mở ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.",
-                                                "Runner is ready. Open the target app, then press Run in the floating window."
-                                            )
+                                            if (queuedCount > 0) {
+                                                tr(
+                                                    "Đã thêm vào hàng đợi ($queuedCount). AUTU sẽ chuyển sang kịch bản này sau khi tác vụ trước hoàn tất.",
+                                                    "Added to the queue ($queuedCount). AUTU will start it after the current run completes."
+                                                )
+                                            } else {
+                                                tr(
+                                                    "Cửa sổ chạy đã sẵn sàng. Mở ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.",
+                                                    "Runner is ready. Open the target app, then press Run in the floating window."
+                                                )
+                                            }
                                         )
                                     }
                                     finish()
