@@ -97,7 +97,11 @@ object AppUpdateManager {
             if (existingDownloadId > 0L && pendingMatchesRelease) {
                 handler.post {
                     if (activity.isFinishing || activity.isDestroyed) return@post
-                    resume(activity)
+                    if (canInstallPackages(context)) {
+                        resume(activity)
+                    } else {
+                        requestUpdate(activity, version, downloadUrl, sha)
+                    }
                     if (!startup) showUpdateMessage(activity, "Bản cập nhật $version đang được tải hoặc chờ Android cài đặt.")
                 }
                 return@Thread
