@@ -49,6 +49,10 @@
 - AUTU Script 1.22 dùng `BIẾN` để khai báo biến và `HÀM` để định nghĩa hàm; `ĐẶT` và `ĐỊNH_NGHĨA_HÀM` được giữ làm bí danh tương thích, các ví dụ mới trong hướng dẫn dùng tên chuẩn.
 - Runtime chạy trên luồng riêng; có trạng thái chạy, tạm dừng, tiếp tục, dừng, hủy và lỗi; kiểm thử hồi quy bao gồm dừng trong lúc chạy và dừng khi đang tạm dừng để xác nhận khối LUÔN_THỰC_HIỆN.
 - Accessibility Service phát gesture Android, gọi hành động hệ thống được hỗ trợ và tạo cửa sổ điều khiển nổi.
+- Hàng đợi tuần tự tối đa 10 kịch bản đã nối cho OWNER và CUSTOMER. Mã nguồn của tác vụ chờ được lưu bằng AES-GCM với khóa Android Keystore; queue/pending được khôi phục khi Accessibility Service kết nối lại sau xác minh phiên.
+- Khi một kịch bản hoàn tất, runner tự chuyển sang tác vụ kế tiếp. Khi dịch vụ/tiến trình bị dừng giữa một lượt chạy, lượt đang thực thi không tự chạy lại; tác vụ chờ còn lại được khôi phục và yêu cầu người dùng nhấn Chạy để tránh lặp thao tác ngoài ý muốn.
+- Retry khi lỗi có công tắc opt-in riêng, tối đa 2 lần với exponential backoff; mặc định tắt vì kịch bản có thể đã thực hiện một phần tác vụ trước khi lỗi.
+- Lịch chạy theo giờ, kích hoạt theo sự kiện ứng dụng/cửa sổ, điều kiện pin/mạng và tác vụ nền định kỳ chưa được triển khai. Android có thể trì hoãn hoặc dừng tác vụ nền; không được coi đây là chạy liên tục được bảo đảm.
 - AUTU Script 1.22 có chuyển đổi DP/pixel, tọa độ vùng an toàn và hướng xoay màn hình; thao tác thực tế theo pixel nguyên.
 - HTTP client dùng OkHttp, hỗ trợ HTTPS GET/POST/PUT/PATCH/DELETE/HEAD, chặn redirect, giới hạn header/body/timeout và không trả các header xác thực nhạy cảm.
 - CSV parser/serializer có dấu nháy, dấu phân cách tùy chọn, BOM và CRLF; giới hạn 64 dòng/64 cột/512 ô/1 MiB; gọi qua PHÂN_TÍCH_CSV và CHUYỂN_CSV.
@@ -96,11 +100,11 @@
 2. **CUSTOMER — mã nguồn đã có, nghiệm thu thực tế còn thiếu:** xác nhận vai trò mặc định là CUSTOMER và Worker từ chối Admin API.
 3. **Giấy phép/thiết bị — API và màn hình đã có, nghiệm thu end-to-end còn thiếu:** OWNER tạo giấy phép; CUSTOMER đăng ký thiết bị; kiểm tra giới hạn thiết bị, ngày hết hạn, thu hồi và phiên đăng nhập.
 4. **Package — mã hóa và API đã có, nghiệm thu phát hành/tải xuống còn thiếu:** OWNER tạo và phát hành package; CUSTOMER tải, giải mã, kiểm tra hash và chạy package bằng giấy phép/thiết bị hợp lệ.
-5. **Runtime — mã nguồn và unit test đã có, kiểm thử thiết bị thật còn thiếu:** kiểm tra CHẠM, NHẤN_GIỮ, VUỐT, CHỜ, mở ứng dụng, pause/resume/stop, LUÔN_THỰC_HIỆN và lỗi quyền Trợ năng.
+5. **Runtime — mã nguồn và unit test đã có, kiểm thử thiết bị thật còn thiếu:** kiểm tra CHẠM, NHẤN_GIỮ, VUỐT, CHỜ, mở ứng dụng, pause/resume/stop, hàng đợi nối tiếp, khôi phục queue, thử lại có giới hạn và lỗi quyền Trợ năng.
 6. **Sao lưu/khôi phục SQLite — mã nguồn và CI đã có, thiết bị thật còn thiếu:** thử xuất qua SAF, thử khôi phục đúng/sai checksum, file hỏng, thiếu dung lượng, đang chạy kịch bản và tình huống rollback; xác nhận database mở lại và dữ liệu giữ nguyên.
 6. **Độ ổn định Android — chưa nghiệm thu:** kiểm tra Xiaomi/HyperOS và Android khác; tối ưu pin, service bị hệ thống dừng, đổi hướng màn hình, khuyết màn hình và độ phân giải.
 7. **Chất lượng — kiểm tra tự động đang được duy trì:** giữ Worker tests, Kotlin unit tests và lint xanh; đối chiếu commit CI với main; kiểm tra bảo mật và không đưa secret vào APK/Git.
-8. **Phạm vi AUTU Script tiếp theo:** sự kiện/tác vụ nền; regex an toàn; module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md. SAF picker đã được nối vào runtime, vẫn cần nghiệm thu trên thiết bị thật. Ngày giờ ISO 8601 đã được bổ sung mã nguồn/unit tests; multipart upload/download đã có CI xanh; SQLite migration, integrity check và backup/restore vẫn cần nghiệm thu trên thiết bị thật.
+8. **Phạm vi AUTU Script tiếp theo:** lịch định giờ và kích hoạt theo sự kiện; điều kiện pin/mạng và tác vụ nền định kỳ; regex an toàn; module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md. SAF picker đã được nối vào runtime, vẫn cần nghiệm thu trên thiết bị thật. Ngày giờ ISO 8601 đã được bổ sung mã nguồn/unit tests; multipart upload/download đã có CI xanh; SQLite migration, integrity check và backup/restore vẫn cần nghiệm thu trên thiết bị thật.
 
 ## 7. Quy tắc an toàn và phát hành
 
