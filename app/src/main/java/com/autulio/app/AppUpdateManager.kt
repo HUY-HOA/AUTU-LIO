@@ -14,6 +14,7 @@ import android.provider.Settings
 import android.widget.Toast
 import org.json.JSONObject
 import java.io.InputStream
+import java.lang.ref.WeakReference
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -26,6 +27,8 @@ object AppUpdateManager {
     private const val DOWNLOAD_HOST = "autu-lio-updates.coc-lio-data.workers.dev"
     private const val PREFS = "app_update_manager"
     private const val KEY_LAST_CHECK = "last_check_ms"
+    private const val KEY_LAST_ANNOUNCEMENT = "last_announcement_at"
+    private const val ANNOUNCEMENT_POLL_INTERVAL_MS = 60_000L
     private const val KEY_DOWNLOAD_ID = "download_id"
     private const val KEY_PENDING_URL = "pending_url"
     private const val KEY_PENDING_VERSION = "pending_version"
@@ -35,8 +38,33 @@ object AppUpdateManager {
     private val handler = Handler(Looper.getMainLooper())
     private val activeDownloads = ConcurrentHashMap.newKeySet<Long>()
     @Volatile private var lastForcedCheckAtMs = 0L
+    @Volatile private var foregroundActivity: WeakReference<Activity>? = null
+    private val announcementPoller = object : Runnable {
+        override fun run() {
+            val activity = foregroundActivity?.get() ?: return
+            if (activity.isFinishing || activity.isDestroyed) {
+                stopAnnouncementPolling(activity)
+                return
+            }
+            check(activity, forceCheck = true, showAnyAvailable = false)
+            handler.postDelayed(this, ANNOUNCEMENT_POLL_INTERVAL_MS)
+        }
+    }
 
-    fun check(activity: Activity, forceCheck: Boolean = false) {
+    fun startAnnouncementPolling(activity: Activity) {
+        foregroundActivity = WeakReference(activity)
+        handler.removeCallbacks(announcementPoller)
+        handler.post(announcementPoller)
+    }
+
+    fun stopAnnouncementPolling(activity: Activity) {
+        if (foregroundActivity?.get() === activity) {
+            handler.removeCallbacks(announcementPoller)
+            foregroundActivity = null
+        }
+    }
+
+    fun check(activity: Activity, forceCheck: Boolean = false, showAnyAvailable: Boolean = forceCheck) {
         resume(activity)
         val context = activity.applicationContext
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -89,26 +117,30 @@ object AppUpdateManager {
                     else JSONObject(policyConnection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
                 } finally { policyConnection.disconnect() }
             } catch (_: Exception) { JSONObject() }
-            val requiredVersion = policy.optString("requiredVersion").trim()
-            val mandatory = policy.optBoolean("mandatory", false) && requiredVersion.isNotBlank() &&
-                isNewerVersion(currentVersion(context), requiredVersion)
+            val announcementAt = policy.optLong("updatedAt", 0L)
+            val lastAnnouncementAt = prefs.getLong(KEY_LAST_ANNOUNCEMENT, 0L)
+            val hasNewAnnouncement = announcementAt > lastAnnouncementAt
+            if (!showAnyAvailable && !hasNewAnnouncement) return@Thread
 
             handler.post {
                 if (activity.isFinishing || activity.isDestroyed) return@post
                 val message = buildString {
                     append("Phiên bản hiện tại: ").append(currentVersion(context))
-                    append("\nPhiên bản mới: ").append(version)
-                    if (notes.isNotBlank()) append("\n\n").append(notes)
-                    if (mandatory) append("\n\nChủ sở hữu đã yêu cầu cập nhật phiên bản này. Bạn cần cài đặt bản mới để tiếp tục sử dụng ứng dụng.")
+                    append("\\nPhiên bản mới: ").append(version)
+                    if (notes.isNotBlank()) append("\\n\\n").append(notes)
+                    append("\\n\\nĐây là thông báo cập nhật không bắt buộc. Bạn có thể chọn tải ngay hoặc để sau.")
                 }
-                val builder = AlertDialog.Builder(activity)
-                    .setTitle(if (mandatory) "Cập nhật bắt buộc AUTU-LIO" else "Có bản cập nhật AUTU-LIO")
+                val dialog = AlertDialog.Builder(activity)
+                    .setTitle("Thông báo cập nhật AUTU-LIO")
                     .setMessage(message)
                     .setPositiveButton("Tải và cập nhật") { _, _ -> requestUpdate(activity, version, downloadUrl, sha) }
-                if (!mandatory) builder.setNegativeButton("Để sau", null)
-                val dialog = builder.create()
-                dialog.setCancelable(!mandatory)
-                dialog.setCanceledOnTouchOutside(!mandatory)
+                    .setNegativeButton("Để sau", null)
+                    .create()
+                dialog.setCancelable(true)
+                dialog.setCanceledOnTouchOutside(true)
+                if (hasNewAnnouncement) {
+                    prefs.edit().putLong(KEY_LAST_ANNOUNCEMENT, announcementAt).apply()
+                }
                 dialog.show()
             }
         }.start()
@@ -116,10 +148,10 @@ object AppUpdateManager {
 
 
     /**
-     * The server checks the authenticated OWNER session before changing the mandatory policy.
-     * The latest version is read from the signed-release manifest; clients never choose a version.
+     * OWNER publishes a voluntary update notice. The backend records a timestamp that
+     * foreground clients poll; it never activates an installation lock.
      */
-    fun setMandatoryUpdate(activity: Activity, accessToken: String?, enabled: Boolean) {
+    fun announceUpdate(activity: Activity, accessToken: String?) {
         val token = accessToken?.trim().orEmpty()
         if (token.isBlank()) {
             Toast.makeText(activity, "Phiên chủ sở hữu không hợp lệ. Vui lòng đăng nhập lại.", Toast.LENGTH_LONG).show()
@@ -128,33 +160,30 @@ object AppUpdateManager {
         val context = activity.applicationContext
         Thread {
             try {
-                var requiredVersion: String? = null
-                if (enabled) {
-                    val manifestConnection = URL(UPDATE_URL).openConnection() as HttpURLConnection
-                    val manifest = try {
-                        manifestConnection.requestMethod = "GET"
-                        manifestConnection.connectTimeout = 10_000
-                        manifestConnection.readTimeout = 12_000
-                        manifestConnection.setRequestProperty("Accept", "application/json")
-                        manifestConnection.setRequestProperty("Cache-Control", "no-store")
-                        manifestConnection.setRequestProperty("User-Agent", "AUTU-LIO-Owner-Update-Control")
-                        if (manifestConnection.responseCode !in 200..299) {
-                            throw IOException("Không đọc được phiên bản phát hành mới nhất.")
-                        }
-                        JSONObject(manifestConnection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
-                    } finally {
-                        manifestConnection.disconnect()
+                val manifestConnection = URL(UPDATE_URL).openConnection() as HttpURLConnection
+                val manifest = try {
+                    manifestConnection.requestMethod = "GET"
+                    manifestConnection.connectTimeout = 10_000
+                    manifestConnection.readTimeout = 12_000
+                    manifestConnection.setRequestProperty("Accept", "application/json")
+                    manifestConnection.setRequestProperty("Cache-Control", "no-store")
+                    manifestConnection.setRequestProperty("User-Agent", "AUTU-LIO-Owner-Update-Notice")
+                    if (manifestConnection.responseCode !in 200..299) {
+                        throw IOException("Không đọc được phiên bản AUTU-LIO mới nhất.")
                     }
-                    if (manifest.optString("applicationId") != context.packageName) {
-                        throw IOException("Manifest không thuộc ứng dụng này.")
-                    }
-                    requiredVersion = manifest.optString("versionName").trim()
-                    val downloadUri = Uri.parse(manifest.optString("downloadUrl"))
-                    if (requiredVersion.isNullOrBlank() || downloadUri.scheme != "https" ||
-                        downloadUri.host != DOWNLOAD_HOST || downloadUri.path?.startsWith("/v1/download/") != true
-                    ) {
-                        throw IOException("Thông tin bản phát hành mới nhất không hợp lệ.")
-                    }
+                    JSONObject(manifestConnection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
+                } finally {
+                    manifestConnection.disconnect()
+                }
+                if (manifest.optString("applicationId") != context.packageName) {
+                    throw IOException("Manifest không thuộc ứng dụng này.")
+                }
+                val version = manifest.optString("versionName").trim()
+                val downloadUri = Uri.parse(manifest.optString("downloadUrl"))
+                if (version.isBlank() || downloadUri.scheme != "https" ||
+                    downloadUri.host != DOWNLOAD_HOST || downloadUri.path?.startsWith("/v1/download/") != true
+                ) {
+                    throw IOException("Thông tin bản phát hành mới nhất không hợp lệ.")
                 }
 
                 val apiBase = context.getString(R.string.api_base_url).trim().trimEnd('/')
@@ -169,8 +198,7 @@ object AppUpdateManager {
                     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     connection.setRequestProperty("Cache-Control", "no-store")
                     connection.setRequestProperty("Authorization", "Bearer " + token)
-                    val body = JSONObject().put("mandatory", enabled)
-                    if (enabled) body.put("requiredVersion", requiredVersion)
+                    val body = JSONObject().put("announcement", true)
                     connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
                     val status = connection.responseCode
                     val stream = if (status in 200..299) connection.inputStream else connection.errorStream
@@ -178,7 +206,7 @@ object AppUpdateManager {
                     if (status !in 200..299) {
                         val detail = runCatching { JSONObject(responseText).optString("message") }.getOrNull().orEmpty()
                         throw IOException(detail.ifBlank {
-                            if (status == 403) "Chỉ chủ sở hữu được yêu cầu cập nhật bắt buộc."
+                            if (status == 403) "Chỉ chủ sở hữu được thông báo cập nhật."
                             else "Máy chủ từ chối yêu cầu (HTTP $status)."
                         })
                     }
@@ -187,22 +215,16 @@ object AppUpdateManager {
                 }
 
                 handler.post {
-                    val message = if (enabled) {
-                        "Đã bật yêu cầu cập nhật bắt buộc tới phiên bản $requiredVersion. Thiết bị dùng bản cũ sẽ phải cập nhật khi kết nối."
-                    } else {
-                        "Đã tắt yêu cầu cập nhật bắt buộc."
-                    }
-                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
-                    if (enabled && !activity.isFinishing && !activity.isDestroyed) {
-                        // Re-check immediately so the owner is also gated when running an older build.
-                        lastForcedCheckAtMs = 0L
-                        check(activity, forceCheck = true)
-                    }
+                    Toast.makeText(
+                        activity,
+                        "Đã gửi thông báo cập nhật AUTU-LIO phiên bản $version. Người dùng đang mở ứng dụng sẽ nhận trong khoảng 1 phút; người khác sẽ nhận khi mở lại có Internet.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             } catch (error: Exception) {
                 handler.post {
                     val message = error.message?.takeIf { it.isNotBlank() }
-                        ?: "Không thể cập nhật chính sách phiên bản. Hãy thử lại."
+                        ?: "Không thể gửi thông báo cập nhật. Hãy thử lại."
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
                 }
             }
