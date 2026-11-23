@@ -1,4 +1,5 @@
 # Build request: publish the updated AUTU-LIO updater-enabled release APK.
+# Owner-requested build confirmation: 2026-11-24.
 name: AUTU-LIO Android APK
 
 run-name: AUTU-LIO Release APK - ${{ github.ref_name }}
