@@ -26,16 +26,15 @@ Sau khi có Android Client ID, thêm ID đó vào biến Worker `GOOGLE_ALLOWED_
 
 Có thể lấy fingerprint của cấu hình ký Android bằng tác vụ Gradle `signingReport` trong môi trường phát triển. Không gửi file keystore hoặc mật khẩu ký cho cộng tác viên.
 
-## 3. Cloudflare Worker secrets
+## 3. Cloudflare Worker variables and secrets
 
 Sau khi xác nhận đúng Google Web Client ID và định danh chủ sở hữu, đặt các giá trị trong thư mục `backend`:
 
 ```sh
-npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put OWNER_GOOGLE_SUB
 ```
 
-- `GOOGLE_CLIENT_ID`: Web application Client ID; phải trùng Server Client ID mà Android dùng để yêu cầu ID token.
+- `GOOGLE_CLIENT_ID`: Web application Client ID công khai; được khai báo trong `vars.GOOGLE_CLIENT_ID` của `backend/wrangler.jsonc`, phải trùng Server Client ID mà Android dùng để yêu cầu ID token. Không tạo Worker Secret cho giá trị này.
 - `OWNER_GOOGLE_SUB`: claim `sub` của Google ID token thuộc tài khoản chủ sở hữu. Worker chỉ cấp OWNER khi chữ ký, issuer, audience, thời hạn, email đã xác minh và nonce của ID token hợp lệ, sau đó claim `sub` trùng chính xác secret này.
 - Không dùng Gmail/email làm điều kiện cấp OWNER. Đổi email không làm thay đổi cách Worker nhận diện chủ sở hữu.
 - Không đưa Google ID token, client secret hoặc Cloudflare API token lên GitHub, issue, chat hay APK. Chỉ lưu giá trị `sub` trong Worker Secret.
@@ -68,7 +67,7 @@ Các giá trị này không phải khóa bí mật. Nếu để trống, app v�
 ## 5. Triển khai Worker
 
 Trước khi deploy:
-1. Xác nhận `GOOGLE_CLIENT_ID` và `OWNER_GOOGLE_SUB` đã được cấu hình an toàn.
+1. Xác nhận biến `GOOGLE_CLIENT_ID` trong `backend/wrangler.jsonc` và Secret `OWNER_GOOGLE_SUB` đã được cấu hình đúng.
 2. Kiểm tra binding D1 `autu_lio_auth` trong `backend/wrangler.jsonc`.
 3. Cài Wrangler theo phiên bản ổn định phù hợp và chạy `npm run check`.
 4. D1 `autu_lio_auth` đã áp dụng migrations `0001`–`0006`; migration `0006` đã xóa các bảng cộng tác và chuyển mọi vai trò cũ khác OWNER/CUSTOMER về CUSTOMER.
