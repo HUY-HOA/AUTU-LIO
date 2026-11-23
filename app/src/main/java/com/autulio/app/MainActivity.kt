@@ -85,12 +85,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun prepareDisplayGeometryCapture() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            window.attributes = window.attributes.apply {
-                layoutInDisplayCutoutMode =
-                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            }
-        }
+        // Keep the Activity in the system-safe display area. The Compose root
+        // applies safeDrawingPadding() so content never overlaps the status bar
+        // or display cutout on edge-to-edge Android versions.
         val decor = window.decorView
         decor.setOnApplyWindowInsetsListener { _, insets ->
             cacheDisplayGeometry(insets)
@@ -164,21 +161,28 @@ private fun AutuLioAppEntry() {
         LocalOnUiThemeModeChange provides updateThemeMode
     ) {
         AppTheme(dark = themeMode.isDark(systemIsDark)) {
-            if (!BuildConfig.DEBUG) {
-                AuthenticatedAppHost()
-            } else if (previewRole == null) {
-                RolePreviewChooser(onOpenRole = { previewRole = it.name })
-            } else {
-                BackHandler { previewRole = null }
-                val role = runCatching { AccessRole.valueOf(previewRole.orEmpty()) }
-                    .getOrDefault(AccessRole.CUSTOMER)
-                when (role) {
-                    AccessRole.OWNER -> AdminApp(accessToken = null, onLogout = { previewRole = null })
-                    else -> CustomerApp(
-                        accessToken = null,
-                        email = tr("Tài khoản xem thử", "Preview account"),
-                        onLogout = { previewRole = null }
-                    )
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+                    if (!BuildConfig.DEBUG) {
+                        AuthenticatedAppHost()
+                    } else if (previewRole == null) {
+                        RolePreviewChooser(onOpenRole = { previewRole = it.name })
+                    } else {
+                        BackHandler { previewRole = null }
+                        val role = runCatching { AccessRole.valueOf(previewRole.orEmpty()) }
+                            .getOrDefault(AccessRole.CUSTOMER)
+                        when (role) {
+                            AccessRole.OWNER -> AdminApp(accessToken = null, onLogout = { previewRole = null })
+                            else -> CustomerApp(
+                                accessToken = null,
+                                email = tr("Tài khoản xem thử", "Preview account"),
+                                onLogout = { previewRole = null }
+                            )
+                        }
+                    }
                 }
             }
         }
