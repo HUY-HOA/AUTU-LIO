@@ -376,9 +376,7 @@ internal fun AdminApp(
             when (page) {
                 "overview" -> OverviewScreen(
                     Modifier.padding(padding),
-                    accessToken = accessToken,
-                    onCreateScript = { createDialog = true },
-                    onOpenCustomers = { page = "customers" }
+                    accessToken = accessToken
                 )
                 "scripts" -> ScriptsScreen(
                     Modifier.padding(padding),
@@ -473,9 +471,7 @@ internal fun CustomerApp(
             when (page) {
                 "home" -> CustomerHome(
                     modifier = Modifier.padding(padding),
-                    accessToken = accessToken,
-                    onOpenPackages = { page = "scripts" },
-                    onOpenDevices = { page = "device" }
+                    accessToken = accessToken
                 )
                 "scripts" -> CustomerPackagesScreen(
                     accessToken = accessToken,
@@ -497,9 +493,7 @@ internal fun CustomerApp(
 @Composable
 private fun OverviewScreen(
     modifier: Modifier,
-    accessToken: String?,
-    onCreateScript: () -> Unit,
-    onOpenCustomers: () -> Unit
+    accessToken: String?
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -593,31 +587,10 @@ private fun OverviewScreen(
                     fontSize = 11.sp
                 )
                 Text(
-                    tr("Truy cập nhanh", "Quick actions"),
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp
+                    tr("Chọn mục trên thanh điều hướng để quản lý chi tiết.", "Use the navigation bar to open each management area."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Button(
-                        onClick = onCreateScript,
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                    ) {
-                        Icon(Icons.Outlined.Add, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(tr("Tạo AUTU", "New AUTU"), fontSize = 12.sp, maxLines = 1)
-                    }
-                    OutlinedButton(
-                        onClick = onOpenCustomers,
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                    ) {
-                        Icon(Icons.Outlined.Group, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(tr("Khách hàng", "Customers"), fontSize = 12.sp, maxLines = 1)
-                    }
-                }
             }
         }
 
@@ -1501,9 +1474,7 @@ private fun AdminModulePage(
 @Composable
 private fun CustomerHome(
     modifier: Modifier,
-    accessToken: String?,
-    onOpenPackages: () -> Unit,
-    onOpenDevices: () -> Unit
+    accessToken: String?
 ) {
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
@@ -1594,31 +1565,10 @@ private fun CustomerHome(
         }
 
         Text(
-            tr("Truy cập nhanh", "Quick access"),
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp
+            tr("Dùng thanh điều hướng bên dưới để mở Kho AUTU hoặc Thiết bị.", "Use the navigation bar below to open the AUTU library or device area."),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 11.sp
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            FilledTonalButton(
-                onClick = onOpenPackages,
-                modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-            ) {
-                Icon(Icons.Outlined.Code, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text(tr("Kho AUTU", "AUTU library"), fontSize = 12.sp, maxLines = 1)
-            }
-            OutlinedButton(
-                onClick = onOpenDevices,
-                modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-            ) {
-                Icon(Icons.Outlined.Smartphone, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text(tr("Thiết bị", "Devices"), fontSize = 12.sp, maxLines = 1)
-            }
-        }
         Text(
             tr(
                 "Chỉ những gói AUTU được cấp cho tài khoản và thiết bị hợp lệ mới có thể tải và sử dụng.",
