@@ -38,6 +38,7 @@
 
 ### Theo dõi trạng thái sử dụng
 - D1 migration `0008_device_presence.sql` bổ sung thời điểm tín hiệu hiện diện, thời điểm ứng dụng ở nền trước và trạng thái bộ chạy; tách biệt hoàn toàn với trạng thái cấp quyền thiết bị.
+- D1 migration `0010_package_customer_distribution.sql` bổ sung phạm vi phân phối riêng cho từng gói: tất cả khách hàng có giấy phép hoặc chỉ các CUSTOMER được OWNER chọn. Mặc định `ALL_LICENSED` giữ nguyên quyền truy cập hiện tại.
 - CUSTOMER gửi tín hiệu khi ứng dụng đang ở nền trước mỗi 45 giây. Accessibility Service chỉ gửi tín hiệu nền khi AUTU đang chạy hoặc tạm dừng.
 - Màn hình quản trị phân loại: đang kết nối (tối đa 2 phút), vừa hoạt động (2–10 phút), ngoại tuyến (trên 10 phút), hoặc chưa có dữ liệu. Trạng thái AUTU cũ không được hiển thị như trạng thái hiện tại khi tín hiệu đã quá hạn.
 - Chỉ lưu dấu thời gian và trạng thái ứng dụng/bộ chạy; không thu thập nội dung màn hình, thao tác cá nhân hoặc vị trí.
@@ -65,7 +66,10 @@
 
 ### Quản lý và phân phối AUTU
 - Backend có API quản lý khách hàng, thiết bị, giấy phép và package.
+- OWNER có thể xem và chỉnh danh sách CUSTOMER được phép nhận từng gói AUTU. API phía máy chủ lọc cả danh sách và tải trực tiếp; chế độ mặc định `ALL_LICENSED` tương thích với các gói hiện có.
+- Cloudflare deploy run `45149801631` đã áp dụng thành công migration D1 0010 và triển khai Worker/website Production.
 - Có cấu trúc mã hóa package AES-GCM, bọc khóa theo thiết bị RSA và xác minh hash ở phía Android.
+- Quyền phân phối theo khách hàng đã có ở Worker và giao diện OWNER; cần nghiệm thu chọn/loại CUSTOMER, danh sách package và từ chối tải trực tiếp trên tài khoản CUSTOMER thật.
 - Quy trình end-to-end từ tạo package, phát hành, cấp giấy phép, đăng ký thiết bị, tải xuống, giải mã đến chạy vẫn cần kiểm thử nghiệm thu bằng tài khoản CUSTOMER thật.
 
 ## 4. Website và bản Release
