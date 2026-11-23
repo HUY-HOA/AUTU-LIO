@@ -22,7 +22,7 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 
-/** Checks this app's independent Cloudflare updater and uses Android's normal installer. */
+/** Installs only the exact release manifest that OWNER has published through the Cloudflare updater. */
 object AppUpdateManager {
     private const val UPDATE_URL = "https://autu-lio-updates.coc-lio-data.workers.dev/v1/latest"
     private const val DOWNLOAD_HOST = "autu-lio-updates.coc-lio-data.workers.dev"
