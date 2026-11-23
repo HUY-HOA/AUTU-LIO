@@ -89,8 +89,12 @@ object AppUpdateManager {
             }
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val pendingVersion = prefs.getString(KEY_PENDING_VERSION, null)
+            val pendingUrl = prefs.getString(KEY_PENDING_URL, null)
+            val pendingSha = prefs.getString(KEY_PENDING_SHA256, null)
+            val pendingMatchesRelease = pendingVersion == version && pendingUrl == downloadUrl &&
+                pendingSha.equals(sha, ignoreCase = true)
             val existingDownloadId = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
-            if (existingDownloadId > 0L && pendingVersion == version) {
+            if (existingDownloadId > 0L && pendingMatchesRelease) {
                 handler.post {
                     if (activity.isFinishing || activity.isDestroyed) return@post
                     resume(activity)
@@ -98,14 +102,16 @@ object AppUpdateManager {
                 }
                 return@Thread
             }
-            if (existingDownloadId > 0L && pendingVersion != version) {
+            if (existingDownloadId > 0L && !pendingMatchesRelease) {
                 val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 runCatching { downloadManager.remove(existingDownloadId) }
+                clearPending(context)
+            } else if (pendingVersion != null && !pendingMatchesRelease) {
                 clearPending(context)
             }
             handler.post {
                 if (activity.isFinishing || activity.isDestroyed) return@post
-                if (pendingVersion == version && canInstallPackages(context)) {
+                if (pendingMatchesRelease && canInstallPackages(context)) {
                     resume(activity)
                 } else {
                     requestUpdate(activity, version, downloadUrl, sha)
@@ -129,8 +135,7 @@ object AppUpdateManager {
         }
     }
     /**
-     * OWNER publishes a voluntary update notice. The backend records a timestamp that
-     * foreground clients poll; it never activates an installation lock.
+     * OWNER publishes this exact manifest snapshot. The Worker activates it only after FCM accepts the notice.
      */
     fun announceUpdate(activity: Activity, accessToken: String?) {
         val token = accessToken?.trim().orEmpty()
@@ -250,12 +255,19 @@ object AppUpdateManager {
                 currentPublishedUrl == pendingUrl &&
                 currentPublishedSha.equals(pendingSha, ignoreCase = true)
             if (!isStillPublished) {
-                val oldId = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
-                if (oldId > 0L) {
-                    val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                    runCatching { manager.remove(oldId) }
+                synchronized(this) {
+                    val stateStillMatches = prefs.getString(KEY_PENDING_VERSION, null) == pendingVersion &&
+                        prefs.getString(KEY_PENDING_URL, null) == pendingUrl &&
+                        prefs.getString(KEY_PENDING_SHA256, null).equals(pendingSha, ignoreCase = true)
+                    if (stateStillMatches) {
+                        val oldId = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
+                        if (oldId > 0L) {
+                            val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                            runCatching { manager.remove(oldId) }
+                        }
+                        clearPending(context)
+                    }
                 }
-                clearPending(context)
                 return@Thread
             }
             if (!canInstallPackages(context)) return@Thread
@@ -285,6 +297,7 @@ object AppUpdateManager {
         beginDownload(activity, version, url, sha)
     }
 
+    @Synchronized
     private fun beginDownload(activity: Activity, version: String, url: String, sha: String?) {
         val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getLong(KEY_DOWNLOAD_ID, -1L) > 0L) return
