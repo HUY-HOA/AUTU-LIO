@@ -3,7 +3,7 @@ package com.autulio.app
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.DownloadManager
-import android.app.PackageInstaller
+import android.content.pm.PackageInstaller
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
