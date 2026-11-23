@@ -7,6 +7,19 @@ import org.junit.Test
 
 class AutomationRunPolicyTest {
     @Test
+    fun targetPackageMustBeAnExactAndroidApplicationId() {
+        assertTrue(AutomationRunPolicy.isValidTargetPackage("com.example.app"))
+        assertTrue(AutomationRunPolicy.isValidTargetPackage("com.SuperCell.game_2"))
+        assertFalse(AutomationRunPolicy.isValidTargetPackage(null))
+        assertFalse(AutomationRunPolicy.isValidTargetPackage(""))
+        assertFalse(AutomationRunPolicy.isValidTargetPackage("com"))
+        assertFalse(AutomationRunPolicy.isValidTargetPackage("com.example.*"))
+        assertFalse(AutomationRunPolicy.isValidTargetPackage("com.example app"))
+        assertFalse(AutomationRunPolicy.isValidTargetPackage(".example.app"))
+        assertFalse(AutomationRunPolicy.isValidTargetPackage("com.example."))
+    }
+
+    @Test
     fun scheduleDelayIsBoundedAndZeroMeansManualStart() {
         val now = 1_800_000_000_000L
         assertEquals(0L, AutomationRunPolicy.scheduledStartAt(now, 0))
