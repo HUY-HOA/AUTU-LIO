@@ -1476,10 +1476,18 @@ internal fun CustomerPackagesScreen(
                                         )
                                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                                     } else if (service.prepareProgram(compilation.program, item.name, source)) {
-                                        notice = tr(
-                                            "Đã giải mã, kiểm tra toàn vẹn và chuẩn bị AUTU. Chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.",
-                                            "AUTU was decrypted, integrity-checked and prepared. Switch to the target app and press Run on the floating controller."
-                                        )
+                                        val queuedCount = service.queuedProgramCount()
+                                        notice = if (queuedCount > 0) {
+                                            tr(
+                                                "Đã thêm gói vào hàng đợi ($queuedCount). Gói sẽ chạy sau khi kịch bản hiện tại hoàn tất.",
+                                                "Package added to the queue ($queuedCount). It will run after the current script completes."
+                                            )
+                                        } else {
+                                            tr(
+                                                "Đã giải mã, kiểm tra toàn vẹn và chuẩn bị AUTU. Chuyển sang ứng dụng mục tiêu rồi nhấn Chạy trên cửa sổ nổi.",
+                                                "AUTU was decrypted, integrity-checked and prepared. Switch to the target app and press Run on the floating controller."
+                                            )
+                                        }
                                     } else {
                                         throw IllegalStateException(
                                             tr("Không thể chuẩn bị bộ chạy AUTU trên thiết bị.", "Could not prepare the AUTU runner on this device.")
