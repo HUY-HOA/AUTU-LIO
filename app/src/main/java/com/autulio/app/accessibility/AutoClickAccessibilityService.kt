@@ -334,13 +334,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         if (!packageName.isNullOrBlank()) {
             foregroundPackage = packageName
         }
-        if (event?.eventType in setOf(
-                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-                AccessibilityEvent.TYPE_WINDOWS_CHANGED,
-                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
-            )
-        ) {
-            mainHandler.post { maybeStartScheduledProgram() }
+        when (event?.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED,
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                mainHandler.post { maybeStartScheduledProgram() }
+            }
         }
     }
 
