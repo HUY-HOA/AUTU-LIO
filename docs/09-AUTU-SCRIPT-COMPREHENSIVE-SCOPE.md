@@ -36,13 +36,13 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt và chạm/vuốt đồng thời 2–5 ngón, tối đa 16 điểm mỗi đường; kéo-thả đường cong chuyên biệt còn thiếu |
 | Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Đã có quy đổi DP/pixel, tỷ lệ toàn màn hình/vùng an toàn và chuyển tọa độ giữa hướng ROTATION_0 với hướng logic hiện tại; lệnh thao tác nhận pixel nguyên; kéo-thả đường cong còn thiếu |
 | Sự kiện | Thay đổi cửa sổ, nội dung, thông báo do người dùng cấp quyền, trạng thái ứng dụng | Còn thiếu |
-| Lịch và nền | Lịch chạy, hàng đợi, retry, điều kiện pin/mạng, tác vụ định kỳ và thông báo trạng thái | Còn thiếu |
+| Lịch và nền | Lịch chạy, hàng đợi, retry, điều kiện pin/mạng, tác vụ định kỳ và thông báo trạng thái | Đã có hàng đợi tuần tự tối đa 10 tác vụ, lưu mã nguồn mã hóa AES-GCM bằng Android Keystore, khôi phục sau khi dịch vụ khởi động lại nhưng yêu cầu người dùng nhấn Chạy; retry có opt-in, tối đa 2 lần với backoff và mặc định tắt. Lịch định giờ, kích hoạt theo sự kiện, điều kiện pin/mạng và tác vụ nền định kỳ còn thiếu |
 | Thiết bị | Pin, sạc, mạng, màn hình, ứng dụng foreground và thông số màn hình | Đã có pin/sạc/mạng, trạng thái màn hình, pixel/DP, density, hướng/xoay, package foreground, model/nhà sản xuất/phiên bản Android và trạng thái Keyguard; âm lượng/rung/clipboard còn thiếu |
 | Giao diện kịch bản | Form, nút, ô nhập, danh sách, bảng điều khiển và biến tương tác | Còn thiếu |
 | Thư viện | Module, import/export, phiên bản thư viện, tái sử dụng hàm | Còn thiếu |
 | Trình soạn thảo | Tô màu, gợi ý, tự hoàn thành, kiểm tra kiểu, mẫu mã, định dạng | Một phần |
 | Gỡ lỗi | Breakpoint, chạy từng bước, xem biến, call stack, nhật ký, xuất báo cáo lỗi | Một phần |
-| Quản lý chạy | Chạy/tạm dừng/tiếp tục/dừng và cửa sổ nổi | Đã có; hàng đợi nhiều kịch bản và lịch sử chi tiết còn thiếu |
+| Quản lý chạy | Chạy/tạm dừng/tiếp tục/dừng và cửa sổ nổi | Đã có; hàng đợi tuần tự có lưu/khôi phục mã hóa và tự chạy tiếp sau khi kịch bản hoàn tất; lịch sử chi tiết còn thiếu |
 | Kiểm thử | Test parser/runtime, test thiết bị, test quyền, test tương thích Android | Một phần |
 
 ### Các API màn hình đã nối runtime ở 1.18–1.21
