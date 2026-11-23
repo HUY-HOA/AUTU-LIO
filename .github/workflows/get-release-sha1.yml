@@ -2,11 +2,6 @@ name: AUTU-LIO - Lấy SHA-1 khóa ký Release
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/get-release-sha1.yml"
 
 permissions:
   contents: read
@@ -79,5 +74,3 @@ jobs:
 
           echo "SHA-1 certificate fingerprint:"
           echo "$SHA1"
-          echo "SHA-256 certificate fingerprint:"
-          echo "$SHA256"
