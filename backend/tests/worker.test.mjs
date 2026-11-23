@@ -1590,6 +1590,7 @@ test("owner can read and update selected customer distribution for an AUTU packa
       prepare(sql) {
         queries.push(sql);
         return {
+          sql,
           values: [],
           bind(...values) { this.values = values; return this; },
           async first() {
