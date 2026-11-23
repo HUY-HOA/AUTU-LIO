@@ -814,6 +814,11 @@ internal fun AdminPackagesScreen(
     var sourceInfo by remember { mutableStateOf<com.autulio.app.auth.AdminPackageSourceInfo?>(null) }
     var sourceViewMode by remember { mutableStateOf("SOURCE") }
     var inspectingPackageId by remember { mutableStateOf<String?>(null) }
+    var distributionInfo by remember { mutableStateOf<com.autulio.app.auth.PackageDistributionInfo?>(null) }
+    var distributionMode by remember { mutableStateOf("ALL_LICENSED") }
+    var selectedCustomerIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var distributionLoadingPackageId by remember { mutableStateOf<String?>(null) }
+    var distributionSaving by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var publishing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
@@ -1067,10 +1072,202 @@ internal fun AdminPackagesScreen(
                             }
                         }
                         if (item.description.isNotBlank()) Text(item.description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Text(
+                            if (item.distributionMode == "SELECTED_CUSTOMERS") {
+                                tr("Phân phối: khách hàng được chọn", "Distribution: selected customers")
+                            } else {
+                                tr("Phân phối: tất cả khách có giấy phép", "Distribution: all licensed customers")
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                val token = accessToken ?: return@OutlinedButton
+                                scope.launch {
+                                    distributionLoadingPackageId = item.id
+                                    error = ""
+                                    try {
+                                        val info = repository.getAdminPackageDistribution(token, item.id)
+                                        distributionInfo = info
+                                        distributionMode = info.distributionMode
+                                        selectedCustomerIds = info.customers.filter { it.assigned }.map { it.id }.toSet()
+                                    } catch (exception: Exception) {
+                                        error = localizedErrorMessage(
+                                            exception,
+                                            tr("Không tải được danh sách khách hàng nhận gói.", "Could not load package recipients.")
+                                        )
+                                    } finally {
+                                        distributionLoadingPackageId = null
+                                    }
+                                }
+                            },
+                            enabled = distributionLoadingPackageId == null && !distributionSaving
+                        ) {
+                            if (distributionLoadingPackageId == item.id) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(tr("Phân phối cho khách hàng", "Customer distribution"))
+                        }
                     }
                 }
             }
         }
+    }
+
+
+    distributionInfo?.let { info ->
+        AlertDialog(
+            onDismissRequest = { if (!distributionSaving) distributionInfo = null },
+            title = { Text(tr("Phân phối gói AUTU", "AUTU package distribution")) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(info.packageName, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        tr(
+                            "Chọn tài khoản CUSTOMER được phép nhìn thấy và tải gói này. Giấy phép và thiết bị vẫn được máy chủ kiểm tra riêng.",
+                            "Choose which CUSTOMER accounts can see and download this package. License and device eligibility are still checked separately by the server."
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = distributionMode == "ALL_LICENSED",
+                            onClick = { distributionMode = "ALL_LICENSED" },
+                            label = { Text(tr("Tất cả khách có giấy phép", "All licensed")) }
+                        )
+                        FilterChip(
+                            selected = distributionMode == "SELECTED_CUSTOMERS",
+                            onClick = { distributionMode = "SELECTED_CUSTOMERS" },
+                            label = { Text(tr("Chọn khách hàng", "Selected customers")) }
+                        )
+                    }
+                    if (distributionMode == "ALL_LICENSED") {
+                        Text(
+                            tr(
+                                "Mọi tài khoản CUSTOMER có giấy phép còn hiệu lực và thiết bị được đăng ký đều có thể nhận gói.",
+                                "Every CUSTOMER with a current license and a registered device can receive this package."
+                            ),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            tr(
+                                "Đã chọn ${selectedCustomerIds.size}/${info.customers.size} khách hàng.",
+                                "${selectedCustomerIds.size}/${info.customers.size} customers selected."
+                            ),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        if (info.customers.isEmpty()) {
+                            Text(
+                                tr("Chưa có tài khoản CUSTOMER để phân phối.", "There are no CUSTOMER accounts to assign."),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                        } else {
+                            info.customers.forEach { customer ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        selectedCustomerIds = if (customer.id in selectedCustomerIds) {
+                                            selectedCustomerIds - customer.id
+                                        } else {
+                                            selectedCustomerIds + customer.id
+                                        }
+                                    }.padding(vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = customer.id in selectedCustomerIds,
+                                        onCheckedChange = { checked ->
+                                            selectedCustomerIds = if (checked) {
+                                                selectedCustomerIds + customer.id
+                                            } else {
+                                                selectedCustomerIds - customer.id
+                                            }
+                                        }
+                                    )
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            customer.displayName?.takeIf { it.isNotBlank() } ?: customer.email,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        if (customer.displayName?.isNotBlank() == true) {
+                                            Text(
+                                                customer.email,
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Text(
+                                            statusText(customer.status),
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (selectedCustomerIds.isEmpty()) {
+                            Text(
+                                tr("Cần chọn ít nhất một khách hàng để lưu chế độ này.", "Select at least one customer before saving this mode."),
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !distributionSaving &&
+                        (distributionMode == "ALL_LICENSED" || selectedCustomerIds.isNotEmpty()),
+                    onClick = {
+                        val token = accessToken ?: return@TextButton
+                        val packageId = info.packageId
+                        val mode = distributionMode
+                        val recipients = if (mode == "SELECTED_CUSTOMERS") selectedCustomerIds.toList() else emptyList()
+                        scope.launch {
+                            distributionSaving = true
+                            error = ""
+                            try {
+                                repository.updateAdminPackageDistribution(token, packageId, mode, recipients)
+                                notice = if (mode == "ALL_LICENSED") {
+                                    tr("Đã cho phép mọi khách có giấy phép nhận gói.", "Package is now available to all licensed customers.")
+                                } else {
+                                    tr("Đã lưu danh sách ${recipients.size} khách hàng được nhận gói.", "Saved ${recipients.size} package recipients.")
+                                }
+                                distributionInfo = null
+                                refresh()
+                            } catch (exception: Exception) {
+                                error = localizedErrorMessage(
+                                    exception,
+                                    tr("Không lưu được cấu hình phân phối gói.", "Could not save package distribution.")
+                                )
+                            } finally {
+                                distributionSaving = false
+                            }
+                        }
+                    }
+                ) {
+                    if (distributionSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else Text(tr("Lưu phân phối", "Save distribution"))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !distributionSaving,
+                    onClick = { distributionInfo = null }
+                ) { Text(tr("Hủy", "Cancel")) }
+            }
+        )
     }
 
     sourceInfo?.let { info ->
