@@ -170,7 +170,7 @@ async function json(response) {
   return response.json();
 }
 
-test("OWNER can publish only a voluntary update announcement", async () => {
+test("OWNER update announcements fail closed until Firebase push credentials are configured", async () => {
   const { env, queries } = createEnv({ session: ownerSession });
   const response = await worker.fetch(
     makeRequest("/api/admin/app-update-policy", {
@@ -179,21 +179,14 @@ test("OWNER can publish only a voluntary update announcement", async () => {
         Authorization: `Bearer ${"O".repeat(48)}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ announcement: true })
+      body: JSON.stringify({ announcement: true, version: "0.2.0" })
     }),
     env
   );
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 503);
   const body = await json(response);
-  assert.equal(body.updated, true);
-  assert.equal(body.announcementSent, true);
-  assert.equal(body.mandatory, false);
-  assert.equal(body.requiredVersion, null);
-  assert.ok(body.updatedAt > 0);
-  assert.ok(queries.some(sql =>
-    sql.includes("INSERT INTO app_update_policy") &&
-    sql.includes("VALUES (1, 0, NULL, ?, ?)")
-  ));
+  assert.equal(body.error, "fcm_not_configured");
+  assert.ok(!queries.some(sql => sql.includes("INSERT INTO app_update_policy")));
 });
 
 test("owner bootstrap matches the verified Google sub, not the email address", () => {
