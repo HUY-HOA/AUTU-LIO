@@ -1336,6 +1336,7 @@ internal fun CustomerPackagesScreen(
     var runningId by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf("") }
+    var retryOnFailure by rememberSaveable { mutableStateOf(false) }
 
     suspend fun refresh() {
         if (accessToken.isNullOrBlank() || identity == null) return
@@ -1366,6 +1367,29 @@ internal fun CustomerPackagesScreen(
             IconButton(onClick = { scope.launch { refresh() } }, enabled = !loading && !accessToken.isNullOrBlank() && identity != null) {
                 Icon(Icons.Outlined.Refresh, contentDescription = tr("Làm mới", "Refresh"))
             }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    tr("Tự thử lại khi lỗi (tối đa 2 lần)", "Retry automatically on failure (up to 2 times)"),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    tr("Có thể lặp thao tác đã thực hiện một phần. Chỉ bật cho AUTU an toàn khi chạy lại.",
+                        "May repeat partly completed actions. Enable only for AUTUs safe to rerun."),
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = retryOnFailure,
+                onCheckedChange = { retryOnFailure = it }
+            )
         }
         if (accessToken.isNullOrBlank()) {
             LiveManagementUnavailable()
@@ -1475,7 +1499,13 @@ internal fun CustomerPackagesScreen(
                                             "The package was downloaded and verified. Enable AUTU-LIO under Settings > Accessibility, return here and tap Prepare to run again."
                                         )
                                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                    } else if (service.prepareProgram(compilation.program, item.name, source)) {
+                                    } else if (service.prepareProgram(
+                                            compilation.program,
+                                            item.name,
+                                            source,
+                                            retryOnFailure = retryOnFailure,
+                                            maxRetries = if (retryOnFailure) 2 else 0
+                                        )) {
                                         val queuedCount = service.queuedProgramCount()
                                         notice = if (queuedCount > 0) {
                                             tr(
