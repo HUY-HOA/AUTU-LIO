@@ -203,19 +203,17 @@ object AppUpdateManager {
                     val notificationSent = runCatching {
                         JSONObject(responseText).optBoolean("notificationSent", false)
                     }.getOrDefault(false)
-                    if (!notificationSent) {
-                        throw IOException("Máy chủ chưa xác nhận gửi FCM. Hãy kiểm tra cấu hình Firebase trên Cloudflare.")
-                    }
                 } finally {
                     connection.disconnect()
                 }
 
                 handler.post {
-                    Toast.makeText(
-                        activity,
-                        "Đã gửi thông báo cập nhật AUTU-LIO phiên bản $version qua FCM đến các thiết bị đã đăng ký.",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    val message = if (notificationSent) {
+                        "Đã công bố AUTU-LIO phiên bản $version và gửi thông báo đến các thiết bị đã đăng ký."
+                    } else {
+                        "Đã công bố AUTU-LIO phiên bản $version. Người dùng sẽ tự kiểm tra cập nhật khi mở ứng dụng. (FCM chưa cấu hình.)"
+                    }
+                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
                 }
             } catch (error: Exception) {
                 handler.post {
