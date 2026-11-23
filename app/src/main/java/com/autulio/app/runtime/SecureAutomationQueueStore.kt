@@ -12,11 +12,13 @@ data class AutomationQueueEntry(
     val retryOnFailure: Boolean = false,
     val maxRetries: Int = 0,
     val retryDelayMs: Long = 2_000L,
-    val attempts: Int = 0
+    val attempts: Int = 0,
+    val startAtEpochMs: Long = 0L
 )
 
 data class AutomationQueueSnapshot(
     val prepared: AutomationQueueEntry? = null,
+    val inProgress: AutomationQueueEntry? = null,
     val queued: List<AutomationQueueEntry> = emptyList()
 )
 
@@ -43,7 +45,11 @@ class SecureAutomationQueueStore(context: Context) {
                     add(entry)
                 }
             }
-            AutomationQueueSnapshot(prepared, queued)
+            AutomationQueueSnapshot(
+                prepared = prepared,
+                inProgress = parseEntry(root.optJSONObject("inProgress")),
+                queued = queued
+            )
         }.getOrElse { AutomationQueueSnapshot() }
     }
 
@@ -52,6 +58,7 @@ class SecureAutomationQueueStore(context: Context) {
         val root = JSONObject().apply {
             put("version", FORMAT_VERSION)
             put("prepared", snapshot.prepared?.let(::encodeEntry) ?: JSONObject.NULL)
+            put("inProgress", snapshot.inProgress?.let(::encodeEntry) ?: JSONObject.NULL)
             put("queued", JSONArray().apply {
                 snapshot.queued.forEach { put(encodeEntry(it)) }
             })
@@ -74,6 +81,7 @@ class SecureAutomationQueueStore(context: Context) {
             put("maxRetries", entry.maxRetries)
             put("retryDelayMs", entry.retryDelayMs)
             put("attempts", entry.attempts)
+            put("startAtEpochMs", entry.startAtEpochMs)
         }
 
     private fun parseEntry(json: JSONObject?): AutomationQueueEntry? {
@@ -100,7 +108,8 @@ class SecureAutomationQueueStore(context: Context) {
             retryOnFailure = retry,
             maxRetries = maxRetries,
             retryDelayMs = delay,
-            attempts = attempts
+            attempts = attempts,
+            startAtEpochMs = json.optLong("startAtEpochMs", 0L).coerceAtLeast(0L)
         )
     }
 
