@@ -69,6 +69,7 @@ jobs:
           assert manifest.get("downloadUrl") == expected_url, manifest.get("downloadUrl")
           assert re.fullmatch(r"[a-fA-F0-9]{64}", digest), f"invalid SHA-256: {digest}"
           assert manifest.get("prerelease") is False, "latest release must not be a prerelease"
+          assert isinstance(manifest.get("mandatory"), bool), "missing mandatory-update policy flag"
           assert manifest.get("publishedAt"), "missing release time"
 
           with output.open("a") as f:
