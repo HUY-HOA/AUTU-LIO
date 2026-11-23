@@ -144,7 +144,6 @@ jobs:
       - name: Validate and build Debug test APK
         if: steps.signing.outputs.configured != 'true'
         timeout-minutes: 30
-        env:
         run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintDebug :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Name AUTU-LIO APK with version
