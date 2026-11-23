@@ -17,6 +17,16 @@ class AutomationRunPolicyTest {
         assertFalse(AutomationRunPolicy.isValidTargetPackage("com.example app"))
         assertFalse(AutomationRunPolicy.isValidTargetPackage(".example.app"))
         assertFalse(AutomationRunPolicy.isValidTargetPackage("com.example."))
+
+        assertTrue(
+            AutomationRunPolicy.matchesTargetAppForeground("com.example.app", "com.example.app")
+        )
+        assertFalse(
+            AutomationRunPolicy.matchesTargetAppForeground("com.example.app", "com.other.app")
+        )
+        assertFalse(
+            AutomationRunPolicy.matchesTargetAppForeground(null, "com.example.app")
+        )
     }
 
     @Test
