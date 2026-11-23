@@ -185,7 +185,7 @@ internal fun AccessControlAdminScreen(
                 when (section) {
                     "customers" -> "ĐĂNG NHẬP: điều khiển trạng thái tài khoản hoặc thu hồi phiên hiện tại. Các thao tác này không sửa giấy phép/thiết bị."
                     "licenses" -> "GIẤY PHÉP: chỉ điều khiển quyền tải/chạy AUTU. Tạm dừng, thu hồi hoặc xóa giấy phép không đăng xuất hay khóa tài khoản."
-                    else -> "THIẾT BỊ: thu hồi quyền của thiết bị này בלבד; không thay đổi phiên đăng nhập, tài khoản hoặc giấy phép."
+                    else -> "THIẾT BỊ: chỉ thu hồi quyền của thiết bị này; không thay đổi phiên đăng nhập, tài khoản hoặc giấy phép."
                 },
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -481,6 +481,22 @@ internal fun AccessControlAdminScreen(
                                         },
                                         fontSize = 11.sp
                                     ) }
+                                    if (customer.status == "ACTIVE") {
+                                        TextButton(
+                                            onClick = {
+                                                val token = accessToken ?: return@TextButton
+                                                pendingConfirmation = AccessAdminConfirmation(
+                                                    title = "Đăng xuất khỏi tất cả phiên?",
+                                                    message = "Chỉ các phiên đăng nhập hiện tại của tài khoản này sẽ bị thu hồi trên mọi thiết bị. Tài khoản vẫn ở trạng thái hoạt động và người dùng có thể đăng nhập Google lại ngay. Giấy phép, trạng thái tài khoản và thiết bị đã đăng ký không bị thay đổi.",
+                                                    confirmLabel = "Thu hồi các phiên"
+                                                ) {
+                                                    val count = repository.revokeCustomerSessions(token, customer.userId)
+                                                    notice = "Đã thu hồi $count phiên đăng nhập. Tài khoản, giấy phép và thiết bị vẫn giữ nguyên."
+                                                }
+                                            },
+                                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                        ) { Text("Đăng xuất mọi phiên", fontSize = 11.sp) }
+                                    }
                                 }
                                 if (customer.status != "REVOKED") {
                                     TextButton(
