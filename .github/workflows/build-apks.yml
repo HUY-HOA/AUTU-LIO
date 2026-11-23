@@ -8,7 +8,7 @@ on:
       - main
  
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: autu-lio-apk-build
@@ -191,3 +191,17 @@ jobs:
           path: app/build/outputs/apk/${{ steps.signing.outputs.variant }}/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish signed Release APK to GitHub Releases
+        if: steps.signing.outputs.variant == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: 0.1.${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          APK_PATH="app/build/outputs/apk/release/AUTU-LIO-v${VERSION_NAME}.apk"
+          test -s "$APK_PATH"
+          gh release create "v${VERSION_NAME}" "$APK_PATH#AUTU-LIO.apk" \
+            --target "$GITHUB_SHA" \
+            --title "AUTU-LIO v${VERSION_NAME}" \
+            --notes "Bản phát hành AUTU-LIO Android. Chỉ cài đặt APK từ bản phát hành chính thức này. Xem thay đổi tại commit ${GITHUB_SHA}."
