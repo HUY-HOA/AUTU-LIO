@@ -42,21 +42,11 @@ Tạo bốn **Repository secrets** tại GitHub → Settings → Secrets and var
 
 Không gửi các giá trị này qua chat, issue, commit hoặc log.
 
-### Tạo khóa ký trên máy tính do chủ sở hữu kiểm soát
+### Keystore AILIO đang dùng
 
-Theo cấu hình dùng chung đã chọn, AUTU-LIO, COC-LIO và GPS-LIO sử dụng cùng keystore AILIO và cùng chứng thư ký. Sao chép đúng bốn giá trị AILIO vào Repository secrets của từng kho GitHub. GitHub Repository secrets không tự đồng bộ giữa các kho. Dùng chung chứng thư giúp thống nhất vận hành nhưng làm tăng phạm vi ảnh hưởng nếu khóa ký bị lộ; phải sao lưu keystore và mật khẩu an toàn.
+Theo cấu hình đã chọn, AUTU-LIO, COC-LIO và GPS-LIO sử dụng cùng một keystore AILIO và cùng chứng thư ký. Không chạy lệnh tạo keystore mới cho cấu hình hiện tại vì sẽ tạo SHA-1 khác và làm lệch cấu hình OAuth. Giữ file keystore gốc cùng mật khẩu ở nơi an toàn, ngoại tuyến; tạo bản sao lưu thứ hai được bảo vệ.
 
-Dùng JDK `keytool` trên máy tính riêng, tạo một lần duy nhất:
-
-```bash
-keytool -genkeypair -v \
-  -keystore autu-lio-release.p12 \
-  -storetype PKCS12 \
-  -alias autu-lio-release \
-  -keyalg RSA -keysize 3072 -validity 10000
-```
-
-Hãy lưu file `autu-lio-release.p12` và mật khẩu ở nơi an toàn, ngoại tuyến; tạo ít nhất một bản sao lưu thứ hai được bảo vệ. Mất khóa ký có thể khiến không thể cập nhật đè APK đã cài bằng khóa đó.
+Bốn Repository secrets phải được tạo riêng trong từng kho GitHub vì secrets không tự đồng bộ giữa các repository. Nếu khóa ký bị lộ, cả ba ứng dụng đều bị ảnh hưởng và cần kế hoạch thay khóa, cập nhật SHA-1 OAuth, phát hành APK mới cho cả ba ứng dụng.
 
 Chuyển file sang Base64 để nhập vào secret:
 
