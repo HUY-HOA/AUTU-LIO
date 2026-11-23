@@ -33,21 +33,21 @@ Primary location: APAC.
 
 Migrations `0001`–`0010` are applied to the remote `autu_lio_auth` D1 database. Migration `0007_device_revocation_reasons.sql` records why a device was revoked; migration `0008_device_presence.sql` adds app-presence and AUTU runtime-state timestamps; `0009_persistent_sessions.sql` makes every non-revoked login session persistent; `0010_package_customer_distribution.sql` adds customer targeting for each published package. `licenses.expires_at` remains unchanged and still controls customer license validity. All 10 migrations are recorded in `d1_migrations`; keep every SQL migration in source control as schema history.
 
-## Required Worker secrets
+## Required Worker secrets and variables
 
 Set these only after the values have been confirmed:
 
-- `GOOGLE_CLIENT_ID`: Google OAuth Web/server client ID used as the expected ID-token audience.
 - `OWNER_GOOGLE_SUB`: exact `sub` claim from the owner's Google ID token after the Worker verifies its signature, issuer, audience, expiry and nonce. This value, not the email address, selects the one account eligible for OWNER.
 - `PACKAGE_MASTER_KEY_V1`: base64-encoded cryptographically random 32-byte key. Generate it securely and set it as a Worker secret; never commit it, send it through chat or put it in the APK.
 
 Worker variables:
+- `GOOGLE_CLIENT_ID`: public Google OAuth Web/server Client ID used as the expected ID-token audience. Its value is declared in `backend/wrangler.jsonc` and is not a Secret.
 - `PACKAGE_MASTER_KEY_VERSION`: active package master-key version, set to `V1` in `wrangler.jsonc`. The matching secret is `PACKAGE_MASTER_KEY_V1`.
 - `GOOGLE_ALLOWED_AZP`: optional comma-separated allowlist of Android OAuth Client IDs that may appear in the Google ID token `azp` (authorized presenter) claim. The `aud` claim must still exactly match `GOOGLE_CLIENT_ID`; an arbitrary `azp` is rejected.
 
 For key rotation, add `PACKAGE_MASTER_KEY_V2`, change `PACKAGE_MASTER_KEY_VERSION` to `V2`, and keep the previous versioned secret available while package versions still reference it. Each encrypted package version records the key version used. Do not delete an older master key until every package encrypted with it has been re-encrypted and verified.
 
-Do not place either value in Git. Never place a client secret or Cloudflare API token in the Android APK. Android Google Sign-In should use Credential Manager and request an ID token for the server client ID.
+Do not place `OWNER_GOOGLE_SUB` or `PACKAGE_MASTER_KEY_V1` in Git. `GOOGLE_CLIENT_ID` is a public identifier declared in `wrangler.jsonc`. Never place a Google OAuth client secret or Cloudflare API token in the Android APK. Android Google Sign-In should use Credential Manager and request an ID token for the server client ID.
 
 If `OWNER_GOOGLE_SUB` is absent or does not exactly match the verified token `sub`, newly authenticated accounts receive CUSTOMER. A matching existing non-owner account is promoted only when D1 contains no other OWNER. The app never promotes itself to OWNER based on a local email check or a Debug preview selection. A unique D1 index prevents more than one OWNER account.
 
@@ -58,7 +58,7 @@ From this directory:
 1. Install Wrangler locally as a development dependency using the official current Wrangler release.
 2. Run `npx wrangler types` after reviewing the D1 binding in `wrangler.jsonc`.
 3. Run `npm run check`.
-4. Confirm the Production secrets `GOOGLE_CLIENT_ID` and `OWNER_GOOGLE_SUB` are present. Never use an email address as the OWNER identifier. Do not rotate or replace the owner `sub` without an explicit owner-account migration plan.
+4. Confirm the production variable `GOOGLE_CLIENT_ID` and Secret `OWNER_GOOGLE_SUB` are present. Never use an email address as the OWNER identifier. Do not rotate or replace the owner `sub` without an explicit owner-account migration plan.
 5. Confirm `PACKAGE_MASTER_KEY_V1` is present. Do not replace it while published packages still depend on it; follow the key-rotation procedure below.
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
