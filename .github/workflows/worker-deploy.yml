@@ -79,3 +79,14 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npm run deploy:website
+
+      - name: Verify published terms and privacy pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+            https://autu-lio.coc-lio-data.workers.dev/terms/ \
+            | grep -qi "Nghiên cứu, phát triển và kiểm thử bảo mật"
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+            https://autu-lio.coc-lio-data.workers.dev/privacy/ \
+            | grep -qi "Nghiên cứu, chẩn đoán và xử lý lỗi bảo mật"
