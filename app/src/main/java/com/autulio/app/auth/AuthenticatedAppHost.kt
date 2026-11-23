@@ -265,6 +265,17 @@ private fun AuthScreen(
                     }
                     drawPath(path = lightning, color = Color(0xFF35C6C8))
                 }
+                Spacer(Modifier.height(15.dp))
+                Text(
+                    "AUTU-LIO",
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontSize = 29.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 2.sp
+                    ),
+                    color = Color(0xFF5B8CFF),
+                    textAlign = TextAlign.Center
+                )
                 Spacer(Modifier.height(28.dp))
                 if (restoring) {
                     CircularProgressIndicator()
