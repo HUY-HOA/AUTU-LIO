@@ -20,7 +20,9 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -1338,6 +1340,7 @@ internal fun CustomerPackagesScreen(
     var error by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf("") }
     var retryOnFailure by rememberSaveable { mutableStateOf(false) }
+    var delayMinutes by rememberSaveable { mutableStateOf("0") }
 
     suspend fun refresh() {
         if (accessToken.isNullOrBlank() || identity == null) return
@@ -1392,6 +1395,20 @@ internal fun CustomerPackagesScreen(
                 onCheckedChange = { retryOnFailure = it }
             )
         }
+        OutlinedTextField(
+            value = delayMinutes,
+            onValueChange = { value -> delayMinutes = value.filter(Char::isDigit).take(4) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(tr("Đợi trước khi chạy (phút)", "Delay before run (minutes)")) },
+            supportingText = {
+                Text(tr(
+                    "0 = chạy ngay khi nhấn Chạy; tối đa 24 giờ. Đến giờ cần mở khóa và mở ứng dụng mục tiêu.",
+                    "0 = start manually; maximum 24 hours. At the due time, unlock the phone and open the target app."
+                ))
+            },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true
+        )
         if (accessToken.isNullOrBlank()) {
             LiveManagementUnavailable()
         } else if (identity == null) {
@@ -1505,10 +1522,16 @@ internal fun CustomerPackagesScreen(
                                             item.name,
                                             source,
                                             retryOnFailure = retryOnFailure,
-                                            maxRetries = if (retryOnFailure) 2 else 0
+                                            maxRetries = if (retryOnFailure) 2 else 0,
+                                            delayMinutes = delayMinutes.toLongOrNull()?.coerceIn(0L, 1_440L) ?: 0L
                                         )) {
                                         val queuedCount = service.queuedProgramCount()
-                                        notice = if (queuedCount > 0) {
+                                        notice = if ((delayMinutes.toLongOrNull() ?: 0L) > 0L) {
+                                            tr(
+                                                "Đã đặt lịch chạy sau $delayMinutes phút. AUTU sẽ đợi máy mở khóa và ứng dụng mục tiêu ở phía trước.",
+                                                "Scheduled to run after $delayMinutes minutes. AUTU will wait for the phone to be unlocked and the target app to be in front."
+                                            )
+                                        } else if (queuedCount > 0) {
                                             tr(
                                                 "Đã thêm gói vào hàng đợi ($queuedCount). Gói sẽ chạy sau khi kịch bản hiện tại hoàn tất.",
                                                 "Package added to the queue ($queuedCount). It will run after the current script completes."
