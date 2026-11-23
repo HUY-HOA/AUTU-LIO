@@ -3,6 +3,8 @@ package com.autulio.app
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.DownloadManager
+import android.app.PackageInstaller
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -24,8 +26,7 @@ import java.util.concurrent.ConcurrentHashMap
 object AppUpdateManager {
     private const val UPDATE_URL = "https://autu-lio-updates.coc-lio-data.workers.dev/v1/latest"
     private const val DOWNLOAD_HOST = "autu-lio-updates.coc-lio-data.workers.dev"
-    private const val PREFS = "app_update_manager"
-    private const val KEY_LAST_ANNOUNCEMENT = "last_announcement_at"
+    private const val PREFS = "app_update_manager_published_release_only"
     private const val KEY_DOWNLOAD_ID = "download_id"
     private const val KEY_PENDING_URL = "pending_url"
     private const val KEY_PENDING_VERSION = "pending_version"
@@ -34,84 +35,90 @@ object AppUpdateManager {
     private val handler = Handler(Looper.getMainLooper())
     private val activeDownloads = ConcurrentHashMap.newKeySet<Long>()
     @Volatile private var lastManualCheckAtMs = 0L
-    /** Runs only after the user explicitly selects "Kiểm tra cập nhật". */
-    fun check(activity: Activity) {
-        resume(activity)
+    @Volatile private var lastStartupCheckAtMs = 0L
+
+    /** Checks only the exact release snapshot last published by OWNER. */
+    private fun checkPublishedRelease(activity: Activity, startup: Boolean) {
         val context = activity.applicationContext
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
         synchronized(this) {
-            if (now - lastManualCheckAtMs < 5_000L) return
-            lastManualCheckAtMs = now
+            if (startup) {
+                if (now - lastStartupCheckAtMs < 15_000L) return
+                lastStartupCheckAtMs = now
+            } else {
+                if (now - lastManualCheckAtMs < 5_000L) return
+                lastManualCheckAtMs = now
+            }
         }
-
+        resume(activity)
         Thread {
-            val manifest = try {
-                val connection = URL(UPDATE_URL).openConnection() as HttpURLConnection
+            val apiBase = context.getString(R.string.api_base_url).trim().trimEnd('/')
+            if (!apiBase.startsWith("https://")) {
+                if (!startup) showUpdateMessage(activity, "Máy chủ cập nhật chưa được cấu hình HTTPS.")
+                return@Thread
+            }
+            val policy = try {
+                val connection = URL(apiBase + "/api/app-update-policy").openConnection() as HttpURLConnection
                 try {
                     connection.requestMethod = "GET"
-                    connection.connectTimeout = 10_000
-                    connection.readTimeout = 12_000
+                    connection.connectTimeout = 8_000
+                    connection.readTimeout = 8_000
                     connection.setRequestProperty("Accept", "application/json")
-                    connection.setRequestProperty("User-Agent", "AUTU-LIO-Android-Updater")
-                    if (connection.responseCode !in 200..299) return@Thread
+                    connection.setRequestProperty("Cache-Control", "no-store")
+                    if (connection.responseCode !in 200..299) throw IOException("HTTP ${connection.responseCode}")
                     JSONObject(connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
                 } finally { connection.disconnect() }
-            } catch (_: Exception) { null } ?: return@Thread
-
-            if (manifest.optString("applicationId") != context.packageName) return@Thread
-            val version = manifest.optString("versionName").trim()
-            val downloadUrl = manifest.optString("downloadUrl").trim()
-            if (version.isBlank()) return@Thread
-            val uri = runCatching { Uri.parse(downloadUrl) }.getOrNull() ?: return@Thread
-            if (uri.scheme != "https" || uri.host != DOWNLOAD_HOST || uri.path?.startsWith("/v1/download/") != true) return@Thread
-            // Start the cooldown only after the correct app receives a valid manifest.
-            // A transient network failure must never suppress a retry for six hours.
-            if (!isNewerVersion(currentVersion(context), version)) return@Thread
-            val notes = manifest.optString("releaseNotes").trim().take(900)
-            val sha = manifest.optString("sha256").takeIf { it.matches(Regex("(?i)^[a-f0-9]{64}$")) }
-            val policyUrl = context.getString(R.string.api_base_url).trim().trimEnd('/') + "/api/app-update-policy"
-            val policy = try {
-                val policyConnection = URL(policyUrl).openConnection() as HttpURLConnection
-                try {
-                    policyConnection.requestMethod = "GET"
-                    policyConnection.connectTimeout = 8_000
-                    policyConnection.readTimeout = 8_000
-                    policyConnection.setRequestProperty("Accept", "application/json")
-                    policyConnection.setRequestProperty("Cache-Control", "no-store")
-                    if (policyConnection.responseCode !in 200..299) JSONObject()
-                    else JSONObject(policyConnection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
-                } finally { policyConnection.disconnect() }
-            } catch (_: Exception) { JSONObject() }
-            val announcementAt = policy.optLong("updatedAt", 0L)
-            val lastAnnouncementAt = prefs.getLong(KEY_LAST_ANNOUNCEMENT, 0L)
-            val hasNewAnnouncement = announcementAt > lastAnnouncementAt
-
+            } catch (_: Exception) {
+                if (!startup) showUpdateMessage(activity, "Không thể kết nối máy chủ cập nhật. Hãy thử lại.")
+                return@Thread
+            }
+            val manifest = policy.optJSONObject("announcedManifest")
+            val version = manifest?.optString("versionName")?.trim().orEmpty()
+            val downloadUrl = manifest?.optString("downloadUrl")?.trim().orEmpty()
+            val uri = runCatching { Uri.parse(downloadUrl) }.getOrNull()
+            val sha = manifest?.optString("sha256")?.trim()?.takeIf { it.matches(Regex("(?i)^[a-f0-9]{64}$")) }
+            if (manifest == null || version.isBlank() || policy.optString("requiredVersion") != version ||
+                manifest.optString("applicationId") != context.packageName || sha == null ||
+                uri == null || uri.scheme != "https" || uri.host != DOWNLOAD_HOST ||
+                uri.path?.startsWith("/v1/download/") != true) {
+                if (!startup) showUpdateMessage(activity, "Chưa có bản cập nhật hợp lệ được OWNER công bố.")
+                return@Thread
+            }
+            if (!isNewerVersion(currentVersion(context), version)) {
+                if (!startup) showUpdateMessage(activity, "Ứng dụng đã ở phiên bản được công bố ($version) hoặc mới hơn.")
+                return@Thread
+            }
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            if (prefs.getLong(KEY_DOWNLOAD_ID, -1L) > 0L) {
+                if (!startup) showUpdateMessage(activity, "Bản cập nhật $version đang được tải hoặc cài đặt.")
+                return@Thread
+            }
+            val pendingVersion = prefs.getString(KEY_PENDING_VERSION, null)
             handler.post {
                 if (activity.isFinishing || activity.isDestroyed) return@post
-                val message = buildString {
-                    append("Phiên bản hiện tại: ").append(currentVersion(context))
-                    append("\nPhiên bản mới: ").append(version)
-                    if (notes.isNotBlank()) append("\n\n").append(notes)
-                    append("\n\nĐây là thông báo cập nhật không bắt buộc. Bạn có thể chọn tải ngay hoặc để sau.")
+                if (pendingVersion == version && canInstallPackages(context)) {
+                    resume(activity)
+                } else {
+                    requestUpdate(activity, version, downloadUrl, sha)
                 }
-                val dialog = AlertDialog.Builder(activity)
-                    .setTitle("Thông báo cập nhật AUTU-LIO")
-                    .setMessage(message)
-                    .setPositiveButton("Tải và cập nhật") { _, _ -> requestUpdate(activity, version, downloadUrl, sha) }
-                    .setNegativeButton("Để sau", null)
-                    .create()
-                dialog.setCancelable(true)
-                dialog.setCanceledOnTouchOutside(true)
-                if (hasNewAnnouncement) {
-                    prefs.edit().putLong(KEY_LAST_ANNOUNCEMENT, announcementAt).apply()
-                }
-                dialog.show()
+                if (!startup) showUpdateMessage(activity, "Đã xác nhận bản $version được OWNER công bố. Đang chuẩn bị cập nhật.")
             }
         }.start()
     }
 
+    /** User-triggered retry. It never checks unpublished test releases. */
+    fun check(activity: Activity) = checkPublishedRelease(activity, startup = false)
 
+    /** One silent check when the app starts; only an OWNER-published release can pass. */
+    fun checkOnStartup(activity: Activity) = checkPublishedRelease(activity, startup = true)
+
+    private fun showUpdateMessage(activity: Activity, message: String) {
+        handler.post {
+            if (!activity.isFinishing && !activity.isDestroyed) {
+                Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     /**
      * OWNER publishes a voluntary update notice. The backend records a timestamp that
      * foreground clients poll; it never activates an installation lock.
@@ -163,7 +170,7 @@ object AppUpdateManager {
                     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     connection.setRequestProperty("Cache-Control", "no-store")
                     connection.setRequestProperty("Authorization", "Bearer " + token)
-                    val body = JSONObject().put("announcement", true).put("version", version)
+                    val body = JSONObject().put("announcement", true).put("version", version).put("manifest", manifest)
                     connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
                     val status = connection.responseCode
                     val stream = if (status in 200..299) connection.inputStream else connection.errorStream
@@ -345,11 +352,15 @@ object AppUpdateManager {
         val context = activity.applicationContext
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val uri = manager.getUriForDownloadedFile(id)
-        if (uri == null) { clearPending(context); Toast.makeText(context, "Không tìm thấy APK vừa tải.", Toast.LENGTH_LONG).show(); return }
+        if (uri == null) {
+            clearPending(context); manager.remove(id)
+            showUpdateMessage(activity, "Không tìm thấy APK vừa tải. Nhấn Kiểm tra cập nhật để thử lại.")
+            return
+        }
         if (!canInstallPackages(context)) {
             if (!activity.isFinishing && !activity.isDestroyed) handler.post {
                 AlertDialog.Builder(activity).setTitle("Cần cho phép cài đặt")
-                    .setMessage("Bật quyền cài ứng dụng cho AUTU-LIO, sau đó quay lại để tiếp tục.")
+                    .setMessage("Android cần cho phép "+ "AUTU-LIO" +" cài bản cập nhật tải từ máy chủ chính thức. Chỉ cần bật quyền này một lần.")
                     .setPositiveButton("Mở cài đặt") { _, _ ->
                         runCatching { activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                             Uri.parse("package:${activity.packageName}"))) }
@@ -358,24 +369,49 @@ object AppUpdateManager {
             return
         }
         val expected = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_PENDING_SHA256, null)
-        if (!expected.isNullOrBlank()) {
-            val actual = runCatching { context.contentResolver.openInputStream(uri)?.use { sha256(it) } }.getOrNull()
-            if (actual == null || !actual.equals(expected, ignoreCase = true)) {
-                clearPending(context); manager.remove(id)
-                Toast.makeText(context, "Mã kiểm tra APK không khớp. Đã hủy cài đặt.", Toast.LENGTH_LONG).show()
-                return
-            }
+        if (expected.isNullOrBlank() || !expected.matches(Regex("(?i)^[a-f0-9]{64}$"))) {
+            clearPending(context); manager.remove(id)
+            showUpdateMessage(activity, "Thiếu mã SHA-256 của bản được công bố. Đã hủy cài đặt.")
+            return
         }
+        val actual = runCatching { context.contentResolver.openInputStream(uri)?.use { sha256(it) } }.getOrNull()
+        if (actual == null || !actual.equals(expected, ignoreCase = true)) {
+            clearPending(context); manager.remove(id)
+            showUpdateMessage(activity, "Mã kiểm tra APK không khớp. Đã hủy cài đặt.")
+            return
+        }
+        var sessionId = -1
         try {
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, APK_MIME)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-                clipData = android.content.ClipData.newUri(context.contentResolver, "APK", uri)
+            val installer = context.packageManager.packageInstaller
+            val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+            params.setAppPackageName(context.packageName)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
             }
-            context.startActivity(intent)
+            sessionId = installer.createSession(params)
+            installer.openSession(sessionId).use { session ->
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    session.openWrite("base.apk", 0, -1).use { output ->
+                        input.copyTo(output, 64 * 1024)
+                        session.fsync(output)
+                    }
+                } ?: throw IOException("Không thể đọc tệp APK đã tải.")
+                val callbackIntent = Intent(context, UpdateInstallStatusReceiver::class.java).apply {
+                    action = context.packageName + ".UPDATE_INSTALL_STATUS"
+                }
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                    (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
+                val callback = PendingIntent.getBroadcast(context, sessionId, callbackIntent, flags)
+                session.commit(callback.intentSender)
+            }
+            manager.remove(id)
             clearPending(context)
-        } catch (_: Exception) {
-            Toast.makeText(context, "Android không mở được trình cài đặt APK.", Toast.LENGTH_LONG).show()
+            showUpdateMessage(activity, "Đã chuyển APK cho Android cài đặt. Ứng dụng sẽ khởi động lại khi Android hoàn tất.")
+        } catch (error: Exception) {
+            if (sessionId >= 0) runCatching { context.packageManager.packageInstaller.abandonSession(sessionId) }
+            clearPending(context); manager.remove(id)
+            showUpdateMessage(activity, error.message?.takeIf { it.isNotBlank() }
+                ?: "Android không thể bắt đầu cài đặt. Nhấn Kiểm tra cập nhật để thử lại.")
         }
     }
 
