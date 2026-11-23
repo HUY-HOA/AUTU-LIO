@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Chính sách quyền riêng tư của AUTU-LIO."><meta name="theme-color" content="#08111f"><link rel="canonical" href="https://autu-lio.coc-lio-data.workers.dev/privacy/"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/site.css"><title>Chính sách quyền riêng tư — AUTU-LIO</title></head>
 <body><header><div class="wrap nav"><a class="brand" href="/"><span class="brand-mark">A</span><span>AUTU-LIO</span></a><nav><a href="/">Trang chủ</a><a href="/download/">Tải ứng dụng</a><a href="/privacy/" aria-current="page">Quyền riêng tư</a><a href="/terms/">Điều khoản</a></nav></div></header>
-<main class="wrap content"><div class="eyebrow">Minh bạch dữ liệu</div><h1>Chính sách quyền riêng tư</h1><p class="meta">Cập nhật ngày 23 tháng 11 năm 2026</p>
+<main class="wrap content"><div class="eyebrow">Minh bạch dữ liệu</div><h1>Chính sách quyền riêng tư</h1><p class="meta">Cập nhật ngày 24 tháng 11 năm 2026</p>
 <p>Chính sách này mô tả dữ liệu AUTU-LIO xử lý khi bạn sử dụng ứng dụng Android và các dịch vụ trực tuyến liên quan. AUTU-LIO dùng Google Sign-In để xác thực và Cloudflare Workers cùng D1 để vận hành API và lưu dữ liệu tài khoản.</p>
 <h2>1. Dữ liệu được xử lý</h2>
 <ul>
@@ -23,10 +23,14 @@
 <p>AUTU-LIO không bán dữ liệu cá nhân. Thông tin cần thiết về tài khoản, giấy phép, thiết bị và trạng thái hoạt động được hiển thị cho OWNER để quản lý dịch vụ. Dữ liệu có thể được xử lý bởi nhà cung cấp hạ tầng nêu trên hoặc cung cấp khi có yêu cầu hợp pháp từ cơ quan có thẩm quyền.</p>
 <h2>6. Lưu giữ và bảo vệ</h2>
 <p>Dữ liệu được giữ trong thời gian tài khoản và dịch vụ còn hoạt động hoặc trong thời gian cần thiết để bảo vệ quyền lợi hợp pháp, xử lý tranh chấp và duy trì nhật ký bảo mật. Phiên đăng nhập có thời hạn và có thể bị thu hồi. AUTU-LIO áp dụng HTTPS, kiểm tra quyền ở phía máy chủ, giới hạn tốc độ, băm token phiên, mã hóa gói AUTU và Android Keystore cho khóa riêng thiết bị. Không có biện pháp truyền hoặc lưu trữ nào bảo đảm an toàn tuyệt đối.</p>
-<h2>7. Quyền và lựa chọn của bạn</h2>
+<h2>7. Nghiên cứu, chẩn đoán và xử lý lỗi bảo mật</h2>
+<p>Để vận hành, nghiên cứu phát triển và sửa lỗi AUTU-LIO, hệ thống có thể xử lý các bản ghi kỹ thuật cần thiết như sự kiện xác thực, quản lý tài khoản/giấy phép/thiết bị, thời điểm hoạt động, trạng thái bộ chạy, phiên bản ứng dụng/Android, lỗi dịch vụ và log/traces kỹ thuật do Cloudflare cung cấp theo cấu hình. Báo cáo do người dùng tự nguyện gửi cũng có thể được dùng để tái hiện lỗi, kiểm thử quyền truy cập, phát hiện lỗ hổng và xác minh bản vá.</p>
+<p>Chỉ người được giao nhiệm vụ mới được truy cập dữ liệu vận hành trong phạm vi cần thiết. Ưu tiên môi trường thử nghiệm và dữ liệu giả lập; khi cần dùng dữ liệu thật, phạm vi được giới hạn và thông tin nhận dạng/bí mật sẽ được che hoặc giả danh khi phù hợp. Không dùng dữ liệu cho quảng cáo hoặc bán cho bên thứ ba. Nội dung màn hình, tin nhắn, danh bạ hay dữ liệu riêng của ứng dụng đích không được thu thập chỉ vì bạn cấp quyền Trợ năng cho một kịch bản.</p>
+<p>Báo cáo lỗ hổng qua <a href="https://github.com/HUY-HOA/AUTU-LIO/security/advisories/new">kênh báo cáo bảo mật riêng của AUTU-LIO</a>. Không gửi token phiên, mật khẩu, khóa riêng, keystore, master key hoặc dữ liệu khách hàng qua kênh công khai. Khi có sự cố, AILIO sẽ đánh giá ảnh hưởng, thu hồi phiên/khóa liên quan nếu cần, khắc phục và thông báo theo quy định áp dụng. Không có hệ thống nào có thể cam kết rủi ro bằng không.</p>
+<h2>8. Quyền và lựa chọn của bạn</h2>
 <p>Bạn có thể đăng xuất, ngừng sử dụng ứng dụng và yêu cầu OWNER xử lý trạng thái tài khoản hoặc thiết bị theo quy trình quản lý. Việc thu hồi thiết bị hoặc giấy phép có thể làm mất quyền tải/chạy gói AUTU nhưng không tự động xóa mọi nhật ký bảo mật. Khi cần hỗ trợ kỹ thuật, hãy dùng <a href="https://github.com/HUY-HOA/AUTU-LIO/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>; không đăng công khai email, token, khóa, dữ liệu thiết bị hoặc nội dung riêng tư.</p>
-<h2>8. Trẻ em và thay đổi chính sách</h2>
+<h2>9. Trẻ em và thay đổi chính sách</h2>
 <p>AUTU-LIO là công cụ tự động hóa Android, không được thiết kế riêng cho trẻ em. Chính sách có thể được cập nhật khi chức năng hoặc yêu cầu pháp luật thay đổi. Phiên bản mới sẽ được công bố trên trang này.</p>
-<h2>9. Liên hệ</h2>
+<h2>10. Liên hệ</h2>
 <p>Với câu hỏi kỹ thuật, xem <a href="https://github.com/HUY-HOA/AUTU-LIO" target="_blank" rel="noopener noreferrer">kho mã nguồn AUTU-LIO</a>. Không gửi bí mật hoặc dữ liệu cá nhân qua kênh công khai.</p>
 </main><footer><div class="wrap foot"><span>© 2026 AUTU-LIO</span><div class="foot-links"><a href="/">Trang chủ</a><a href="/terms/">Điều khoản</a><a href="/download/">Tải ứng dụng</a></div></div></footer></body></html>
