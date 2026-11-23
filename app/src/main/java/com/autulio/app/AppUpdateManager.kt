@@ -189,6 +189,11 @@ object AppUpdateManager {
                         "Đã tắt yêu cầu cập nhật bắt buộc."
                     }
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
+                    if (enabled && !activity.isFinishing && !activity.isDestroyed) {
+                        // Re-check immediately so the owner is also gated when running an older build.
+                        lastForcedCheckAtMs = 0L
+                        check(activity, forceCheck = true)
+                    }
                 }
             } catch (error: Exception) {
                 handler.post {
