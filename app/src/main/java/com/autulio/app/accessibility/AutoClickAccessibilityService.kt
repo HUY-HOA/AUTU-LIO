@@ -2997,12 +2997,16 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             statusLabel?.text = "Không lưu được bản nháp. Kịch bản chưa được chuẩn bị."
             return
         }
-        pendingProgram = compilation.program
-        setEditorVisible(false)
-        setCollapsed(false)
-        statusLabel?.text = "Kịch bản đã kiểm tra. Nhấn Chạy để bắt đầu."
+        if (!prepareProgram(compilation.program!!, floatingDraftName, source)) {
+            statusLabel?.text = "Không thể chuẩn bị hoặc xếp hàng kịch bản."
+            return
+        }
+        statusLabel?.text = if (queuedProgramCount() > 0) {
+            "Đã thêm kịch bản vào hàng đợi."
+        } else {
+            "Kịch bản đã kiểm tra. Nhấn Chạy để bắt đầu."
+        }
         renderSnapshot(latestSnapshot ?: executionEngine?.snapshot())
-        statusLabel?.text = "Kịch bản đã kiểm tra. Nhấn Chạy để bắt đầu."
     }
 
     private fun setEditorVisible(value: Boolean) {
