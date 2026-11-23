@@ -56,10 +56,10 @@ jobs:
         shell: bash
         env:
           REQUESTED_BUILD_VARIANT: release
-          AUTU_LIO_RELEASE_KEYSTORE_BASE64: ${{ secrets.AUTU_LIO_RELEASE_KEYSTORE_BASE64 }}
-          AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
-          AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
-          AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
+          AUTU_LIO_RELEASE_KEYSTORE_BASE64: ${{ secrets.AILIO_KEYSTORE_BASE64 }}
+          AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AILIO_KEYSTORE_PASSWORD }}
+          AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AILIO_KEY_ALIAS }}
+          AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AILIO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           values=(
@@ -99,7 +99,7 @@ jobs:
           fi
 
           if [[ "$present" -ne 4 ]]; then
-            echo "::error::Signing setup is incomplete. Configure all four AUTU_LIO_RELEASE_* repository secrets or remove all four."
+            echo "::error::Signing setup is incomplete. Configure all four shared AILIO_* repository secrets or remove all four."
             exit 1
           fi
 
@@ -136,9 +136,9 @@ jobs:
           AUTU_LIO_AUTH_API_BASE_URL: https://autu-lio-auth-api.coc-lio-data.workers.dev
           AUTU_LIO_GOOGLE_SERVER_CLIENT_ID: 45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
           AUTU_LIO_RELEASE_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
-          AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_STORE_PASSWORD }}
-          AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AUTU_LIO_RELEASE_KEY_ALIAS }}
-          AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AUTU_LIO_RELEASE_KEY_PASSWORD }}
+          AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AILIO_KEYSTORE_PASSWORD }}
+          AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AILIO_KEY_ALIAS }}
+          AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AILIO_KEY_PASSWORD }}
         run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintRelease :app:assembleRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Validate and build Debug test APK
