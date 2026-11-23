@@ -512,34 +512,57 @@ async function updateAdminCustomer(request, env, session, customerId) {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const statements = [
+  // Account status and login sessions are independent from license/device records.
+  // SUSPENDED or REVOKED blocks sign-in and revokes active sessions only.
+  await env.DB.batch([
     env.DB.prepare(
       "UPDATE users SET status = ?, updated_at = ? WHERE id = ? AND role = 'CUSTOMER'"
     ).bind(status, now, customerId),
     env.DB.prepare(
       "UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL"
     ).bind(now, customerId)
-  ];
-
-  if (status === "REVOKED") {
-    statements.push(
-      env.DB.prepare(
-        "UPDATE licenses SET status = 'REVOKED', updated_at = ? WHERE user_id = ? AND status <> 'REVOKED'"
-      ).bind(now, customerId),
-      env.DB.prepare(
-        "UPDATE devices SET status = 'REVOKED', revoked_at = ?, revoked_reason = 'ACCOUNT_REVOKED' WHERE user_id = ? AND status = 'ACTIVE'"
-      ).bind(now, customerId)
-    );
-  }
-
-  await env.DB.batch(statements);
-  await audit(env, session.user_id, status === "REVOKED" ? "customer.revoked" : "customer.status_updated", "customer", customerId, {
+  ]);
+  await audit(env, session.user_id, status === "REVOKED" ? "customer.login_access_revoked" : "customer.status_updated", "customer", customerId, {
     previousStatus: customer.status,
     status,
     sessionsRevoked: true,
-    dependentAccessRevoked: status === "REVOKED"
+    licensesChanged: false,
+    devicesChanged: false
   });
   return response(request, { updated: true, customerId, status }, 200, env);
+}
+
+async function revokeAdminCustomerSessions(request, env, session, customerId) {
+  await requireRole(session, ["OWNER"]);
+  if (!ID_PATTERN.test(customerId)) {
+    throw new HttpError(400, "invalid_customer_id", "Customer ID is invalid.");
+  }
+  const customer = await env.DB.prepare(
+    "SELECT id, role, status FROM users WHERE id = ?"
+  ).bind(customerId).first();
+  if (!customer || customer.role !== "CUSTOMER") {
+    throw new HttpError(404, "customer_not_found", "Customer was not found.");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const result = await env.DB.prepare(
+    "UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL"
+  ).bind(now, customerId).run();
+  const sessionsRevoked = Number(result.meta?.changes || 0);
+  await audit(env, session.user_id, "auth.sessions_revoked", "customer", customerId, {
+    sessionsRevoked,
+    accountStatusUnchanged: true,
+    licensesChanged: false,
+    devicesChanged: false
+  });
+  return response(request, {
+    sessionsRevoked: true,
+    count: sessionsRevoked,
+    customerId,
+    accountStatus: customer.status,
+    licensesChanged: false,
+    devicesChanged: false
+  }, 200, env);
 }
 
 async function listAdminLicenses(request, env, session) {
@@ -683,6 +706,48 @@ async function updateCustomerLicense(request, env, session, licenseId) {
     status, planCode, startsAt, expiresAt, maxDevices
   });
   return response(request, { updated: true, licenseId, status }, 200, env);
+}
+
+async function deleteCustomerLicense(request, env, session, licenseId) {
+  await requireRole(session, ["OWNER"]);
+  if (!ID_PATTERN.test(licenseId)) {
+    throw new HttpError(400, "invalid_license_id", "License ID is invalid.");
+  }
+  const license = await env.DB.prepare(
+    "SELECT id, user_id, plan_code, status, starts_at, expires_at, max_devices FROM licenses WHERE id = ?"
+  ).bind(licenseId).first();
+  if (!license) {
+    throw new HttpError(404, "license_not_found", "License was not found.");
+  }
+
+  const deleted = await env.DB.prepare(
+    "DELETE FROM licenses WHERE id = ?"
+  ).bind(licenseId).run();
+  if (deleted.meta?.changes !== 1) {
+    throw new HttpError(409, "license_delete_conflict", "The license changed before deletion completed.");
+  }
+
+  // Deleting this entitlement row never changes login sessions, account status,
+  // or registered devices. Its deletion remains visible in the audit log.
+  await audit(env, session.user_id, "license.deleted", "license", licenseId, {
+    customerId: license.user_id,
+    planCode: license.plan_code,
+    previousStatus: license.status,
+    startsAt: license.starts_at,
+    expiresAt: license.expires_at,
+    maxDevices: license.max_devices,
+    sessionsChanged: false,
+    accountStatusChanged: false,
+    devicesChanged: false
+  });
+  return response(request, {
+    deleted: true,
+    licenseId,
+    customerId: license.user_id,
+    sessionsChanged: false,
+    accountStatusChanged: false,
+    devicesChanged: false
+  }, 200, env);
 }
 
 async function listAdminDevices(request, env, session) {
@@ -1609,12 +1674,17 @@ async function route(request, env) {
   if (adminPackageMatch && method === "PATCH") return await updateAdminPackage(request, env, session, adminPackageMatch[1]);
 
   if (method === "GET" && path === "/api/admin/customers") return await listAdminCustomers(request, env, session);
+  const customerSessionsMatch = path.match(/^\/api\/admin\/customers\/([0-9a-f-]{36})\/sessions\/revoke$/i);
+  if (customerSessionsMatch && method === "POST") {
+    return await revokeAdminCustomerSessions(request, env, session, customerSessionsMatch[1]);
+  }
   const adminCustomerMatch = path.match(/^\/api\/admin\/customers\/([0-9a-f-]{36})$/i);
   if (adminCustomerMatch && method === "PATCH") return await updateAdminCustomer(request, env, session, adminCustomerMatch[1]);
   if (method === "GET" && path === "/api/admin/licenses") return await listAdminLicenses(request, env, session);
   if (method === "POST" && path === "/api/admin/licenses") return await createCustomerLicense(request, env, session);
   const licenseMatch = path.match(/^\/api\/admin\/licenses\/([0-9a-f-]{36})$/i);
   if (licenseMatch && method === "PATCH") return await updateCustomerLicense(request, env, session, licenseMatch[1]);
+  if (licenseMatch && method === "DELETE") return await deleteCustomerLicense(request, env, session, licenseMatch[1]);
   if (method === "GET" && path === "/api/admin/devices") return await listAdminDevices(request, env, session);
   const deviceMatch = path.match(/^\/api\/admin\/devices\/([0-9a-f-]{36})$/i);
   if (deviceMatch && method === "PATCH") return await updateAdminDeviceStatus(request, env, session, deviceMatch[1]);
