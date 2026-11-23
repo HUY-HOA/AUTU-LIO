@@ -225,6 +225,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var pendingMaxRetries = 0
     private var pendingRetryDelayMs = 2_000L
     private var pendingRetryAttempts = 0
+    private var pendingStartAtEpochMs = 0L
+    private var requiresResumeConfirmation = false
+    private var interruptedRunRestored = false
+    private var scheduledStartRunnable: Runnable? = null
     private var activeQueuedProgram: QueuedProgram? = null
     private val queuedPrograms = ArrayDeque<QueuedProgram>()
     private var executionStarted = false
@@ -330,6 +334,14 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         if (!packageName.isNullOrBlank()) {
             foregroundPackage = packageName
         }
+        if (event?.eventType in setOf(
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                AccessibilityEvent.TYPE_WINDOWS_CHANGED,
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+            )
+        ) {
+            mainHandler.post { maybeStartScheduledProgram() }
+        }
     }
 
     override fun onInterrupt() {
@@ -340,6 +352,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         serviceShuttingDown = true
         retryRunnable?.let(mainHandler::removeCallbacks)
         retryRunnable = null
+        scheduledStartRunnable?.let(mainHandler::removeCallbacks)
+        scheduledStartRunnable = null
         executionEngine?.close()
         executionEngine = null
         authorizationMonitorTask?.cancel(true)
@@ -368,7 +382,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         source: String? = null,
         retryOnFailure: Boolean = false,
         maxRetries: Int = 0,
-        retryDelayMs: Long = 2_000L
+        retryDelayMs: Long = 2_000L,
+        delayMinutes: Long = 0L
     ): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             val finished = CountDownLatch(1)
@@ -376,7 +391,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             if (!mainHandler.post {
                     result.set(
                         prepareProgram(
-                            program, draftName, source, retryOnFailure, maxRetries, retryDelayMs
+                            program, draftName, source, retryOnFailure, maxRetries, retryDelayMs, delayMinutes
                         )
                     )
                     finished.countDown()
@@ -412,7 +427,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 AutomationRunPolicy.MIN_RETRY_DELAY_MS,
                 30_000L
             ),
-            attempts = 0
+            attempts = 0,
+            startAtEpochMs = AutomationRunPolicy.scheduledStartAt(
+                System.currentTimeMillis(),
+                delayMinutes.coerceAtLeast(0L)
+            )
         )
 
         val state = executionEngine?.snapshot()?.state
@@ -450,6 +469,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         pendingMaxRetries = entry.maxRetries
         pendingRetryDelayMs = entry.retryDelayMs
         pendingRetryAttempts = 0
+        pendingStartAtEpochMs = entry.startAtEpochMs
+        requiresResumeConfirmation = false
+        interruptedRunRestored = false
+        scheduledStartRunnable?.let(mainHandler::removeCallbacks)
+        scheduledStartRunnable = null
         executionStarted = false
         terminalSnapshotHandled = true
         activeQueuedProgram = null
@@ -463,6 +487,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         setEditorVisible(false)
         setCollapsed(false)
         persistAutomationQueue()
+        schedulePendingStartIfNeeded()
+        if (entry.startAtEpochMs > 0L) {
+            statusLabel?.text = "Đã đặt lịch chạy sau ${delayMinutes.coerceAtMost(AutomationRunPolicy.MAX_SCHEDULE_DELAY_MINUTES)} phút."
+        }
         renderSnapshot(executionEngine?.snapshot())
         return true
     }
@@ -473,6 +501,16 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         queuedPrograms.clear()
         retryRunnable?.let(mainHandler::removeCallbacks)
         retryRunnable = null
+        scheduledStartRunnable?.let(mainHandler::removeCallbacks)
+        scheduledStartRunnable = null
+        if (!executionStarted) {
+            pendingProgram = null
+            pendingProgramName = null
+            pendingProgramSource = null
+            pendingStartAtEpochMs = 0L
+            requiresResumeConfirmation = false
+            interruptedRunRestored = false
+        }
         persistAutomationQueue()
         renderSnapshot(executionEngine?.snapshot())
     }
@@ -486,16 +524,24 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             retryOnFailure = pendingRetryOnFailure,
             maxRetries = pendingMaxRetries,
             retryDelayMs = pendingRetryDelayMs,
-            attempts = pendingRetryAttempts
+            attempts = pendingRetryAttempts,
+            startAtEpochMs = pendingStartAtEpochMs
         )
     }
 
     private fun persistAutomationQueue() {
         if (!sessionVerified || sessionStore.read().isNullOrBlank()) return
         val prepared = if (!executionStarted) pendingQueueEntry() else null
+        val inProgress = if (executionStarted) activeQueuedProgram?.entry else null
         val waiting = queuedPrograms.map { it.entry }
         runCatching {
-            automationQueueStore.save(AutomationQueueSnapshot(prepared, waiting))
+            automationQueueStore.save(
+                AutomationQueueSnapshot(
+                    prepared = prepared,
+                    inProgress = inProgress,
+                    queued = waiting
+                )
+            )
         }.onFailure {
             statusLabel?.text = "Không lưu được hàng đợi AUTU được mã hóa."
         }
@@ -513,8 +559,10 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
         val candidates = buildList {
             saved.prepared?.let(::add)
+            saved.inProgress?.let(::add)
             saved.queued.forEach(::add)
         }
+        val interrupted = saved.prepared == null && saved.inProgress != null
         val compiled = candidates.mapNotNull { entry ->
             val result = ScriptCompiler.compile(entry.source)
             val program = result.program ?: return@mapNotNull null
@@ -534,6 +582,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         pendingMaxRetries = prepared.entry.maxRetries
         pendingRetryDelayMs = prepared.entry.retryDelayMs
         pendingRetryAttempts = prepared.entry.attempts
+        pendingStartAtEpochMs = prepared.entry.startAtEpochMs
+        requiresResumeConfirmation = true
+        interruptedRunRestored = interrupted
+        scheduledStartRunnable?.let(mainHandler::removeCallbacks)
+        scheduledStartRunnable = null
 
         queuedPrograms.clear()
         compiled.drop(1).take(AutomationRunPolicy.MAX_QUEUED_RUNS).forEach(queuedPrograms::addLast)
@@ -544,8 +597,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         if (showFloatingWindow()) {
             setEditorVisible(false)
             setCollapsed(false)
-            statusLabel?.text =
-                "Đã khôi phục '${prepared.entry.name}' · Nhấn Chạy để tiếp tục an toàn · Chờ ${queuedPrograms.size}"
+            statusLabel?.text = if (interrupted) {
+                "Lần chạy '${prepared.entry.name}' bị ngắt giữa chừng. Có thể đã thực hiện một phần; nhấn Chạy để xác nhận chạy lại từ đầu."
+            } else {
+                "Đã khôi phục '${prepared.entry.name}' · Nhấn Chạy để xác nhận tiếp tục · Chờ ${queuedPrograms.size}"
+            }
         }
         persistAutomationQueue()
         renderSnapshot(executionEngine?.snapshot())
@@ -565,6 +621,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     pendingMaxRetries = completed.entry.maxRetries
                     pendingRetryDelayMs = completed.entry.retryDelayMs
                     pendingRetryAttempts = 0
+                    pendingStartAtEpochMs = 0L
+                    requiresResumeConfirmation = false
+                    interruptedRunRestored = false
                 }
                 activeQueuedProgram = null
                 startNextQueuedProgram()
@@ -588,6 +647,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     pendingMaxRetries = nextAttempt.maxRetries
                     pendingRetryDelayMs = nextAttempt.retryDelayMs
                     pendingRetryAttempts = nextAttempt.attempts
+                    pendingStartAtEpochMs = 0L
+                    requiresResumeConfirmation = false
+                    interruptedRunRestored = false
                     val delay = AutomationRunPolicy.retryDelayMs(
                         nextAttempt.retryDelayMs,
                         nextAttempt.attempts
@@ -618,6 +680,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         pendingMaxRetries = it.entry.maxRetries
                         pendingRetryDelayMs = it.entry.retryDelayMs
                         pendingRetryAttempts = it.entry.attempts
+                        pendingStartAtEpochMs = 0L
+                        requiresResumeConfirmation = false
+                        interruptedRunRestored = false
                     }
                     persistAutomationQueue()
                 }
@@ -629,6 +694,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 queuedPrograms.clear()
                 pendingProgram = null
                 pendingProgramSource = null
+                pendingStartAtEpochMs = 0L
+                requiresResumeConfirmation = false
+                interruptedRunRestored = false
+                scheduledStartRunnable?.let(mainHandler::removeCallbacks)
+                scheduledStartRunnable = null
                 retryRunnable?.let(mainHandler::removeCallbacks)
                 retryRunnable = null
                 runCatching { automationQueueStore.clear() }
@@ -636,6 +706,78 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             else -> Unit
         }
         renderSnapshot(executionEngine?.snapshot())
+    }
+
+    private fun isReadyForScheduledStart(): Boolean {
+        val keyguardManager = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager
+        val isLocked = runCatching { keyguardManager?.isKeyguardLocked != false }.getOrDefault(true)
+        val foreground = foregroundPackage
+        return !isLocked && !foreground.isNullOrBlank() && foreground != packageName
+    }
+
+    private fun schedulePendingStartIfNeeded() {
+        if (pendingStartAtEpochMs <= 0L || requiresResumeConfirmation || executionStarted) return
+        scheduledStartRunnable?.let(mainHandler::removeCallbacks)
+        scheduledStartRunnable = null
+        val delay = (pendingStartAtEpochMs - System.currentTimeMillis()).coerceAtLeast(0L)
+        val runnable = Runnable {
+            scheduledStartRunnable = null
+            maybeStartScheduledProgram()
+        }
+        scheduledStartRunnable = runnable
+        mainHandler.postDelayed(runnable, delay)
+    }
+
+    private fun maybeStartScheduledProgram() {
+        if (serviceShuttingDown || !sessionVerified || requiresResumeConfirmation ||
+            executionStarted || pendingProgram == null || pendingStartAtEpochMs <= 0L ||
+            retryRunnable != null
+        ) return
+        if (!AutomationRunPolicy.isScheduledStartDue(
+                pendingStartAtEpochMs,
+                System.currentTimeMillis()
+            )
+        ) {
+            schedulePendingStartIfNeeded()
+            return
+        }
+        if (!isReadyForScheduledStart()) {
+            statusLabel?.text = "Đã đến giờ. Đang chờ mở khóa màn hình và ứng dụng mục tiêu ở phía trước."
+            renderSnapshot(executionEngine?.snapshot())
+            return
+        }
+        val program = pendingProgram ?: return
+        startPreparedProgram(program)
+    }
+
+    private fun startPreparedProgram(program: ScriptProgram) {
+        val engine = executionEngine ?: return
+        retryRunnable?.let(mainHandler::removeCallbacks)
+        retryRunnable = null
+        scheduledStartRunnable?.let(mainHandler::removeCallbacks)
+        scheduledStartRunnable = null
+        val entry = pendingQueueEntry()
+        activeQueuedProgram = entry?.let { QueuedProgram(it, program) }
+        pendingStartAtEpochMs = 0L
+        requiresResumeConfirmation = false
+        interruptedRunRestored = false
+        executionStarted = true
+        terminalSnapshotHandled = false
+        setEditorVisible(false)
+        persistAutomationQueue()
+        val result = engine.start(program)
+        if (result != ScriptExecutionStartResult.Started) {
+            executionStarted = false
+            terminalSnapshotHandled = true
+            activeQueuedProgram = null
+            persistAutomationQueue()
+            statusLabel?.text = when (result) {
+                is ScriptExecutionStartResult.Rejected -> result.message
+                ScriptExecutionStartResult.AlreadyRunning -> "AUTU đang có kịch bản khác chạy."
+                ScriptExecutionStartResult.Started -> "Đã bắt đầu."
+            }
+        }
+        renderSnapshot(engine.snapshot())
     }
 
     private fun startNextQueuedProgram() {
@@ -665,10 +807,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         pendingMaxRetries = next.entry.maxRetries
         pendingRetryDelayMs = next.entry.retryDelayMs
         pendingRetryAttempts = next.entry.attempts
-        activeQueuedProgram = next
+        pendingStartAtEpochMs = next.entry.startAtEpochMs
+        requiresResumeConfirmation = false
+        interruptedRunRestored = false
+        activeQueuedProgram = null
 
         if (!showFloatingWindow()) {
-            activeQueuedProgram = null
             executionStarted = false
             terminalSnapshotHandled = true
             persistAutomationQueue()
@@ -677,18 +821,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
         setEditorVisible(false)
         setCollapsed(false)
-        executionStarted = true
-        terminalSnapshotHandled = false
         persistAutomationQueue()
-        when (val result = executionEngine?.start(next.program)) {
-            ScriptExecutionStartResult.Started -> Unit
-            else -> {
-                executionStarted = false
-                terminalSnapshotHandled = true
-                activeQueuedProgram = null
-                persistAutomationQueue()
-                statusLabel?.text = "Không thể tự chạy '${next.entry.name}'. Nhấn Chạy để thử lại."
+        if (pendingStartAtEpochMs > 0L || !isReadyForScheduledStart()) {
+            if (pendingStartAtEpochMs <= 0L) {
+                pendingStartAtEpochMs = System.currentTimeMillis()
             }
+            statusLabel?.text = "Đang chờ giờ chạy; cần mở khóa màn hình và mở ứng dụng mục tiêu."
+            persistAutomationQueue()
+            schedulePendingStartIfNeeded()
+            maybeStartScheduledProgram()
+        } else {
+            startPreparedProgram(next.program)
         }
         renderSnapshot(executionEngine?.snapshot())
     }
@@ -3075,26 +3218,25 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         statusLabel?.text = "Hãy mở Soạn mã và kiểm tra kịch bản trước khi chạy."
                         return
                     }
-                    retryRunnable?.let(mainHandler::removeCallbacks)
-                    retryRunnable = null
-                    val entry = pendingQueueEntry()
-                    activeQueuedProgram = entry?.let { QueuedProgram(it, program) }
-                    executionStarted = true
-                    terminalSnapshotHandled = false
-                    setEditorVisible(false)
-                    persistAutomationQueue()
-                    val result = engine.start(program)
-                    if (result != ScriptExecutionStartResult.Started) {
-                        executionStarted = false
-                        terminalSnapshotHandled = true
-                        activeQueuedProgram = null
+                    requiresResumeConfirmation = false
+                    interruptedRunRestored = false
+                    if (pendingStartAtEpochMs > 0L &&
+                        !AutomationRunPolicy.isScheduledStartDue(
+                            pendingStartAtEpochMs,
+                            System.currentTimeMillis()
+                        )
+                    ) {
+                        statusLabel?.text = "Đang chờ lịch; kịch bản sẽ tự bắt đầu khi đến giờ và ứng dụng mục tiêu đang mở."
                         persistAutomationQueue()
-                        statusLabel?.text = when (result) {
-                            is ScriptExecutionStartResult.Rejected -> result.message
-                            ScriptExecutionStartResult.AlreadyRunning -> "AUTU đang có kịch bản khác chạy."
-                            ScriptExecutionStartResult.Started -> "Đã bắt đầu."
-                        }
+                        schedulePendingStartIfNeeded()
+                        return
                     }
+                    if (pendingStartAtEpochMs > 0L && !isReadyForScheduledStart()) {
+                        statusLabel?.text = "Đã đến giờ. Mở khóa màn hình và chuyển sang ứng dụng mục tiêu để AUTU bắt đầu."
+                        persistAutomationQueue()
+                        return
+                    }
+                    startPreparedProgram(program)
                 }
             }
         }
@@ -3126,6 +3268,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             ScriptExecutionState.FAILED ->
                 "Lỗi · ${current?.message ?: current?.errorCode ?: "Không xác định"}"
         }
+        if (interruptedRunRestored && !executionStarted) {
+            status.text = "Lượt trước bị ngắt; xác nhận chạy lại · ${status.text}"
+        }
+        if (pendingStartAtEpochMs > 0L && !executionStarted) {
+            val remainingMs = (pendingStartAtEpochMs - System.currentTimeMillis()).coerceAtLeast(0L)
+            status.text = if (remainingMs > 0L) {
+                "${status.text} · Lịch còn ${(remainingMs + 59_999L) / 60_000L} phút"
+            } else {
+                "${status.text} · Đến giờ, chờ ứng dụng mục tiêu"
+            }
+        }
         if (queuedPrograms.isNotEmpty()) {
             status.text = "${status.text} · Chờ ${queuedPrograms.size}"
         }
@@ -3141,7 +3294,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         }
         primary.isEnabled = pendingProgram != null && !stopping
         primary.alpha = if (primary.isEnabled) 1f else 0.45f
-        stop.visibility = if (!collapsed && (running || paused || stopping)) View.VISIBLE else View.GONE
+        stop.visibility = if (
+            !collapsed && (running || paused || stopping || queuedPrograms.isNotEmpty() || pendingStartAtEpochMs > 0L)
+        ) View.VISIBLE else View.GONE
         primary.visibility = if (collapsed) View.GONE else View.VISIBLE
         status.visibility = if (collapsed) View.GONE else View.VISIBLE
         move.text = if (collapsed) "A" else "⠿"
@@ -3253,6 +3408,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val removeControls = {
             retryRunnable?.let(mainHandler::removeCallbacks)
             retryRunnable = null
+            scheduledStartRunnable?.let(mainHandler::removeCallbacks)
+            scheduledStartRunnable = null
             queuedPrograms.clear()
             activeQueuedProgram = null
             executionStarted = false
