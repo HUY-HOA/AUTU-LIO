@@ -7,6 +7,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import com.autulio.app.BuildConfig
+import com.autulio.app.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
@@ -226,10 +227,11 @@ data class EncryptedAutuPackage(
 class AuthRepository(context: Context) {
     private val appContext = context.applicationContext
     private val credentialManager = CredentialManager.create(appContext)
+    private val apiBaseUrl = appContext.getString(R.string.api_base_url).trim()
+    private val googleServerClientId = appContext.getString(R.string.default_web_client_id).trim()
 
     val isConfigured: Boolean
-        get() = BuildConfig.AUTH_API_BASE_URL.isNotBlank() &&
-            BuildConfig.GOOGLE_SERVER_CLIENT_ID.isNotBlank()
+        get() = apiBaseUrl.isNotBlank() && googleServerClientId.isNotBlank()
 
     suspend fun signIn(activity: Activity): AuthSession {
         ensureConfigured()
@@ -242,7 +244,7 @@ class AuthRepository(context: Context) {
         }
 
         val option = GetGoogleIdOption.Builder()
-            .setServerClientId(BuildConfig.GOOGLE_SERVER_CLIENT_ID)
+            .setServerClientId(googleServerClientId)
             .setFilterByAuthorizedAccounts(false)
             .setAutoSelectEnabled(false)
             .setNonce(nonce)
@@ -1131,7 +1133,7 @@ class AuthRepository(context: Context) {
         if (!isConfigured) {
             throw IOException("Chưa cấu hình địa chỉ Auth API và Google Server Client ID.")
         }
-        val apiUrl = runCatching { URL(BuildConfig.AUTH_API_BASE_URL) }.getOrNull()
+        val apiUrl = runCatching { URL(apiBaseUrl) }.getOrNull()
         if (apiUrl == null ||
             apiUrl.protocol != "https" ||
             apiUrl.host.isBlank() ||
@@ -1150,7 +1152,7 @@ class AuthRepository(context: Context) {
         bearerToken: String? = null
     ): JSONObject = withContext(Dispatchers.IO) {
         ensureConfigured()
-        val baseUrl = BuildConfig.AUTH_API_BASE_URL.trimEnd('/')
+        val baseUrl = apiBaseUrl.trimEnd('/')
         val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
