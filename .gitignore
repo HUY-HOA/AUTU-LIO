@@ -1,16 +1,29 @@
+# Gradle / Android build output
 /.gradle/
 /**/build/
 local.properties
+coverage/
+**/coverage/
+*.log
 
 # Android signing material and local credentials must never enter Git.
 *.jks
 *.keystore
 *.p12
 *.pfx
+*.pem
+*.key
+*.base64
+*.asc
+*.gpg
+*.mobileprovision
 key.properties
 secrets.properties
 .env
 .env.*
+.envrc
+.netrc
+.npmrc
 
 # Build outputs are distributed through GitHub Actions artifacts.
 *.apk
@@ -18,13 +31,17 @@ secrets.properties
 
 # Wrangler local state and Cloudflare development secrets.
 .wrangler/
+**/.wrangler/
 .dev.vars
 .dev.vars.*
+.wrangler-dry-run/
+**/.wrangler-dry-run/
 
-# Additional private key and encoded secret material.
-*.pem
-*.key
-*.base64
+# Local package caches and dependencies.
+node_modules/
+**/node_modules/
+.npm/
+.npmrc
 
 # Cloud service-account and OAuth client-secret exports.
 service-account*.json
