@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://autu-lio.coc-lio-data.workers.dev/sitemap.xml
