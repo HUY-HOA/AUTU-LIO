@@ -1,0 +1,26 @@
+package com.autulio.app.runtime
+
+/**
+ * Bounded retry policy for automation runs.
+ *
+ * Retries are opt-in because a failed script may already have performed
+ * external side effects. The default policy is never to retry automatically.
+ */
+object AutomationRunPolicy {
+    const val MAX_QUEUED_RUNS = 10
+    const val MAX_AUTOMATIC_RETRIES = 2
+    const val MIN_RETRY_DELAY_MS = 1_000L
+    const val MAX_RETRY_DELAY_MS = 60_000L
+
+    fun shouldRetry(retryOnFailure: Boolean, attempts: Int, maxRetries: Int): Boolean =
+        retryOnFailure &&
+            maxRetries in 1..MAX_AUTOMATIC_RETRIES &&
+            attempts in 0 until maxRetries
+
+    fun retryDelayMs(baseDelayMs: Long, nextAttempt: Int): Long {
+        val base = baseDelayMs.coerceIn(MIN_RETRY_DELAY_MS, 30_000L)
+        val exponent = (nextAttempt - 1).coerceIn(0, 6)
+        val multiplier = 1L shl exponent
+        return (base * multiplier).coerceAtMost(MAX_RETRY_DELAY_MS)
+    }
+}
