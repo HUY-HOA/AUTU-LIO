@@ -750,13 +750,15 @@ private fun EditorScreen(
     allowPublish: Boolean,
     allowTest: Boolean,
     allowFloatingEditor: Boolean,
-    onPrepareRun: (String, Boolean, Long) -> Unit,
+    onPrepareRun: (String, Boolean, Long, String, Boolean) -> Unit,
     onOpenFloatingEditor: () -> Unit
 ) {
     var validationText by rememberSaveable { mutableStateOf("") }
     var validationSucceeded by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var retryOnFailure by rememberSaveable { mutableStateOf(false) }
     var delayMinutes by rememberSaveable { mutableStateOf("0") }
+    var targetPackage by rememberSaveable { mutableStateOf("") }
+    var startOnTargetAppForeground by rememberSaveable { mutableStateOf(false) }
     var showTemplates by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var templateSearch by rememberSaveable { mutableStateOf("") }
@@ -942,7 +944,28 @@ private fun EditorScreen(
             ) { Text(tr("Kiểm tra mã", "Check code")) }
             if (allowTest) {
                 Button(
-                    onClick = { onPrepareRun(code, retryOnFailure, delayMinutes.toLongOrNull()?.coerceIn(0L, 1_440L) ?: 0L) },
+                    onClick = {
+                        val normalizedPackage = targetPackage.trim()
+                        val validPackage = normalizedPackage.matches(
+                            Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
+                        ) && normalizedPackage.length <= 255 &&
+                            normalizedPackage != "com.autulio.app"
+                        if (startOnTargetAppForeground && !validPackage) {
+                            validationSucceeded = false
+                            validationText = tr(
+                                "Nhập mã gói hợp lệ trước khi bật tự chạy. Ví dụ: com.example.app.",
+                                "Enter a valid application package before enabling auto-start. Example: com.example.app."
+                            )
+                        } else {
+                            onPrepareRun(
+                                code,
+                                retryOnFailure,
+                                delayMinutes.toLongOrNull()?.coerceIn(0L, 1_440L) ?: 0L,
+                                normalizedPackage,
+                                startOnTargetAppForeground
+                            )
+                        }
+                    },
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Outlined.PlayArrow, contentDescription = null)
@@ -991,6 +1014,46 @@ private fun EditorScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true
             )
+        }
+        if (allowTest) {
+            OutlinedTextField(
+                value = targetPackage,
+                onValueChange = { targetPackage = it.trim().take(255) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(tr("Mã gói ứng dụng mục tiêu", "Target app package")) },
+                supportingText = {
+                    Text(tr(
+                        "Ví dụ: com.example.app. Chỉ cần nhập khi bật tự chạy theo ứng dụng.",
+                        "Example: com.example.app. Required only when app-triggered auto-start is enabled."
+                    ))
+                },
+                singleLine = true
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        tr("Tự chạy khi mở đúng ứng dụng", "Auto-start when the exact app opens"),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        tr(
+                            "Chỉ kích hoạt khi đúng mã gói ở tiền cảnh, màn hình đã mở khóa và AUTU còn quyền.",
+                            "Triggers only when the exact package is in the foreground, the screen is unlocked and AUTU remains authorized."
+                        ),
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 14.sp
+                    )
+                }
+                Switch(
+                    checked = startOnTargetAppForeground,
+                    onCheckedChange = { startOnTargetAppForeground = it }
+                )
+            }
         }
         if (validationText.isNotBlank()) {
             Text(
@@ -2407,7 +2470,7 @@ class ScriptEditorActivity : ComponentActivity() {
                                 }
                             }
                         },
-                        onPrepareRun = { source, retryOnFailure, delayMinutes ->
+                        onPrepareRun = { source, retryOnFailure, delayMinutes, targetPackage, startOnTargetAppForeground ->
                             if (!allowTest) return@EditorScreen
                             store.save(initialNames, initial.contents + (scriptName to source))
                             setResult(Activity.RESULT_OK)
@@ -2438,12 +2501,19 @@ class ScriptEditorActivity : ComponentActivity() {
                                         source,
                                         retryOnFailure = retryOnFailure,
                                         maxRetries = if (retryOnFailure) 2 else 0,
-                                        delayMinutes = delayMinutes
+                                        delayMinutes = delayMinutes,
+                                        targetPackage = targetPackage,
+                                        startOnTargetAppForeground = startOnTargetAppForeground
                                     )) {
                                     val queuedCount = service.queuedProgramCount()
                                     scope.launch {
                                         host.showSnackbar(
-                                            if (delayMinutes > 0L) {
+                                            if (startOnTargetAppForeground) {
+                                                tr(
+                                                    "Đã bật tự chạy theo ứng dụng $targetPackage. AUTU chỉ bắt đầu khi ứng dụng đó ở tiền cảnh và máy đã mở khóa.",
+                                                    "App trigger enabled for $targetPackage. AUTU starts only while that app is foreground and the phone is unlocked."
+                                                )
+                                            } else if (delayMinutes > 0L) {
                                                 tr(
                                                     "Đã đặt lịch chạy sau $delayMinutes phút. AUTU chờ máy mở khóa và ứng dụng mục tiêu ở phía trước.",
                                                     "Scheduled to run after $delayMinutes minutes. AUTU waits for the phone to be unlocked and the target app to be in front."
