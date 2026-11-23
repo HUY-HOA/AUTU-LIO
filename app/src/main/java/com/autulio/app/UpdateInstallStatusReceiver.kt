@@ -1,6 +1,6 @@
 package com.autulio.app
 
-import android.app.BroadcastReceiver
+import android.content.BroadcastReceiver
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
