@@ -97,9 +97,10 @@ Không có khóa giải mã chung trong APK. Tuy nhiên, khi script được gi�
 
 ## 7. Điều kiện trước khi phát hành thật
 
-- Worker chưa được deploy; cần cấu hình Google OAuth và D1 migrations còn thiếu.
-- Cần đặt `GOOGLE_CLIENT_ID`, `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` bằng Worker secrets. `OWNER_GOOGLE_SUB` phải là claim `sub` từ ID token của tài khoản Google chủ sở hữu đã xác minh; không dùng email, Firebase UID hoặc GitHub ID.
-- Cần kiểm thử đăng nhập thật, cấp license, đăng ký thiết bị, phát hành, tải/giải mã và thu hồi trên thiết bị Android thật.
+- API Worker `autu-lio-auth-api` và website Worker `autu-lio` đã được triển khai trên Cloudflare; D1 migrations `0001`–`0008` đã áp dụng.
+- GitHub Actions deploy dùng hai repository secrets `CLOUDFLARE_API_TOKEN` và `CLOUDFLARE_ACCOUNT_ID`. Chúng độc lập với bốn signing secrets của APK.
+- Các Worker secrets `GOOGLE_CLIENT_ID`, `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` được cấu hình riêng trong Cloudflare. `OWNER_GOOGLE_SUB` là claim `sub` từ ID token của chủ sở hữu đã xác minh; không dùng email, Firebase UID hoặc GitHub ID.
+- Cần tiếp tục nghiệm thu đăng nhập thật, cấp license, đăng ký thiết bị, phát hành, tải/giải mã và thu hồi trên thiết bị Android thật.
 - Cần tạo keystore ký Release riêng cho AUTU-LIO, lưu bản sao lưu an toàn và cấu hình đủ bốn GitHub Actions secrets.
 - Kiểm thử cài đặt/cập nhật Release bằng cùng một chữ ký ổn định; không tự động xoay hoặc thay signing key sau khi đã phát hành.
 - Tiếp tục bổ sung kiểm thử runtime và chống giả mạo phù hợp; không xem R8 hay mã hóa package là ranh giới bảo mật duy nhất.
