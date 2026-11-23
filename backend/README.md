@@ -83,8 +83,22 @@ The Worker source is deployed and all nine D1 migrations are applied. Production
 - `POST /api/customer/presence` — report app foreground and AUTU runtime presence for the authenticated active device.
 - `GET /api/customer/packages?deviceFingerprint=...` — list published packages for an active license and matching active device.
 - `GET /api/customer/packages/:packageId/download?deviceFingerprint=...` — retrieve ciphertext and a data key wrapped to the registered device.
-- `GET /api/admin/customers`, `GET /api/admin/licenses`, `GET /api/admin/devices` — OWNER customer and device directories.
-- `POST /api/admin/licenses`, `PATCH /api/admin/licenses/:licenseId`, `PATCH /api/admin/devices/:deviceId` — OWNER license and device controls.
+- `GET /api/admin/customers`, `GET /api/admin/licenses`, `GET /api/admin/devices` — OWNER customer, license and device directories.
+- `PATCH /api/admin/customers/:customerId` — change account login status.
+- `POST /api/admin/customers/:customerId/sessions/revoke` — revoke all current login sessions without changing account status, licenses or devices.
+- `POST /api/admin/licenses`, `PATCH /api/admin/licenses/:licenseId`, `DELETE /api/admin/licenses/:licenseId` — create, update or delete one license.
+- `PATCH /api/admin/devices/:deviceId` — grant or revoke one registered device.
+ 
+### Independent access controls
+
+These controls are deliberately separate:
+
+- **Login session only:** `POST /api/admin/customers/:customerId/sessions/revoke` signs the customer out of existing sessions. The account remains active and can sign in again; licenses and device registrations are unchanged.
+- **Block/revoke account login:** setting the account to `SUSPENDED` or `REVOKED` blocks new sign-ins and revokes its existing sessions. It does not pause/revoke/delete licenses or change registered devices.
+- **Pause/revoke a license:** changing one license to `PAUSED` or `REVOKED` blocks AUTU package listing/download for that customer. It does not sign the customer out, change account status or revoke registered devices.
+- **Delete a license:** `DELETE` removes only that license record. The deletion is recorded in audit logs; login sessions, account status and devices are unchanged.
+- **Revoke a device:** changes only that device's registration status. It does not revoke login sessions or change the license.
+
 
 ### Published AUTU packages
 
