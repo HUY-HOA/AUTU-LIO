@@ -35,8 +35,8 @@ AUTU-LIO includes Google ML Kit on-device vision APIs. The app supports OCR, str
 | Ảnh và màu màn hình | Lấy mẫu điểm ảnh để đọc màu khi người dùng gọi lệnh | Lấy mẫu RGB và xử lý ảnh ML Kit cục bộ; không dùng AI tạo sinh |
 | Tương tác | Chạm, nhấn giữ, vuốt; kéo-thả/đa điểm khi Android cho phép | Đã có chạm/giữ/vuốt và chạm/vuốt đồng thời 2–5 ngón, tối đa 16 điểm mỗi đường; kéo-thả đường cong chuyên biệt còn thiếu |
 | Tọa độ | Pixel, DP, tỷ lệ màn hình, vùng an toàn, xoay màn hình | Đã có quy đổi DP/pixel, tỷ lệ toàn màn hình/vùng an toàn và chuyển tọa độ giữa hướng ROTATION_0 với hướng logic hiện tại; lệnh thao tác nhận pixel nguyên; kéo-thả đường cong còn thiếu |
-| Sự kiện | Thay đổi cửa sổ, nội dung, thông báo do người dùng cấp quyền, trạng thái ứng dụng | Còn thiếu |
-| Lịch và nền | Lịch chạy, hàng đợi, retry, điều kiện pin/mạng, tác vụ định kỳ và thông báo trạng thái | Đã có hàng đợi tuần tự tối đa 10 tác vụ, lưu mã nguồn mã hóa AES-GCM bằng Android Keystore, khôi phục sau khi dịch vụ khởi động lại nhưng yêu cầu người dùng nhấn Chạy; retry có opt-in tối đa 2 lần với backoff; hẹn giờ một lần tối đa 24 giờ và chỉ tự bắt đầu khi mở khóa màn hình, ứng dụng khác AUTU-LIO đang ở trước. Bộ hẹn giờ dựa trên tiến trình Accessibility Service, không bảo đảm sau khi tiến trình bị dừng; lịch lặp, target-package filter, điều kiện pin/mạng và tác vụ nền định kỳ còn thiếu |
+| Sự kiện | Thay đổi cửa sổ/nội dung và trạng thái ứng dụng; kích hoạt một kịch bản đã được người dùng bật theo đúng mã gói ứng dụng ở tiền cảnh | Đã có trigger theo ứng dụng tiền cảnh; sự kiện thông báo, điều kiện nội dung tùy chỉnh và nhiều trigger ghép còn thiếu |
+| Lịch và nền | Lịch chạy, hàng đợi, retry, điều kiện pin/mạng, tác vụ định kỳ và thông báo trạng thái | Đã có hàng đợi tuần tự tối đa 10 tác vụ, lưu mã nguồn mã hóa AES-GCM bằng Android Keystore, khôi phục sau khi dịch vụ khởi động lại nhưng yêu cầu người dùng xác nhận; retry opt-in tối đa 2 lần với backoff; hẹn giờ một lần tối đa 24 giờ; trigger tự chạy theo đúng mã gói ứng dụng khi ứng dụng ở tiền cảnh và màn hình mở khóa. Bộ hẹn giờ/trigger chạy trong tiến trình Accessibility Service, không bảo đảm khi tiến trình bị dừng; lịch lặp, điều kiện pin/mạng và tác vụ nền định kỳ còn thiếu |
 | Thiết bị | Pin, sạc, mạng, màn hình, ứng dụng foreground và thông số màn hình | Đã có pin/sạc/mạng, trạng thái màn hình, pixel/DP, density, hướng/xoay, package foreground, model/nhà sản xuất/phiên bản Android và trạng thái Keyguard; âm lượng/rung/clipboard còn thiếu |
 | Giao diện kịch bản | Form, nút, ô nhập, danh sách, bảng điều khiển và biến tương tác | Còn thiếu |
 | Thư viện | Module, import/export, phiên bản thư viện, tái sử dụng hàm | Còn thiếu |
@@ -88,9 +88,10 @@ Các lệnh đã được nối vào AUTU Script:
 - API mạng phải có timeout, giới hạn kích thước, HTTPS mặc định, kiểm tra phản hồi và không ghi log bí mật.
 
 ### Tác vụ nền và sự kiện
-- Tác vụ nền phải dùng cơ chế Android phù hợp, tuân thủ giới hạn chạy nền và có trạng thái hiển thị.
-- Lịch định kỳ phải nêu rõ khoảng lặp thực tế có thể bị Android trì hoãn.
-- Tác vụ có thể hủy; retry có giới hạn và backoff.
+- Trigger hiện tại chỉ hoạt động sau khi người dùng chủ động bật và nhập đúng mã gói ứng dụng; AUTU chỉ chạy khi ứng dụng đó ở tiền cảnh, màn hình đã mở khóa và phiên/quyền còn hợp lệ.
+- Trigger và hẹn giờ phụ thuộc tiến trình Accessibility Service; không bảo đảm khi Android/OEM dừng tiến trình, khi máy khóa hoặc khi ứng dụng đích không ở tiền cảnh.
+- Lịch lặp, trigger theo thông báo/nội dung, điều kiện pin/mạng và tác vụ nền định kỳ cần thiết kế riêng theo giới hạn Android.
+- Tác vụ có thể hủy; retry có giới hạn và backoff, mặc định tắt vì có thể lặp lại tác động đã thực hiện một phần.
 - Không tự động khởi chạy hoặc thao tác ứng dụng nhạy cảm ngoài cấu hình rõ ràng của người dùng.
 
 ## Quy tắc tương thích và giới hạn
