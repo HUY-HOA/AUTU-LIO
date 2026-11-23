@@ -655,8 +655,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     pendingRetryDelayMs = completed.entry.retryDelayMs
                     pendingRetryAttempts = 0
                     pendingStartAtEpochMs = 0L
-                    pendingTargetPackage = completed.entry.targetPackage
-                    pendingStartOnTargetAppForeground = completed.entry.startOnTargetAppForeground
+                    pendingTargetPackage = null
+                    pendingStartOnTargetAppForeground = false
                     requiresResumeConfirmation = false
                     interruptedRunRestored = false
                 }
@@ -719,11 +719,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         pendingMaxRetries = it.entry.maxRetries
                         pendingRetryDelayMs = it.entry.retryDelayMs
                         pendingRetryAttempts = it.entry.attempts
-                        pendingStartAtEpochMs = if (it.entry.startOnTargetAppForeground) {
-                            System.currentTimeMillis().coerceAtLeast(1L)
-                        } else 0L
-                        pendingTargetPackage = it.entry.targetPackage
-                        pendingStartOnTargetAppForeground = it.entry.startOnTargetAppForeground
+                        pendingStartAtEpochMs = 0L
+                        pendingTargetPackage = null
+                        pendingStartOnTargetAppForeground = false
                         requiresResumeConfirmation = false
                         interruptedRunRestored = false
                     }
@@ -759,7 +757,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val foreground = foregroundPackage
         if (isLocked || foreground.isNullOrBlank() || foreground == packageName) return false
         return if (pendingStartOnTargetAppForeground) {
-            foreground == pendingTargetPackage
+            AutomationRunPolicy.matchesTargetAppForeground(pendingTargetPackage, foreground)
         } else {
             true
         }
