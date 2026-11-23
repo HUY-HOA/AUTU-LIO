@@ -333,6 +333,17 @@ class AuthRepository(context: Context) {
         )
     }
 
+    suspend fun revokeCustomerSessions(accessToken: String, userId: String): Int {
+        require(userId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        val result = apiRequest(
+            "/api/admin/customers/$userId/sessions/revoke",
+            "POST",
+            JSONObject(),
+            accessToken
+        )
+        return result.optInt("count")
+    }
+
     suspend fun listAdminLicenses(accessToken: String): List<LicenseRecord> {
         val result = apiRequest("/api/admin/licenses", "GET", bearerToken = accessToken)
         val items = result.optJSONArray("licenses") ?: return emptyList()
@@ -411,6 +422,16 @@ class AuthRepository(context: Context) {
                 .put("status", status)
                 .put("expiresAt", expiresAt)
                 .put("maxDevices", maxDevices),
+            accessToken
+        )
+    }
+
+    suspend fun deleteCustomerLicense(accessToken: String, licenseId: String) {
+        require(licenseId.matches(Regex("^[0-9a-fA-F-]{36}$")))
+        apiRequest(
+            "/api/admin/licenses/$licenseId",
+            "DELETE",
+            JSONObject(),
             accessToken
         )
     }
