@@ -38,10 +38,10 @@ object FirebasePushManager {
                 .setGcmSenderId(senderId)
                 .setApplicationId(appId)
                 .build()
-            val firebaseApp = FirebaseApp.getApps(context).firstOrNull()
-                ?: FirebaseApp.initializeApp(context, options)
-                ?: return
-            FirebaseMessaging.getInstance(firebaseApp).subscribeToTopic(TOPIC)
+            if (FirebaseApp.getApps(context).isEmpty()) {
+                FirebaseApp.initializeApp(context, options) ?: return
+            }
+            FirebaseMessaging.getInstance().subscribeToTopic(TOPIC)
                 .addOnSuccessListener { Log.i("AUTU-LIO-FCM", "Subscribed to update notices.") }
                 .addOnFailureListener { error -> Log.w("AUTU-LIO-FCM", "Could not subscribe to update notices.", error) }
         } catch (error: Exception) {
