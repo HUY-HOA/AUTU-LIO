@@ -1534,20 +1534,6 @@ private fun MoreScreen(
                             onDismissRequest = { showSettingsMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text(tr("Điều khoản sử dụng", "Terms of use")) },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/terms/")))
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(tr("Quyền riêng tư", "Privacy policy")) },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/privacy/")))
-                                }
-                            )
-                            DropdownMenuItem(
                                 text = { Text(tr("Kiểm tra cập nhật", "Check for updates")) },
                                 onClick = {
                                     showSettingsMenu = false
@@ -1577,6 +1563,20 @@ private fun MoreScreen(
                                 onClick = {
                                     showSettingsMenu = false
                                     onSelect("customers")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(tr("Điều khoản sử dụng", "Terms of use")) },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/terms/")))
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(tr("Quyền riêng tư", "Privacy policy")) },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/privacy/")))
                                 }
                             )
                         }
@@ -2022,6 +2022,13 @@ private fun SettingsScreen(
                     onDismissRequest = { showSettingsMenu = false }
                 ) {
                     DropdownMenuItem(
+                        text = { Text(tr("Kiểm tra cập nhật", "Check for updates")) },
+                        onClick = {
+                            showSettingsMenu = false
+                            (context as? Activity)?.let { AppUpdateManager.check(it, forceCheck = true) }
+                        }
+                    )
+                    DropdownMenuItem(
                         text = { Text(tr("Điều khoản sử dụng", "Terms of use")) },
                         onClick = {
                             showSettingsMenu = false
@@ -2033,13 +2040,6 @@ private fun SettingsScreen(
                         onClick = {
                             showSettingsMenu = false
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/privacy/")))
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(tr("Kiểm tra cập nhật", "Check for updates")) },
-                        onClick = {
-                            showSettingsMenu = false
-                            (context as? Activity)?.let { AppUpdateManager.check(it, forceCheck = true) }
                         }
                     )
                 }
