@@ -1,0 +1,126 @@
+name: Verify AUTU-LIO in-app APK updater
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/verify-app-updater.yml"
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - "AUTU-LIO Android APK"
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  updater-smoke-test:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      UPDATE_BASE_URL: https://autu-lio-updates.coc-lio-data.workers.dev
+      EXPECTED_APP_ID: autu-lio
+      EXPECTED_PACKAGE: com.autulio.app
+    steps:
+      - name: Verify updater health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --retry 3 --retry-all-errors --fail --silent --show-error "$UPDATE_BASE_URL/health")"
+          python3 - "$response" "$EXPECTED_APP_ID" <<'PY'
+          import json
+          import sys
+          data = json.loads(sys.argv[1])
+          assert data.get("ok") is True, data
+          assert data.get("appId") == sys.argv[2], data
+          print("Updater health: OK for", data["appId"])
+          PY
+
+      - name: Validate latest update manifest
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --retry 3 --retry-all-errors --fail --silent --show-error \
+            "$UPDATE_BASE_URL/v1/latest" -o "$RUNNER_TEMP/update.json"
+          python3 - "$RUNNER_TEMP/update.json" "$GITHUB_OUTPUT" "$UPDATE_BASE_URL" "$EXPECTED_APP_ID" "$EXPECTED_PACKAGE" <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+          from urllib.parse import quote
+
+          manifest = json.loads(Path(sys.argv[1]).read_text())
+          output = Path(sys.argv[2])
+          base = sys.argv[3].rstrip("/")
+          expected_app, expected_package = sys.argv[4:6]
+          tag = manifest.get("tag", "")
+          version = manifest.get("versionName", "")
+          digest = manifest.get("sha256", "")
+          expected_url = f"{base}/v1/download/{quote(tag, safe='')}"
+
+          assert manifest.get("appId") == expected_app, manifest
+          assert manifest.get("applicationId") == expected_package, manifest
+          assert re.fullmatch(r"v\d+\.\d+\.\d+", tag), f"invalid tag: {tag}"
+          assert version == tag.removeprefix("v"), f"version/tag mismatch: {version} vs {tag}"
+          assert manifest.get("downloadUrl") == expected_url, manifest.get("downloadUrl")
+          assert re.fullmatch(r"[a-fA-F0-9]{64}", digest), f"invalid SHA-256: {digest}"
+          assert manifest.get("prerelease") is False, "latest release must not be a prerelease"
+          assert manifest.get("publishedAt"), "missing release time"
+
+          with output.open("a") as f:
+              f.write(f"download_url={manifest['downloadUrl']}\n")
+              f.write(f"expected_sha256={digest.lower()}\n")
+              f.write(f"version={version}\n")
+          print(f"Manifest OK: {expected_app} {version} ({tag})")
+          PY
+
+      - name: Verify HEAD and resumable byte ranges
+        shell: bash
+        env:
+          DOWNLOAD_URL: ${{ steps.manifest.outputs.download_url }}
+        run: |
+          set -euo pipefail
+          head_headers="$RUNNER_TEMP/update-head.txt"
+          head_status="$(curl --silent --show-error --output /dev/null --dump-header "$head_headers" --write-out '%{http_code}' --head "$DOWNLOAD_URL")"
+          echo "HEAD status: $head_status"
+          test "$head_status" = "200"
+          grep -Eiq '^content-type: application/vnd.android.package-archive' "$head_headers"
+          grep -Eiq '^content-length: [1-9][0-9]*' "$head_headers"
+          grep -Eiq '^accept-ranges: bytes' "$head_headers"
+
+          range_headers="$RUNNER_TEMP/update-range.txt"
+          range_body="$RUNNER_TEMP/update-range.bin"
+          range_status="$(curl --retry 2 --retry-all-errors --silent --show-error --output "$range_body" --dump-header "$range_headers" --write-out '%{http_code}' --header 'Range: bytes=0-0' "$DOWNLOAD_URL")"
+          test "$range_status" = "206"
+          test "$(stat -c '%s' "$range_body")" = "1"
+          grep -Eiq '^content-range: bytes 0-0/[0-9]+' "$range_headers"
+          echo "HEAD and first-byte Range: OK"
+
+          middle_headers="$RUNNER_TEMP/update-range-middle.txt"
+          middle_body="$RUNNER_TEMP/update-range-middle.bin"
+          middle_status="$(curl --retry 2 --retry-all-errors --silent --show-error --output "$middle_body" --dump-header "$middle_headers" --write-out '%{http_code}' --header 'Range: bytes=1048576-1049599' "$DOWNLOAD_URL")"
+          test "$middle_status" = "206"
+          test "$(stat -c '%s' "$middle_body")" = "1024"
+          grep -Eiq '^content-range: bytes 1048576-1049599/[0-9]+' "$middle_headers"
+          echo "Middle Range: OK"
+
+      - name: Download current APK through updater and verify SHA-256
+        shell: bash
+        env:
+          DOWNLOAD_URL: ${{ steps.manifest.outputs.download_url }}
+          EXPECTED_SHA256: ${{ steps.manifest.outputs.expected_sha256 }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          set -euo pipefail
+          apk="$RUNNER_TEMP/AUTU-LIO-update.apk"
+          curl --retry 3 --retry-all-errors --fail --location --silent --show-error "$DOWNLOAD_URL" -o "$apk"
+          actual_sha256="$(sha256sum "$apk" | awk '{print $1}')"
+          actual_size="$(stat -c '%s' "$apk")"
+          test "$actual_sha256" = "$EXPECTED_SHA256"
+          (( actual_size > 100000 ))
+          file "$apk"
+          echo "Updater download OK: $VERSION ($actual_size bytes)"
+          echo "SHA-256: $actual_sha256"
