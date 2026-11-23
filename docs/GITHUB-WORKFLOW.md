@@ -29,16 +29,18 @@ Workflow `.github/workflows/worker-deploy.yml` chạy khi backend thay đổi tr
 
 Các giá trị runtime `GOOGLE_CLIENT_ID`, `OWNER_GOOGLE_SUB` và `PACKAGE_MASTER_KEY_V1` được lưu riêng trong Cloudflare Worker Secrets. Workflow deploy không yêu cầu người dùng gửi chúng qua GitHub hoặc chat. Không xóa hoặc thay thế các khóa mã hóa package nếu chưa có quy trình xoay khóa và di chuyển dữ liệu.
 
-## 3. Bốn GitHub Secrets ký APK
+## 3. Bốn GitHub Secrets ký APK dùng chung AILIO
 
-GitHub → Settings → Secrets and variables → Actions:
+Trong từng repository `AUTU-LIO`, `COC-LIO` và `GPS-LIO`, vào GitHub → Settings → Secrets and variables → Actions → Repository secrets và dùng đúng bốn tên:
 
-- `AUTU_LIO_RELEASE_KEYSTORE_BASE64`
-- `AUTU_LIO_RELEASE_STORE_PASSWORD`
-- `AUTU_LIO_RELEASE_KEY_ALIAS`
-- `AUTU_LIO_RELEASE_KEY_PASSWORD`
+- `AILIO_KEYSTORE_BASE64`
+- `AILIO_KEYSTORE_PASSWORD`
+- `AILIO_KEY_ALIAS`
+- `AILIO_KEY_PASSWORD`
 
-Không commit hoặc gửi các giá trị này qua chat, issue hay log. Không thay keystore sau khi đã phát hành APK chính thức, nếu không người dùng có thể không cập nhật đè được ứng dụng cũ.
+Cả ba repository dùng chung một keystore/chứng thư AILIO. GitHub secrets không tự đồng bộ giữa các repository, vì vậy từng kho phải có đủ bốn mục tương ứng. Không commit hoặc gửi các giá trị qua chat, issue hay log. Không thay keystore sau khi đã phát hành APK chính thức.
+
+Đã kiểm tra trực tiếp workflow trên cả ba repository: keystore giải mã được, alias và hai mật khẩu được chấp nhận; SHA-1 chung là `2E:65:5B:0D:B5:8C:CF:A5:84:B9:37:1C:39:80:28:95:38:60:85:6D`.
 
 ## 4. Build và phát hành APK
 
