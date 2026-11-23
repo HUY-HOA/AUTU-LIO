@@ -81,9 +81,12 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         AppUpdateManager.resume(this)
-        window.decorView.postDelayed({
-            if (!isFinishing && !isDestroyed) AppUpdateManager.check(this, forceCheck = true)
-        }, 700L)
+        AppUpdateManager.startAnnouncementPolling(this)
+    }
+
+    override fun onPause() {
+        AppUpdateManager.stopAnnouncementPolling(this)
+        super.onPause()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
