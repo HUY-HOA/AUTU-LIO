@@ -40,7 +40,6 @@ object AppUpdateManager {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
         if (now - prefs.getLong(KEY_LAST_CHECK, 0L) < CHECK_INTERVAL_MS) return
-        prefs.edit().putLong(KEY_LAST_CHECK, now).apply()
 
         Thread {
             val manifest = try {
@@ -62,6 +61,9 @@ object AppUpdateManager {
             if (version.isBlank() || !isNewerVersion(currentVersion(context), version)) return@Thread
             val uri = runCatching { Uri.parse(downloadUrl) }.getOrNull() ?: return@Thread
             if (uri.scheme != "https" || uri.host != DOWNLOAD_HOST || uri.path?.startsWith("/v1/download/") != true) return@Thread
+            // Store the cooldown only after a valid manifest is received. A transient network failure
+            // must not suppress the next update check for six hours.
+            prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
             val notes = manifest.optString("releaseNotes").trim().take(900)
             val sha = manifest.optString("sha256").takeIf { it.matches(Regex("(?i)^[a-f0-9]{64}$")) }
             val mandatory = manifest.optBoolean("mandatory", false)
@@ -124,11 +126,12 @@ object AppUpdateManager {
                 .setAllowedOverRoaming(false)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalFilesDir(activity, Environment.DIRECTORY_DOWNLOADS,
-                    "AUTU-LIO-${version}.apk")
+                    "AUTU-LIO-${version}-${System.currentTimeMillis()}.apk")
             val manager = activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val id = manager.enqueue(request)
-            prefs.edit().putLong(KEY_DOWNLOAD_ID, id).putString(KEY_PENDING_VERSION, version)
-                .putString(KEY_PENDING_SHA256, sha).remove(KEY_PENDING_URL).apply()
+            // Keep the URL while downloading so a missing DownloadManager row can be recovered on resume.
+            prefs.edit().putLong(KEY_DOWNLOAD_ID, id).putString(KEY_PENDING_URL, url)
+                .putString(KEY_PENDING_VERSION, version).putString(KEY_PENDING_SHA256, sha).apply()
             Toast.makeText(activity, "Đang tải AUTU-LIO ${version}.", Toast.LENGTH_LONG).show()
             pollDownload(activity, id)
         } catch (_: Exception) {
@@ -141,27 +144,80 @@ object AppUpdateManager {
         val context = activity.applicationContext
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val poller = object : Runnable {
+            private var lastPausedReason: Int? = null
+
             override fun run() {
                 val cursor = runCatching { manager.query(DownloadManager.Query().setFilterById(id)) }.getOrNull()
-                if (cursor == null) { activeDownloads.remove(id); return }
+                if (cursor == null) {
+                    // A temporary provider/query error is not proof that the download disappeared.
+                    handler.postDelayed(this, 3_000L)
+                    return
+                }
                 var status = -1
                 var reason = 0
+                var hasRow = false
+                var downloadedBytes = 0L
+                var totalBytes = -1L
                 try {
-                    if (cursor.moveToFirst()) {
+                    hasRow = cursor.moveToFirst()
+                    if (hasRow) {
                         status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
                         reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                        downloadedBytes = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                        totalBytes = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
                     }
-                } catch (_: Exception) { status = -1 } finally { cursor.close() }
+                } catch (_: Exception) {
+                    status = -1
+                } finally {
+                    cursor.close()
+                }
+
+                if (!hasRow) {
+                    activeDownloads.remove(id)
+                    clearDownloadId(context)
+                    handler.post {
+                        Toast.makeText(context, "Tác vụ tải không còn trong Android. Mở lại AUTU-LIO để thử tải lại.", Toast.LENGTH_LONG).show()
+                    }
+                    return
+                }
+
+                android.util.Log.d(
+                    "AUTU-LIO-UPDATER",
+                    "downloadId=$id status=$status reason=$reason bytes=$downloadedBytes/$totalBytes"
+                )
 
                 when (status) {
-                    DownloadManager.STATUS_SUCCESSFUL -> { activeDownloads.remove(id); installDownloaded(activity, id) }
-                    DownloadManager.STATUS_FAILED -> {
-                        activeDownloads.remove(id); clearPending(context)
-                        handler.post { Toast.makeText(context, "Tải cập nhật thất bại (mã $reason).", Toast.LENGTH_LONG).show() }
+                    DownloadManager.STATUS_SUCCESSFUL -> {
+                        activeDownloads.remove(id)
+                        installDownloaded(activity, id)
                     }
-                    DownloadManager.STATUS_PENDING, DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PAUSED ->
-                        handler.postDelayed(this, 1_000L)
-                    else -> { activeDownloads.remove(id); clearPending(context) }
+                    DownloadManager.STATUS_FAILED -> {
+                        activeDownloads.remove(id)
+                        clearPending(context)
+                        handler.post {
+                            Toast.makeText(context, downloadFailureMessage(reason), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    DownloadManager.STATUS_PAUSED -> {
+                        if (lastPausedReason != reason) {
+                            lastPausedReason = reason
+                            handler.post {
+                                Toast.makeText(context, downloadPausedMessage(reason), Toast.LENGTH_LONG).show()
+                            }
+                        }
+                        handler.postDelayed(this, 2_000L)
+                    }
+                    DownloadManager.STATUS_PENDING, DownloadManager.STATUS_RUNNING -> {
+                        lastPausedReason = null
+                        handler.postDelayed(this, 2_000L)
+                    }
+                    else -> {
+                        activeDownloads.remove(id)
+                        clearDownloadId(context)
+                        handler.post {
+                            Toast.makeText(context, "Trạng thái tải không xác định ($status). Mở lại AUTU-LIO để thử tiếp.", Toast.LENGTH_LONG).show()
+                        }
+                    }
                 }
             }
         }
@@ -206,8 +262,33 @@ object AppUpdateManager {
         }
     }
 
+    private fun downloadPausedMessage(reason: Int): String = when (reason) {
+        DownloadManager.PAUSED_WAITING_TO_RETRY -> "Kết nối tải xuống bị gián đoạn. Android đang thử tải lại."
+        DownloadManager.PAUSED_WAITING_FOR_NETWORK -> "Đang chờ kết nối Internet để tiếp tục tải APK."
+        DownloadManager.PAUSED_QUEUED_FOR_WIFI -> "Android đang chờ Wi-Fi mới tải tiếp. Hãy kết nối Wi-Fi hoặc kiểm tra cài đặt tải xuống."
+        DownloadManager.PAUSED_UNKNOWN -> "Android đang tạm dừng tải xuống (mã $reason)."
+        else -> "Tải APK đang tạm dừng (mã $reason). Hãy kiểm tra kết nối mạng."
+    }
+
+    private fun downloadFailureMessage(reason: Int): String = when (reason) {
+        DownloadManager.ERROR_INSUFFICIENT_SPACE -> "Không đủ dung lượng trống để tải bản cập nhật."
+        DownloadManager.ERROR_DEVICE_NOT_FOUND -> "Không tìm thấy bộ nhớ lưu APK trên thiết bị."
+        DownloadManager.ERROR_CANNOT_RESUME -> "Android không thể tiếp tục tệp đang tải. Hãy thử cập nhật lại."
+        DownloadManager.ERROR_HTTP_DATA_ERROR -> "Dữ liệu tải xuống bị gián đoạn. Hãy thử lại."
+        DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "Máy chủ trả mã HTTP không được Android hỗ trợ (mã $reason)."
+        DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "Đường tải APK chuyển hướng quá nhiều lần."
+        DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "Tệp APK đích đã tồn tại. Hãy thử tải lại."
+        DownloadManager.ERROR_FILE_ERROR -> "Android không thể ghi tệp APK vào bộ nhớ."
+
+        else -> "Tải cập nhật thất bại (mã $reason). Hãy kiểm tra kết nối và dung lượng trống."
+    }
+
     private fun canInstallPackages(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
+
+    private fun clearDownloadId(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_DOWNLOAD_ID).apply()
+    }
 
     private fun clearPending(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
