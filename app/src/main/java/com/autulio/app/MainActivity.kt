@@ -1541,20 +1541,11 @@ private fun MoreScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text(tr("Yêu cầu cập nhật bắt buộc", "Require mandatory update")) },
+                                text = { Text(tr("Thông báo cập nhật", "Announce update")) },
                                 onClick = {
                                     showSettingsMenu = false
                                     (context as? Activity)?.let {
-                                        AppUpdateManager.setMandatoryUpdate(it, accessToken, true)
-                                    }
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(tr("Tắt yêu cầu cập nhật bắt buộc", "Disable mandatory update")) },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    (context as? Activity)?.let {
-                                        AppUpdateManager.setMandatoryUpdate(it, accessToken, false)
+                                        AppUpdateManager.announceUpdate(it, accessToken)
                                     }
                                 }
                             )
