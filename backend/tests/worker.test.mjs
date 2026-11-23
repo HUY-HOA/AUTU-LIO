@@ -540,7 +540,7 @@ test("owner can suspend a customer and revoke its existing sessions", async () =
   assert.equal(statementsSeen.some(sql => sql.includes("UPDATE devices")), false);
 });
 
-test("revoking a customer revokes its licenses, devices and sessions", async () => {
+test("revoking login access blocks the account and sessions without changing licenses or devices", async () => {
   const { env } = createEnv({ session: ownerSession });
   const statementsSeen = [];
   const originalPrepare = env.DB.prepare.bind(env.DB);
@@ -569,10 +569,49 @@ test("revoking a customer revokes its licenses, devices and sessions", async () 
   );
 
   assert.equal(response.status, 200);
+  assert.equal((await json(response)).status, "REVOKED");
   assert.ok(statementsSeen.some(sql => sql.includes("UPDATE users SET status")));
   assert.ok(statementsSeen.some(sql => sql.includes("UPDATE sessions SET revoked_at")));
-  assert.ok(statementsSeen.some(sql => sql.includes("UPDATE licenses SET status = 'REVOKED'")));
-  assert.ok(statementsSeen.some(sql => sql.includes("UPDATE devices SET status = 'REVOKED'")));
+  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE licenses")), false);
+  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE devices")), false);
+});
+
+test("revoking all customer sessions leaves account, license and device state unchanged", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const statementsSeen = [];
+  const originalPrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = originalPrepare(sql);
+    if (sql.includes("SELECT id, role, status FROM users WHERE id = ?")) {
+      statement.first = async () => ({ id: "12345678-1234-1234-1234-123456789012", role: "CUSTOMER", status: "ACTIVE" });
+    }
+    const originalRun = statement.run.bind(statement);
+    statement.run = async () => {
+      statementsSeen.push(sql);
+      if (sql.includes("UPDATE sessions SET revoked_at")) return { meta: { changes: 3 } };
+      return originalRun();
+    };
+    return statement;
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/customers/12345678-1234-1234-1234-123456789012/sessions/revoke", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${"E".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.count, 3);
+  assert.equal(body.accountStatus, "ACTIVE");
+  assert.equal(body.licensesChanged, false);
+  assert.equal(body.devicesChanged, false);
+  assert.ok(statementsSeen.some(sql => sql.includes("UPDATE sessions SET revoked_at")));
+  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE users")), false);
+  assert.equal(statementsSeen.some(sql => sql.includes("licenses")), false);
+  assert.equal(statementsSeen.some(sql => sql.includes("devices")), false);
 });
 
 test("non-owner cannot suspend a customer", async () => {
