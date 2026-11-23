@@ -99,13 +99,17 @@ object AppUpdateManager {
                     append("Phiên bản hiện tại: ").append(currentVersion(context))
                     append("\nPhiên bản mới: ").append(version)
                     if (notes.isNotBlank()) append("\n\n").append(notes)
+                    if (mandatory) append("\n\nChủ sở hữu đã yêu cầu cập nhật phiên bản này. Bạn cần cài đặt bản mới để tiếp tục sử dụng ứng dụng.")
                 }
                 val builder = AlertDialog.Builder(activity)
-                    .setTitle("Có bản cập nhật AUTU-LIO")
+                    .setTitle(if (mandatory) "Cập nhật bắt buộc AUTU-LIO" else "Có bản cập nhật AUTU-LIO")
                     .setMessage(message)
                     .setPositiveButton("Tải và cập nhật") { _, _ -> requestUpdate(activity, version, downloadUrl, sha) }
-                if (!mandatory) builder.setNegativeButton("Để sau", null) else builder.setCancelable(false)
-                builder.show()
+                if (!mandatory) builder.setNegativeButton("Để sau", null)
+                val dialog = builder.create()
+                dialog.setCancelable(!mandatory)
+                dialog.setCanceledOnTouchOutside(!mandatory)
+                dialog.show()
             }
         }.start()
     }
