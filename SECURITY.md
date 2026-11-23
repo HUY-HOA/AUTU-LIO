@@ -19,7 +19,8 @@ Security fixes are applied to the main branch. The public repository is not a co
 
 - The Worker source includes approximate per-IP rate limits for the unauthenticated Google challenge and login endpoints. Cloudflare evaluates these counters separately by location, so this reduces abuse but is not a strict global limit; shared mobile carrier IPs can affect multiple legitimate users.
 - Production status was re-verified on 22 November 2026: Worker `autu-lio-auth-api` version 22 serves 100% traffic, and the APAC D1 database `autu_lio_auth` has migrations `0001`–`0008` recorded. Existing D1, rate-limit, public-variable and secret bindings were verified after deployment. Source-level Worker checks passed; end-to-end Android usage still requires installing the new APK and testing a CUSTOMER account on a registered device.
-- `OWNER_GOOGLE_SUB`, `GOOGLE_CLIENT_ID`, and `PACKAGE_MASTER_KEY_V1` are runtime configuration values. They must exist only as Cloudflare Worker secrets, never in Git or the APK. `OWNER_GOOGLE_SUB` is the verified Google OpenID Connect `sub` claim; email is not an owner credential.
+- `GOOGLE_CLIENT_ID` is a public OAuth Web Client ID stored as a Worker variable in `backend/wrangler.jsonc`, not a Secret.
+- `OWNER_GOOGLE_SUB` and `PACKAGE_MASTER_KEY_V1` remain Cloudflare Worker secrets and must never be committed to Git or embedded in the APK. `OWNER_GOOGLE_SUB` is the verified Google OpenID Connect `sub` claim; email is not an owner credential.
 
 ## Additional API protections
 
