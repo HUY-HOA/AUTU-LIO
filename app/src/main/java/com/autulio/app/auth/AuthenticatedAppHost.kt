@@ -232,16 +232,6 @@ private fun AuthScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    "AUTU-LIO",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = 34.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp
-                    ),
-                    color = Color(0xFF5B8CFF),
-                    textAlign = TextAlign.Center
-                )
                 Spacer(Modifier.height(12.dp))
                 Canvas(Modifier.size(84.dp)) {
                     val w = size.width
@@ -274,14 +264,6 @@ private fun AuthScreen(
                     }
                     drawPath(path = lightning, color = Color(0xFF35C6C8))
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    "LIOScript",
-                    style = MaterialTheme.typography.titleLarge,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
                 Spacer(Modifier.height(28.dp))
                 if (restoring) {
                     CircularProgressIndicator()
