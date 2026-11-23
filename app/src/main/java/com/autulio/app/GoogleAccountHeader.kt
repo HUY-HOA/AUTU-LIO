@@ -14,10 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.PriorityHigh
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -46,91 +45,61 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 @Composable
-internal fun GoogleAccountHeader(
-    accessToken: String?,
-    authenticatedUser: AuthenticatedUser? = null,
+internal fun GoogleAccountSettingsCard(
+    authenticatedUser: AuthenticatedUser?,
     fallbackEmail: String? = null
 ) {
-    if (accessToken.isNullOrBlank()) return
-
     val details = authenticatedUser?.googleSignIn
+    val email = authenticatedUser?.email ?: fallbackEmail.orEmpty()
     val name = authenticatedUser?.displayName
+        ?.takeIf { it.isNotBlank() }
         ?: details?.let { profile ->
             listOfNotNull(profile.givenName, profile.familyName)
                 .filter { it.isNotBlank() }
                 .joinToString(" ")
                 .takeIf { it.isNotBlank() }
         }
-    val email = authenticatedUser?.email ?: fallbackEmail.orEmpty()
-    var showAccountDetails by remember(accessToken) { mutableStateOf(false) }
+        ?: email.substringBefore("@").takeIf { it.isNotBlank() }
 
     Surface(
+        modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(14.dp),
         tonalElevation = 1.dp
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 5.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            GoogleProfileAvatar(details?.pictureUrl)
+            GoogleProfileAvatar(details?.pictureUrl, 48.dp)
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(1.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    tr("Tài khoản Google", "Google account"),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp
+                    name ?: tr("Tài khoản Google", "Google account"),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                if (!name.isNullOrBlank()) {
-                    Text(
-                        name,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
                 if (email.isNotBlank()) {
                     Text(
                         email,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-            IconButton(
-                onClick = { showAccountDetails = true },
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    Icons.Outlined.PriorityHigh,
-                    contentDescription = tr("Xem thông tin tài khoản", "View account information"),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(21.dp)
-                )
-            }
         }
-    }
-
-    if (showAccountDetails) {
-        GoogleSignInDetailsDialog(
-            details = details,
-            displayName = name,
-            email = email,
-            title = tr("Thông tin tài khoản", "Account information"),
-            onDismiss = { showAccountDetails = false }
-        )
     }
 }
 
 @Composable
-private fun GoogleProfileAvatar(pictureUrl: String?) {
+private fun GoogleProfileAvatar(pictureUrl: String?, size: androidx.compose.ui.unit.Dp) {
     var bitmap by remember(pictureUrl) { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(pictureUrl) {
@@ -151,7 +120,7 @@ private fun GoogleProfileAvatar(pictureUrl: String?) {
 
     Box(
         modifier = Modifier
-            .size(28.dp)
+            .size(size)
             .clip(CircleShape)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
         contentAlignment = Alignment.Center
@@ -169,7 +138,7 @@ private fun GoogleProfileAvatar(pictureUrl: String?) {
                 Icons.Outlined.AccountCircle,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(25.dp)
+                modifier = Modifier.size(size * 0.82f)
             )
         }
     }
