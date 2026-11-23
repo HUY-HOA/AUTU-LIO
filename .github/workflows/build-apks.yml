@@ -8,7 +8,7 @@ on:
       - main
  
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: autu-lio-apk-build
@@ -16,6 +16,8 @@ concurrency:
 
 jobs:
   build:
+    permissions:
+      contents: write
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK'
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
