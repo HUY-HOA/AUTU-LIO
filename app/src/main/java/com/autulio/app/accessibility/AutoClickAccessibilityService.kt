@@ -226,6 +226,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     private var pendingRetryDelayMs = 2_000L
     private var pendingRetryAttempts = 0
     private var pendingStartAtEpochMs = 0L
+    private var pendingTargetPackage: String? = null
+    private var pendingStartOnTargetAppForeground = false
     private var requiresResumeConfirmation = false
     private var interruptedRunRestored = false
     private var scheduledStartRunnable: Runnable? = null
@@ -382,7 +384,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         retryOnFailure: Boolean = false,
         maxRetries: Int = 0,
         retryDelayMs: Long = 2_000L,
-        delayMinutes: Long = 0L
+        delayMinutes: Long = 0L,
+        targetPackage: String? = null,
+        startOnTargetAppForeground: Boolean = false
     ): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             val finished = CountDownLatch(1)
@@ -390,7 +394,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             if (!mainHandler.post {
                     result.set(
                         prepareProgram(
-                            program, draftName, source, retryOnFailure, maxRetries, retryDelayMs, delayMinutes
+                            program, draftName, source, retryOnFailure, maxRetries, retryDelayMs,
+                            delayMinutes, targetPackage, startOnTargetAppForeground
                         )
                     )
                     finished.countDown()
@@ -417,6 +422,19 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         } else {
             0
         }
+        val normalizedTargetPackage = targetPackage?.trim().orEmpty()
+            .takeIf { it.isNotEmpty() }
+        if (startOnTargetAppForeground &&
+            !AutomationRunPolicy.isValidTargetPackage(normalizedTargetPackage)
+        ) {
+            statusLabel?.text = "Mã gói ứng dụng không hợp lệ. Ví dụ: com.example.app."
+            return false
+        }
+        if (startOnTargetAppForeground && normalizedTargetPackage == packageName) {
+            statusLabel?.text = "Không thể đặt AUTU-LIO làm ứng dụng kích hoạt chính nó."
+            return false
+        }
+
         val entry = AutomationQueueEntry(
             name = normalizedName,
             source = source.orEmpty(),
@@ -427,10 +445,18 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 30_000L
             ),
             attempts = 0,
-            startAtEpochMs = AutomationRunPolicy.scheduledStartAt(
-                System.currentTimeMillis(),
-                delayMinutes.coerceAtLeast(0L)
-            )
+            startAtEpochMs = if (delayMinutes > 0L) {
+                AutomationRunPolicy.scheduledStartAt(
+                    System.currentTimeMillis(),
+                    delayMinutes.coerceAtLeast(0L)
+                )
+            } else if (startOnTargetAppForeground) {
+                System.currentTimeMillis().coerceAtLeast(1L)
+            } else {
+                0L
+            },
+            targetPackage = normalizedTargetPackage.takeIf { startOnTargetAppForeground },
+            startOnTargetAppForeground = startOnTargetAppForeground
         )
 
         val state = executionEngine?.snapshot()?.state
@@ -469,6 +495,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         pendingRetryDelayMs = entry.retryDelayMs
         pendingRetryAttempts = 0
         pendingStartAtEpochMs = entry.startAtEpochMs
+        pendingTargetPackage = entry.targetPackage
+        pendingStartOnTargetAppForeground = entry.startOnTargetAppForeground
         requiresResumeConfirmation = false
         interruptedRunRestored = false
         scheduledStartRunnable?.let(mainHandler::removeCallbacks)
@@ -507,6 +535,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             pendingProgramName = null
             pendingProgramSource = null
             pendingStartAtEpochMs = 0L
+            pendingTargetPackage = null
+            pendingStartOnTargetAppForeground = false
             requiresResumeConfirmation = false
             interruptedRunRestored = false
         }
@@ -524,7 +554,9 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             maxRetries = pendingMaxRetries,
             retryDelayMs = pendingRetryDelayMs,
             attempts = pendingRetryAttempts,
-            startAtEpochMs = pendingStartAtEpochMs
+            startAtEpochMs = pendingStartAtEpochMs,
+            targetPackage = pendingTargetPackage,
+            startOnTargetAppForeground = pendingStartOnTargetAppForeground
         )
     }
 
@@ -582,6 +614,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         pendingRetryDelayMs = prepared.entry.retryDelayMs
         pendingRetryAttempts = prepared.entry.attempts
         pendingStartAtEpochMs = prepared.entry.startAtEpochMs
+        pendingTargetPackage = prepared.entry.targetPackage
+        pendingStartOnTargetAppForeground = prepared.entry.startOnTargetAppForeground
         requiresResumeConfirmation = true
         interruptedRunRestored = interrupted
         scheduledStartRunnable?.let(mainHandler::removeCallbacks)
@@ -621,6 +655,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     pendingRetryDelayMs = completed.entry.retryDelayMs
                     pendingRetryAttempts = 0
                     pendingStartAtEpochMs = 0L
+                    pendingTargetPackage = completed.entry.targetPackage
+                    pendingStartOnTargetAppForeground = completed.entry.startOnTargetAppForeground
                     requiresResumeConfirmation = false
                     interruptedRunRestored = false
                 }
@@ -646,7 +682,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                     pendingMaxRetries = nextAttempt.maxRetries
                     pendingRetryDelayMs = nextAttempt.retryDelayMs
                     pendingRetryAttempts = nextAttempt.attempts
-                    pendingStartAtEpochMs = 0L
+                    pendingStartAtEpochMs = if (nextAttempt.startOnTargetAppForeground) {
+                        System.currentTimeMillis().coerceAtLeast(1L)
+                    } else 0L
+                    pendingTargetPackage = nextAttempt.targetPackage
+                    pendingStartOnTargetAppForeground = nextAttempt.startOnTargetAppForeground
                     requiresResumeConfirmation = false
                     interruptedRunRestored = false
                     val delay = AutomationRunPolicy.retryDelayMs(
@@ -679,7 +719,11 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                         pendingMaxRetries = it.entry.maxRetries
                         pendingRetryDelayMs = it.entry.retryDelayMs
                         pendingRetryAttempts = it.entry.attempts
-                        pendingStartAtEpochMs = 0L
+                        pendingStartAtEpochMs = if (it.entry.startOnTargetAppForeground) {
+                            System.currentTimeMillis().coerceAtLeast(1L)
+                        } else 0L
+                        pendingTargetPackage = it.entry.targetPackage
+                        pendingStartOnTargetAppForeground = it.entry.startOnTargetAppForeground
                         requiresResumeConfirmation = false
                         interruptedRunRestored = false
                     }
@@ -694,6 +738,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
                 pendingProgram = null
                 pendingProgramSource = null
                 pendingStartAtEpochMs = 0L
+                pendingTargetPackage = null
+                pendingStartOnTargetAppForeground = false
                 requiresResumeConfirmation = false
                 interruptedRunRestored = false
                 scheduledStartRunnable?.let(mainHandler::removeCallbacks)
@@ -711,7 +757,12 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val keyguardManager = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager
         val isLocked = runCatching { keyguardManager?.isKeyguardLocked != false }.getOrDefault(true)
         val foreground = foregroundPackage
-        return !isLocked && !foreground.isNullOrBlank() && foreground != packageName
+        if (isLocked || foreground.isNullOrBlank() || foreground == packageName) return false
+        return if (pendingStartOnTargetAppForeground) {
+            foreground == pendingTargetPackage
+        } else {
+            true
+        }
     }
 
     private fun schedulePendingStartIfNeeded() {
@@ -807,6 +858,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         pendingRetryDelayMs = next.entry.retryDelayMs
         pendingRetryAttempts = next.entry.attempts
         pendingStartAtEpochMs = next.entry.startAtEpochMs
+        pendingTargetPackage = next.entry.targetPackage
+        pendingStartOnTargetAppForeground = next.entry.startOnTargetAppForeground
         requiresResumeConfirmation = false
         interruptedRunRestored = false
         activeQueuedProgram = null
@@ -821,7 +874,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         setEditorVisible(false)
         setCollapsed(false)
         persistAutomationQueue()
-        if (pendingStartAtEpochMs > 0L || !isReadyForScheduledStart()) {
+        if (pendingStartAtEpochMs > 0L || pendingStartOnTargetAppForeground || !isReadyForScheduledStart()) {
             if (pendingStartAtEpochMs <= 0L) {
                 pendingStartAtEpochMs = System.currentTimeMillis()
             }
@@ -3420,6 +3473,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
             pendingProgramName = null
             pendingProgramSource = null
             pendingStartAtEpochMs = 0L
+            pendingTargetPackage = null
+            pendingStartOnTargetAppForeground = false
             requiresResumeConfirmation = false
             interruptedRunRestored = false
             removeFloatingWindow()
