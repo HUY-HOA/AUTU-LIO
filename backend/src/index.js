@@ -272,7 +272,10 @@ async function updateAppUpdatePolicy(request, env, session) {
   const body = await readBody(request, 4000);
   const mandatory = body.mandatory === true;
   const requiredVersion = mandatory ? String(body.requiredVersion || "").trim() : null;
-  if (mandatory && !/^\\d+(?:\\.\\d+){1,3}$/.test(requiredVersion || "")) {
+  const versionParts = (requiredVersion || "").split(".");
+  const validVersion = versionParts.length >= 2 && versionParts.length <= 4 &&
+    versionParts.every(part => part.length > 0 && [...part].every(char => char >= "0" && char <= "9"));
+  if (mandatory && !validVersion) {
     throw new HttpError(400, "invalid_required_version", "The required app version is invalid.");
   }
   const now = Math.floor(Date.now() / 1000);
