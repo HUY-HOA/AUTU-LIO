@@ -2,6 +2,8 @@ package com.autulio.app
 
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
+import android.view.WindowInsets
 import android.provider.OpenableColumns
 import android.widget.Button
 import android.widget.LinearLayout
@@ -67,7 +69,43 @@ class ScriptFilePickerActivity : ComponentActivity() {
                 finish()
             }
         })
+        container.setOnApplyWindowInsetsListener { view, insets ->
+            val systemBars = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                insets.getInsets(WindowInsets.Type.systemBars())
+            } else {
+                null
+            }
+            val cutout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                insets.displayCutout
+            } else {
+                null
+            }
+            val leftInset = maxOf(
+                systemBars?.left ?: insets.systemWindowInsetLeft,
+                cutout?.safeInsetLeft ?: 0
+            )
+            val topInset = maxOf(
+                systemBars?.top ?: insets.systemWindowInsetTop,
+                cutout?.safeInsetTop ?: 0
+            )
+            val rightInset = maxOf(
+                systemBars?.right ?: insets.systemWindowInsetRight,
+                cutout?.safeInsetRight ?: 0
+            )
+            val bottomInset = maxOf(
+                systemBars?.bottom ?: insets.systemWindowInsetBottom,
+                cutout?.safeInsetBottom ?: 0
+            )
+            view.setPadding(
+                28 + leftInset,
+                32 + topInset,
+                28 + rightInset,
+                24 + bottomInset
+            )
+            insets
+        }
         setContentView(container)
+        container.post { container.requestApplyInsets() }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
