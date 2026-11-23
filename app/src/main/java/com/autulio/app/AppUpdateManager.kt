@@ -139,7 +139,7 @@ object AppUpdateManager {
         }
     }
     /**
-     * OWNER publishes this exact manifest snapshot. The Worker activates it only after FCM accepts the notice.
+     * OWNER publishes the exact manifest snapshot. FCM push is optional and does not control the active release.
      */
     fun announceUpdate(activity: Activity, accessToken: String?) {
         val token = accessToken?.trim().orEmpty()
@@ -219,7 +219,7 @@ object AppUpdateManager {
             } catch (error: Exception) {
                 handler.post {
                     val message = error.message?.takeIf { it.isNotBlank() }
-                        ?: "Không thể gửi thông báo cập nhật. Hãy thử lại."
+                        ?: "Không thể công bố phiên bản cập nhật. Hãy thử lại."
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
                 }
             }
