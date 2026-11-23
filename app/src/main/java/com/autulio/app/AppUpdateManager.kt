@@ -92,7 +92,7 @@ object AppUpdateManager {
             val pendingUrl = prefs.getString(KEY_PENDING_URL, null)
             val pendingSha = prefs.getString(KEY_PENDING_SHA256, null)
             val pendingMatchesRelease = pendingVersion == version && pendingUrl == downloadUrl &&
-                pendingSha.equals(sha, ignoreCase = true)
+                pendingSha == sha
             val existingDownloadId = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
             if (existingDownloadId > 0L && pendingMatchesRelease) {
                 handler.post {
@@ -262,7 +262,7 @@ object AppUpdateManager {
                 synchronized(this) {
                     val stateStillMatches = prefs.getString(KEY_PENDING_VERSION, null) == pendingVersion &&
                         prefs.getString(KEY_PENDING_URL, null) == pendingUrl &&
-                        prefs.getString(KEY_PENDING_SHA256, null).equals(pendingSha, ignoreCase = true)
+                        prefs.getString(KEY_PENDING_SHA256, null) == pendingSha
                     if (stateStillMatches) {
                         val oldId = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
                         if (oldId > 0L) {
