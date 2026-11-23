@@ -135,8 +135,6 @@ jobs:
         if: steps.signing.outputs.configured == 'true'
         timeout-minutes: 30
         env:
-          AUTU_LIO_AUTH_API_BASE_URL: https://autu-lio-auth-api.coc-lio-data.workers.dev
-          AUTU_LIO_GOOGLE_SERVER_CLIENT_ID: 45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
           AUTU_LIO_RELEASE_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
           AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AILIO_KEYSTORE_PASSWORD }}
           AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AILIO_KEY_ALIAS }}
@@ -147,8 +145,6 @@ jobs:
         if: steps.signing.outputs.configured != 'true'
         timeout-minutes: 30
         env:
-          AUTU_LIO_AUTH_API_BASE_URL: https://autu-lio-auth-api.coc-lio-data.workers.dev
-          AUTU_LIO_GOOGLE_SERVER_CLIENT_ID: 45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
         run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintDebug :app:assembleDebug -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
 
       - name: Name AUTU-LIO APK with version
