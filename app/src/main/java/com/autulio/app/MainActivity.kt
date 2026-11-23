@@ -365,9 +365,6 @@ internal fun AdminApp(
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(host) },
-            topBar = {
-                GoogleAccountHeader(accessToken = accessToken, authenticatedUser = authenticatedUser)
-            },
             bottomBar = {
                 NavigationBar {
                     adminTabs.forEach { tab ->
@@ -409,6 +406,7 @@ internal fun AdminApp(
                     onSelect = { page = it },
                     onLogout = onLogout,
                     accessToken = accessToken,
+                    authenticatedUser = authenticatedUser,
                     initialDraftName = publishDraftName,
                     onOpenTemplate = { template ->
                         val draftName = "Mẫu - " + tr(template.nameVi, template.nameEn)
@@ -458,10 +456,7 @@ internal fun CustomerApp(
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                Column {
-                    GoogleAccountHeader(accessToken = accessToken, authenticatedUser = authenticatedUser, fallbackEmail = email)
-                    CustomerLicenseCountdownBar(accessToken = accessToken)
-                }
+                CustomerLicenseCountdownBar(accessToken = accessToken)
             },
             bottomBar = {
                 NavigationBar {
@@ -491,6 +486,8 @@ internal fun CustomerApp(
                 )
                 else -> SettingsScreen(
                     Modifier.padding(padding),
+                    authenticatedUser = authenticatedUser,
+                    fallbackEmail = email,
                     onLogout = onLogout
                 )
             }
@@ -1449,6 +1446,7 @@ private fun MoreScreen(
     onSelect: (String) -> Unit,
     onLogout: () -> Unit,
     accessToken: String?,
+    authenticatedUser: com.autulio.app.auth.AuthenticatedUser?,
     initialDraftName: String? = null,
     onOpenTemplate: (ScriptTemplate) -> Unit
 ) {
@@ -1532,6 +1530,7 @@ private fun MoreScreen(
                 "logs" -> AdminAuditLogsScreen(accessToken = accessToken)
 
                 "settings" -> {
+                    GoogleAccountSettingsCard(authenticatedUser = authenticatedUser)
                     ThemeModeSelector()
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
                     DatabaseBackupControls()
@@ -1929,12 +1928,15 @@ private fun ThemeModeSelector() {
 @Composable
 private fun SettingsScreen(
     modifier: Modifier,
+    authenticatedUser: com.autulio.app.auth.AuthenticatedUser?,
+    fallbackEmail: String,
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         BrandHeader(admin = false)
         Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
+        GoogleAccountSettingsCard(authenticatedUser = authenticatedUser, fallbackEmail = fallbackEmail)
         ThemeModeSelector()
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
         SettingRow(
