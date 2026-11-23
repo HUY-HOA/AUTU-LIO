@@ -3249,17 +3249,17 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
     fun lockRunner() {
         sessionVerified = false
         removeAnnotationsAfterStop = true
-        retryRunnable?.let(mainHandler::removeCallbacks)
-        retryRunnable = null
-        queuedPrograms.clear()
-        activeQueuedProgram = null
-        executionStarted = false
-        terminalSnapshotHandled = true
-        queueRestored = true
-        runCatching { automationQueueStore.clear() }
-        executionEngine?.stop()
 
         val removeControls = {
+            retryRunnable?.let(mainHandler::removeCallbacks)
+            retryRunnable = null
+            queuedPrograms.clear()
+            activeQueuedProgram = null
+            executionStarted = false
+            terminalSnapshotHandled = true
+            queueRestored = true
+            runCatching { automationQueueStore.clear() }
+            executionEngine?.stop()
             pendingProgram = null
             pendingProgramName = null
             pendingProgramSource = null
