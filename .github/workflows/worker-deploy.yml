@@ -85,9 +85,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          terms_file="$(mktemp)"
+          privacy_file="$(mktemp)"
+          trap 'rm -f "$terms_file" "$privacy_file"' EXIT
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
-            https://autu-lio.coc-lio-data.workers.dev/terms/ \
-            | grep -qi "Nghiên cứu, phát triển và kiểm thử bảo mật"
+            --output "$terms_file" https://autu-lio.coc-lio-data.workers.dev/terms/
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
-            https://autu-lio.coc-lio-data.workers.dev/privacy/ \
-            | grep -qi "Nghiên cứu, chẩn đoán và xử lý lỗi bảo mật"
+            --output "$privacy_file" https://autu-lio.coc-lio-data.workers.dev/privacy/
+          grep -qi "Nghiên cứu, phát triển và kiểm thử bảo mật" "$terms_file"
+          grep -qi "Nghiên cứu, chẩn đoán và xử lý lỗi bảo mật" "$privacy_file"
+          echo "AUTU-LIO terms and privacy pages verified."
