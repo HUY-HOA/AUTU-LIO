@@ -39,10 +39,11 @@
         "limit": 30,
         "period": 60
       }
-    },
+    }
   ],
   "vars": {
     "RUNTIME_ENV": "production",
+    "GOOGLE_CLIENT_ID": "45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com",
     "PACKAGE_MASTER_KEY_VERSION": "V1",
     "GOOGLE_ALLOWED_AZP": "45851070932-4lhvcftqqf6jhptvadpocd7csiv6b228.apps.googleusercontent.com"
   }
