@@ -12,7 +12,9 @@ data class AutomationQueueEntry(
     val maxRetries: Int = 0,
     val retryDelayMs: Long = 2_000L,
     val attempts: Int = 0,
-    val startAtEpochMs: Long = 0L
+    val startAtEpochMs: Long = 0L,
+    val targetPackage: String? = null,
+    val startOnTargetAppForeground: Boolean = false
 )
 
 data class AutomationQueueSnapshot(
@@ -81,6 +83,8 @@ class SecureAutomationQueueStore(context: Context) {
             put("retryDelayMs", entry.retryDelayMs)
             put("attempts", entry.attempts)
             put("startAtEpochMs", entry.startAtEpochMs)
+            put("targetPackage", entry.targetPackage)
+            put("startOnTargetAppForeground", entry.startOnTargetAppForeground)
         }
 
     private fun parseEntry(json: JSONObject?): AutomationQueueEntry? {
@@ -100,6 +104,10 @@ class SecureAutomationQueueStore(context: Context) {
         )
         val attempts = json.optInt("attempts", 0).coerceIn(0, maxRetries)
         val retry = json.optBoolean("retryOnFailure", false) && maxRetries > 0
+        val targetPackage = json.optString("targetPackage", "")
+            .takeIf { AutomationRunPolicy.isValidTargetPackage(it) }
+        val startOnTargetAppForeground =
+            json.optBoolean("startOnTargetAppForeground", false) && targetPackage != null
 
         return AutomationQueueEntry(
             name = name,
@@ -108,14 +116,16 @@ class SecureAutomationQueueStore(context: Context) {
             maxRetries = maxRetries,
             retryDelayMs = delay,
             attempts = attempts,
-            startAtEpochMs = json.optLong("startAtEpochMs", 0L).coerceAtLeast(0L)
+            startAtEpochMs = json.optLong("startAtEpochMs", 0L).coerceAtLeast(0L),
+            targetPackage = targetPackage.takeIf { startOnTargetAppForeground },
+            startOnTargetAppForeground = startOnTargetAppForeground
         )
     }
 
     private companion object {
         const val STORAGE_NAMESPACE = "automation_queue"
         const val STORAGE_KEY = "__AUTU_AUTOMATION_QUEUE_V1__"
-        const val FORMAT_VERSION = 2
+        const val FORMAT_VERSION = 3
         const val MAX_SOURCE_LENGTH = 32_768
     }
 }
