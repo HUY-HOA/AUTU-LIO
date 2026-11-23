@@ -239,14 +239,13 @@ async function getSession(request, env) {
   const match = authorization.match(/^Bearer ([A-Za-z0-9_-]{40,100})$/);
   if (!match) throw new HttpError(401, "authentication_required", "Sign in is required.");
   const tokenHash = await sha256(match[1]);
-  const now = Math.floor(Date.now() / 1000);
   const session = await env.DB.prepare(
-    "SELECT s.id AS session_id, s.user_id, s.expires_at, u.email, u.display_name, u.role, u.status, u.email_verified, u.google_sub, u.created_at, u.last_login_at " +
+    "SELECT s.id AS session_id, s.user_id, u.email, u.display_name, u.role, u.status, u.email_verified, u.google_sub, u.created_at, u.last_login_at " +
     "FROM sessions s JOIN users u ON u.id = s.user_id " +
-    "WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ?"
-  ).bind(tokenHash, now).first();
+    "WHERE s.token_hash = ? AND s.revoked_at IS NULL"
+  ).bind(tokenHash).first();
   if (!session || session.status !== "ACTIVE" || session.email_verified !== 1) {
-    throw new HttpError(401, "invalid_session", "Session is expired or no longer active.");
+    throw new HttpError(401, "invalid_session", "Session is invalid or no longer active.");
   }
   return session;
 }
@@ -371,8 +370,7 @@ async function googleLogin(request, env) {
   }
 
   const rawSession = randomToken(48);
-  const ttl = Math.min(2592000, Math.max(300, Number(env.SESSION_TTL_SECONDS || 604800)));
-  const expiresAt = now + ttl;
+  const expiresAt = 253402300799; // Storage sentinel only; sessions do not expire by time.
   const sessionId = crypto.randomUUID();
   const deviceLabel = typeof body.deviceLabel === "string" ? body.deviceLabel.trim().slice(0, 100) : null;
   const deviceInfo = sanitizeClientTechnicalInfo(body.deviceInfo);
@@ -407,7 +405,7 @@ async function googleLogin(request, env) {
   return response(request, {
     accessToken: rawSession,
     tokenType: "Bearer",
-    expiresAt,
+    expiresAt: null,
     user: responseUser
   }, 200, env);
 }
@@ -1571,7 +1569,7 @@ async function route(request, env) {
     }
     return response(request, {
       user,
-      session: { expiresAt: session.expires_at }
+      session: { expiresAt: null, persistent: true }
     }, 200, env);
   }
 
