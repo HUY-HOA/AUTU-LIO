@@ -6,7 +6,9 @@
   "scripts": {
     "check": "node --check src/index.js && node --test tests/*.test.mjs && python3 scripts/check_migrations.py",
     "migrate:remote": "wrangler d1 migrations apply autu_lio_auth --remote",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "deploy:website": "wrangler deploy --config wrangler.website.jsonc",
+    "check:website": "wrangler deploy --dry-run --config wrangler.website.jsonc"
   },
   "devDependencies": {
     "wrangler": "4.166.0"
