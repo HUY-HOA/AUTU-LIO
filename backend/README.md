@@ -8,7 +8,7 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 
 - Google ID token signature validation against Google's published signing keys.
 - Issuer, audience, expiry, verified-email and one-time nonce checks.
-- Short-lived sign-in challenge and hashed bearer sessions.
+- Five-minute, one-time sign-in challenge and persistent hashed bearer sessions; sessions remain valid until logout or explicit account/session revocation.
 - Server-side role lookup on every protected request.
 - One-owner bootstrap by the exact Google OpenID Connect `sub` claim configured as the `OWNER_GOOGLE_SUB` Worker secret; email is not used to grant OWNER.
 - D1 schema migrations and local migration validation.
@@ -31,7 +31,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001`–`0008` are applied to the remote `autu_lio_auth` D1 database. Migration `0007_device_revocation_reasons.sql` records why a device was revoked; migration `0008_device_presence.sql` adds separate app-presence and AUTU runtime-state timestamps. All 8 migrations are recorded in `d1_migrations`; 10 application tables remain (excluding SQLite/D1 internal tables), and the seven collaboration-related tables remain removed. Worker `autu-lio-auth-api` version 22 was deployed on 22 November 2026 at 19:19 UTC with 100% traffic at `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Its D1 binding, two authentication rate-limit bindings, public variables and three existing secrets were verified after deployment. Keep every SQL migration in source control as the schema history.
+Migrations `0001`–`0009` are applied to the remote `autu_lio_auth` D1 database. Migration `0007_device_revocation_reasons.sql` records why a device was revoked; migration `0008_device_presence.sql` adds separate app-presence and AUTU runtime-state timestamps. All 9 migrations are recorded in `d1_migrations`; 10 application tables remain (excluding SQLite/D1 internal tables), and the seven collaboration-related tables remain removed. Worker `autu-lio-auth-api` version 22 was deployed on 22 November 2026 at 19:19 UTC with 100% traffic at `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Its D1 binding, two authentication rate-limit bindings, public variables and three existing secrets were verified after deployment. Keep every SQL migration in source control as the schema history.
 
 ## Required Worker secrets
 
