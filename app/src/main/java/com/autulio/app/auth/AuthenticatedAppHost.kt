@@ -1,5 +1,6 @@
 package com.autulio.app.auth
 
+import com.autulio.app.GoogleSignInButton
 import android.app.Activity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -270,22 +271,12 @@ private fun AuthScreen(
                     Spacer(Modifier.height(10.dp))
                     Text(tr("Đang xác minh phiên đăng nhập…", "Verifying your session…"), fontSize = 12.sp)
                 } else {
-                    Button(
+                    GoogleSignInButton(
                         onClick = onSignIn,
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = isConfigured && !working
-                    ) {
-                        if (working) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(Icons.Outlined.Person, contentDescription = null)
-                        }
-                        Spacer(Modifier.width(9.dp))
-                        Text(tr("Đăng nhập bằng Google", "Continue with Google"))
-                    }
+                        enabled = isConfigured && !working,
+                        loading = working
+                    )
                     if (hasSavedSession) {
                         OutlinedButton(
                             onClick = onRetrySession,
