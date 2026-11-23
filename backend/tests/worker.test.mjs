@@ -771,6 +771,52 @@ test("revoking a license keeps already-enrolled devices registered", async () =>
   assert.equal(statements.some(sql => sql.includes("UPDATE devices")), false);
 });
 
+test("deleting one license leaves account, login sessions and registered devices unchanged", async () => {
+  const { env } = createEnv({ session: ownerSession });
+  const statementsSeen = [];
+  const originalPrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = originalPrepare(sql);
+    if (sql.includes("SELECT id, user_id, plan_code, status, starts_at, expires_at, max_devices FROM licenses WHERE id = ?")) {
+      statement.first = async () => ({
+        id: "123e4567-e89b-42d3-a456-426614174000",
+        user_id: customerSession.user_id,
+        plan_code: "MONTHLY",
+        status: "REVOKED",
+        starts_at: 100,
+        expires_at: 200,
+        max_devices: 1
+      });
+    }
+    const originalRun = statement.run.bind(statement);
+    statement.run = async () => {
+      statementsSeen.push(sql);
+      return originalRun();
+    };
+    return statement;
+  };
+
+  const response = await worker.fetch(
+    makeRequest("/api/admin/licenses/123e4567-e89b-42d3-a456-426614174000", {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + "E".repeat(48) }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.deleted, true);
+  assert.equal(body.sessionsChanged, false);
+  assert.equal(body.accountStatusChanged, false);
+  assert.equal(body.devicesChanged, false);
+  assert.ok(statementsSeen.some(sql => sql.includes("DELETE FROM licenses")));
+  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE sessions")), false);
+  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE users")), false);
+  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE devices")), false);
+  assert.ok(statementsSeen.some(sql => sql.includes("INSERT INTO audit_logs")));
+});
+
 test("customer self-removal records a reversible customer-removal reason", async () => {
   const { env } = createEnv({ session: customerSession });
   const statements = [];
