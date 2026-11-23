@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AUTU-LIO</string>
+    <string name="api_base_url" translatable="false">https://autu-lio-auth-api.coc-lio-data.workers.dev</string>
+    <string name="default_web_client_id" translatable="false">45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com</string>
     <string name="accessibility_service_label">Dịch vụ thao tác tự động AUTU-LIO</string>
     <string name="accessibility_service_description">Thực hiện thao tác từ kịch bản bạn chủ động chạy và đọc nhãn, vị trí thành phần mà ứng dụng đang mở công khai qua Dịch vụ trợ năng. Dữ liệu được xử lý trên thiết bị; bạn có thể dừng dịch vụ bất cứ lúc nào.</string>
 </resources>
