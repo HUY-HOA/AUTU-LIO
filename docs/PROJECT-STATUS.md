@@ -75,19 +75,24 @@
 - Trang tải trỏ tới GitHub Releases. Workflow `.github/workflows/build-apks.yml` chỉ công bố bản Release đã ký khi được kích hoạt bằng commit có thông điệp chính xác `BUILD APK`.
 - Sau khi build Release và xác minh chữ ký, workflow tải artifact Actions và tạo GitHub Release gắn tag phiên bản, đính kèm file `AUTU-LIO.apk`. Không có bước này đối với Debug.
 
-## 5. Bản Release hiện có
+## 5. Bản Release và khóa ký hiện tại
 
-- GitHub Actions đã hoàn tất workflow Release APK run `44791724413` trên commit `eaad93232c9765750a76da4e3b1ed7383c5ec840`; build Release thành công, APK đã được ký, xác minh chữ ký và tải artifact `AUTU-LIO-Release` lên GitHub Actions.
-- Bản Release đã xác minh gần nhất là v0.1.37 (APK chưa được nghiệm thu cài đặt/chạy trên điện thoại thật trong lần build này).
+- Bản build cũ được ghi nhận trong CI là v0.1.37; đây là artifact của lần build trước khi hoàn tất việc chuẩn hóa bộ khóa AILIO dùng chung. Không xem artifact cũ là bản phát hành đã nghiệm thu với cấu hình khóa hiện tại.
+- Đã kiểm tra thành công bốn Repository secrets dùng chung `AILIO_KEYSTORE_BASE64`, `AILIO_KEYSTORE_PASSWORD`, `AILIO_KEY_ALIAS`, `AILIO_KEY_PASSWORD` trong kho AUTU-LIO. Workflow đã giải mã keystore, kiểm tra alias, mật khẩu kho và mật khẩu khóa riêng.
+- SHA-1 chứng thư AILIO hiện tại: `2E:65:5B:0D:B5:8C:CF:A5:84:B9:37:1C:39:80:28:95:38:60:85:6D`. Cùng chứng thư này đã được xác nhận thành công trong kho COC-LIO và GPS-LIO.
+- Đã kiểm tra danh sách GitHub Releases ngày 23/11/2026: chưa có Release APK được xuất bản. Lần build Release tiếp theo sẽ kiểm tra chữ ký bằng bộ khóa AILIO và tạo GitHub Release nếu hoàn tất.
+- Google Auth Platform được người dùng xác nhận đang ở trạng thái External / In production. Cần xác nhận Android OAuth Client trong cùng Google Cloud project với Web Client đã được tạo cho package `com.autulio.app` và SHA-1 nêu trên; trạng thái này chưa được đọc trực tiếp từ Google Cloud Console.
+- Chưa có xác nhận nghiệm thu đăng nhập Google trên thiết bị Android thật bằng APK ký AILIO.
 - Không build APK mới nếu chưa nhận đúng lệnh `BUILD APK`.
 - Sửa tài liệu hoặc chạy source checks không đồng nghĩa tạo APK; workflow source checks không đóng gói APK.
 
 ## 6. Việc cần hoàn thiện tiếp theo
 
-1. **CUSTOMER — mã nguồn đã có, nghiệm thu thực tế còn thiếu:** đăng nhập bằng Google account khác, xác nhận vai trò mặc định là CUSTOMER và xác nhận Worker từ chối Admin API.
-2. **Giấy phép/thiết bị — API và màn hình đã có, nghiệm thu end-to-end còn thiếu:** OWNER tạo giấy phép; CUSTOMER đăng ký thiết bị; kiểm tra giới hạn thiết bị, ngày hết hạn, thu hồi và phiên đăng nhập.
-3. **Package — mã hóa và API đã có, nghiệm thu phát hành/tải xuống còn thiếu:** OWNER tạo và phát hành package; CUSTOMER tải, giải mã, kiểm tra hash và chạy package bằng giấy phép/thiết bị hợp lệ.
-4. **Runtime — mã nguồn và unit test đã có, kiểm thử thiết bị thật còn thiếu:** kiểm tra CHẠM, NHẤN_GIỮ, VUỐT, CHỜ, mở ứng dụng, pause/resume/stop, LUÔN_THỰC_HIỆN và lỗi quyền Trợ năng.
+1. **Google OAuth Android Client — cần xác nhận:** trong cùng Google Cloud project với Web Client, phải có Android Client cho package `com.autulio.app` với SHA-1 AILIO hiện tại. Sau đó cài APK Release và thử đăng nhập bằng tài khoản OWNER và một tài khoản Google khác.
+2. **CUSTOMER — mã nguồn đã có, nghiệm thu thực tế còn thiếu:** xác nhận vai trò mặc định là CUSTOMER và Worker từ chối Admin API.
+3. **Giấy phép/thiết bị — API và màn hình đã có, nghiệm thu end-to-end còn thiếu:** OWNER tạo giấy phép; CUSTOMER đăng ký thiết bị; kiểm tra giới hạn thiết bị, ngày hết hạn, thu hồi và phiên đăng nhập.
+4. **Package — mã hóa và API đã có, nghiệm thu phát hành/tải xuống còn thiếu:** OWNER tạo và phát hành package; CUSTOMER tải, giải mã, kiểm tra hash và chạy package bằng giấy phép/thiết bị hợp lệ.
+6. **Runtime — mã nguồn và unit test đã có, kiểm thử thiết bị thật còn thiếu:** kiểm tra CHẠM, NHẤN_GIỮ, VUỐT, CHỜ, mở ứng dụng, pause/resume/stop, LUÔN_THỰC_HIỆN và lỗi quyền Trợ năng.
 5. **Sao lưu/khôi phục SQLite — mã nguồn và CI đã có, thiết bị thật còn thiếu:** thử xuất qua SAF, thử khôi phục đúng/sai checksum, file hỏng, thiếu dung lượng, đang chạy kịch bản và tình huống rollback; xác nhận database mở lại và dữ liệu giữ nguyên.
 6. **Độ ổn định Android — chưa nghiệm thu:** kiểm tra Xiaomi/HyperOS và Android khác; tối ưu pin, service bị hệ thống dừng, đổi hướng màn hình, khuyết màn hình và độ phân giải.
 7. **Chất lượng — kiểm tra tự động đang được duy trì:** giữ Worker tests, Kotlin unit tests và lint xanh; đối chiếu commit CI với main; kiểm tra bảo mật và không đưa secret vào APK/Git.
