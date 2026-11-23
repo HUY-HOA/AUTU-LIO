@@ -1271,7 +1271,7 @@ async function listAdminPackages(request, env, session) {
   await requireRole(session, ["OWNER"]);
   const result = await env.DB.prepare(
     "SELECT p.id, p.name, p.description, p.status, p.latest_version, p.created_at, p.updated_at, " +
-    "v.language_version, v.created_at AS published_at " +
+    "p.distribution_mode, v.language_version, v.created_at AS published_at " +
     "FROM script_packages p LEFT JOIN script_package_versions v " +
     "ON v.package_id = p.id AND v.version = p.latest_version " +
     "ORDER BY p.updated_at DESC"
@@ -1279,6 +1279,84 @@ async function listAdminPackages(request, env, session) {
   return response(request, { packages: result.results || [] }, 200, env);
 }
 
+async function getAdminPackageDistribution(request, env, session, packageId) {
+  await requireRole(session, ["OWNER"]);
+  if (!ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  const packageInfo = await env.DB.prepare(
+    "SELECT id, name, distribution_mode FROM script_packages WHERE id = ?"
+  ).bind(packageId).first();
+  if (!packageInfo) throw new HttpError(404, "package_not_found", "Package was not found.");
+
+  const result = await env.DB.prepare(
+    "SELECT u.id, u.email, u.display_name, u.status, " +
+    "CASE WHEN g.customer_id IS NULL THEN 0 ELSE 1 END AS assigned " +
+    "FROM users u LEFT JOIN script_package_customers g " +
+    "ON g.customer_id = u.id AND g.package_id = ? " +
+    "WHERE u.role = 'CUSTOMER' ORDER BY u.created_at DESC LIMIT 500"
+  ).bind(packageId).all();
+  return response(request, {
+    package: { id: packageInfo.id, name: packageInfo.name, distributionMode: packageInfo.distribution_mode || "ALL_LICENSED" },
+    customers: (result.results || []).map(customer => ({
+      id: customer.id,
+      email: customer.email,
+      displayName: customer.display_name || null,
+      status: customer.status,
+      assigned: Number(customer.assigned) === 1
+    }))
+  }, 200, env);
+}
+
+async function updateAdminPackageDistribution(request, env, session, packageId) {
+  await requireRole(session, ["OWNER"]);
+  if (!ID_PATTERN.test(packageId)) throw new HttpError(400, "invalid_package_id", "Package ID is invalid.");
+  const body = await readBody(request, 32_000);
+  const distributionMode = typeof body.distributionMode === "string" ? body.distributionMode.trim().toUpperCase() : "";
+  if (!["ALL_LICENSED", "SELECTED_CUSTOMERS"].includes(distributionMode)) {
+    throw new HttpError(400, "invalid_package_distribution", "Package distribution mode is invalid.");
+  }
+  if (!Array.isArray(body.customerIds) || body.customerIds.length > 500 ||
+      body.customerIds.some(id => typeof id !== "string" || !ID_PATTERN.test(id))) {
+    throw new HttpError(400, "invalid_package_recipients", "A valid list of customer IDs is required.");
+  }
+  const customerIds = [...new Set(body.customerIds)];
+  if (customerIds.length !== body.customerIds.length ||
+      (distributionMode === "SELECTED_CUSTOMERS" && customerIds.length === 0)) {
+    throw new HttpError(400, "invalid_package_recipients", "Select at least one customer and do not repeat customer IDs.");
+  }
+  const packageInfo = await env.DB.prepare(
+    "SELECT id FROM script_packages WHERE id = ?"
+  ).bind(packageId).first();
+  if (!packageInfo) throw new HttpError(404, "package_not_found", "Package was not found.");
+
+  if (customerIds.length > 0) {
+    const placeholders = customerIds.map(() => "?").join(", ");
+    const selected = await env.DB.prepare(
+      "SELECT id FROM users WHERE role = 'CUSTOMER' AND id IN (" + placeholders + ")"
+    ).bind(...customerIds).all();
+    const validIds = new Set((selected.results || []).map(row => row.id));
+    if (validIds.size !== customerIds.length) {
+      throw new HttpError(400, "invalid_package_recipients", "Every recipient must be an existing CUSTOMER account.");
+    }
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const statements = [
+    env.DB.prepare("UPDATE script_packages SET distribution_mode = ?, updated_at = ? WHERE id = ?")
+      .bind(distributionMode, now, packageId),
+    env.DB.prepare("DELETE FROM script_package_customers WHERE package_id = ?").bind(packageId),
+    ...customerIds.map(customerId => env.DB.prepare(
+      "INSERT INTO script_package_customers (package_id, customer_id, granted_by, granted_at) VALUES (?, ?, ?, ?)"
+    ).bind(packageId, customerId, session.user_id, now))
+  ];
+  const results = await env.DB.batch(statements);
+  if (results?.[0]?.meta?.changes !== 1) {
+    throw new HttpError(409, "package_distribution_conflict", "The package changed while distribution settings were being saved.");
+  }
+  await audit(env, session.user_id, "package.distribution_updated", "script_package", packageId, {
+    distributionMode, customerCount: customerIds.length
+  });
+  return response(request, { updated: true, packageId, distributionMode, customerCount: customerIds.length }, 200, env);
+}
 async function createAdminPackage(request, env, session) {
   await requireRole(session, ["OWNER"]);
   const body = await readBody(request, 128_000);
@@ -1526,8 +1604,11 @@ async function listCustomerPackages(request, env, session) {
   const result = await env.DB.prepare(
     "SELECT p.id, p.name, p.description, p.latest_version, v.language_version, v.created_at AS published_at " +
     "FROM script_packages p JOIN script_package_versions v ON v.package_id = p.id AND v.version = p.latest_version " +
-    "WHERE p.status = 'ACTIVE' ORDER BY p.updated_at DESC"
-  ).all();
+    "WHERE p.status = 'ACTIVE' AND (" +
+    "p.distribution_mode = 'ALL_LICENSED' OR EXISTS (" +
+    "SELECT 1 FROM script_package_customers g WHERE g.package_id = p.id AND g.customer_id = ?" +
+    ")) ORDER BY p.updated_at DESC"
+  ).bind(session.user_id).all();
   await env.DB.prepare(
     "UPDATE devices SET last_seen_at = ? WHERE id = ? AND user_id = ? AND status = 'ACTIVE'"
   ).bind(now, device.id, session.user_id).run();
@@ -1551,8 +1632,11 @@ async function downloadCustomerPackage(request, env, session, packageId) {
     "SELECT p.id, p.name, p.description, p.status, v.version, v.language_version, v.ciphertext, v.content_iv, " +
     "v.encrypted_data_key, v.key_iv, v.key_version, v.source_sha256 " +
     "FROM script_packages p JOIN script_package_versions v ON v.package_id = p.id AND v.version = p.latest_version " +
-    "WHERE p.id = ? AND p.status = 'ACTIVE'"
-  ).bind(packageId).first();
+    "WHERE p.id = ? AND p.status = 'ACTIVE' AND (" +
+    "p.distribution_mode = 'ALL_LICENSED' OR EXISTS (" +
+    "SELECT 1 FROM script_package_customers g WHERE g.package_id = p.id AND g.customer_id = ?" +
+    "))"
+  ).bind(packageId, session.user_id).first();
   if (!item) throw new HttpError(404, "package_not_found", "Published AUTU package was not found.");
   const requestedWrapping = url.searchParams.get("keyWrapping") || "RSA-OAEP-SHA1";
   if (!["RSA-OAEP-SHA1", "RSA-OAEP-SHA256"].includes(requestedWrapping)) {
@@ -1665,6 +1749,9 @@ async function route(request, env) {
 
   if (method === "GET" && path === "/api/admin/audit-logs") return await listAdminAuditLogs(request, env, session);
   if (method === "GET" && path === "/api/admin/packages") return await listAdminPackages(request, env, session);
+  const adminPackageDistributionMatch = path.match(new RegExp("^/api/admin/packages/([0-9a-f-]{36})/distribution$", "i"));
+  if (adminPackageDistributionMatch && method === "GET") return await getAdminPackageDistribution(request, env, session, adminPackageDistributionMatch[1]);
+  if (adminPackageDistributionMatch && method === "PUT") return await updateAdminPackageDistribution(request, env, session, adminPackageDistributionMatch[1]);
   if (method === "POST" && path === "/api/admin/packages") return await createAdminPackage(request, env, session);
   const adminPackageSourceMatch = path.match(/^\/api\/admin\/packages\/([0-9a-f-]{36})\/source$/i);
   if (adminPackageSourceMatch && method === "GET") return await decryptPackageSourceForOwner(request, env, session, adminPackageSourceMatch[1]);
