@@ -367,36 +367,69 @@ async function sendFcmTopicUpdate(env, topic, appName, version) {
 
 async function readAppUpdatePolicy(env) {
   const row = await env.DB.prepare(
-    "SELECT mandatory, required_version, updated_at FROM app_update_policy WHERE id = 1"
+    "SELECT mandatory, required_version, announced_manifest_json, updated_at FROM app_update_policy WHERE id = 1"
   ).first();
+  let announcedManifest = null;
+  if (typeof row?.announced_manifest_json === "string" && row.announced_manifest_json.trim()) {
+    try {
+      const parsed = JSON.parse(row.announced_manifest_json);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) announcedManifest = parsed;
+    } catch { announcedManifest = null; }
+  }
   return {
-    // Update messages are informational only; legacy mandatory state is never exposed.
     mandatory: false,
-    requiredVersion: null,
+    requiredVersion: typeof row?.required_version === "string" ? row.required_version : null,
+    announcedManifest,
     updatedAt: Number(row?.updated_at || 0)
+  };
+}
+
+async function normalizeAnnouncedUpdateManifest(value, expectedVersion) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpError(400, "update_manifest_required", "Manifest bản cập nhật được công bố không hợp lệ.");
+  }
+  const applicationId = typeof value.applicationId === "string" ? value.applicationId.trim() : "";
+  const versionName = typeof value.versionName === "string" ? value.versionName.trim() : "";
+  const downloadUrl = typeof value.downloadUrl === "string" ? value.downloadUrl.trim() : "";
+  const sha256 = typeof value.sha256 === "string" ? value.sha256.trim().toLowerCase() : "";
+  let parsedUrl;
+  try { parsedUrl = new URL(downloadUrl); } catch {}
+  if (applicationId !== "com.autulio.app" ||
+      !/^[0-9A-Za-z._+-]{1,40}$/.test(versionName) || versionName !== expectedVersion ||
+      !parsedUrl || parsedUrl.protocol !== "https:" || parsedUrl.hostname !== "autu-lio-updates.coc-lio-data.workers.dev" ||
+      !/^\/v1\/download\/[A-Za-z0-9._%+-]{1,180}$/.test(parsedUrl.pathname) ||
+      !/^[a-f0-9]{64}$/.test(sha256)) {
+    throw new HttpError(400, "update_manifest_invalid", "Manifest không khớp ứng dụng, phiên bản, đường tải hoặc SHA-256 hợp lệ.");
+  }
+  return {
+    applicationId, versionName,
+    tag: typeof value.tag === "string" ? value.tag.slice(0, 180) : "",
+    downloadUrl: parsedUrl.toString(), sha256,
+    releaseNotes: typeof value.releaseNotes === "string" ? value.releaseNotes.slice(0, 1200) : ""
   };
 }
 
 async function updateAppUpdatePolicy(request, env, session) {
   await requireRole(session, ["OWNER"]);
-  const body = await readBody(request, 4000);
+  const body = await readBody(request, 12000);
   if (body.announcement !== true) {
-    throw new HttpError(400, "update_announcement_required", "Only voluntary update announcements are supported.");
+    throw new HttpError(400, "update_announcement_required", "Chỉ chấp nhận lệnh thông báo cập nhật không bắt buộc.");
   }
-  const version = typeof body.version === "string" && /^[0-9A-Za-z._+-]{1,40}$/.test(body.version)
-    ? body.version
-    : "new";
+  const version = typeof body.version === "string" ? body.version.trim() : "";
+  if (!/^[0-9A-Za-z._+-]{1,40}$/.test(version)) {
+    throw new HttpError(400, "update_version_invalid", "Phiên bản công bố không hợp lệ.");
+  }
+  const announcedManifest = await normalizeAnnouncedUpdateManifest(body.manifest, version);
   const messageId = await sendFcmTopicUpdate(env, "autu-lio-update-notices", "AUTU-LIO", version);
-  const previous = await env.DB.prepare(
-    "SELECT updated_at FROM app_update_policy WHERE id = 1"
-  ).bind().first();
+  const previous = await env.DB.prepare("SELECT updated_at FROM app_update_policy WHERE id = 1").bind().first();
   const now = Math.max(Math.floor(Date.now() / 1000), Number(previous?.updated_at || 0) + 1);
   await env.DB.prepare(
-    "INSERT INTO app_update_policy (id, mandatory, required_version, updated_at, updated_by_user_id) " +
-    "VALUES (1, 0, NULL, ?, ?) " +
-    "ON CONFLICT(id) DO UPDATE SET mandatory = 0, required_version = NULL, " +
-    "updated_at = excluded.updated_at, updated_by_user_id = excluded.updated_by_user_id"
-  ).bind(now, session.user_id).run();
+    "INSERT INTO app_update_policy (id, mandatory, required_version, announced_manifest_json, updated_at, updated_by_user_id) " +
+    "VALUES (1, 0, ?, ?, ?, ?) " +
+    "ON CONFLICT(id) DO UPDATE SET mandatory = 0, required_version = excluded.required_version, " +
+    "announced_manifest_json = excluded.announced_manifest_json, updated_at = excluded.updated_at, " +
+    "updated_by_user_id = excluded.updated_by_user_id"
+  ).bind(version, JSON.stringify(announcedManifest), now, session.user_id).run();
   await audit(env, session.user_id, "app_update_announcement.sent", "app_update_policy", "1", {
     mandatory: false,
     announcementSent: true,
@@ -404,18 +437,11 @@ async function updateAppUpdatePolicy(request, env, session) {
     version
   });
   return {
-    updated: true,
-    announcementSent: true,
-    notificationSent: true,
-    pushMessageId: messageId,
-    target: "autu-lio-update-notices",
-    version,
-    mandatory: false,
-    requiredVersion: null,
-    updatedAt: now
+    updated: true, announcementSent: true, notificationSent: true,
+    pushMessageId: messageId, target: "autu-lio-update-notices", version,
+    mandatory: false, requiredVersion: version, announcedManifest, updatedAt: now
   };
 }
-
 async function audit(env, actorId, action, targetType = null, targetId = null, metadata = {}) {
   await env.DB.prepare(
     "INSERT INTO audit_logs (id, actor_user_id, action, target_type, target_id, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
