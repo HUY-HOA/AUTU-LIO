@@ -261,8 +261,9 @@ async function readAppUpdatePolicy(env) {
     "SELECT mandatory, required_version, updated_at FROM app_update_policy WHERE id = 1"
   ).first();
   return {
-    mandatory: Number(row?.mandatory || 0) === 1,
-    requiredVersion: row?.required_version || null,
+    // Update messages are informational only; legacy mandatory state is never exposed.
+    mandatory: false,
+    requiredVersion: null,
     updatedAt: Number(row?.updated_at || 0)
   };
 }
@@ -270,27 +271,24 @@ async function readAppUpdatePolicy(env) {
 async function updateAppUpdatePolicy(request, env, session) {
   await requireRole(session, ["OWNER"]);
   const body = await readBody(request, 4000);
-  const mandatory = body.mandatory === true;
-  const requiredVersion = mandatory ? String(body.requiredVersion || "").trim() : null;
-  const versionParts = (requiredVersion || "").split(".");
-  const validVersion = versionParts.length >= 2 && versionParts.length <= 4 &&
-    versionParts.every(part => part.length > 0 && [...part].every(char => char >= "0" && char <= "9"));
-  if (mandatory && !validVersion) {
-    throw new HttpError(400, "invalid_required_version", "The required app version is invalid.");
+  if (body.announcement !== true) {
+    throw new HttpError(400, "update_announcement_required", "Only voluntary update announcements are supported.");
   }
-  const now = Math.floor(Date.now() / 1000);
+  const previous = await env.DB.prepare(
+    "SELECT updated_at FROM app_update_policy WHERE id = 1"
+  ).first();
+  const now = Math.max(Math.floor(Date.now() / 1000), Number(previous?.updated_at || 0) + 1);
   await env.DB.prepare(
     "INSERT INTO app_update_policy (id, mandatory, required_version, updated_at, updated_by_user_id) " +
-    "VALUES (1, ?, ?, ?, ?) " +
-    "ON CONFLICT(id) DO UPDATE SET mandatory = excluded.mandatory, " +
-    "required_version = excluded.required_version, updated_at = excluded.updated_at, " +
-    "updated_by_user_id = excluded.updated_by_user_id"
-  ).bind(mandatory ? 1 : 0, requiredVersion, now, session.user_id).run();
-  await audit(env, session.user_id, "app_update_policy.changed", "app_update_policy", "1", {
-    mandatory,
-    requiredVersion
+    "VALUES (1, 0, NULL, ?, ?) " +
+    "ON CONFLICT(id) DO UPDATE SET mandatory = 0, required_version = NULL, " +
+    "updated_at = excluded.updated_at, updated_by_user_id = excluded.updated_by_user_id"
+  ).bind(now, session.user_id).run();
+  await audit(env, session.user_id, "app_update_announcement.sent", "app_update_policy", "1", {
+    mandatory: false,
+    announcementSent: true
   });
-  return { updated: true, mandatory, requiredVersion, updatedAt: now };
+  return { updated: true, announcementSent: true, mandatory: false, requiredVersion: null, updatedAt: now };
 }
 
 async function audit(env, actorId, action, targetType = null, targetId = null, metadata = {}) {
