@@ -488,7 +488,7 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         persistAutomationQueue()
         schedulePendingStartIfNeeded()
         if (entry.startAtEpochMs > 0L) {
-            statusLabel?.text = "Đã đặt lịch chạy sau ${delayMinutes.coerceAtMost(AutomationRunPolicy.MAX_SCHEDULE_DELAY_MINUTES)} phút."
+            statusLabel?.text = "Đã đặt lịch chạy sau ${delayMinutes.coerceAtMost(AutomationRunPolicy.MAX_SCHEDULE_DELAY_MINUTES.toLong())} phút."
         }
         renderSnapshot(executionEngine?.snapshot())
         return true
