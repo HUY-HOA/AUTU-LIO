@@ -7,7 +7,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import com.autulio.app.BuildConfig
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.autulio.app.access.AccessRole
@@ -241,7 +241,10 @@ class AuthRepository(context: Context) {
             throw IOException("Máy chủ không trả về thử thách đăng nhập hợp lệ.")
         }
 
-        val option = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_SERVER_CLIENT_ID)
+        val option = GetGoogleIdOption.Builder()
+            .setServerClientId(BuildConfig.GOOGLE_SERVER_CLIENT_ID)
+            .setFilterByAuthorizedAccounts(false)
+            .setAutoSelectEnabled(false)
             .setNonce(nonce)
             .build()
         val request = GetCredentialRequest.Builder()
