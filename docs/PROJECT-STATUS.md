@@ -7,8 +7,9 @@
 ## 1. Phạm vi sản phẩm và vai trò
 
 - Chỉ phát triển **ứng dụng Android native**, một APK duy nhất: `com.autulio.app`.
-- Không có website, web dashboard, web app hoặc web preview.
-- `backend/` là Cloudflare Worker REST API phục vụ ứng dụng Android; đây không phải giao diện web.
+- Có website công khai tĩnh tại `https://autu-lio.coc-lio-data.workers.dev/` gồm trang chủ, tải ứng dụng, quyền riêng tư và điều khoản.
+- Website không phải web app, web editor hoặc web dashboard; AUTU Script vẫn được soạn và chạy trong ứng dụng Android.
+- API riêng tại `https://autu-lio-auth-api.coc-lio-data.workers.dev/` phục vụ ứng dụng Android.
 - Phạm vi vận hành hiện tại chỉ gồm **OWNER** và **CUSTOMER**. Chỉ tài khoản Google đã xác minh theo secret `OWNER_GOOGLE_SUB` được bootstrap thành OWNER; tài khoản Google khác mặc định là CUSTOMER.
 - Chỉ hỗ trợ OWNER/CUSTOMER; không còn lời mời, cộng tác viên, shared workspace hoặc review submission.
 - Debug và Release dùng cùng luồng xác thực; không cấp quyền bằng bộ chọn vai trò cục bộ.
@@ -19,7 +20,9 @@
 - Cloudflare D1 `autu_lio_auth` đã áp dụng đầy đủ migrations `0001`–`0008`; migration 0008 bổ sung thời điểm hiện diện, thời điểm ứng dụng ở nền trước và trạng thái runtime. 7 bảng cộng tác đã bị xóa; vẫn còn 10 bảng ứng dụng.
 - Worker `autu-lio-auth-api` phiên bản 22 đã triển khai Production với 100% lưu lượng.
 - D1 binding, hai rate-limit bindings, các biến công khai và ba Worker secrets hiện có đã được xác minh sau triển khai.
-- D1 có đúng một tài khoản OWNER và một CUSTOMER theo lần kiểm tra trước; đăng nhập và nghiệm thu trên thiết bị thật vẫn cần kiểm tra lại sau khi cài APK mới.
+- D1 có một OWNER và CUSTOMER đã được khởi tạo; luồng đăng nhập, giấy phép, thiết bị và runtime vẫn cần nghiệm thu end-to-end trên điện thoại.
+- Ngày 23/11/2026, GitHub Actions run `45121668827` đã kiểm tra backend, áp dụng migration còn thiếu (không có migration mới cần áp dụng), triển khai API Worker và website Worker thành công.
+- Website Worker `autu-lio` triển khai phiên bản `adf74d66-09c5-4006-a971-48baf2de01db` với 100% lưu lượng; API Worker `autu-lio-auth-api` triển khai phiên bản `a87b73c3-b454-444a-8ffc-8bb6dafd4e2f` với 100% lưu lượng.
 
 ## 3. Mã nguồn chức năng hiện có
 
@@ -65,14 +68,21 @@
 - Có cấu trúc mã hóa package AES-GCM, bọc khóa theo thiết bị RSA và xác minh hash ở phía Android.
 - Quy trình end-to-end từ tạo package, phát hành, cấp giấy phép, đăng ký thiết bị, tải xuống, giải mã đến chạy vẫn cần kiểm thử nghiệm thu bằng tài khoản CUSTOMER thật.
 
-## 4. Bản Release hiện có
+## 4. Website và bản Release
+
+- Website tĩnh được lưu trong `backend/website/` và triển khai bằng `backend/wrangler.website.jsonc` lên Worker riêng tên `autu-lio`.
+- Các trang công khai: `/`, `/download/`, `/privacy/`, `/terms/`; có `robots.txt`, `sitemap.xml` và trang 404 tiếng Việt.
+- Trang tải trỏ tới GitHub Releases. Workflow `.github/workflows/build-apks.yml` chỉ công bố bản Release đã ký khi được kích hoạt bằng commit có thông điệp chính xác `BUILD APK`.
+- Sau khi build Release và xác minh chữ ký, workflow tải artifact Actions và tạo GitHub Release gắn tag phiên bản, đính kèm file `AUTU-LIO.apk`. Không có bước này đối với Debug.
+
+## 5. Bản Release hiện có
 
 - GitHub Actions đã hoàn tất workflow Release APK run `44791724413` trên commit `eaad93232c9765750a76da4e3b1ed7383c5ec840`; build Release thành công, APK đã được ký, xác minh chữ ký và tải artifact `AUTU-LIO-Release` lên GitHub Actions.
 - Bản Release đã xác minh gần nhất là v0.1.37 (APK chưa được nghiệm thu cài đặt/chạy trên điện thoại thật trong lần build này).
 - Không build APK mới nếu chưa nhận đúng lệnh `BUILD APK`.
 - Sửa tài liệu hoặc chạy source checks không đồng nghĩa tạo APK; workflow source checks không đóng gói APK.
 
-## 5. Việc cần hoàn thiện tiếp theo
+## 6. Việc cần hoàn thiện tiếp theo
 
 1. **CUSTOMER — mã nguồn đã có, nghiệm thu thực tế còn thiếu:** đăng nhập bằng Google account khác, xác nhận vai trò mặc định là CUSTOMER và xác nhận Worker từ chối Admin API.
 2. **Giấy phép/thiết bị — API và màn hình đã có, nghiệm thu end-to-end còn thiếu:** OWNER tạo giấy phép; CUSTOMER đăng ký thiết bị; kiểm tra giới hạn thiết bị, ngày hết hạn, thu hồi và phiên đăng nhập.
@@ -83,7 +93,7 @@
 7. **Chất lượng — kiểm tra tự động đang được duy trì:** giữ Worker tests, Kotlin unit tests và lint xanh; đối chiếu commit CI với main; kiểm tra bảo mật và không đưa secret vào APK/Git.
 8. **Phạm vi AUTU Script tiếp theo:** sự kiện/tác vụ nền; regex an toàn; module dùng chung và debugger theo lộ trình trong docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md. SAF picker đã được nối vào runtime, vẫn cần nghiệm thu trên thiết bị thật. Ngày giờ ISO 8601 đã được bổ sung mã nguồn/unit tests; multipart upload/download đã có CI xanh; SQLite migration, integrity check và backup/restore vẫn cần nghiệm thu trên thiết bị thật.
 
-## 6. Quy tắc an toàn và phát hành
+## 7. Quy tắc an toàn và phát hành
 
 - Không đánh dấu chức năng hoàn thành chỉ vì có giao diện hoặc API; phải kiểm tra hành vi thật.
 - Chỉ OWNER được quản trị; CUSTOMER chỉ sử dụng AUTU đã phát hành với giấy phép hợp lệ.
