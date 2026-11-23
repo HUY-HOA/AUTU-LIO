@@ -256,6 +256,115 @@ async function requireRole(session, roles) {
   }
 }
 
+function fcmBase64Url(value) {
+  const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+}
+
+function fcmPrivateKeyBytes(pemValue) {
+  const encoded = String(pemValue || "")
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replace(/\\s/g, "");
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+async function sendFcmTopicUpdate(env, topic, appName, version) {
+  if (!env.FCM_SERVICE_ACCOUNT_JSON) {
+    throw new HttpError(503, "fcm_not_configured", "Cloudflare chưa được cấu hình khóa Firebase Cloud Messaging.");
+  }
+  let serviceAccount;
+  try {
+    serviceAccount = JSON.parse(env.FCM_SERVICE_ACCOUNT_JSON);
+  } catch {
+    throw new HttpError(503, "fcm_credentials_invalid", "Khóa Firebase trên Cloudflare không phải JSON hợp lệ.");
+  }
+  const projectId = String(serviceAccount.project_id || "");
+  const clientEmail = String(serviceAccount.client_email || "");
+  const privateKeyPem = String(serviceAccount.private_key || "");
+  if (!/^[a-z0-9-]+$/.test(projectId) || !clientEmail.includes("@") || !privateKeyPem.includes("PRIVATE KEY")) {
+    throw new HttpError(503, "fcm_credentials_invalid", "Khóa Firebase trên Cloudflare còn thiếu thông tin tài khoản dịch vụ.");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const jwtHeader = fcmBase64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const jwtClaims = fcmBase64Url(JSON.stringify({
+    iss: clientEmail,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  }));
+  const unsignedJwt = jwtHeader + "." + jwtClaims;
+  const signingKey = await crypto.subtle.importKey(
+    "pkcs8",
+    fcmPrivateKeyBytes(privateKeyPem),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", signingKey, new TextEncoder().encode(unsignedJwt));
+  const assertion = unsignedJwt + "." + fcmBase64Url(new Uint8Array(signature));
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion
+    })
+  });
+  const tokenBody = await tokenResponse.json().catch(() => ({}));
+  if (!tokenResponse.ok || typeof tokenBody.access_token !== "string") {
+    console.error(JSON.stringify({
+      message: "Firebase OAuth token request failed",
+      status: tokenResponse.status,
+      error: String(tokenBody.error || "unknown").slice(0, 120)
+    }));
+    throw new HttpError(502, "fcm_auth_failed", "Cloudflare không xác thực được với Firebase. Kiểm tra khóa tài khoản dịch vụ.");
+  }
+
+  const sendResponse = await fetch(
+    "https://fcm.googleapis.com/v1/projects/" + encodeURIComponent(projectId) + "/messages:send",
+    {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + tokenBody.access_token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: {
+          topic,
+          data: {
+            type: "app_update",
+            title: appName + " có bản cập nhật mới",
+            body: "Đã có phiên bản " + version + ". Nhấn để mở ứng dụng và kiểm tra cập nhật.",
+            version
+          },
+          android: { priority: "HIGH", ttl: "3600s" }
+        }
+      })
+    }
+  );
+  const sendText = await sendResponse.text();
+  if (!sendResponse.ok) {
+    console.error(JSON.stringify({
+      message: "Firebase Cloud Messaging send failed",
+      status: sendResponse.status,
+      response: sendText.slice(0, 400)
+    }));
+    throw new HttpError(502, "fcm_send_failed", "Firebase từ chối gửi thông báo. Kiểm tra FCM HTTP v1 và quyền Cloud Messaging.");
+  }
+  let sendBody = {};
+  try { sendBody = JSON.parse(sendText); } catch {}
+  return String(sendBody.name || "accepted");
+}
+
 async function readAppUpdatePolicy(env) {
   const row = await env.DB.prepare(
     "SELECT mandatory, required_version, updated_at FROM app_update_policy WHERE id = 1"
@@ -274,6 +383,10 @@ async function updateAppUpdatePolicy(request, env, session) {
   if (body.announcement !== true) {
     throw new HttpError(400, "update_announcement_required", "Only voluntary update announcements are supported.");
   }
+  const version = typeof body.version === "string" && /^[0-9A-Za-z._+-]{1,40}$/.test(body.version)
+    ? body.version
+    : "new";
+  const messageId = await sendFcmTopicUpdate(env, "autu-lio-update-notices", "AUTU-LIO", version);
   const previous = await env.DB.prepare(
     "SELECT updated_at FROM app_update_policy WHERE id = 1"
   ).bind().first();
@@ -286,9 +399,21 @@ async function updateAppUpdatePolicy(request, env, session) {
   ).bind(now, session.user_id).run();
   await audit(env, session.user_id, "app_update_announcement.sent", "app_update_policy", "1", {
     mandatory: false,
-    announcementSent: true
+    announcementSent: true,
+    notificationSent: true,
+    version
   });
-  return { updated: true, announcementSent: true, mandatory: false, requiredVersion: null, updatedAt: now };
+  return {
+    updated: true,
+    announcementSent: true,
+    notificationSent: true,
+    pushMessageId: messageId,
+    target: "autu-lio-update-notices",
+    version,
+    mandatory: false,
+    requiredVersion: null,
+    updatedAt: now
+  };
 }
 
 async function audit(env, actorId, action, targetType = null, targetId = null, metadata = {}) {
