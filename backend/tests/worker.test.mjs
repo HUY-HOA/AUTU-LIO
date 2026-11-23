@@ -386,6 +386,23 @@ test("current customer receives only their own verified Google profile and lates
   assert.equal(Object.hasOwn(body.user, "createdAt"), false);
 });
 
+test("authentication sessions remain valid after their legacy expiry timestamp", async () => {
+  const expiredSession = { ...customerSession, expires_at: 1 };
+  const { env, queries } = createEnv({ session: expiredSession });
+  const response = await worker.fetch(
+    makeRequest("/api/auth/me", {
+      headers: { Authorization: `Bearer ${"E".repeat(48)}` }
+    }),
+    env
+  );
+  const body = await json(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.session.expiresAt, null);
+  assert.equal(body.session.persistent, true);
+  assert.equal(queries.some(sql => sql.includes("FROM sessions s JOIN users u") && sql.includes("expires_at > ?")), false);
+});
+
 test("customer account endpoint returns the signed-in account and empty license/device state", async () => {
   const { env } = createEnv({ session: customerSession });
   const response = await worker.fetch(
