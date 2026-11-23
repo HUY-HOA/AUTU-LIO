@@ -1,5 +1,6 @@
 package com.autulio.app
 
+import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
@@ -42,6 +43,7 @@ class ScriptFilePickerActivity : ComponentActivity() {
     private val openDocumentLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { handleOpenResult(it) }
     private val createDocumentLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { handleCreateResult(it) }
 
+    @SuppressLint("NewApi")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestId = intent.getStringExtra(EXTRA_REQUEST_ID).orEmpty()
