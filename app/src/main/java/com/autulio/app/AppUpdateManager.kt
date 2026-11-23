@@ -126,9 +126,9 @@ object AppUpdateManager {
                 if (activity.isFinishing || activity.isDestroyed) return@post
                 val message = buildString {
                     append("Phiên bản hiện tại: ").append(currentVersion(context))
-                    append("\\nPhiên bản mới: ").append(version)
-                    if (notes.isNotBlank()) append("\\n\\n").append(notes)
-                    append("\\n\\nĐây là thông báo cập nhật không bắt buộc. Bạn có thể chọn tải ngay hoặc để sau.")
+                    append("\nPhiên bản mới: ").append(version)
+                    if (notes.isNotBlank()) append("\n\n").append(notes)
+                    append("\n\nĐây là thông báo cập nhật không bắt buộc. Bạn có thể chọn tải ngay hoặc để sau.")
                 }
                 val dialog = AlertDialog.Builder(activity)
                     .setTitle("Thông báo cập nhật AUTU-LIO")
