@@ -167,7 +167,11 @@ internal fun AccessControlAdminScreen(
                     "SUSPENDED" to "Đã chặn đăng nhập",
                     "PAUSED" to "Giấy phép tạm dừng",
                     "EXPIRED" to "Hết hạn",
-                    "REVOKED" to "Đã thu hồi quyền"
+                    "REVOKED" to when (section) {
+                        "customers" -> "Đã thu hồi đăng nhập"
+                        "licenses" -> "Đã thu hồi giấy phép"
+                        else -> "Thiết bị đã thu hồi"
+                    }
                 ).forEach { item ->
                     FilterChip(
                         selected = statusFilter == item.first,
@@ -177,6 +181,15 @@ internal fun AccessControlAdminScreen(
                 }
             }
 
+            Text(
+                when (section) {
+                    "customers" -> "ĐĂNG NHẬP: điều khiển trạng thái tài khoản hoặc thu hồi phiên hiện tại. Các thao tác này không sửa giấy phép/thiết bị."
+                    "licenses" -> "GIẤY PHÉP: chỉ điều khiển quyền tải/chạy AUTU. Tạm dừng, thu hồi hoặc xóa giấy phép không đăng xuất hay khóa tài khoản."
+                    else -> "THIẾT BỊ: thu hồi quyền của thiết bị này בלבד; không thay đổi phiên đăng nhập, tài khoản hoặc giấy phép."
+                },
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             if (notice.isNotBlank()) {
                 Text(notice, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
             }
@@ -252,16 +265,30 @@ internal fun AccessControlAdminScreen(
                                             val token = accessToken ?: return@TextButton
                                             pendingConfirmation = AccessAdminConfirmation(
                                                 title = "Thu hồi giấy phép này?",
-                                                message = "Giấy phép này sẽ kết thúc và không còn cho phép tải hoặc chạy AUTU. Người dùng vẫn có thể đăng nhập nếu tài khoản còn hoạt động. Đăng ký thiết bị và khóa bảo mật vẫn được giữ; muốn sử dụng AUTU lại cần cấp giấy phép mới.",
+                                                message = "Chỉ giấy phép này bị thu hồi, người dùng không thể tải hoặc chạy AUTU. Tài khoản vẫn đăng nhập được; các phiên hiện tại và thiết bị đã đăng ký không bị thay đổi. Muốn sử dụng lại cần cấp giấy phép mới.",
                                                 confirmLabel = "Thu hồi giấy phép"
                                             ) {
                                                 repository.updateCustomerLicense(token, license.id, "REVOKED", license.expiresAt, license.maxDevices)
-                                                notice = "Đã thu hồi giấy phép."
+                                                notice = "Đã thu hồi giấy phép; phiên đăng nhập và thiết bị được giữ nguyên."
                                             }
                                         },
                                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                                     ) { Text("Thu hồi giấy phép", fontSize = 11.sp) }
                                 }
+                                TextButton(
+                                    onClick = {
+                                        val token = accessToken ?: return@TextButton
+                                        pendingConfirmation = AccessAdminConfirmation(
+                                            title = "Xóa hẳn giấy phép này?",
+                                            message = "Chỉ bản ghi giấy phép này sẽ bị xóa vĩnh viễn. Tài khoản và các phiên đăng nhập vẫn giữ nguyên; thiết bị đã đăng ký không bị xóa hoặc thu hồi. Nhật ký thao tác xóa vẫn được lưu để đối soát. Sau khi xóa, người dùng không còn giấy phép này để truy cập AUTU.",
+                                            confirmLabel = "Xóa giấy phép"
+                                        ) {
+                                            repository.deleteCustomerLicense(token, license.id)
+                                            notice = "Đã xóa giấy phép; tài khoản, phiên đăng nhập và thiết bị không thay đổi."
+                                        }
+                                    },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                ) { Text("Xóa giấy phép", fontSize = 11.sp) }
                             }
                         }
                     }
@@ -362,7 +389,16 @@ internal fun AccessControlAdminScreen(
                                         Text(customer.displayName ?: customer.email, fontWeight = FontWeight.SemiBold)
                                         Text(customer.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    Text(statusText(customer.status), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        when (customer.status) {
+                                            "ACTIVE" -> "Đang hoạt động"
+                                            "SUSPENDED" -> "Đã chặn đăng nhập"
+                                            "REVOKED" -> "Đã thu hồi đăng nhập"
+                                            else -> statusText(customer.status)
+                                        },
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
                                 GoogleSignInDetailsCard(
                                     details = customer.googleSignIn,
@@ -416,7 +452,7 @@ internal fun AccessControlAdminScreen(
                                             }
                                             val message = when {
                                                 nextStatus == "SUSPENDED" -> "Người dùng sẽ bị đăng xuất khỏi các phiên hiện tại và không thể đăng nhập lại. Giấy phép và thiết bị đã đăng ký vẫn được giữ nguyên. Bạn có thể cho phép đăng nhập lại sau."
-                                                customer.status == "REVOKED" -> "Tài khoản được kích hoạt để có thể đăng nhập lại. Giấy phép và thiết bị đã thu hồi không tự khôi phục; cần cấp giấy phép mới và cho phép lại từng thiết bị đủ điều kiện."
+                                                customer.status == "REVOKED" -> "Tài khoản được mở lại để có thể đăng nhập Google. Giấy phép và thiết bị vẫn giữ nguyên trạng thái trước đó; các phiên cũ đã bị thu hồi nên người dùng phải đăng nhập lại."
                                                 else -> "Tài khoản được phép đăng nhập lại. Các phiên cũ đã bị chấm dứt nên người dùng cần đăng nhập mới. Giấy phép và thiết bị vẫn được giữ nguyên."
                                             }
                                             pendingConfirmation = AccessAdminConfirmation(
@@ -432,7 +468,7 @@ internal fun AccessControlAdminScreen(
                                                 repository.updateCustomerStatus(token, customer.userId, nextStatus)
                                                 notice = when {
                                                     nextStatus == "SUSPENDED" -> "Đã chặn đăng nhập tài khoản."
-                                                    customer.status == "REVOKED" -> "Đã kích hoạt tài khoản. Cần cấp giấy phép mới và cho phép lại thiết bị nếu cần."
+                                                    customer.status == "REVOKED" -> "Đã mở lại đăng nhập. Giấy phép và thiết bị không bị thay đổi."
                                                     else -> "Đã cho phép đăng nhập lại."
                                                 }
                                             }
@@ -451,16 +487,16 @@ internal fun AccessControlAdminScreen(
                                         onClick = {
                                             val token = accessToken ?: return@TextButton
                                             pendingConfirmation = AccessAdminConfirmation(
-                                                title = "Thu hồi tài khoản?",
-                                                message = "Tài khoản sẽ bị chặn đăng nhập và đăng xuất khỏi các phiên hiện tại. Tất cả giấy phép của tài khoản và thiết bị đang hoạt động sẽ bị thu hồi. Hồ sơ và nhật ký đối soát vẫn được giữ lại; thao tác này không xóa dữ liệu vĩnh viễn. Muốn cấp quyền lại, cần kích hoạt tài khoản, cấp giấy phép mới và cho phép lại từng thiết bị đủ điều kiện.",
-                                                confirmLabel = "Thu hồi tài khoản"
+                                                title = "Thu hồi quyền đăng nhập tài khoản?",
+                                                message = "Tài khoản sẽ không thể đăng nhập và tất cả phiên hiện tại sẽ bị thu hồi. Chỉ trạng thái tài khoản và phiên đăng nhập thay đổi; mọi giấy phép (kể cả ACTIVE/PAUSED/REVOKED) và đăng ký thiết bị được giữ nguyên, không tự sửa hoặc xóa.",
+                                                confirmLabel = "Thu hồi đăng nhập"
                                             ) {
                                                 repository.updateCustomerStatus(token, customer.userId, "REVOKED")
-                                                notice = "Đã thu hồi tài khoản, giấy phép và quyền thiết bị liên quan."
+                                                notice = "Đã thu hồi quyền đăng nhập. Giấy phép và thiết bị được giữ nguyên."
                                             }
                                         },
                                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                    ) { Text("Thu hồi tài khoản", fontSize = 11.sp) }
+                                    ) { Text("Thu hồi đăng nhập", fontSize = 11.sp) }
                                 }
                             }
                         }
