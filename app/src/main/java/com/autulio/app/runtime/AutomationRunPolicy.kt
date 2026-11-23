@@ -13,6 +13,13 @@ object AutomationRunPolicy {
     const val MIN_RETRY_DELAY_MS = 1_000L
     const val MAX_RETRY_DELAY_MS = 60_000L
 
+    private val packageNamePattern = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
+
+    fun isValidTargetPackage(packageName: String?): Boolean =
+        !packageName.isNullOrBlank() &&
+            packageName.length <= 255 &&
+            packageNamePattern.matches(packageName)
+
     fun scheduledStartAt(nowEpochMs: Long, delayMinutes: Long): Long =
         if (delayMinutes <= 0L) 0L else nowEpochMs +
             delayMinutes.coerceAtMost(MAX_SCHEDULE_DELAY_MINUTES.toLong()) * 60_000L
