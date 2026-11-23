@@ -49,20 +49,19 @@ Nếu chưa có ID token để đọc claim `sub`, hãy hoàn tất cấu hình 
 
 Không commit các giá trị cấu hình hoặc bí mật vào Git. Không đưa Google OAuth client secret, Cloudflare API token hoặc khóa ký Android vào APK.
 
-## 4. Cấu hình Android build
+## 4. Cấu hình Android
 
-Worker đã được deploy. Workflow GitHub Actions đã truyền hai cấu hình sau vào cả Debug và Release; URL API không phải bí mật:
+AUTU-LIO dùng cùng cách cấu hình Android như COC-LIO và GPS-LIO. Hai giá trị công khai được khai báo trực tiếp trong:
 
-```properties
-AUTU_LIO_AUTH_API_BASE_URL=https://autu-lio-auth-api.coc-lio-data.workers.dev
-AUTU_LIO_GOOGLE_SERVER_CLIENT_ID=45851070932-nm7p19g66jgbvrervag9f1gg4n7bavvo.apps.googleusercontent.com
-```
+`app/src/main/res/values/strings.xml`
 
-Có thể truyền cùng tên qua environment variables:
-- `AUTU_LIO_AUTH_API_BASE_URL`
-- `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID`
+- `api_base_url`: `https://autu-lio-auth-api.coc-lio-data.workers.dev`
+- `default_web_client_id`: Google Web OAuth Client ID, phải trùng chính xác với `vars.GOOGLE_CLIENT_ID` trong `backend/wrangler.jsonc`.
 
-Các giá trị này không phải khóa bí mật. Nếu để trống, app vẫn có thể biên dịch nhưng đăng nhập sẽ bị khóa và giải thích cấu hình còn thiếu.
+Android Credential Manager đọc `default_web_client_id` để yêu cầu Google ID token; Worker xác minh claim `aud` bằng biến `GOOGLE_CLIENT_ID`. Đây là mã định danh công khai, không phải mật khẩu hoặc Secret.
+
+Không cần truyền `AUTU_LIO_AUTH_API_BASE_URL` hoặc `AUTU_LIO_GOOGLE_SERVER_CLIENT_ID` qua GitHub Actions, Gradle properties hay environment variables. Workflow APK chỉ cần các giá trị phiên bản và bốn GitHub Secrets ký APK đã cấu hình.
+
 
 ## 5. Triển khai Worker
 
