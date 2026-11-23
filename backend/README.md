@@ -31,7 +31,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001`–`0009` are applied to the remote `autu_lio_auth` D1 database. Migration `0007_device_revocation_reasons.sql` records why a device was revoked; migration `0008_device_presence.sql` adds separate app-presence and AUTU runtime-state timestamps. All 9 migrations are recorded in `d1_migrations`; 10 application tables remain (excluding SQLite/D1 internal tables), and the seven collaboration-related tables remain removed. Worker `autu-lio-auth-api` version 22 was deployed on 22 November 2026 at 19:19 UTC with 100% traffic at `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Its D1 binding, two authentication rate-limit bindings, public variables and three existing secrets were verified after deployment. Keep every SQL migration in source control as the schema history.
+Migrations `0001`–`0009` are applied to the remote `autu_lio_auth` D1 database. Migration `0007_device_revocation_reasons.sql` records why a device was revoked; migration `0008_device_presence.sql` adds app-presence and AUTU runtime-state timestamps; `0009_persistent_sessions.sql` makes every non-revoked login session persistent. `licenses.expires_at` remains unchanged and still controls customer license validity. All 9 migrations are recorded in `d1_migrations`; keep every SQL migration in source control as schema history.
 
 ## Required Worker secrets
 
