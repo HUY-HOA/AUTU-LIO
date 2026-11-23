@@ -1,0 +1,2 @@
+One-time APK build trigger requested by the repository owner on 2026-11-24.
+This marker exists only to trigger the configured GitHub Actions release workflow with the exact commit message BUILD APK.
