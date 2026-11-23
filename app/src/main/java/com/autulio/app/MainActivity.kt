@@ -81,6 +81,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         AppUpdateManager.resume(this)
+        window.decorView.postDelayed({
+            if (!isFinishing && !isDestroyed) AppUpdateManager.check(this, forceCheck = true)
+        }, 700L)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,7 +92,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             AutuLioAppEntry()
         }
-        window.decorView.postDelayed({ AppUpdateManager.check(this) }, 2_500L)
     }
 
     private fun prepareDisplayGeometryCapture() {
