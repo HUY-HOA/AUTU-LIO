@@ -267,7 +267,7 @@ function fcmPrivateKeyBytes(pemValue) {
   const encoded = String(pemValue || "")
     .replace("-----BEGIN PRIVATE KEY-----", "")
     .replace("-----END PRIVATE KEY-----", "")
-    .replace(/\\s/g, "");
+    .replace(/\s/g, "");
   const binary = atob(encoded);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
