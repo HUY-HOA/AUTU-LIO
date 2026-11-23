@@ -63,7 +63,7 @@ From this directory:
 6. Run npx wrangler d1 migrations list autu_lio_auth and apply every pending migration with npx wrangler d1 migrations apply autu_lio_auth --remote after reviewing the output.
 7. Deploy only after OAuth configuration, Android package/SHA fingerprints, migrations and secrets have been reviewed.
 
-The Worker source is deployed (version 22, 100% traffic) and all eight D1 migrations are applied. Production secrets and OAuth allowlist are configured; the owner has signed in successfully and D1 confirms exactly one active OWNER. Other Google accounts are assigned CUSTOMER by default. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Presence reports are accepted at `POST /api/customer/presence`.
+The Worker source is deployed and all nine D1 migrations are applied. Production secrets and OAuth allowlist are configured; the owner has signed in successfully and D1 confirms exactly one active OWNER. Other Google accounts are assigned CUSTOMER by default. The Worker URL is `https://autu-lio-auth-api.coc-lio-data.workers.dev`. Presence reports are accepted at `POST /api/customer/presence`.
 
 ## API
 
