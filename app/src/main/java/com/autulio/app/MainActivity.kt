@@ -311,7 +311,11 @@ private val customerTabs = listOf(
 )
 
 @Composable
-internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
+internal fun AdminApp(
+    accessToken: String?,
+    onLogout: () -> Unit,
+    authenticatedUser: com.autulio.app.auth.AuthenticatedUser? = null
+) {
     val context = LocalContext.current
     val draftStore = remember(context) { SecureScriptDraftStore(context) }
     val initialDrafts = remember(draftStore) { draftStore.load() }
@@ -346,7 +350,7 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(host) },
             topBar = {
-                GoogleAccountHeader(accessToken = accessToken)
+                GoogleAccountHeader(accessToken = accessToken, authenticatedUser = authenticatedUser)
             },
             bottomBar = {
                 NavigationBar {
@@ -426,7 +430,12 @@ internal fun AdminApp(accessToken: String?, onLogout: () -> Unit) {
 }
 
 @Composable
-internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Unit) {
+internal fun CustomerApp(
+    accessToken: String?,
+    email: String,
+    onLogout: () -> Unit,
+    authenticatedUser: com.autulio.app.auth.AuthenticatedUser? = null
+) {
     var page by rememberSaveable { mutableStateOf("home") }
 
     AppTheme(dark = LocalUiThemeMode.current.isDark(isSystemInDarkTheme())) {
@@ -434,7 +443,7 @@ internal fun CustomerApp(accessToken: String?, email: String, onLogout: () -> Un
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 Column {
-                    GoogleAccountHeader(accessToken = accessToken, fallbackEmail = email)
+                    GoogleAccountHeader(accessToken = accessToken, authenticatedUser = authenticatedUser, fallbackEmail = email)
                     CustomerLicenseCountdownBar(accessToken = accessToken)
                 }
             },
@@ -1399,7 +1408,6 @@ private fun MoreScreen(
                 "settings" -> {
                     ThemeModeSelector()
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
-                    SettingRow(Icons.Outlined.Lock, tr("Bảo mật", "Security"), tr("Vai trò được xác minh từ máy chủ; thông tin kỹ thuật thiết bị và kết nối được ghi nhận khi đăng nhập.", "Roles are verified by the server; basic device and network diagnostics are recorded at sign-in."))
                     DatabaseBackupControls()
         ScriptFileControls()
                     SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
@@ -1765,7 +1773,6 @@ private fun SettingsScreen(
         Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
         ThemeModeSelector()
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
-        SettingRow(Icons.Outlined.Lock, tr("Quyền riêng tư", "Privacy"), tr("Vai trò và giấy phép được máy chủ xác minh.", "Roles and licenses are verified by the server."))
         SettingRow(
             Icons.Outlined.Chat,
             tr("Liên hệ nhà phát triển", "Contact developer"),
