@@ -38,8 +38,8 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
     }
 
     init {
-        require(namespace == "admin") {
-            "Only the owner draft namespace is supported."
+        require(namespace.matches(Regex("[A-Za-z0-9_-]{1,32}"))) {
+            "The encrypted storage namespace is invalid."
         }
     }
 
@@ -86,6 +86,11 @@ class SecureScriptDraftStore(context: Context, private val namespace: String = "
 
     fun save(names: List<String>, contents: Map<String, String>) {
         writeEncrypted(ScriptDraftSnapshot(names, contents), synchronous = false)
+    }
+
+    /** Persist security-sensitive automation state before a run is started. */
+    fun saveSynchronously(names: List<String>, contents: Map<String, String>) {
+        writeEncrypted(ScriptDraftSnapshot(names, contents), synchronous = true)
     }
 
     private fun writeEncrypted(snapshot: ScriptDraftSnapshot, synchronous: Boolean) {
