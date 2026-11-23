@@ -419,7 +419,8 @@ class AutoClickAccessibilityService : AccessibilityService(), ScriptActionDispat
         val running = state == ScriptExecutionState.RUNNING ||
             state == ScriptExecutionState.PAUSED ||
             state == ScriptExecutionState.STOPPING
-        val hasPreparedProgram = pendingProgram != null && !executionStarted
+        val hasPreparedProgram = pendingProgram != null && !executionStarted &&
+            (state == ScriptExecutionState.IDLE || retryRunnable != null)
         val terminalCallbackPending = executionStarted && !terminalSnapshotHandled
         if (running || hasPreparedProgram || terminalCallbackPending) {
             if (entry.source.isBlank()) {
