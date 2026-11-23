@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Chính sách quyền riêng tư của AUTU-LIO."><meta name="theme-color" content="#08111f"><link rel="canonical" href="https://autu-lio.coc-lio-data.workers.dev/privacy/"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/site.css"><title>Chính sách quyền riêng tư — AUTU-LIO</title></head>
+<body><header><div class="wrap nav"><a class="brand" href="/"><span class="brand-mark">A</span><span>AUTU-LIO</span></a><nav><a href="/">Trang chủ</a><a href="/download/">Tải ứng dụng</a><a href="/privacy/" aria-current="page">Quyền riêng tư</a><a href="/terms/">Điều khoản</a></nav></div></header>
+<main class="wrap content"><div class="eyebrow">Minh bạch dữ liệu</div><h1>Chính sách quyền riêng tư</h1><p class="meta">Cập nhật ngày 23 tháng 11 năm 2026</p>
+<p>Chính sách này mô tả dữ liệu AUTU-LIO xử lý khi bạn sử dụng ứng dụng Android và các dịch vụ trực tuyến liên quan. AUTU-LIO dùng Google Sign-In để xác thực và Cloudflare Workers cùng D1 để vận hành API và lưu dữ liệu tài khoản.</p>
+<h2>1. Dữ liệu được xử lý</h2>
+<ul>
+<li><strong>Tài khoản Google:</strong> mã định danh Google (subject), email đã xác minh, tên hiển thị và ảnh hồ sơ nếu Google cung cấp. Ứng dụng không nhận hoặc lưu mật khẩu Google.</li>
+<li><strong>Thông tin tài khoản:</strong> vai trò OWNER/CUSTOMER, trạng thái tài khoản, thời điểm đăng nhập, số lần đăng nhập và thông tin chấp thuận điều khoản cần thiết để bảo vệ tài khoản và vận hành dịch vụ.</li>
+<li><strong>Phiên đăng nhập:</strong> mã phiên ngẫu nhiên được băm trước khi lưu, thời điểm tạo, hết hạn, lần hoạt động gần nhất và trạng thái thu hồi.</li>
+<li><strong>Thông tin thiết bị:</strong> nhãn thiết bị, hãng, model, phiên bản Android, phiên bản AUTU-LIO, thời điểm đăng ký và hoạt động. Khi đăng ký thiết bị, máy chủ nhận khóa công khai và dấu vân tay của khóa; khóa riêng được giữ trong Android Keystore.</li>
+<li><strong>Trạng thái hoạt động:</strong> thời điểm ứng dụng gửi tín hiệu hiện diện, thời điểm ứng dụng ở nền trước và trạng thái bộ chạy AUTU (đang chạy, tạm dừng, đã dừng hoặc chưa rõ). Dữ liệu này giúp OWNER biết thiết bị có đang kết nối gần đây hay không.</li>
+<li><strong>Gói AUTU:</strong> tên, mô tả, phiên bản và nội dung do OWNER chủ động phát hành. Nội dung gói được mã hóa trước khi lưu trên D1; máy chủ lưu dữ liệu mã hóa, thông tin khóa được bảo vệ và mã kiểm tra toàn vẹn.</li>
+<li><strong>Nhật ký bảo mật:</strong> các sự kiện xác thực, quản lý tài khoản, giấy phép, thiết bị và tải gói cần thiết để kiểm tra hoạt động và xử lý sự cố.</li>
+</ul>
+<h2>2. Dữ liệu không được thu thập bởi dịch vụ tài khoản</h2>
+<p>Dịch vụ tài khoản AUTU-LIO không yêu cầu quyền truy cập danh bạ, tin nhắn hoặc vị trí để đăng nhập; không thu thập IMEI hay số sê-ri phần cứng; không ghi lại nội dung màn hình hoặc thao tác cá nhân của bạn. Tín hiệu hiện diện chỉ gồm mốc thời gian và trạng thái ứng dụng/bộ chạy. Kịch bản chạy trên thiết bị có thể sử dụng các quyền Android mà người dùng chủ động cấp cho kịch bản; các quyền đó không đồng nghĩa AUTU-LIO tự động gửi dữ liệu tương ứng về máy chủ.</p>
+<h2>3. Mục đích sử dụng</h2>
+<ul><li>Xác thực tài khoản Google, cấp vai trò và bảo vệ phiên đăng nhập.</li><li>Quản lý giấy phép, thiết bị đã đăng ký và quyền tải/chạy gói AUTU.</li><li>Hiển thị trạng thái kết nối và trạng thái runtime cho OWNER.</li><li>Mã hóa, phân phối gói AUTU và xác minh tính toàn vẹn.</li><li>Phát hiện lạm dụng, giới hạn tốc độ, ghi nhật ký bảo mật và sửa lỗi dịch vụ.</li></ul>
+<h2>4. Lưu trữ và bên xử lý</h2>
+<p>Dữ liệu tài khoản và thông tin vận hành được lưu trong Cloudflare D1; API chạy trên Cloudflare Workers. Google cung cấp dịch vụ đăng nhập và xác minh danh tính. Việc xử lý dữ liệu bởi Google và Cloudflare còn chịu sự điều chỉnh của chính sách riêng của các nhà cung cấp này. Website giới thiệu là trang tĩnh và không sử dụng công cụ phân tích hành vi hoặc quảng cáo.</p>
+<h2>5. Chia sẻ dữ liệu</h2>
+<p>AUTU-LIO không bán dữ liệu cá nhân. Thông tin cần thiết về tài khoản, giấy phép, thiết bị và trạng thái hoạt động được hiển thị cho OWNER để quản lý dịch vụ. Dữ liệu có thể được xử lý bởi nhà cung cấp hạ tầng nêu trên hoặc cung cấp khi có yêu cầu hợp pháp từ cơ quan có thẩm quyền.</p>
+<h2>6. Lưu giữ và bảo vệ</h2>
+<p>Dữ liệu được giữ trong thời gian tài khoản và dịch vụ còn hoạt động hoặc trong thời gian cần thiết để bảo vệ quyền lợi hợp pháp, xử lý tranh chấp và duy trì nhật ký bảo mật. Phiên đăng nhập có thời hạn và có thể bị thu hồi. AUTU-LIO áp dụng HTTPS, kiểm tra quyền ở phía máy chủ, giới hạn tốc độ, băm token phiên, mã hóa gói AUTU và Android Keystore cho khóa riêng thiết bị. Không có biện pháp truyền hoặc lưu trữ nào bảo đảm an toàn tuyệt đối.</p>
+<h2>7. Quyền và lựa chọn của bạn</h2>
+<p>Bạn có thể đăng xuất, ngừng sử dụng ứng dụng và yêu cầu OWNER xử lý trạng thái tài khoản hoặc thiết bị theo quy trình quản lý. Việc thu hồi thiết bị hoặc giấy phép có thể làm mất quyền tải/chạy gói AUTU nhưng không tự động xóa mọi nhật ký bảo mật. Khi cần hỗ trợ kỹ thuật, hãy dùng <a href="https://github.com/HUY-HOA/AUTU-LIO/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>; không đăng công khai email, token, khóa, dữ liệu thiết bị hoặc nội dung riêng tư.</p>
+<h2>8. Trẻ em và thay đổi chính sách</h2>
+<p>AUTU-LIO là công cụ tự động hóa Android, không được thiết kế riêng cho trẻ em. Chính sách có thể được cập nhật khi chức năng hoặc yêu cầu pháp luật thay đổi. Phiên bản mới sẽ được công bố trên trang này.</p>
+<h2>9. Liên hệ</h2>
+<p>Với câu hỏi kỹ thuật, xem <a href="https://github.com/HUY-HOA/AUTU-LIO" target="_blank" rel="noopener noreferrer">kho mã nguồn AUTU-LIO</a>. Không gửi bí mật hoặc dữ liệu cá nhân qua kênh công khai.</p>
+</main><footer><div class="wrap foot"><span>© 2026 AUTU-LIO</span><div class="foot-links"><a href="/">Trang chủ</a><a href="/terms/">Điều khoản</a><a href="/download/">Tải ứng dụng</a></div></div></footer></body></html>
