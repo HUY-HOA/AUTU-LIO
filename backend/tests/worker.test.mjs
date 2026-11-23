@@ -1579,6 +1579,196 @@ test("legacy APK download receives raw AES-GCM payload and RSA-OAEP SHA-1 wrappi
   assert.equal(new TextDecoder().decode(plain), source);
 });
 
+
+test("owner can read and update selected customer distribution for an AUTU package", async () => {
+  const packageId = "123e4567-e89b-42d3-a456-426614174000";
+  const customerId = "123e4567-e89b-42d3-a456-426614174001";
+  const queries = [];
+  const batches = [];
+  const env = {
+    DB: {
+      prepare(sql) {
+        queries.push(sql);
+        return {
+          values: [],
+          bind(...values) { this.values = values; return this; },
+          async first() {
+            if (sql.includes("FROM sessions s JOIN users u")) return ownerSession;
+            if (sql.includes("FROM script_packages WHERE id = ?")) {
+              return { id: packageId, name: "Selected AUTU", distribution_mode: "ALL_LICENSED" };
+            }
+            return null;
+          },
+          async all() {
+            if (sql.includes("FROM users u LEFT JOIN script_package_customers")) {
+              return { results: [{ id: customerId, email: "customer@example.com", display_name: "Customer", status: "ACTIVE", assigned: 1 }] };
+            }
+            if (sql.includes("FROM users WHERE role = 'CUSTOMER' AND id IN")) {
+              return { results: this.values.map(id => ({ id })) };
+            }
+            return { results: [] };
+          },
+          async run() { return { meta: { changes: 1 } }; }
+        };
+      },
+      async batch(statements) {
+        batches.push(statements.map(item => ({ sql: item.sql, values: item.values })));
+        return statements.map(() => ({ meta: { changes: 1 } }));
+      }
+    }
+  };
+
+  const read = await worker.fetch(
+    makeRequest("/api/admin/packages/" + packageId + "/distribution", {
+      headers: { Authorization: "Bearer " + "D".repeat(48) }
+    }),
+    env
+  );
+  const readBody = await json(read);
+  assert.equal(read.status, 200);
+  assert.equal(readBody.package.distributionMode, "ALL_LICENSED");
+  assert.equal(readBody.customers[0].assigned, true);
+
+  const saved = await worker.fetch(
+    makeRequest("/api/admin/packages/" + packageId + "/distribution", {
+      method: "PUT",
+      headers: { Authorization: "Bearer " + "D".repeat(48), "Content-Type": "application/json" },
+      body: JSON.stringify({ distributionMode: "SELECTED_CUSTOMERS", customerIds: [customerId] })
+    }),
+    env
+  );
+  const savedBody = await json(saved);
+  assert.equal(saved.status, 200);
+  assert.equal(savedBody.distributionMode, "SELECTED_CUSTOMERS");
+  assert.equal(savedBody.customerCount, 1);
+  assert.equal(batches.length, 1);
+  assert.equal(batches[0].length, 3);
+  assert.ok(batches[0][0].sql.includes("UPDATE script_packages SET distribution_mode"));
+  assert.ok(batches[0][2].sql.includes("INSERT INTO script_package_customers"));
+  assert.ok(queries.some(sql => sql.includes("role = 'CUSTOMER' AND id IN")));
+});
+
+test("package distribution rejects non-customer recipients and an empty selected list", async () => {
+  const packageId = "123e4567-e89b-42d3-a456-426614174000";
+  const customerId = "123e4567-e89b-42d3-a456-426614174001";
+  const env = {
+    DB: {
+      prepare(sql) {
+        return {
+          bind() { return this; },
+          async first() {
+            if (sql.includes("FROM sessions s JOIN users u")) return ownerSession;
+            if (sql.includes("FROM script_packages WHERE id = ?")) return { id: packageId };
+            return null;
+          },
+          async all() { return { results: [] }; }
+        };
+      },
+      async batch() { throw new Error("batch should not run for invalid recipients"); }
+    }
+  };
+  const nonCustomer = await worker.fetch(
+    makeRequest("/api/admin/packages/" + packageId + "/distribution", {
+      method: "PUT",
+      headers: { Authorization: "Bearer " + "E".repeat(48), "Content-Type": "application/json" },
+      body: JSON.stringify({ distributionMode: "SELECTED_CUSTOMERS", customerIds: [customerId] })
+    }),
+    env
+  );
+  assert.equal(nonCustomer.status, 400);
+  assert.equal((await json(nonCustomer)).error, "invalid_package_recipients");
+
+  const empty = await worker.fetch(
+    makeRequest("/api/admin/packages/" + packageId + "/distribution", {
+      method: "PUT",
+      headers: { Authorization: "Bearer " + "E".repeat(48), "Content-Type": "application/json" },
+      body: JSON.stringify({ distributionMode: "SELECTED_CUSTOMERS", customerIds: [] })
+    }),
+    env
+  );
+  assert.equal(empty.status, 400);
+  assert.equal((await json(empty)).error, "invalid_package_recipients");
+});
+
+test("customer package catalog applies package-specific customer filtering", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const queries = [];
+  const env = {
+    DB: {
+      prepare(sql) {
+        queries.push(sql);
+        return {
+          bind() { return this; },
+          async first() {
+            if (sql.includes("FROM sessions s JOIN users u")) return customerSession;
+            if (sql.includes("FROM licenses WHERE user_id = ? AND status = 'ACTIVE'")) {
+              return { id: "license-1", user_id: customerSession.user_id, status: "ACTIVE", starts_at: now - 60, expires_at: now + 3600, max_devices: 1 };
+            }
+            if (sql.includes("FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'")) return { id: "device-1" };
+            return null;
+          },
+          async all() {
+            if (sql.includes("FROM script_packages p JOIN script_package_versions")) {
+              return { results: [{ id: "package-for-customer", name: "Customer AUTU", latest_version: 1, language_version: "1.22" }] };
+            }
+            return { results: [] };
+          },
+          async run() { return { meta: { changes: 1 } }; }
+        };
+      }
+    }
+  };
+  const response = await worker.fetch(
+    makeRequest("/api/customer/packages?deviceFingerprint=" + "a".repeat(64), {
+      headers: { Authorization: "Bearer " + "F".repeat(48) }
+    }),
+    env
+  );
+  const body = await json(response);
+  assert.equal(response.status, 200);
+  assert.equal(body.packages.length, 1);
+  const catalogQuery = queries.find(sql => sql.includes("FROM script_packages p JOIN script_package_versions"));
+  assert.ok(catalogQuery.includes("p.distribution_mode = 'ALL_LICENSED'"));
+  assert.ok(catalogQuery.includes("script_package_customers g"));
+});
+
+test("customer cannot download an AUTU that is not assigned to the account", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const packageId = "123e4567-e89b-42d3-a456-426614174000";
+  const queries = [];
+  const env = {
+    DB: {
+      prepare(sql) {
+        queries.push(sql);
+        return {
+          bind() { return this; },
+          async first() {
+            if (sql.includes("FROM sessions s JOIN users u")) return customerSession;
+            if (sql.includes("FROM licenses WHERE user_id = ? AND status = 'ACTIVE'")) {
+              return { id: "license-1", user_id: customerSession.user_id, status: "ACTIVE", starts_at: now - 60, expires_at: now + 3600, max_devices: 1 };
+            }
+            if (sql.includes("FROM devices WHERE user_id = ? AND public_key_fingerprint = ? AND status = 'ACTIVE'")) {
+              return { id: "device-1", public_key_spki: "unused-in-this-test" };
+            }
+            if (sql.includes("FROM script_packages p JOIN script_package_versions")) return null;
+            return null;
+          }
+        };
+      }
+    }
+  };
+  const response = await worker.fetch(
+    makeRequest("/api/customer/packages/" + packageId + "/download?deviceFingerprint=" + "b".repeat(64), {
+      headers: { Authorization: "Bearer " + "G".repeat(48) }
+    }),
+    env
+  );
+  assert.equal(response.status, 404);
+  assert.equal((await json(response)).error, "package_not_found");
+  const packageQuery = queries.find(sql => sql.includes("FROM script_packages p JOIN script_package_versions"));
+  assert.ok(packageQuery.includes("script_package_customers g"));
+});
+
 test("customer without an active license cannot list published AUTUs", async () => {
   const { env, queries } = createEnv({ session: customerSession });
   const response = await worker.fetch(
