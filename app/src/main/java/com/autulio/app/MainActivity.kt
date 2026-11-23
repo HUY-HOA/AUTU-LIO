@@ -748,11 +748,12 @@ private fun EditorScreen(
     allowPublish: Boolean,
     allowTest: Boolean,
     allowFloatingEditor: Boolean,
-    onPrepareRun: (String) -> Unit,
+    onPrepareRun: (String, Boolean) -> Unit,
     onOpenFloatingEditor: () -> Unit
 ) {
     var validationText by rememberSaveable { mutableStateOf("") }
     var validationSucceeded by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var retryOnFailure by rememberSaveable { mutableStateOf(false) }
     var showTemplates by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var templateSearch by rememberSaveable { mutableStateOf("") }
@@ -938,13 +939,38 @@ private fun EditorScreen(
             ) { Text(tr("Kiểm tra mã", "Check code")) }
             if (allowTest) {
                 Button(
-                    onClick = { onPrepareRun(code) },
+                    onClick = { onPrepareRun(code, retryOnFailure) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Outlined.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(5.dp))
                     Text(tr("Chuẩn bị chạy", "Prepare run"))
                 }
+            }
+        }
+        if (allowTest) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        tr("Tự thử lại khi lỗi (tối đa 2 lần)", "Retry automatically on failure (up to 2 times)"),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        tr("Có thể lặp thao tác đã thực hiện một phần. Chỉ bật cho kịch bản an toàn khi chạy lại.",
+                            "May repeat actions already partly completed. Enable only for scripts safe to rerun."),
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 14.sp
+                    )
+                }
+                Switch(
+                    checked = retryOnFailure,
+                    onCheckedChange = { retryOnFailure = it }
+                )
             }
         }
         if (validationText.isNotBlank()) {
@@ -2362,7 +2388,7 @@ class ScriptEditorActivity : ComponentActivity() {
                                 }
                             }
                         },
-                        onPrepareRun = { source ->
+                        onPrepareRun = { source, retryOnFailure ->
                             if (!allowTest) return@EditorScreen
                             store.save(initialNames, initial.contents + (scriptName to source))
                             setResult(Activity.RESULT_OK)
@@ -2387,7 +2413,13 @@ class ScriptEditorActivity : ComponentActivity() {
                                         )
                                     }
                                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                } else if (service.prepareProgram(compilation.program!!, scriptName, source)) {
+                                } else if (service.prepareProgram(
+                                        compilation.program!!,
+                                        scriptName,
+                                        source,
+                                        retryOnFailure = retryOnFailure,
+                                        maxRetries = if (retryOnFailure) 2 else 0
+                                    )) {
                                     val queuedCount = service.queuedProgramCount()
                                     scope.launch {
                                         host.showSnackbar(
