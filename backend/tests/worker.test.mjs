@@ -170,6 +170,32 @@ async function json(response) {
   return response.json();
 }
 
+test("OWNER can publish only a voluntary update announcement", async () => {
+  const { env, queries } = createEnv({ session: ownerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/app-update-policy", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${"O".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ announcement: true })
+    }),
+    env
+  );
+  assert.equal(response.status, 200);
+  const body = await json(response);
+  assert.equal(body.updated, true);
+  assert.equal(body.announcementSent, true);
+  assert.equal(body.mandatory, false);
+  assert.equal(body.requiredVersion, null);
+  assert.ok(body.updatedAt > 0);
+  assert.ok(queries.some(sql =>
+    sql.includes("INSERT INTO app_update_policy") &&
+    sql.includes("VALUES (1, 0, NULL, ?, ?)")
+  ));
+});
+
 test("owner bootstrap matches the verified Google sub, not the email address", () => {
   const env = { OWNER_GOOGLE_SUB: "google-sub-owner-123" };
 
