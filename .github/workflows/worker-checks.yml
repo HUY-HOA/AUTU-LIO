@@ -38,3 +38,7 @@ jobs:
       - name: Run Worker syntax, API behavior, and D1 migration checks
         working-directory: backend
         run: npm run check
+
+      - name: Validate public website Worker configuration
+        working-directory: backend
+        run: npm run check:website
