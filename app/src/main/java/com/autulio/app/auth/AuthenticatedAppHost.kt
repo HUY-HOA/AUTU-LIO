@@ -168,11 +168,16 @@ internal fun AuthenticatedAppHost() {
     val currentToken = accessToken
     if (currentUser != null && currentToken != null) {
         when (currentUser.role) {
-            AccessRole.OWNER -> AdminApp(accessToken = currentToken, onLogout = ::signOut)
+            AccessRole.OWNER -> AdminApp(
+                accessToken = currentToken,
+                onLogout = ::signOut,
+                authenticatedUser = currentUser
+            )
             AccessRole.CUSTOMER -> CustomerApp(
                 accessToken = currentToken,
                 email = currentUser.email,
-                onLogout = ::signOut
+                onLogout = ::signOut,
+                authenticatedUser = currentUser
             )
         }
         return
