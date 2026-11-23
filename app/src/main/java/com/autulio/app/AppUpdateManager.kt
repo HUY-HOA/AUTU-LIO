@@ -14,6 +14,7 @@ import android.provider.Settings
 import android.widget.Toast
 import org.json.JSONObject
 import java.io.InputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -33,13 +34,21 @@ object AppUpdateManager {
     private const val CHECK_INTERVAL_MS = 6L * 60L * 60L * 1000L
     private val handler = Handler(Looper.getMainLooper())
     private val activeDownloads = ConcurrentHashMap.newKeySet<Long>()
+    @Volatile private var lastForcedCheckAtMs = 0L
 
-    fun check(activity: Activity) {
+    fun check(activity: Activity, forceCheck: Boolean = false) {
         resume(activity)
         val context = activity.applicationContext
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
-        if (now - prefs.getLong(KEY_LAST_CHECK, 0L) < CHECK_INTERVAL_MS) return
+        if (forceCheck) {
+            synchronized(this) {
+                if (now - lastForcedCheckAtMs < 5_000L) return
+                lastForcedCheckAtMs = now
+            }
+        } else if (now - prefs.getLong(KEY_LAST_CHECK, 0L) < CHECK_INTERVAL_MS) {
+            return
+        }
 
         Thread {
             val manifest = try {
@@ -82,6 +91,96 @@ object AppUpdateManager {
                     .setPositiveButton("Tải và cập nhật") { _, _ -> requestUpdate(activity, version, downloadUrl, sha) }
                 if (!mandatory) builder.setNegativeButton("Để sau", null) else builder.setCancelable(false)
                 builder.show()
+            }
+        }.start()
+    }
+
+
+    /**
+     * The server checks the authenticated OWNER session before changing the mandatory policy.
+     * The latest version is read from the signed-release manifest; clients never choose a version.
+     */
+    fun setMandatoryUpdate(activity: Activity, accessToken: String?, enabled: Boolean) {
+        val token = accessToken?.trim().orEmpty()
+        if (token.isBlank()) {
+            Toast.makeText(activity, "Phiên chủ sở hữu không hợp lệ. Vui lòng đăng nhập lại.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val context = activity.applicationContext
+        Thread {
+            try {
+                var requiredVersion: String? = null
+                if (enabled) {
+                    val manifestConnection = URL(UPDATE_URL).openConnection() as HttpURLConnection
+                    val manifest = try {
+                        manifestConnection.requestMethod = "GET"
+                        manifestConnection.connectTimeout = 10_000
+                        manifestConnection.readTimeout = 12_000
+                        manifestConnection.setRequestProperty("Accept", "application/json")
+                        manifestConnection.setRequestProperty("Cache-Control", "no-store")
+                        manifestConnection.setRequestProperty("User-Agent", "AUTU-LIO-Owner-Update-Control")
+                        if (manifestConnection.responseCode !in 200..299) {
+                            throw IOException("Không đọc được phiên bản phát hành mới nhất.")
+                        }
+                        JSONObject(manifestConnection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
+                    } finally {
+                        manifestConnection.disconnect()
+                    }
+                    if (manifest.optString("applicationId") != context.packageName) {
+                        throw IOException("Manifest không thuộc ứng dụng này.")
+                    }
+                    requiredVersion = manifest.optString("versionName").trim()
+                    val downloadUri = Uri.parse(manifest.optString("downloadUrl"))
+                    if (requiredVersion.isNullOrBlank() || downloadUri.scheme != "https" ||
+                        downloadUri.host != DOWNLOAD_HOST || downloadUri.path?.startsWith("/v1/download/") != true
+                    ) {
+                        throw IOException("Thông tin bản phát hành mới nhất không hợp lệ.")
+                    }
+                }
+
+                val apiBase = context.getString(R.string.api_base_url).trim().trimEnd('/')
+                if (!apiBase.startsWith("https://")) throw IOException("Máy chủ quản lý cập nhật chưa dùng HTTPS.")
+                val connection = (URL(apiBase + "/api/admin/app-update-policy").openConnection() as HttpURLConnection)
+                try {
+                    connection.requestMethod = "POST"
+                    connection.connectTimeout = 10_000
+                    connection.readTimeout = 12_000
+                    connection.doOutput = true
+                    connection.setRequestProperty("Accept", "application/json")
+                    connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    connection.setRequestProperty("Cache-Control", "no-store")
+                    connection.setRequestProperty("Authorization", "Bearer " + token)
+                    val body = JSONObject().put("mandatory", enabled)
+                    if (enabled) body.put("requiredVersion", requiredVersion)
+                    connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                    val status = connection.responseCode
+                    val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                    val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                    if (status !in 200..299) {
+                        val detail = runCatching { JSONObject(responseText).optString("message") }.getOrNull().orEmpty()
+                        throw IOException(detail.ifBlank {
+                            if (status == 403) "Chỉ chủ sở hữu được yêu cầu cập nhật bắt buộc."
+                            else "Máy chủ từ chối yêu cầu (HTTP $status)."
+                        })
+                    }
+                } finally {
+                    connection.disconnect()
+                }
+
+                handler.post {
+                    val message = if (enabled) {
+                        "Đã bật yêu cầu cập nhật bắt buộc tới phiên bản $requiredVersion. Thiết bị dùng bản cũ sẽ phải cập nhật khi kết nối."
+                    } else {
+                        "Đã tắt yêu cầu cập nhật bắt buộc."
+                    }
+                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
+                }
+            } catch (error: Exception) {
+                handler.post {
+                    val message = error.message?.takeIf { it.isNotBlank() }
+                        ?: "Không thể cập nhật chính sách phiên bản. Hãy thử lại."
+                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
+                }
             }
         }.start()
     }
