@@ -38,6 +38,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.TextRange
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -748,12 +750,13 @@ private fun EditorScreen(
     allowPublish: Boolean,
     allowTest: Boolean,
     allowFloatingEditor: Boolean,
-    onPrepareRun: (String, Boolean) -> Unit,
+    onPrepareRun: (String, Boolean, Long) -> Unit,
     onOpenFloatingEditor: () -> Unit
 ) {
     var validationText by rememberSaveable { mutableStateOf("") }
     var validationSucceeded by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var retryOnFailure by rememberSaveable { mutableStateOf(false) }
+    var delayMinutes by rememberSaveable { mutableStateOf("0") }
     var showTemplates by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var templateSearch by rememberSaveable { mutableStateOf("") }
@@ -939,7 +942,7 @@ private fun EditorScreen(
             ) { Text(tr("Kiểm tra mã", "Check code")) }
             if (allowTest) {
                 Button(
-                    onClick = { onPrepareRun(code, retryOnFailure) },
+                    onClick = { onPrepareRun(code, retryOnFailure, delayMinutes.toLongOrNull()?.coerceIn(0L, 1_440L) ?: 0L) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Outlined.PlayArrow, contentDescription = null)
@@ -972,6 +975,22 @@ private fun EditorScreen(
                     onCheckedChange = { retryOnFailure = it }
                 )
             }
+        }
+        if (allowTest) {
+            OutlinedTextField(
+                value = delayMinutes,
+                onValueChange = { value -> delayMinutes = value.filter(Char::isDigit).take(4) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(tr("Đợi trước khi chạy (phút)", "Delay before run (minutes)")) },
+                supportingText = {
+                    Text(tr(
+                        "0 = chạy bằng nút Chạy; tối đa 24 giờ. Đến giờ, cần mở khóa và mở ứng dụng mục tiêu.",
+                        "0 = start manually; maximum 24 hours. At the due time, unlock the phone and open the target app."
+                    ))
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true
+            )
         }
         if (validationText.isNotBlank()) {
             Text(
@@ -2388,7 +2407,7 @@ class ScriptEditorActivity : ComponentActivity() {
                                 }
                             }
                         },
-                        onPrepareRun = { source, retryOnFailure ->
+                        onPrepareRun = { source, retryOnFailure, delayMinutes ->
                             if (!allowTest) return@EditorScreen
                             store.save(initialNames, initial.contents + (scriptName to source))
                             setResult(Activity.RESULT_OK)
@@ -2418,12 +2437,18 @@ class ScriptEditorActivity : ComponentActivity() {
                                         scriptName,
                                         source,
                                         retryOnFailure = retryOnFailure,
-                                        maxRetries = if (retryOnFailure) 2 else 0
+                                        maxRetries = if (retryOnFailure) 2 else 0,
+                                        delayMinutes = delayMinutes
                                     )) {
                                     val queuedCount = service.queuedProgramCount()
                                     scope.launch {
                                         host.showSnackbar(
-                                            if (queuedCount > 0) {
+                                            if (delayMinutes > 0L) {
+                                                tr(
+                                                    "Đã đặt lịch chạy sau $delayMinutes phút. AUTU chờ máy mở khóa và ứng dụng mục tiêu ở phía trước.",
+                                                    "Scheduled to run after $delayMinutes minutes. AUTU waits for the phone to be unlocked and the target app to be in front."
+                                                )
+                                            } else if (queuedCount > 0) {
                                                 tr(
                                                     "Đã thêm vào hàng đợi ($queuedCount). AUTU sẽ chuyển sang kịch bản này sau khi tác vụ trước hoàn tất.",
                                                     "Added to the queue ($queuedCount). AUTU will start it after the current run completes."
