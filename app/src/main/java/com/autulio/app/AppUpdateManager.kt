@@ -61,7 +61,7 @@ object AppUpdateManager {
             val downloadUrl = manifest.optString("downloadUrl").trim()
             if (version.isBlank() || !isNewerVersion(currentVersion(context), version)) return@Thread
             val uri = runCatching { Uri.parse(downloadUrl) }.getOrNull() ?: return@Thread
-            if (uri.scheme != "https" || uri.host != DOWNLOAD_HOST || !uri.path.startsWith("/v1/download/")) return@Thread
+            if (uri.scheme != "https" || uri.host != DOWNLOAD_HOST || uri.path?.startsWith("/v1/download/") != true) return@Thread
             val notes = manifest.optString("releaseNotes").trim().take(900)
             val sha = manifest.optString("sha256").takeIf { it.matches(Regex("(?i)^[a-f0-9]{64}$")) }
             val mandatory = manifest.optBoolean("mandatory", false)
