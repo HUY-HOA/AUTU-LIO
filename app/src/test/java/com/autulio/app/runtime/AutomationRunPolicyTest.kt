@@ -7,6 +7,20 @@ import org.junit.Test
 
 class AutomationRunPolicyTest {
     @Test
+    fun scheduleDelayIsBoundedAndZeroMeansManualStart() {
+        val now = 1_800_000_000_000L
+        assertEquals(0L, AutomationRunPolicy.scheduledStartAt(now, 0))
+        assertEquals(now + 5 * 60_000L, AutomationRunPolicy.scheduledStartAt(now, 5))
+        assertEquals(
+            now + 24 * 60 * 60_000L,
+            AutomationRunPolicy.scheduledStartAt(now, 10_000)
+        )
+        assertTrue(AutomationRunPolicy.isScheduledStartDue(0L, now))
+        assertTrue(AutomationRunPolicy.isScheduledStartDue(now - 1, now))
+        assertFalse(AutomationRunPolicy.isScheduledStartDue(now + 1, now))
+    }
+
+    @Test
     fun retryIsDisabledByDefaultAndRequiresExplicitOptIn() {
         assertFalse(AutomationRunPolicy.shouldRetry(false, attempts = 0, maxRetries = 2))
         assertFalse(AutomationRunPolicy.shouldRetry(true, attempts = 0, maxRetries = 0))
