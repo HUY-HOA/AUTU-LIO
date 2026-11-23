@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.PriorityHigh
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -54,6 +56,7 @@ internal fun GoogleAccountHeader(
     val context = LocalContext.current
     val repository = remember(context) { AuthRepository(context) }
     var account by remember(accessToken) { mutableStateOf<com.autulio.app.auth.AuthenticatedUser?>(null) }
+    var showAccountDetails by remember(accessToken) { mutableStateOf(false) }
 
     LaunchedEffect(accessToken) {
         account = runCatching { repository.currentUser(accessToken) }.getOrNull()
@@ -108,7 +111,28 @@ internal fun GoogleAccountHeader(
                     )
                 }
             }
+            IconButton(
+                onClick = { showAccountDetails = true },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.Outlined.PriorityHigh,
+                    contentDescription = tr("Xem thông tin tài khoản", "View account information"),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(21.dp)
+                )
+            }
         }
+    }
+
+    if (showAccountDetails) {
+        GoogleSignInDetailsDialog(
+            details = account?.googleSignIn,
+            displayName = name,
+            email = email,
+            title = tr("Thông tin tài khoản", "Account information"),
+            onDismiss = { showAccountDetails = false }
+        )
     }
 }
 
