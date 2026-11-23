@@ -316,7 +316,8 @@ private val adminTabs = listOf(
     Tab("overview", "Tổng quan", "Overview", Icons.Outlined.Home),
     Tab("scripts", "Kịch bản", "Scripts", Icons.Outlined.ListAlt),
     Tab("customers", "Khách hàng", "Customers", Icons.Outlined.Group),
-    Tab("more", "Thêm", "More", Icons.Outlined.MoreHoriz)
+    Tab("more", "Thêm", "More", Icons.Outlined.MoreHoriz),
+    Tab("settings", "Cài đặt", "Settings", Icons.Outlined.Settings)
 )
 
 private val customerTabs = listOf(
@@ -1450,6 +1451,8 @@ private fun MoreScreen(
     initialDraftName: String? = null,
     onOpenTemplate: (ScriptTemplate) -> Unit
 ) {
+    val context = LocalContext.current
+    var showSettingsMenu by remember { mutableStateOf(false) }
     if (page == "licenses") {
         AccessControlAdminScreen(accessToken = accessToken, modifier = modifier, initialSection = "licenses")
         return
@@ -1503,17 +1506,58 @@ private fun MoreScreen(
             TextButton(onClick = { onSelect("more") }) {
                 Text(tr("← Quay lại", "← Back"))
             }
-            Heading(
-                selected?.second ?: tr("Quản lý", "Management"),
-                when (page) {
-                    "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
-                    "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
-                    "packages" -> tr("Mã hóa, phát hành phiên bản và phân phối AUTU cho khách hàng", "Encrypt, publish and distribute AUTU versions to customers")
-                    "release" -> tr("Quản lý phiên bản và phân phối", "Manage versions and distribution")
-                    "logs" -> tr("Theo dõi sự kiện và lỗi hệ thống", "Review system events and errors")
-                    else -> tr("Tùy chỉnh ứng dụng quản trị", "Customize the admin application")
+            val pageSubtitle = when (page) {
+                "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
+                "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
+                "packages" -> tr("Mã hóa, phát hành phiên bản và phân phối AUTU cho khách hàng", "Encrypt, publish and distribute AUTU versions to customers")
+                "release" -> tr("Quản lý phiên bản và phân phối", "Manage versions and distribution")
+                "logs" -> tr("Theo dõi sự kiện và lỗi hệ thống", "Review system events and errors")
+                else -> tr("Tùy chỉnh ứng dụng quản trị", "Customize the admin application")
+            }
+            if (page == "settings") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(tr("Cài đặt", "Settings"), style = MaterialTheme.typography.titleLarge)
+                        Text(pageSubtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Box {
+                        IconButton(onClick = { showSettingsMenu = true }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = tr("Tùy chọn cài đặt", "Settings options"))
+                        }
+                        DropdownMenu(
+                            expanded = showSettingsMenu,
+                            onDismissRequest = { showSettingsMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(tr("Điều khoản sử dụng", "Terms of use")) },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/terms/")))
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(tr("Quyền riêng tư", "Privacy policy")) },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/privacy/")))
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(tr("Danh sách người dùng", "User list")) },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    onSelect("customers")
+                                }
+                            )
+                        }
+                    }
                 }
-            )
+            } else {
+                Heading(selected?.second ?: tr("Quản lý", "Management"), pageSubtitle)
+            }
             when (page) {
                 "licenses" -> {
                     CardBox {
@@ -1530,12 +1574,11 @@ private fun MoreScreen(
                 "logs" -> AdminAuditLogsScreen(accessToken = accessToken)
 
                 "settings" -> {
-                    GoogleAccountSettingsCard(authenticatedUser = authenticatedUser)
+                    GoogleAccountSettingsCard(authenticatedUser = authenticatedUser, onLogout = onLogout)
                     ThemeModeSelector()
                     SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO · v${BuildConfig.VERSION_NAME}")
                     DatabaseBackupControls()
         ScriptFileControls()
-                    SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
                 }
             }
         }
@@ -1933,10 +1976,43 @@ private fun SettingsScreen(
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
+    var showSettingsMenu by remember { mutableStateOf(false) }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         BrandHeader(admin = false)
-        Heading(tr("Cài đặt", "Settings"), tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"))
-        GoogleAccountSettingsCard(authenticatedUser = authenticatedUser, fallbackEmail = fallbackEmail)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(tr("Cài đặt", "Settings"), style = MaterialTheme.typography.titleLarge)
+                Text(tr("Tùy chỉnh AUTU-LIO", "Customize AUTU-LIO"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Box {
+                IconButton(onClick = { showSettingsMenu = true }) {
+                    Icon(Icons.Outlined.MoreVert, contentDescription = tr("Tùy chọn cài đặt", "Settings options"))
+                }
+                DropdownMenu(
+                    expanded = showSettingsMenu,
+                    onDismissRequest = { showSettingsMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(tr("Điều khoản sử dụng", "Terms of use")) },
+                        onClick = {
+                            showSettingsMenu = false
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/terms/")))
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(tr("Quyền riêng tư", "Privacy policy")) },
+                        onClick = {
+                            showSettingsMenu = false
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/privacy/")))
+                        }
+                    )
+                }
+            }
+        }
+        GoogleAccountSettingsCard(authenticatedUser = authenticatedUser, fallbackEmail = fallbackEmail, onLogout = onLogout)
         ThemeModeSelector()
         SettingRow(Icons.Outlined.Info, tr("Thông tin ứng dụng", "App information"), "AUTU-LIO v${BuildConfig.VERSION_NAME}")
         SettingRow(
@@ -1952,7 +2028,6 @@ private fun SettingsScreen(
         }
         DatabaseBackupControls()
         ScriptFileControls()
-        SettingRow(Icons.Outlined.Logout, tr("Đăng xuất", "Sign out"), tr("Kết thúc phiên đăng nhập trên thiết bị này.", "End the session on this device."), onLogout)
     }
 }
 
