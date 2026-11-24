@@ -23,7 +23,7 @@ jobs:
     env:
       UPDATE_BASE_URL: https://autu-lio-updates.coc-lio-data.workers.dev
       EXPECTED_APP_ID: autu-lio
-      EXPECTED_PACKAGE: com.autulio.app
+      EXPECTED_PACKAGE: com.autu.lio
     steps:
       - name: Verify updater health endpoint
         shell: bash
