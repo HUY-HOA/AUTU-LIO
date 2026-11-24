@@ -5,7 +5,7 @@
 - Repository chính thức: `HUY-HOA/AUTU-LIO`, nhánh `main`, chế độ Public.
 - Website công khai: https://autu-lio.coc-lio-data.workers.dev/
 - API: https://autu-lio-auth-api.coc-lio-data.workers.dev/
-- Website là trang thông tin và tải APK; không phải web editor hoặc dashboard. Ứng dụng chính vẫn là Android native `com.autulio.app`.
+- Website là trang thông tin và tải APK; không phải web editor hoặc dashboard. Ứng dụng chính vẫn là Android native `com.autu.lio`.
 
 ## 2. Triển khai Cloudflare tự động
 
