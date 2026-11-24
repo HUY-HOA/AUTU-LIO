@@ -33,14 +33,6 @@ android {
         targetSdk = 36
         versionCode = providers.gradleProperty("AUTU_LIO_VERSION_CODE").orElse("1").get().toInt()
         versionName = providers.gradleProperty("AUTU_LIO_VERSION_NAME").orElse("0.1.0").get()
-        val firebaseApiKey = providers.environmentVariable("FIREBASE_API_KEY").orElse("").get()
-        val firebaseProjectId = providers.environmentVariable("FIREBASE_PROJECT_ID").orElse("").get()
-        val firebaseSenderId = providers.environmentVariable("FIREBASE_SENDER_ID").orElse("").get()
-        val firebaseAppId = providers.environmentVariable("FIREBASE_APP_ID").orElse("").get()
-        buildConfigField("String", "FIREBASE_API_KEY", "\"$firebaseApiKey\"")
-        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"$firebaseProjectId\"")
-        buildConfigField("String", "FIREBASE_SENDER_ID", "\"$firebaseSenderId\"")
-        buildConfigField("String", "FIREBASE_APP_ID", "\"$firebaseAppId\"")
     }
 
     signingConfigs {
@@ -84,8 +76,6 @@ kotlin {
 }
 
 dependencies {
-    implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
-    implementation("com.google.firebase:firebase-messaging")
     implementation(libs.androidx.activity.compose)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.androidx.credentials)
