@@ -13,6 +13,10 @@ API máy chủ: **https://autu-lio-auth-api.coc-lio-data.workers.dev/**. API ph�
 
 Phạm vi vận hành hiện tại chỉ dùng OWNER và CUSTOMER. Quy trình cộng tác viên/nhà phát triển được để dành cho giai đoạn sau; hiện chưa triển khai onboarding người viết AUTU. Mọi quyền vẫn do máy chủ xác minh, không cấp quyền bằng bộ chọn vai trò cục bộ.
 
+## Thông báo cập nhật
+
+AUTU-LIO dùng Firebase Cloud Messaging (FCM) chỉ để gửi thông báo đẩy khi có bản cập nhật. Đăng nhập, dữ liệu tài khoản, giấy phép, thiết bị và API vẫn do Cloudflare xử lý; không dùng Firebase Authentication hoặc Firestore. Cần đăng ký Android App package `com.autu.lio`, thêm bốn GitHub Actions Variables và cấu hình Worker Secret cho gửi FCM. Xem [hướng dẫn Firebase/FCM](docs/FIREBASE-SETUP.md).
+
 ## Website công khai
 
 - [Trang chủ AUTU-LIO](https://autu-lio.coc-lio-data.workers.dev/)
