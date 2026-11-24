@@ -4,7 +4,7 @@ Tài liệu này dành cho AUTU-LIO. Firebase chỉ được dùng để nhận/
 
 ## 1. Phạm vi Firebase
 
-Khuyến nghị dùng **một Firebase project chung** và đăng ký hai Android App trong project đó:
+Khuyến nghị dùng **một Firebase project chung** và đăng ký ba Android App trong project đó:
 
 | Ứng dụng | Android package name |
 |---|---|
@@ -24,7 +24,8 @@ Mở [Firebase Console](https://console.firebase.google.com/) và chọn project
 2. Đăng ký app với package name chính xác:
    - `com.coc.lio` cho COC-LIO.
    - `com.autu.lio` cho AUTU-LIO.
-3. Đặt nickname tùy ý, ví dụ `COC-LIO` và `AUTU-LIO`.
+   - `com.gps.lio` cho GPS-LIO.
+3. Đặt nickname tùy ý, ví dụ `COC-LIO`, `AUTU-LIO` và `GPS-LIO`.
 4. Tải file `google-services.json` riêng của từng Android App để đọc các giá trị cấu hình.
 
 **Không cần nhập SHA-1/SHA-256 ở bước đăng ký Firebase App chỉ để dùng FCM.** SHA-1 của Android OAuth Client là cấu hình Google Sign-In riêng, không phải Firebase FCM.
@@ -57,11 +58,12 @@ Tạo 4 **Variables** (không phải Secrets) với tên viết đúng chữ hoa
 - `FIREBASE_SENDER_ID`
 - `FIREBASE_APP_ID`
 
-Nhập API key, Project ID và Sender ID từ project Firebase vừa tạo. Nhập App ID tương ứng của đúng Android App trong repository đó. Không dùng App ID của COC-LIO cho AUTU-LIO hoặc ngược lại.
+Nhập API key, Project ID và Sender ID từ project Firebase vừa tạo. Nhập App ID tương ứng của đúng Android App trong repository đó. Không dùng nhầm Firebase App ID giữa COC-LIO, AUTU-LIO và GPS-LIO.
 
 Đường dẫn cài đặt:
 - COC-LIO: https://github.com/HUY-HOA/COC-LIO/settings/variables/actions
 - AUTU-LIO: https://github.com/HUY-HOA/AUTU-LIO/settings/variables/actions
+- GPS-LIO: https://github.com/HUY-HOA/GPS-LIO/settings/variables/actions
 
 ## 4. Cấp quyền gửi thông báo cho Cloudflare Worker
 
