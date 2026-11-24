@@ -140,7 +140,7 @@ object AppUpdateManager {
         }
     }
     /**
-     * OWNER publishes the exact manifest snapshot. FCM push is optional and does not control the active release.
+     * OWNER publishes the release snapshot. Apps check for updates at startup or on manual request.
      */
     fun announceUpdate(activity: Activity, accessToken: String?) {
         val token = accessToken?.trim().orEmpty()
@@ -179,7 +179,6 @@ object AppUpdateManager {
 
                 val apiBase = context.getString(R.string.api_base_url).trim().trimEnd('/')
                 if (!apiBase.startsWith("https://")) throw IOException("Máy chủ quản lý cập nhật chưa dùng HTTPS.")
-                var notificationSent = false
                 val connection = (URL(apiBase + "/api/admin/app-update-policy").openConnection() as HttpURLConnection)
                 try {
                     connection.requestMethod = "POST"
@@ -202,20 +201,16 @@ object AppUpdateManager {
                             else "Máy chủ từ chối yêu cầu (HTTP $status)."
                         })
                     }
-                    notificationSent = runCatching {
-                        JSONObject(responseText).optBoolean("notificationSent", false)
-                    }.getOrDefault(false)
                 } finally {
                     connection.disconnect()
                 }
 
                 handler.post {
-                    val message = if (notificationSent) {
-                        "Đã công bố AUTU-LIO phiên bản $version và gửi thông báo đến các thiết bị đã đăng ký."
-                    } else {
-                        "Đã công bố AUTU-LIO phiên bản $version. Người dùng sẽ tự kiểm tra cập nhật khi mở ứng dụng. (FCM chưa cấu hình.)"
-                    }
-                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        activity,
+                        "Đã công bố AUTU-LIO phiên bản $version. Ứng dụng sẽ kiểm tra cập nhật khi được mở hoặc khi người dùng chủ động kiểm tra.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             } catch (error: Exception) {
                 handler.post {
