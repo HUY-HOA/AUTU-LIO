@@ -394,7 +394,7 @@ async function normalizeAnnouncedUpdateManifest(value, expectedVersion) {
   const sha256 = typeof value.sha256 === "string" ? value.sha256.trim().toLowerCase() : "";
   let parsedUrl;
   try { parsedUrl = new URL(downloadUrl); } catch {}
-  if (applicationId !== "com.autulio.app" ||
+  if (applicationId !== "com.autu.lio" ||
       !/^[0-9A-Za-z._+-]{1,40}$/.test(versionName) || versionName !== expectedVersion ||
       !parsedUrl || parsedUrl.protocol !== "https:" || parsedUrl.hostname !== "autu-lio-updates.coc-lio-data.workers.dev" ||
       !/^\/v1\/download\/[A-Za-z0-9._%+-]{1,180}$/.test(parsedUrl.pathname) ||
