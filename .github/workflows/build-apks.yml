@@ -211,7 +211,7 @@ jobs:
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: "v${VERSION_NAME}"
+          RELEASE_TAG: "v$VERSION_NAME"
         shell: bash
         run: |
           set -euo pipefail
@@ -220,7 +220,7 @@ jobs:
             echo "Release $RELEASE_TAG exists; checking FCM notification."
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Release $RELEASE_TAG was not created; Apps Script fallback will remain available if this release appears later."
+            echo "::warning::Release $RELEASE_TAG was not created; Apps Script fallback remains available."
           fi
 
       - name: Authenticate to Google Cloud with Workload Identity Federation
@@ -242,8 +242,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ACCESS_TOKEN: ${{ steps.google_auth.outputs.access_token }}
-          RELEASE_TAG: "v${VERSION_NAME}"
-          VERSION_NAME: "${VERSION_NAME}"
+          RELEASE_TAG: "v$VERSION_NAME"
+          VERSION_NAME: "$VERSION_NAME"
           APP_NAME: "AUTU-LIO"
           FIREBASE_PROJECT_ID: "autu-lio-515207"
           CURRENT_TOPIC: "autu-lio-announcements"
@@ -289,13 +289,12 @@ jobs:
             rm -f "$response_file"
           }
 
-          # Legacy topics serve already-published APKs; current topics serve newer clients.
+          # Send to legacy and current topics for compatibility with existing APKs.
           send_topic "$LEGACY_TOPIC"
           send_topic "$CURRENT_TOPIC"
 
           # Mark the GitHub Release only after FCM accepts both topic messages.
-          UPDATED_NOTES="${NOTES}" 2026-11-24.
-\n\n'"$MARKER"
+          UPDATED_NOTES="${NOTES}"$'\n\n'"$MARKER"
           for attempt in 1 2 3; do
             if gh release edit "$RELEASE_TAG" --notes "$UPDATED_NOTES"; then
               echo "Release marked as FCM-sent by WIF."
@@ -310,6 +309,6 @@ jobs:
       - name: Report notification fallback status
         if: steps.fcm_release.outputs.published == 'true' && steps.google_auth.outcome != 'success'
         shell: bash
-        run: echo "::warning::WIF authentication unavailable. The Apps Script backup will send this release after its configured grace period."
+        run: echo "::warning::WIF authentication unavailable. Apps Script backup will send this release after its grace period."
 
 # Owner-requested BUILD APK trigger: 2026-11-24.
