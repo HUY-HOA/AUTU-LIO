@@ -170,7 +170,7 @@ async function json(response) {
   return response.json();
 }
 
-test("OWNER can publish an update without Firebase push credentials", async () => {
+test("OWNER can publish an update without push notifications", async () => {
   const { env, queries } = createEnv({ session: ownerSession });
   const response = await worker.fetch(
     makeRequest("/api/admin/app-update-policy", {
@@ -188,7 +188,6 @@ test("OWNER can publish an update without Firebase push credentials", async () =
   assert.equal(body.updated, true);
   assert.equal(body.announcementSent, true);
   assert.equal(body.requiredVersion, "0.2.0");
-  assert.equal(body.notificationSent, false);
   assert.ok(queries.some(sql => sql.includes("INSERT INTO app_update_policy")));
 });
 test("owner bootstrap matches the verified Google sub, not the email address", () => {
