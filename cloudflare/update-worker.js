@@ -1,5 +1,5 @@
 // Cloudflare Worker source for AUTU-LIO automatic APK update delivery.
-// Release packages are checked against app/build.gradle.kts at the exact release tag.
+// Release package IDs are checked against app/build.gradle.kts at the exact release tag.
 // Keep GITHUB_TOKEN configured as a Cloudflare secret binding; never commit the token.
 
 const APP = {
@@ -40,11 +40,17 @@ async function verifyReleasePackage(tag, env) {
   if (typeof file.content !== "string" || file.encoding !== "base64") {
     throw new Error("release_source_content_missing");
   }
-  const binary = atob(file.content.replace(/\\s/g, ""));
+  const compactBase64 = file.content.split("\n").join("").split("\r").join("");
+  const binary = atob(compactBase64);
   const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
   const gradleSource = new TextDecoder().decode(bytes);
-  const match = gradleSource.match(/applicationId\\s*=\\s*"([^"]+)"/);
-  if (!match || match[1] !== APP.applicationId) {
+  const packageLine = gradleSource.split("\n").find(line => line.trim().startsWith("applicationId"));
+  const firstQuote = packageLine ? packageLine.indexOf('"') : -1;
+  const secondQuote = firstQuote >= 0 ? packageLine.indexOf('"', firstQuote + 1) : -1;
+  const releasePackageId = firstQuote >= 0 && secondQuote > firstQuote
+    ? packageLine.slice(firstQuote + 1, secondQuote)
+    : "";
+  if (!releasePackageId || releasePackageId !== APP.applicationId) {
     throw new Error("release_package_id_mismatch");
   }
 }
