@@ -23,9 +23,11 @@ import com.google.firebase.messaging.RemoteMessage
 internal object FcmPushNotifications {
     private const val TAG = "com.autu.lio.FCM"
     private const val TOPIC = "autu-lio-announcements"
+    private const val LEGACY_TOPIC = "autu-lio-update-notices"
     private const val CHANNEL_ID = "autu_lio_push_updates"
     private const val PREFS = "fcm_push_preferences"
     private const val KEY_SUBSCRIBED = "announcements_topic_subscribed"
+    private const val KEY_LEGACY_TOPIC_CLEANED = "legacy_update_topic_unsubscribed"
     private const val KEY_PERMISSION_PROMPTED = "notification_permission_prompted"
 
     fun initialize(context: Context) {
@@ -37,12 +39,26 @@ internal object FcmPushNotifications {
         val notificationsEnabled = permissionGranted &&
             (app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).areNotificationsEnabled()
 
+        val messaging = FirebaseMessaging.getInstance()
+
+        // Previous APKs subscribed to a legacy topic. Remove that subscription
+        // once after upgrade so dual-topic compatibility does not create duplicates.
+        if (!prefs.getBoolean(KEY_LEGACY_TOPIC_CLEANED, false)) {
+            messaging.unsubscribeFromTopic(LEGACY_TOPIC)
+                .addOnSuccessListener {
+                    prefs.edit().putBoolean(KEY_LEGACY_TOPIC_CLEANED, true).apply()
+                }
+                .addOnFailureListener { error ->
+                    Log.w(TAG, "Legacy FCM topic cleanup failed.", error)
+                }
+        }
+
         if (notificationsEnabled && !prefs.getBoolean(KEY_SUBSCRIBED, false)) {
-            FirebaseMessaging.getInstance().subscribeToTopic(TOPIC)
+            messaging.subscribeToTopic(TOPIC)
                 .addOnSuccessListener { prefs.edit().putBoolean(KEY_SUBSCRIBED, true).apply() }
                 .addOnFailureListener { error -> Log.w(TAG, "FCM topic subscription failed.", error) }
         } else if (!notificationsEnabled && prefs.getBoolean(KEY_SUBSCRIBED, false)) {
-            FirebaseMessaging.getInstance().unsubscribeFromTopic(TOPIC)
+            messaging.unsubscribeFromTopic(TOPIC)
                 .addOnSuccessListener { prefs.edit().remove(KEY_SUBSCRIBED).apply() }
                 .addOnFailureListener { error -> Log.w(TAG, "FCM topic unsubscription failed.", error) }
         }
