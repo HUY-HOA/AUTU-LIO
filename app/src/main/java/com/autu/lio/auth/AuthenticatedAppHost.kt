@@ -1,6 +1,7 @@
 package com.autu.lio.auth
 
 import com.autu.lio.GoogleSignInButton
+import com.autu.lio.FcmPushNotifications
 import android.app.Activity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -89,6 +90,14 @@ internal fun AuthenticatedAppHost() {
 
     LaunchedEffect(Unit) {
         restoreSession()
+    }
+
+    LaunchedEffect(accessToken) {
+        if (accessToken != null) {
+            val hostActivity = activity ?: return@LaunchedEffect
+            FcmPushNotifications.requestPermissionIfNeeded(hostActivity)
+            FcmPushNotifications.initialize(context)
+        }
     }
 
     // Recheck server authorization periodically so a remotely revoked session
