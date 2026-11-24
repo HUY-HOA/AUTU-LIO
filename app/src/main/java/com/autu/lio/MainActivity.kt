@@ -81,17 +81,7 @@ import com.autu.lio.runtime.ScreenDisplayGeometryStore
 class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
-        FcmPushNotifications.initialize(this)
         AppUpdateManager.resume(this)
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 7301) FcmPushNotifications.initialize(this)
     }
 
     override fun onPause() {
@@ -102,7 +92,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.decorView.post { AppUpdateManager.checkOnStartup(this) }
         prepareDisplayGeometryCapture()
-        FcmPushNotifications.requestPermissionIfNeeded(this)
         setContent {
             AutuLioAppEntry()
         }
