@@ -81,6 +81,7 @@ import com.autu.lio.runtime.ScreenDisplayGeometryStore
 class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
+        FcmPushNotifications.initialize(this)
         AppUpdateManager.resume(this)
     }
 
@@ -90,6 +91,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FcmPushNotifications.initialize(this)
+        FcmPushNotifications.requestPermissionIfNeeded(this)
         window.decorView.post { AppUpdateManager.checkOnStartup(this) }
         prepareDisplayGeometryCapture()
         setContent {
