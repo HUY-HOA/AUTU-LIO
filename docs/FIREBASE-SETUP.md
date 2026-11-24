@@ -10,8 +10,9 @@ Khuyến nghị dùng **một Firebase project chung** và đăng ký hai Androi
 |---|---|
 | COC-LIO | `com.coc.lio` |
 | AUTU-LIO | `com.autu.lio` |
+| GPS-LIO | `com.gps.lio` |
 
-Không đăng ký GPS-LIO vào Firebase: GPS-LIO hiện không sử dụng FCM.
+Cả ba app dùng chung một Firebase project, nhưng mỗi app phải đăng ký Android App riêng và dùng đúng Firebase App ID của chính nó.
 
 FCM là sản phẩm không tính phí của Firebase và có thể dùng trên gói Spark; không cần thêm phương thức thanh toán chỉ để sử dụng FCM. Không bật Analytics nếu không có nhu cầu.
 
@@ -47,6 +48,7 @@ Mở trang Variables của từng repository:
 
 - [COC-LIO → Settings → Secrets and variables → Actions → Variables](https://github.com/HUY-HOA/COC-LIO/settings/variables/actions)
 - [AUTU-LIO → Settings → Secrets and variables → Actions → Variables](https://github.com/HUY-HOA/AUTU-LIO/settings/variables/actions)
+- [GPS-LIO → Settings → Secrets and variables → Actions → Variables](https://github.com/HUY-HOA/GPS-LIO/settings/variables/actions)
 
 Tạo 4 **Variables** (không phải Secrets) với tên viết đúng chữ hoa:
 
@@ -72,15 +74,17 @@ Backend gửi thông báo bằng FCM HTTP v1. Nó cần khóa JSON của Service
 5. Mở Cloudflare Dashboard, chọn đúng account và Worker tương ứng:
    - COC-LIO: Worker `coc-lio-auth-api`.
    - AUTU-LIO: Worker `autu-lio-auth-api`.
+   - GPS-LIO: Worker `gps-lio-api` trong Cloudflare account riêng của GPS-LIO.
 6. Vào Worker → **Settings → Variables and Secrets** → **Add** → chọn **Secret**.
 7. Tên Secret phải là `FCM_SERVICE_ACCOUNT_JSON`. Giá trị là toàn bộ nội dung JSON Service Account vừa tải. Lưu lại.
 
-Cùng một Service Account JSON có thể dùng cho hai Worker khi cả hai app nằm trong cùng Firebase project. Không cần tạo Secret cho Worker cập nhật tĩnh `coc-lio-updates` / `autu-lio-updates` hoặc cho GPS-LIO.
+Cùng một Service Account JSON có thể dùng cho cả ba Worker vì ba app nằm trong cùng Firebase project. Không cần tạo Secret cho các Worker cập nhật tĩnh `coc-lio-updates` / `autu-lio-updates`; Secret chỉ đặt trên Worker API gửi FCM của từng ứng dụng.
 
 ## 5. Kiểm tra sau khi cấu hình
 
 - COC-LIO đăng ký topic `coc-lio-update-notices`.
 - AUTU-LIO đăng ký topic `autu-lio-update-notices`.
+- GPS-LIO đăng ký topic `gps-lio-update-notices`.
 - Android 13 trở lên cần người dùng cấp quyền thông báo.
 - Thiết bị cần Google Play services và kết nối mạng để nhận FCM.
 - Nếu 4 GitHub Variables chưa được điền, app tự bỏ qua khởi tạo FCM; các tính năng khác vẫn chạy.
