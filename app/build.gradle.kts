@@ -28,7 +28,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.autulio.app"
+        applicationId = "com.autu.lio"
         minSdk = 26
         targetSdk = 36
         versionCode = providers.gradleProperty("AUTU_LIO_VERSION_CODE").orElse("1").get().toInt()
