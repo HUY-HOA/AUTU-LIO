@@ -1,0 +1,22 @@
+{
+  "project_info": {
+    "project_number": "45851070932",
+    "project_id": "autu-lio-515207"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:45851070932:android:6f82cbee2be1b4497fc641",
+        "android_client_info": {
+          "package_name": "com.autu.lio"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_7kZWfW5ehRM8K649iU8c9Wisk3XoPLY"
+        }
+      ]
+    }
+  ],
+  "configuration_version": "1"
+}
