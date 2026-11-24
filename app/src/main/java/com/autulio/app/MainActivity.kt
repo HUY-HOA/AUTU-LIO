@@ -325,7 +325,6 @@ private val adminTabs = listOf(
     Tab("overview", "Tổng quan", "Overview", Icons.Outlined.Home),
     Tab("scripts", "Kịch bản", "Scripts", Icons.Outlined.ListAlt),
     Tab("customers", "Khách hàng", "Customers", Icons.Outlined.Group),
-    Tab("more", "Thêm", "More", Icons.Outlined.MoreHoriz),
     Tab("settings", "Cài đặt", "Settings", Icons.Outlined.Settings)
 )
 
@@ -379,7 +378,7 @@ internal fun AdminApp(
                 NavigationBar {
                     adminTabs.forEach { tab ->
                         NavigationBarItem(
-                            selected = page == tab.key || (page !in adminTabs.map { it.key } && tab.key == "more"),
+                            selected = page == tab.key || (page !in adminTabs.map { it.key } && tab.key == "settings"),
                             onClick = { page = tab.key },
                             icon = { Icon(tab.icon, contentDescription = tr(tab.vi, tab.en)) },
                             label = { Text(tr(tab.vi, tab.en), fontSize = 11.sp) }
@@ -410,7 +409,7 @@ internal fun AdminApp(
                     modifier = Modifier.padding(padding),
                     initialSection = "devices"
                 )
-                else -> MoreScreen(
+                else -> AdminSettingsScreen(
                     Modifier.padding(padding),
                     page,
                     onSelect = { page = it },
@@ -1450,7 +1449,7 @@ private fun EditorScreen(
 }
 
 @Composable
-private fun MoreScreen(
+private fun AdminSettingsScreen(
     modifier: Modifier,
     page: String,
     onSelect: (String) -> Unit,
@@ -1462,6 +1461,7 @@ private fun MoreScreen(
 ) {
     val context = LocalContext.current
     var showSettingsMenu by remember { mutableStateOf(false) }
+
     if (page == "licenses") {
         AccessControlAdminScreen(accessToken = accessToken, modifier = modifier, initialSection = "licenses")
         return
@@ -1470,7 +1470,7 @@ private fun MoreScreen(
         AdminPackagesScreen(
             accessToken = accessToken,
             modifier = modifier,
-            onBack = { onSelect("more") },
+            onBack = { onSelect("settings") },
             initialDraftName = initialDraftName
         )
         return
@@ -1478,132 +1478,115 @@ private fun MoreScreen(
     if (page == "library") {
         AdminTemplateLibraryScreen(
             modifier = modifier,
-            onBack = { onSelect("more") },
+            onBack = { onSelect("settings") },
             onOpenTemplate = onOpenTemplate
         )
         return
     }
-    val items = listOf(
+
+    val settingsItems = listOf(
         Triple("library", tr("Thư viện mẫu AUTU", "AUTU template library"), Icons.Outlined.ListAlt),
         Triple("packages", tr("Gói AUTU", "AUTU packages"), Icons.Outlined.Code),
-        Triple("logs", tr("Nhật ký", "Logs"), Icons.Outlined.Info),
-        Triple("settings", tr("Cài đặt", "Settings"), Icons.Outlined.Settings)
+        Triple("logs", tr("Nhật ký", "Logs"), Icons.Outlined.Info)
     )
-    val selected = items.firstOrNull { it.first == page }
+    val pageSubtitle = when (page) {
+        "logs" -> tr("Theo dõi sự kiện và lỗi hệ thống", "Review system events and errors")
+        else -> tr("Tùy chỉnh và quản lý ứng dụng", "Customize and manage the application")
+    }
 
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         BrandHeader(admin = true)
-        if (page == "more") {
-            Heading(tr("Quản lý khác", "More management"), tr("Công cụ quản trị", "Administration tools"))
-            items.forEach { item ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onSelect(item.first) },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(item.third, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(12.dp))
-                        Text(item.second, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                        Icon(Icons.Outlined.ChevronRight, null)
+        if (page == "settings") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("Cài đặt", "Settings"), style = MaterialTheme.typography.titleLarge)
+                    Text(pageSubtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Box {
+                    IconButton(onClick = { showSettingsMenu = true }) {
+                        Icon(Icons.Outlined.MoreVert, contentDescription = tr("Tùy chọn cài đặt", "Settings options"))
+                    }
+                    DropdownMenu(
+                        expanded = showSettingsMenu,
+                        onDismissRequest = { showSettingsMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(tr("Kiểm tra cập nhật", "Check for updates")) },
+                            onClick = {
+                                showSettingsMenu = false
+                                (context as? Activity)?.let { AppUpdateManager.check(it) }
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(tr("Phát hành cập nhật", "Publish update")) },
+                            onClick = {
+                                showSettingsMenu = false
+                                (context as? Activity)?.let {
+                                    AppUpdateManager.announceUpdate(it, accessToken)
+                                }
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(tr("Danh sách người dùng", "User list")) },
+                            onClick = {
+                                showSettingsMenu = false
+                                onSelect("customers")
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(tr("Điều khoản sử dụng", "Terms of use")) },
+                            onClick = {
+                                showSettingsMenu = false
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/terms/")))
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(tr("Quyền riêng tư", "Privacy policy")) },
+                            onClick = {
+                                showSettingsMenu = false
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/privacy/")))
+                            }
+                        )
                     }
                 }
             }
         } else {
-            TextButton(onClick = { onSelect("more") }) {
-                Text(tr("← Quay lại", "← Back"))
+            TextButton(onClick = { onSelect("settings") }) {
+                Text(tr("← Quay lại Cài đặt", "← Back to Settings"))
             }
-            val pageSubtitle = when (page) {
-                "licenses" -> tr("Cấp, gia hạn và thu hồi quyền sử dụng", "Issue, renew and revoke access")
-                "library" -> tr("Quản lý hàm và thành phần dùng chung", "Manage shared functions and components")
-                "packages" -> tr("Mã hóa, phát hành phiên bản và phân phối AUTU cho khách hàng", "Encrypt, publish and distribute AUTU versions to customers")
-                "release" -> tr("Quản lý phiên bản và phân phối", "Manage versions and distribution")
-                "logs" -> tr("Theo dõi sự kiện và lỗi hệ thống", "Review system events and errors")
-                else -> tr("Tùy chỉnh ứng dụng quản trị", "Customize the admin application")
-            }
-            if (page == "settings") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(tr("Cài đặt", "Settings"), style = MaterialTheme.typography.titleLarge)
-                        Text(pageSubtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Box {
-                        IconButton(onClick = { showSettingsMenu = true }) {
-                            Icon(Icons.Outlined.MoreVert, contentDescription = tr("Tùy chọn cài đặt", "Settings options"))
-                        }
-                        DropdownMenu(
-                            expanded = showSettingsMenu,
-                            onDismissRequest = { showSettingsMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(tr("Kiểm tra cập nhật", "Check for updates")) },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    (context as? Activity)?.let { AppUpdateManager.check(it) }
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(tr("Phát hành cập nhật", "Publish update")) },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    (context as? Activity)?.let {
-                                        AppUpdateManager.announceUpdate(it, accessToken)
-                                    }
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(tr("Danh sách người dùng", "User list")) },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    onSelect("customers")
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(tr("Điều khoản sử dụng", "Terms of use")) },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/terms/")))
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(tr("Quyền riêng tư", "Privacy policy")) },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://autu-lio.coc-lio-data.workers.dev/privacy/")))
-                                }
-                            )
-                        }
-                    }
-                }
-            } else {
-                Heading(selected?.second ?: tr("Quản lý", "Management"), pageSubtitle)
-            }
-            when (page) {
-                "licenses" -> {
-                    CardBox {
-                        Text(tr("Thông tin giấy phép", "License information"), fontWeight = FontWeight.SemiBold)
-                        Text(tr("Khách hàng · Gói sử dụng · Thời hạn · Giới hạn thiết bị · Trạng thái", "Customer · Plan · Duration · Device limit · Status"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                    }
-                    EmptyState(Icons.Outlined.VerifiedUser, tr("Chưa có giấy phép", "No licenses yet"), tr("Dữ liệu giấy phép sẽ xuất hiện sau khi kết nối máy chủ.", "License data will appear after the server is connected."))
-                }
-                "packages" -> AdminPackagesScreen(
-                    accessToken = accessToken,
-                    modifier = Modifier.fillMaxSize(),
-                    onBack = { onSelect("more") }
-                )
-                "logs" -> AdminAuditLogsScreen(accessToken = accessToken)
+            Heading(tr("Nhật ký", "Logs"), pageSubtitle)
+        }
 
-                "settings" -> {
-                    GoogleAccountSettingsCard(authenticatedUser = authenticatedUser, onLogout = onLogout)
-                    ThemeModeSelector()
-                    DatabaseBackupControls()
-        ScriptFileControls()
+        when (page) {
+            "logs" -> AdminAuditLogsScreen(accessToken = accessToken)
+            "settings" -> {
+                Text(tr("Chức năng quản trị", "Administration tools"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                settingsItems.forEach { item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickable { onSelect(item.first) },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(15.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(item.third, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Text(item.second, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                            Icon(Icons.Outlined.ChevronRight, null)
+                        }
+                    }
                 }
+                GoogleAccountSettingsCard(authenticatedUser = authenticatedUser, onLogout = onLogout)
+                ThemeModeSelector()
+                DatabaseBackupControls()
+                ScriptFileControls()
             }
         }
     }
