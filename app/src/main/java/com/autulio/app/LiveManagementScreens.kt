@@ -1,5 +1,6 @@
 package com.autulio.app
 
+import com.autu.lio.BuildConfig
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
