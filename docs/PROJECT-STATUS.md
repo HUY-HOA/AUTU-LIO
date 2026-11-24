@@ -6,7 +6,7 @@
 
 ## 1. Phạm vi sản phẩm và vai trò
 
-- Chỉ phát triển **ứng dụng Android native**, một APK duy nhất: `com.autulio.app`.
+- Chỉ phát triển **ứng dụng Android native**, một APK duy nhất: `com.autu.lio`.
 - Có website công khai tĩnh tại `https://autu-lio.coc-lio-data.workers.dev/` gồm trang chủ, tải ứng dụng, quyền riêng tư và điều khoản.
 - Website không phải web app, web editor hoặc web dashboard; AUTU Script vẫn được soạn và chạy trong ứng dụng Android.
 - API riêng tại `https://autu-lio-auth-api.coc-lio-data.workers.dev/` phục vụ ứng dụng Android.
@@ -89,14 +89,14 @@
 - Đã kiểm tra thành công bốn Repository secrets dùng chung `AILIO_KEYSTORE_BASE64`, `AILIO_KEYSTORE_PASSWORD`, `AILIO_KEY_ALIAS`, `AILIO_KEY_PASSWORD` trong kho AUTU-LIO. Workflow đã giải mã keystore, kiểm tra alias, mật khẩu kho và mật khẩu khóa riêng.
 - SHA-1 chứng thư AILIO hiện tại: `2E:65:5B:0D:B5:8C:CF:A5:84:B9:37:1C:39:80:28:95:38:60:85:6D`. Cùng chứng thư này đã được xác nhận thành công trong kho COC-LIO và GPS-LIO.
 - Đã kiểm tra danh sách GitHub Releases ngày 23/11/2026: chưa có Release APK được xuất bản. Lần build Release tiếp theo sẽ kiểm tra chữ ký bằng bộ khóa AILIO và tạo GitHub Release nếu hoàn tất.
-- Google Auth Platform được người dùng xác nhận đang ở trạng thái External / In production. Cần xác nhận Android OAuth Client trong cùng Google Cloud project với Web Client đã được tạo cho package `com.autulio.app` và SHA-1 nêu trên; trạng thái này chưa được đọc trực tiếp từ Google Cloud Console.
+- Google Auth Platform được người dùng xác nhận đang ở trạng thái External / In production. Cần xác nhận Android OAuth Client trong cùng Google Cloud project với Web Client đã được tạo cho package `com.autu.lio` và SHA-1 nêu trên; trạng thái này chưa được đọc trực tiếp từ Google Cloud Console.
 - Chưa có xác nhận nghiệm thu đăng nhập Google trên thiết bị Android thật bằng APK ký AILIO.
 - Không build APK mới nếu chưa nhận đúng lệnh `BUILD APK`.
 - Sửa tài liệu hoặc chạy source checks không đồng nghĩa tạo APK; workflow source checks không đóng gói APK.
 
 ## 6. Việc cần hoàn thiện tiếp theo
 
-1. **Google OAuth Android Client — cần xác nhận:** trong cùng Google Cloud project với Web Client, phải có Android Client cho package `com.autulio.app` với SHA-1 AILIO hiện tại. Sau đó cài APK Release và thử đăng nhập bằng tài khoản OWNER và một tài khoản Google khác.
+1. **Google OAuth Android Client — cần xác nhận:** trong cùng Google Cloud project với Web Client, phải có Android Client cho package `com.autu.lio` với SHA-1 AILIO hiện tại. Sau đó cài APK Release và thử đăng nhập bằng tài khoản OWNER và một tài khoản Google khác.
 2. **CUSTOMER — mã nguồn đã có, nghiệm thu thực tế còn thiếu:** xác nhận vai trò mặc định là CUSTOMER và Worker từ chối Admin API.
 3. **Giấy phép/thiết bị — API và màn hình đã có, nghiệm thu end-to-end còn thiếu:** OWNER tạo giấy phép; CUSTOMER đăng ký thiết bị; kiểm tra giới hạn thiết bị, ngày hết hạn, thu hồi và phiên đăng nhập.
 4. **Package — mã hóa và API đã có, nghiệm thu phát hành/tải xuống còn thiếu:** OWNER tạo và phát hành package; CUSTOMER tải, giải mã, kiểm tra hash và chạy package bằng giấy phép/thiết bị hợp lệ.
