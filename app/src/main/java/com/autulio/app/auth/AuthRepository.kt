@@ -6,8 +6,8 @@ import android.os.Build
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
-import com.autulio.app.BuildConfig
-import com.autulio.app.R
+import com.autu.lio.BuildConfig
+import com.autu.lio.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
