@@ -91,8 +91,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FcmPushNotifications.initialize(this)
-        FcmPushNotifications.requestPermissionIfNeeded(this)
         window.decorView.post { AppUpdateManager.checkOnStartup(this) }
         prepareDisplayGeometryCapture()
         setContent {
