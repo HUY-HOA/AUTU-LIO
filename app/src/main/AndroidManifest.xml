@@ -21,7 +21,7 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <service
-            android:name="com.autulio.app.accessibility.AutoClickAccessibilityService"
+            android:name="com.autu.lio.accessibility.AutoClickAccessibilityService"
             android:exported="true"
             android:label="@string/accessibility_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
@@ -33,34 +33,34 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
         <activity
-            android:name="com.autulio.app.ScreenshotImageEditorActivity"
+            android:name="com.autu.lio.ScreenshotImageEditorActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.autulio.app.ScreenshotLibraryActivity"
+            android:name="com.autu.lio.ScreenshotLibraryActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.autulio.app.ScreenshotCropActivity"
+            android:name="com.autu.lio.ScreenshotCropActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.autulio.app.ScriptEditorActivity"
+            android:name="com.autu.lio.ScriptEditorActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name="com.autulio.app.ScriptFilePickerActivity"
+            android:name="com.autu.lio.ScriptFilePickerActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <service
-            android:name="com.autulio.app.UpdatePushMessagingService"
+            android:name="com.autu.lio.UpdatePushMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
         <activity
-            android:name="com.autulio.app.MainActivity"
+            android:name="com.autu.lio.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -68,7 +68,7 @@
             </intent-filter>
         </activity>
             <receiver
-            android:name="com.autulio.app.UpdateInstallStatusReceiver"
+            android:name="com.autu.lio.UpdateInstallStatusReceiver"
             android:enabled="true"
             android:exported="false" />
 </application>

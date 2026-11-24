@@ -32,7 +32,7 @@ jobs:
               text = text.replace(anchor, anchor + "\\n" + permission, 1)
               manifest.write_text(text)
 
-          updater = Path("app/src/main/java/com/autulio/app/AppUpdateManager.kt")
+          updater = Path("app/src/main/java/com/autu/lio/AppUpdateManager.kt")
           text = updater.read_text()
           # Render real line breaks in update dialogs, not the two literal characters \\ and n.
           text = text.replace('append("\\\\nPhiên bản mới:', 'append("\\nPhiên bản mới:')
