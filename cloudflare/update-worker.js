@@ -1,4 +1,5 @@
 // Cloudflare Worker source for AUTU-LIO automatic APK update delivery.
+// Release packages are checked against app/build.gradle.kts at the exact release tag.
 // Keep GITHUB_TOKEN configured as a Cloudflare secret binding; never commit the token.
 
 const APP = {
@@ -29,12 +30,33 @@ function json(data, status = 200, cache = "public, max-age=60", head = false) {
     "x-content-type-options": "nosniff"
   }});
 }
+async function verifyReleasePackage(tag, env) {
+  const sourceResponse = await fetch(
+    API_ROOT + "/contents/app/build.gradle.kts?ref=" + encodeURIComponent(tag),
+    { headers: githubHeaders(env), cf: { cacheTtl: 60, cacheEverything: true } }
+  );
+  if (!sourceResponse.ok) throw new Error("release_source_lookup_failed");
+  const file = await sourceResponse.json();
+  if (typeof file.content !== "string" || file.encoding !== "base64") {
+    throw new Error("release_source_content_missing");
+  }
+  const binary = atob(file.content.replace(/\\s/g, ""));
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+  const gradleSource = new TextDecoder().decode(bytes);
+  const match = gradleSource.match(/applicationId\\s*=\\s*"([^"]+)"/);
+  if (!match || match[1] !== APP.applicationId) {
+    throw new Error("release_package_id_mismatch");
+  }
+}
 async function getRelease(tag, env) {
   const path = tag ? "/releases/tags/" + encodeURIComponent(tag) : "/releases/latest";
   const response = await fetch(API_ROOT + path, { headers: githubHeaders(env), cf: { cacheTtl: 60, cacheEverything: true } });
   if (!response.ok) throw new Error("release_lookup_failed");
   const release = await response.json();
-  const asset = (release.assets || []).find(item => typeof item.name === "string" && item.name.toLowerCase().endsWith(".apk") && item.browser_download_url && item.url);
+  const releaseTag = String(release.tag_name || tag || "");
+ if (!releaseTag) throw new Error("release_tag_missing");
+ await verifyReleasePackage(releaseTag, env);
+ const asset = (release.assets || []).find(item => typeof item.name === "string" && item.name.toLowerCase().endsWith(".apk") && item.browser_download_url && item.url);
   if (!asset) throw new Error("apk_asset_not_found");
   return { release, asset };
 }
