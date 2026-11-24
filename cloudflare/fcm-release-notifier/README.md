@@ -1,3 +1,5 @@
+> **Deployment status:** This Cloudflare Worker is currently a dormant service-account-key alternative. Its Cron trigger is paused because Google organization policy blocks service-account key creation. The active keyless route for all three apps is the shared Google Apps Script at `HUY-HOA/COC-LIO/tools/google-apps-script-fcm/`. Do not add a service-account JSON file to this repository.
+
 # AUTU-LIO FCM release notifier
 
 This Cloudflare Worker checks the public GitHub Releases feed every 15 minutes and sends a Firebase Cloud Messaging topic notification when a new stable release tag appears.
