@@ -1,5 +1,6 @@
 package com.autulio.app
 
+import com.autu.lio.BuildConfig
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -11,7 +12,7 @@ import com.google.firebase.FirebaseOptions
 import com.google.firebase.messaging.FirebaseMessaging
 
 object FirebasePushManager {
-    const val EXTRA_OPEN_UPDATE_CHECK = "com.autulio.app.OPEN_UPDATE_CHECK"
+    const val EXTRA_OPEN_UPDATE_CHECK = "com.autu.lio.OPEN_UPDATE_CHECK"
     private const val TOPIC = "autu-lio-update-notices"
     private const val PREFS = "firebase_push_settings"
     private const val KEY_PERMISSION_REQUESTED = "notification_permission_requested"
