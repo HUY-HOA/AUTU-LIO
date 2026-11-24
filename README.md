@@ -15,7 +15,7 @@ Phạm vi vận hành hiện tại chỉ dùng OWNER và CUSTOMER. Quy trình c�
 
 ## Thông báo cập nhật
 
-AUTU-LIO chỉ sử dụng Firebase Cloud Messaging (FCM) để nhận thông báo đẩy theo chủ đề chung của ứng dụng. Đăng nhập, dữ liệu tài khoản, giấy phép, thiết bị, công bố phiên bản và API vẫn do Cloudflare xử lý; không bật Firebase Auth, Firestore, Analytics hoặc Crashlytics. Ứng dụng kiểm tra bản cập nhật khi khởi động hoặc khi người dùng chủ động chọn kiểm tra.
+AUTU-LIO không sử dụng Firebase SDK hoặc dịch vụ Firebase. Đăng nhập, dữ liệu tài khoản, giấy phép, thiết bị, công bố phiên bản và API vẫn do Cloudflare xử lý. Ứng dụng kiểm tra bản cập nhật khi khởi động hoặc khi người dùng chủ động chọn kiểm tra.
 
 ## Website công khai
 
