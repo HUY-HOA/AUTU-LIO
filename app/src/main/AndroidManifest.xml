@@ -64,5 +64,15 @@
             android:name="com.autu.lio.UpdateInstallStatusReceiver"
             android:enabled="true"
             android:exported="false" />
-</application>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="autu_lio_push_updates" />
+        <service
+            android:name="com.autu.lio.AutuLioFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+    </application>
 </manifest>
