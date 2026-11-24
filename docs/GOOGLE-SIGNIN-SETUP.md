@@ -18,7 +18,7 @@ Tạo hoặc chọn một Google Cloud project và cấu hình OAuth consent scr
 Tạo OAuth Client ID loại **Web application**. Đây là Server Client ID / audience mà Android sẽ truyền cho Credential Manager và Worker sẽ dùng để xác minh claim `aud`.
 
 Tạo OAuth Client ID loại **Android** với:
-- Package name: `com.autulio.app`.
+- Package name: `com.autu.lio`.
 - SHA-1 và SHA-256 fingerprint của chứng thư ký Debug dùng để thử nghiệm.
 - SHA-1 và SHA-256 fingerprint của chứng thư ký Release trước khi phát hành thật.
 
