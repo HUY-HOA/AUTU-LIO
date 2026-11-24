@@ -41,7 +41,6 @@ import com.autulio.app.auth.CustomerRecord
 import com.autulio.app.auth.DeviceRecord
 import com.autulio.app.auth.LicenseRecord
 import com.autulio.app.auth.SecureDeviceIdentityStore
-import com.autulio.app.BuildConfig
 import com.autulio.app.script.ScriptCompiler
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
