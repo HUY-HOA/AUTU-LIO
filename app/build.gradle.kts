@@ -24,7 +24,7 @@ val releaseSigningConfigured = listOf(
 ).all { !it.isNullOrBlank() }
 
 android {
-    namespace = "com.autulio.app"
+    namespace = "com.autu.lio"
     compileSdk = 37
 
     defaultConfig {
