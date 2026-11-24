@@ -34,12 +34,14 @@ internal object FcmPushNotifications {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        val notificationsEnabled = permissionGranted &&
+            (app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).areNotificationsEnabled()
 
-        if (permissionGranted && !prefs.getBoolean(KEY_SUBSCRIBED, false)) {
+        if (notificationsEnabled && !prefs.getBoolean(KEY_SUBSCRIBED, false))
             FirebaseMessaging.getInstance().subscribeToTopic(TOPIC)
                 .addOnSuccessListener { prefs.edit().putBoolean(KEY_SUBSCRIBED, true).apply() }
                 .addOnFailureListener { error -> Log.w(TAG, "FCM topic subscription failed.", error) }
-        } else if (!permissionGranted && prefs.getBoolean(KEY_SUBSCRIBED, false)) {
+        } else if (!notificationsEnabled && prefs.getBoolean(KEY_SUBSCRIBED, false)) {
             FirebaseMessaging.getInstance().unsubscribeFromTopic(TOPIC)
                 .addOnSuccessListener { prefs.edit().remove(KEY_SUBSCRIBED).apply() }
                 .addOnFailureListener { error -> Log.w(TAG, "FCM topic unsubscription failed.", error) }
@@ -99,7 +101,7 @@ internal object FcmPushNotifications {
             .build()
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         try {
-            manager.notify((System.currentTimeMillis() and 0x7fffffff).toInt(), notification)
+            manager.notify((System.currentTimeMillis() and 0x7fffffffL).toInt(), notification)
         } catch (error: SecurityException) {
             Log.w(TAG, "Notification permission is not granted.", error)
         }
