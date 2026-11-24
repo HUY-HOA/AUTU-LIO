@@ -37,7 +37,7 @@ internal object FcmPushNotifications {
         val notificationsEnabled = permissionGranted &&
             (app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).areNotificationsEnabled()
 
-        if (notificationsEnabled && !prefs.getBoolean(KEY_SUBSCRIBED, false))
+        if (notificationsEnabled && !prefs.getBoolean(KEY_SUBSCRIBED, false)) {
             FirebaseMessaging.getInstance().subscribeToTopic(TOPIC)
                 .addOnSuccessListener { prefs.edit().putBoolean(KEY_SUBSCRIBED, true).apply() }
                 .addOnFailureListener { error -> Log.w(TAG, "FCM topic subscription failed.", error) }
