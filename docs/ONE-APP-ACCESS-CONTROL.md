@@ -2,7 +2,7 @@
 
 ## Kiến trúc
 
-AUTU-LIO phát hành một ứng dụng Android và một APK (`com.autulio.app`). Google Credential Manager xác thực; Cloudflare Worker xác minh ID token/session; D1 lưu tài khoản, vai trò, giấy phép, thiết bị, nhật ký và dữ liệu package.
+AUTU-LIO phát hành một ứng dụng Android và một APK (`com.autu.lio`). Google Credential Manager xác thực; Cloudflare Worker xác minh ID token/session; D1 lưu tài khoản, vai trò, giấy phép, thiết bị, nhật ký và dữ liệu package.
 
 ## Vai trò được hỗ trợ
 
