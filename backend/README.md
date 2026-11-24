@@ -1,6 +1,6 @@
 # AUTU-LIO Auth API
 
-Cloudflare Worker + D1 backend for one Android APK with server-verified account roles. Authentication, account data, package delivery and update publishing are handled by Cloudflare. AUTU-LIO does not use Firebase SDK or push notifications; the app checks the published update policy on startup or when the user manually checks for updates.
+Cloudflare Worker + D1 backend for one Android APK with server-verified account roles. Authentication, account data, package delivery and update publishing are handled by Cloudflare. AUTU-LIO uses Firebase Cloud Messaging (FCM) only for app-wide push notifications. Login, account data, licenses, devices, update publishing and application APIs remain on Cloudflare. Firebase Auth, Firestore, Analytics and Crashlytics are not enabled.
 
 **Account model:** only OWNER and CUSTOMER roles are supported. Invitations, collaborator roles, shared projects and review workflows have been removed.
 
