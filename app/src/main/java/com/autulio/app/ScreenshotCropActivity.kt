@@ -48,8 +48,8 @@ data class CropRegion(
 
 class ScreenshotCropActivity : ComponentActivity() {
     companion object {
-        const val EXTRA_ORIGINAL_PATH = "com.autulio.app.extra.SCREENSHOT_ORIGINAL_PATH"
-        const val EXTRA_RESTORE_FLOATING = "com.autulio.app.extra.RESTORE_FLOATING"
+        const val EXTRA_ORIGINAL_PATH = "com.autu.lio.extra.SCREENSHOT_ORIGINAL_PATH"
+        const val EXTRA_RESTORE_FLOATING = "com.autu.lio.extra.RESTORE_FLOATING"
     }
 
     private val imageSaver = Executors.newSingleThreadExecutor()
