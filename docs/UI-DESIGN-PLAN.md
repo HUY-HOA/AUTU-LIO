@@ -4,7 +4,7 @@
 
 ## 1. Phạm vi sản phẩm
 
-- AUTU-LIO là ứng dụng Android native viết bằng Kotlin và Jetpack Compose, dùng một APK với application ID `com.autulio.app`.
+- AUTU-LIO là ứng dụng Android native viết bằng Kotlin và Jetpack Compose, dùng một APK với application ID `com.autu.lio`.
 - Cloudflare Worker và D1 là backend REST/API của ứng dụng; đây không phải website hay web dashboard.
 - Cùng một APK phục vụ hai vai trò: OWNER và CUSTOMER. Vai trò do máy chủ xác minh, không do người dùng chọn trong bản Release.
 - Bản Debug có bộ chọn giao diện xem trước để kiểm tra bố cục; bộ chọn này không đăng nhập và không cấp quyền thật.
