@@ -1548,7 +1548,7 @@ private fun MoreScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text(tr("Thông báo cập nhật", "Announce update")) },
+                                text = { Text(tr("Phát hành cập nhật", "Publish update")) },
                                 onClick = {
                                     showSettingsMenu = false
                                     (context as? Activity)?.let {
