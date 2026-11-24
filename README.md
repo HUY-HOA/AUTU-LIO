@@ -1,6 +1,6 @@
 # AUTU-LIO
 
-AUTU-LIO là **ứng dụng Android native**, phát hành dưới dạng một APK duy nhất với application ID `com.autulio.app`.
+AUTU-LIO là **ứng dụng Android native**, phát hành dưới dạng một APK duy nhất với application ID `com.autu.lio`.
 
 Website công khai: **https://autu-lio.coc-lio-data.workers.dev/**. Website có trang giới thiệu, tải ứng dụng, chính sách quyền riêng tư và điều khoản sử dụng. Đây là website thông tin/phát hành, không phải trình soạn AUTU Script hay web dashboard.
 
