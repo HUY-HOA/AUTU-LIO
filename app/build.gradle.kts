@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 val releaseKeystorePath = providers.gradleProperty("AUTU_LIO_RELEASE_KEYSTORE_PATH")
@@ -76,6 +77,8 @@ kotlin {
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
+    implementation("com.google.firebase:firebase-messaging")
     implementation(libs.androidx.activity.compose)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.androidx.credentials)
