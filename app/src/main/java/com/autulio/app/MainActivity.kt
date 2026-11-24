@@ -1,5 +1,6 @@
 package com.autulio.app
 
+import com.autu.lio.BuildConfig
 import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.Context
