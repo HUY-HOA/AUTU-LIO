@@ -28,12 +28,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: manual-automation-toolkit-\${{ github.ref }}
+  group: manual-automation-toolkit-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   playwright:
-    if: \${{ inputs.mode == 'browser' && (inputs.browser_engine == 'both' || inputs.browser_engine == 'playwright') }}
+    if: ${{ inputs.mode == 'browser' && (inputs.browser_engine == 'both' || inputs.browser_engine == 'playwright') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -48,7 +48,7 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Run Playwright smoke test
         env:
-          TARGET_URL: \${{ inputs.target_url }}
+          TARGET_URL: ${{ inputs.target_url }}
         run: |
           test -n "$TARGET_URL" || { echo "Provide target_url."; exit 2; }
           python .github/automation/browser_smoke.py playwright "$TARGET_URL" artifacts/playwright.png
@@ -61,7 +61,7 @@ jobs:
           retention-days: 7
 
   selenium:
-    if: \${{ inputs.mode == 'browser' && (inputs.browser_engine == 'both' || inputs.browser_engine == 'selenium') }}
+    if: ${{ inputs.mode == 'browser' && (inputs.browser_engine == 'both' || inputs.browser_engine == 'selenium') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -74,7 +74,7 @@ jobs:
         run: python -m pip install "selenium==4.54.0"
       - name: Run Selenium smoke test
         env:
-          TARGET_URL: \${{ inputs.target_url }}
+          TARGET_URL: ${{ inputs.target_url }}
         run: |
           test -n "$TARGET_URL" || { echo "Provide target_url."; exit 2; }
           python .github/automation/browser_smoke.py selenium "$TARGET_URL" artifacts/selenium.png
@@ -87,7 +87,7 @@ jobs:
           retention-days: 7
 
   appium:
-    if: \${{ inputs.mode == 'android' }}
+    if: ${{ inputs.mode == 'android' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -108,7 +108,7 @@ jobs:
       - name: Install APK and run Appium smoke test
         uses: ReactiveCircus/android-emulator-runner@v2.38.0
         env:
-          APK_URL: \${{ inputs.apk_url }}
+          APK_URL: ${{ inputs.apk_url }}
           APP_PACKAGE: "com.autu.lio"
           APP_ACTIVITY: "com.autu.lio.MainActivity"
         with:
