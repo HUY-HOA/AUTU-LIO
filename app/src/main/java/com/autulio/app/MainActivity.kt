@@ -404,11 +404,6 @@ internal fun AdminApp(
                     accessToken = accessToken,
                     modifier = Modifier.padding(padding)
                 )
-                "devices" -> AccessControlAdminScreen(
-                    accessToken = accessToken,
-                    modifier = Modifier.padding(padding),
-                    initialSection = "devices"
-                )
                 else -> AdminSettingsScreen(
                     Modifier.padding(padding),
                     page,
