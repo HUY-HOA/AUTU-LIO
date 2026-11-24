@@ -1,6 +1,6 @@
 # AUTU-LIO Auth API
 
-Cloudflare Worker + D1 backend for one Android APK with server-verified account roles. Firebase is not used.
+Cloudflare Worker + D1 backend for one Android APK with server-verified account roles. AUTU-LIO uses Firebase Cloud Messaging (FCM) only for update push notifications; authentication, account data and package delivery remain on Cloudflare. The Android app subscribes to `autu-lio-update-notices`; the Worker sends FCM HTTP v1 using the `FCM_SERVICE_ACCOUNT_JSON` secret. See [Firebase/FCM setup](../docs/FIREBASE-SETUP.md).
 
 **Account model:** only OWNER and CUSTOMER roles are supported. Invitations, collaborator roles, shared projects and review workflows have been removed.
 
@@ -39,6 +39,7 @@ Set these only after the values have been confirmed:
 
 - `OWNER_GOOGLE_SUB`: exact `sub` claim from the owner's Google ID token after the Worker verifies its signature, issuer, audience, expiry and nonce. This value, not the email address, selects the one account eligible for OWNER.
 - `PACKAGE_MASTER_KEY_V1`: base64-encoded cryptographically random 32-byte key. Generate it securely and set it as a Worker secret; never commit it, send it through chat or put it in the APK.
+- Optional `FCM_SERVICE_ACCOUNT_JSON`: complete Firebase Service Account JSON used for FCM HTTP v1 update notifications. Required only when enabling push notifications. Store it as a Cloudflare Worker Secret; never commit it to Git, put it in the APK or send it through chat. See [Firebase/FCM setup](../docs/FIREBASE-SETUP.md).
 
 Worker variables:
 - `GOOGLE_CLIENT_ID`: public Google OAuth Web/server Client ID used as the expected ID-token audience. Its value is declared in `backend/wrangler.jsonc` and is not a Secret.
