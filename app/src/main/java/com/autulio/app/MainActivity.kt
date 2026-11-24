@@ -1462,10 +1462,6 @@ private fun AdminSettingsScreen(
     val context = LocalContext.current
     var showSettingsMenu by remember { mutableStateOf(false) }
 
-    if (page == "licenses") {
-        AccessControlAdminScreen(accessToken = accessToken, modifier = modifier, initialSection = "licenses")
-        return
-    }
     if (page == "packages") {
         AdminPackagesScreen(
             accessToken = accessToken,
@@ -1530,13 +1526,6 @@ private fun AdminSettingsScreen(
                                 (context as? Activity)?.let {
                                     AppUpdateManager.announceUpdate(it, accessToken)
                                 }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(tr("Danh sách người dùng", "User list")) },
-                            onClick = {
-                                showSettingsMenu = false
-                                onSelect("customers")
                             }
                         )
                         DropdownMenuItem(
