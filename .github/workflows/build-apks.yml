@@ -21,6 +21,7 @@ jobs:
   build:
     permissions:
       contents: write
+      id-token: write
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK'
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
@@ -204,4 +205,111 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "AUTU-LIO v${VERSION_NAME}" \
             --notes "Bản phát hành AUTU-LIO Android. Chỉ cài đặt APK từ bản phát hành chính thức này. Xem thay đổi tại commit ${GITHUB_SHA}."
+
+      - name: Check published release for FCM
+        id: fcm_release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: "v${VERSION_NAME}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --json tagName >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "Release $RELEASE_TAG exists; checking FCM notification."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Release $RELEASE_TAG was not created; Apps Script fallback will remain available if this release appears later."
+          fi
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        id: google_auth
+        if: steps.fcm_release.outputs.published == 'true'
+        continue-on-error: true
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: coc-lio-73de9
+          workload_identity_provider: projects/854984158580/locations/global/workloadIdentityPools/lio-github-pool/providers/github-lio
+          service_account: lio-fcm-sender@coc-lio-73de9.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/firebase.messaging
+
+      - name: Send release notification through FCM (WIF primary)
+        id: fcm_wif_send
+        if: steps.fcm_release.outputs.published == 'true' && steps.google_auth.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACCESS_TOKEN: ${{ steps.google_auth.outputs.access_token }}
+          RELEASE_TAG: "v${VERSION_NAME}"
+          VERSION_NAME: "${VERSION_NAME}"
+          APP_NAME: "AUTU-LIO"
+          FIREBASE_PROJECT_ID: "autu-lio-515207"
+          CURRENT_TOPIC: "autu-lio-announcements"
+          LEGACY_TOPIC: "autu-lio-update-notices"
+        shell: bash
+        run: |
+          set -euo pipefail
+          MARKER="<!-- LIO_FCM_WIF_SENT -->"
+          NOTES="$(gh release view "$RELEASE_TAG" --json body --jq .body)"
+          if [[ "$NOTES" == *"$MARKER"* ]]; then
+            echo "FCM success marker already exists; not sending a duplicate."
+            exit 0
+          fi
+
+          TITLE="$APP_NAME có bản cập nhật mới"
+          BODY="Phiên bản $VERSION_NAME đã sẵn sàng. Mở $APP_NAME để kiểm tra cập nhật."
+
+          send_topic() {
+            local topic="$1"
+            local response_file
+            response_file="$(mktemp)"
+            local http_code
+            http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+              -X POST "https://fcm.googleapis.com/v1/projects/$FIREBASE_PROJECT_ID/messages:send" \
+              -H "Authorization: Bearer $ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n \
+                --arg topic "$topic" \
+                --arg title "$TITLE" \
+                --arg body "$BODY" \
+                --arg appId "autu-lio" \
+                --arg tag "$RELEASE_TAG" \
+                --arg version "$VERSION_NAME" \
+                '{message:{topic:$topic,notification:{title:$title,body:$body},data:{type:"app_update",title:$title,body:$body,appId:$appId,event:"app_update",releaseTag:$tag,versionName:$version},android:{priority:"HIGH"}}}')"
+            )"
+            if [[ "$http_code" -lt 200 || "$http_code" -ge 300 ]] || ! jq -e '.name' "$response_file" >/dev/null 2>&1; then
+              echo "::error::FCM failed for $APP_NAME topic $topic (HTTP $http_code):"
+              cat "$response_file"
+              rm -f "$response_file"
+              return 1
+            fi
+            echo "FCM accepted: $APP_NAME topic $topic"
+            rm -f "$response_file"
+          }
+
+          # Legacy topics serve already-published APKs; current topics serve newer clients.
+          send_topic "$LEGACY_TOPIC"
+          send_topic "$CURRENT_TOPIC"
+
+          # Mark the GitHub Release only after FCM accepts both topic messages.
+          UPDATED_NOTES="${NOTES}" 2026-11-24.
+\n\n'"$MARKER"
+          for attempt in 1 2 3; do
+            if gh release edit "$RELEASE_TAG" --notes "$UPDATED_NOTES"; then
+              echo "Release marked as FCM-sent by WIF."
+              exit 0
+            fi
+            echo "::warning::Could not save the FCM marker on attempt $attempt."
+            sleep 2
+          done
+          echo "::error::FCM accepted the notification but the Release marker could not be saved; Apps Script fallback may send a duplicate."
+          exit 1
+
+      - name: Report notification fallback status
+        if: steps.fcm_release.outputs.published == 'true' && steps.google_auth.outcome != 'success'
+        shell: bash
+        run: echo "::warning::WIF authentication unavailable. The Apps Script backup will send this release after its configured grace period."
+
 # Owner-requested BUILD APK trigger: 2026-11-24.
