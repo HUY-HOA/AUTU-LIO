@@ -1,4 +1,4 @@
-name: Build AUTU-LIO updater PR APK
+name: Verify AUTU-LIO updater PR without release secrets
 
 on:
   pull_request:
@@ -9,29 +9,29 @@ permissions:
   contents: read
 
 concurrency:
-  group: autu-lio-pr-apk-${{ github.event.pull_request.number }}
+  group: autu-lio-pr-verify-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  verify:
     if: github.event.pull_request.head.ref == 'fix/updater-progress-install-2026-11-26' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Checkout exact updater-fix commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Checkout PR source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Set up JDK 21
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v4
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
 
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses
@@ -44,53 +44,9 @@ jobs:
           fi
 
       - name: Set up Gradle 9.6.0
-        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
         with:
           gradle-version: "9.6.0"
 
-      - name: Prepare shared release signing key
-        shell: bash
-        env:
-          KEYSTORE_BASE64: ${{ secrets.AILIO_KEYSTORE_BASE64 }}
-          STORE_PASSWORD: ${{ secrets.AILIO_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.AILIO_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.AILIO_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          test -n "$KEYSTORE_BASE64"
-          test -n "$STORE_PASSWORD"
-          test -n "$KEY_ALIAS"
-          test -n "$KEY_PASSWORD"
-          KEYSTORE_PATH="$RUNNER_TEMP/autu-lio-release.p12"
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
-          chmod 600 "$KEYSTORE_PATH"
-          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
-          echo "AUTU_LIO_RELEASE_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-
-      - name: Run lint and build signed Release APK
-        env:
-          AUTU_LIO_RELEASE_STORE_PASSWORD: ${{ secrets.AILIO_KEYSTORE_PASSWORD }}
-          AUTU_LIO_RELEASE_KEY_ALIAS: ${{ secrets.AILIO_KEY_ALIAS }}
-          AUTU_LIO_RELEASE_KEY_PASSWORD: ${{ secrets.AILIO_KEY_PASSWORD }}
-        run: gradle --no-daemon --build-cache --parallel --console=plain :app:lintRelease :app:assembleRelease -PAUTU_LIO_VERSION_CODE=${{ github.run_number }} -PAUTU_LIO_VERSION_NAME=0.1.${{ github.run_number }}
-
-      - name: Verify APK signature and calculate SHA-256
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK="app/build/outputs/apk/release/app-release.apk"
-          test -s "$APK"
-          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK"
-          sha256sum "$APK" | tee "$GITHUB_STEP_SUMMARY"
-
-      - name: Remove temporary signing key
-        if: always()
-        run: rm -f "$RUNNER_TEMP/autu-lio-release.p12"
-
-      - name: Upload updater-fix APK artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: AUTU-LIO-updater-fix-PR-${{ github.event.pull_request.number }}
-          path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-          retention-days: 14
+      - name: Run Kotlin/compiler checks and unit tests without APK packaging
+        run: gradle --no-daemon --build-cache --parallel --console=plain :app:testDebugUnitTest :app:lintRelease
