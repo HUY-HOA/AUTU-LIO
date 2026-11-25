@@ -240,13 +240,15 @@ async function getSession(request, env) {
   if (!match) throw new HttpError(401, "authentication_required", "Sign in is required.");
   const tokenHash = await sha256(match[1]);
   const session = await env.DB.prepare(
-    "SELECT s.id AS session_id, s.user_id, u.email, u.display_name, u.role, u.status, u.email_verified, u.google_sub, u.created_at, u.last_login_at " +
+    "SELECT s.id AS session_id, s.user_id, s.expires_at, s.last_seen_at, u.email, u.display_name, u.role, u.status, u.email_verified, u.google_sub, u.created_at, u.last_login_at " +
     "FROM sessions s JOIN users u ON u.id = s.user_id " +
-    "WHERE s.token_hash = ? AND s.revoked_at IS NULL"
-  ).bind(tokenHash).first();
+    "WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ? AND s.last_seen_at > ?"
+  ).bind(tokenHash, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60).first();
   if (!session || session.status !== "ACTIVE" || session.email_verified !== 1) {
-    throw new HttpError(401, "invalid_session", "Session is invalid or no longer active.");
+    throw new HttpError(401, "invalid_session", "Session is invalid, expired or no longer active.");
   }
+  await env.DB.prepare("UPDATE sessions SET last_seen_at = ? WHERE id = ? AND revoked_at IS NULL")
+    .bind(Math.floor(Date.now() / 1000), session.session_id).run();
   return session;
 }
 
@@ -452,7 +454,7 @@ async function googleLogin(request, env) {
   }
 
   const rawSession = randomToken(48);
-  const expiresAt = 253402300799; // Storage sentinel only; sessions do not expire by time.
+  const expiresAt = now + 90 * 24 * 60 * 60; // 90-day absolute limit; Worker also enforces 30-day inactivity.
   const sessionId = crypto.randomUUID();
   const deviceLabel = typeof body.deviceLabel === "string" ? body.deviceLabel.trim().slice(0, 100) : null;
   const deviceInfo = sanitizeClientTechnicalInfo(body.deviceInfo);
@@ -487,7 +489,7 @@ async function googleLogin(request, env) {
   return response(request, {
     accessToken: rawSession,
     tokenType: "Bearer",
-    expiresAt: null,
+    expiresAt,
     user: responseUser
   }, 200, env);
 }
@@ -1754,6 +1756,34 @@ async function downloadCustomerPackage(request, env, session, packageId) {
   }, 200, env);
 }
 
+async function enforceAuthenticatedApiRateLimit(request, env, session, path) {
+  const limiter = env.USER_API_LIMITER;
+  if (!limiter || typeof limiter.limit !== "function") {
+    if (env.RUNTIME_ENV === "production") {
+      throw new HttpError(503, "rate_limit_not_configured", "Authenticated API protection is not configured.");
+    }
+    return;
+  }
+
+  let delta = 1;
+  if (/^\/api\/(customer\/packages\/[^/]+\/download|admin\/packages\/[^/]+\/(source|download))$/.test(path)) {
+    delta = 10;
+  } else if (/^\/api\/admin\/(customers|devices|licenses|packages|audit-logs)$/.test(path) ||
+             path === "/api/customer/packages") {
+    delta = 3;
+  }
+
+  try {
+    const result = await limiter.limit({ key: "user:" + session.user_id, delta });
+    if (!result?.success) {
+      throw new HttpError(429, "rate_limited", "Too many API requests. Please try again shortly.");
+    }
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(503, "rate_limit_unavailable", "Authenticated API protection is temporarily unavailable.");
+  }
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -1782,6 +1812,7 @@ async function route(request, env) {
   }
 
   const session = await getSession(request, env);
+  await enforceAuthenticatedApiRateLimit(request, env, session, path);
   if (method === "POST" && path === "/api/admin/app-update-policy") {
     return response(request, await updateAppUpdatePolicy(request, env, session), 200, env);
   }
@@ -1806,7 +1837,7 @@ async function route(request, env) {
     }
     return response(request, {
       user,
-      session: { expiresAt: null, persistent: true }
+      session: { expiresAt: session.expires_at, persistent: false, idleTimeoutSeconds: 30 * 24 * 60 * 60 }
     }, 200, env);
   }
 
