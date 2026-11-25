@@ -6,7 +6,8 @@ import { gzipSync, gunzipSync } from "node:zlib";
 const customerSession = {
   session_id: "session-customer",
   user_id: "customer-user",
-  expires_at: Math.floor(Date.now() / 1000) + 3600,
+  expires_at: Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60,
+  last_seen_at: Math.floor(Date.now() / 1000),
   email: "customer@example.com",
   display_name: "Customer",
   role: "CUSTOMER",
@@ -20,7 +21,8 @@ const customerSession = {
 const ownerSession = {
   session_id: "session-owner",
   user_id: "owner-user",
-  expires_at: Math.floor(Date.now() / 1000) + 3600,
+  expires_at: Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60,
+  last_seen_at: Math.floor(Date.now() / 1000),
   email: "owner@example.com",
   display_name: "Owner",
   role: "OWNER",
@@ -34,11 +36,13 @@ function createEnv({
   auditRows = [],
   challengeLimitSuccess = true,
   loginLimitSuccess = true,
+  userApiLimitSuccess = true,
   accountLicense = null,
   accountDevices = [],
   latestSignInRow = null
 } = {}) {
   const queries = [];
+  const apiLimitCalls = [];
   const DB = {
     prepare(sql) {
       queries.push(sql);
@@ -50,7 +54,13 @@ function createEnv({
           return this;
         },
         async first() {
-          if (sql.includes("FROM sessions s JOIN users u")) return session;
+          if (sql.includes("FROM sessions s JOIN users u")) {
+            if (!session) return null;
+            const now = Math.floor(Date.now() / 1000);
+            if (sql.includes("s.expires_at > ?") && Number(session.expires_at) <= now) return null;
+            if (sql.includes("s.last_seen_at > ?") && Number(session.last_seen_at || 0) <= now - 30 * 24 * 60 * 60) return null;
+            return session;
+          }
           if (sql.includes("SELECT metadata_json, created_at FROM audit_logs")) return latestSignInRow;
           if (sql.includes("FROM licenses") && sql.includes("ORDER BY created_at DESC")) return accountLicense;
           return null;
@@ -77,9 +87,11 @@ function createEnv({
       DB,
       ALLOWED_ORIGINS: allowedOrigins,
       AUTH_CHALLENGE_LIMITER: { limit: async () => ({ success: challengeLimitSuccess }) },
-      AUTH_LOGIN_LIMITER: { limit: async () => ({ success: loginLimitSuccess }) }
+      AUTH_LOGIN_LIMITER: { limit: async () => ({ success: loginLimitSuccess }) },
+      USER_API_LIMITER: { limit: async args => { apiLimitCalls.push(args); return { success: userApiLimitSuccess }; } }
     },
-    queries
+    queries,
+    apiLimitCalls
   };
 }
 
@@ -406,7 +418,7 @@ test("current customer receives only their own verified Google profile and lates
   assert.equal(Object.hasOwn(body.user, "createdAt"), false);
 });
 
-test("authentication sessions remain valid after their legacy expiry timestamp", async () => {
+test("authentication sessions past absolute expiry are rejected", async () => {
   const expiredSession = { ...customerSession, expires_at: 1 };
   const { env, queries } = createEnv({ session: expiredSession });
   const response = await worker.fetch(
@@ -415,12 +427,37 @@ test("authentication sessions remain valid after their legacy expiry timestamp",
     }),
     env
   );
-  const body = await json(response);
 
-  assert.equal(response.status, 200);
-  assert.equal(body.session.expiresAt, null);
-  assert.equal(body.session.persistent, true);
-  assert.equal(queries.some(sql => sql.includes("FROM sessions s JOIN users u") && sql.includes("expires_at > ?")), false);
+  assert.equal(response.status, 401);
+  assert.equal((await json(response)).error, "invalid_session");
+  assert.ok(queries.some(sql => sql.includes("s.expires_at > ?") && sql.includes("s.last_seen_at > ?")));
+});
+
+test("authenticated API rate limits use the verified account ID and weight package downloads", async () => {
+  const { env, apiLimitCalls } = createEnv({ session: customerSession, userApiLimitSuccess: false });
+  const response = await worker.fetch(
+    makeRequest("/api/customer/packages/package-1/download", {
+      headers: { Authorization: `Bearer ${"L".repeat(48)}` }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 429);
+  assert.equal((await json(response)).error, "rate_limited");
+  assert.deepEqual(apiLimitCalls, [{ key: "user:customer-user", delta: 10 }]);
+});
+
+test("production authenticated APIs fail closed when the user limiter is missing", async () => {
+  const { env } = createEnv({ session: customerSession });
+  env.RUNTIME_ENV = "production";
+  delete env.USER_API_LIMITER;
+  const response = await worker.fetch(
+    makeRequest("/api/auth/me", { headers: { Authorization: `Bearer ${"M".repeat(48)}` } }),
+    env
+  );
+
+  assert.equal(response.status, 503);
+  assert.equal((await json(response)).error, "rate_limit_not_configured");
 });
 
 test("customer account endpoint returns the signed-in account and empty license/device state", async () => {
