@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     name: Kiểm tra, cập nhật D1 và triển khai Worker
     runs-on: ubuntu-latest
     timeout-minutes: 30
