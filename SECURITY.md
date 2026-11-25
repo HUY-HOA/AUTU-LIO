@@ -24,6 +24,10 @@ Security fixes are applied to the main branch. The public repository is not a co
 
 ## Additional API protections
 
+- All authenticated API requests use a per-account Cloudflare rate limit keyed by the verified session user ID. Standard requests consume one unit, broad list operations consume three, and package download/source operations consume ten.
+- Sessions expire after 90 days absolutely or 30 days without activity. The Worker enforces both limits; signing in again with Google creates a new session.
+- Cloudflare Worker rate-limit counters are approximate and local to each Cloudflare location, not a strict global quota.
+
 - API responses use `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, a restrictive Content Security Policy, same-origin resource policy, a restrictive Permissions Policy and HSTS.
 - Browser CORS accepts only exact configured origins. A wildcard origin is not accepted.
 - Invitation preview tokens are no longer accepted in URL query strings. Invitation acceptance remains a signed-in POST operation so bearer-like invitation tokens are not placed in browser history or URL logs.

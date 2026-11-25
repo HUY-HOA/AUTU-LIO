@@ -92,6 +92,9 @@
 - Không dùng Debug APK làm bản nâng cấp chính thức; cài đè Release phải cùng application ID và chữ ký tương thích.
 - Không nói build thành công trước khi run có conclusion=success, artifact tồn tại và chữ ký được xác minh.
 
+- Backend security: every authenticated request is rate limited by the verified account ID. Package download/source and broad listing endpoints consume higher weights. Cloudflare rate-limit counters are approximate per location, not strict global counters.
+- Server sessions have a 90-day absolute lifetime and a 30-day idle timeout. The Worker enforces both; local token storage does not extend server authorization.
+
 ## 10. Các hạng mục phải nghiệm thu, không được báo hoàn thành sớm
 
 Theo trạng thái repository, các hạng mục cần tiếp tục kiểm tra trên thiết bị thật gồm:
