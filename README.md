@@ -59,3 +59,7 @@ Website và API Cloudflare đã được triển khai riêng; cả hai Worker đ
 Xem [trạng thái và các điều kiện còn thiếu để phát hành](docs/PROJECT-STATUS.md).
 
 Xem [phạm vi toàn diện và lộ trình AUTU Script](docs/09-AUTU-SCRIPT-COMPREHENSIVE-SCOPE.md) để phân biệt tính năng đã có, còn thiếu và giới hạn của Android.
+
+## Yêu cầu chủ dự án
+
+Các yêu cầu đã thống nhất, nguyên tắc phát triển và tiêu chí nghiệm thu được theo dõi tại [docs/USER-REQUIREMENTS.md](docs/USER-REQUIREMENTS.md). Đọc tài liệu này trước khi sửa mã nguồn hoặc phát hành.
