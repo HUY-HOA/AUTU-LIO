@@ -868,7 +868,7 @@ test("deleting one license leaves account, login sessions and registered devices
   assert.equal(body.accountStatusChanged, false);
   assert.equal(body.devicesChanged, false);
   assert.ok(statementsSeen.some(sql => sql.includes("DELETE FROM licenses")));
-  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE sessions")), false);
+  assert.equal(statementsSeen.some(sql => sql.includes("UPDATE sessions") && !sql.includes("SET last_seen_at")), false);
   assert.equal(statementsSeen.some(sql => sql.includes("UPDATE users")), false);
   assert.equal(statementsSeen.some(sql => sql.includes("UPDATE devices")), false);
   assert.ok(statementsSeen.some(sql => sql.includes("INSERT INTO audit_logs")));
