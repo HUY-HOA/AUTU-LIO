@@ -127,3 +127,19 @@ Quyết định ngày 26/11/2026: AUTU-LIO dùng Cloudflare Workers + D1 + WorkM
 - Thông báo thay đổi license, thiết bị, package và cập nhật chỉ mang tính thông tin. Thu hồi quyền phải được kiểm tra và thực thi ở Worker/API trong mọi thao tác nhạy cảm; không dựa vào việc thiết bị đã nhận thông báo để bảo vệ quyền truy cập.
 - Không tự động bắt đầu/chạy lại runtime khi nhận thông báo. Người dùng phải chủ động mở app và thực hiện thao tác được phép.
 - Không thêm Firebase/FCM, OneSignal, Pushy, ntfy hoặc dịch vụ push bên ngoài cho kiến trúc mặc định. Chỉ xem xét nhà cung cấp push khác nếu chủ dự án yêu cầu riêng.
+
+## 13. Baseline bảo mật cho repository Public
+
+Quyết định bảo mật ngày 26/11/2026:
+
+- GitHub là nguồn mã chính; Cloudflare là môi trường chạy Worker, lưu D1 và bí mật. Không sửa nóng Production làm lệch repository.
+- Pull Request và workflow kiểm tra PR chỉ được dùng quyền tối thiểu contents: read; tuyệt đối không nhận Cloudflare deployment token, OWNER secret, package master key, GitHub release token riêng hoặc signing secrets AILIO.
+- Workflow PR không được giải mã keystore, ký Release APK hoặc tải artifact đã ký. Chỉ workflow phát hành trên main sau khi chủ dự án chấp thuận và phát lệnh BUILD APK mới được dùng signing secrets.
+- Cloudflare API Token triển khai AUTU-LIO phải tách riêng, giới hạn Account AUTU-LIO và đúng quyền Workers Scripts/D1 cần thiết. Không dùng token quản trị toàn tài khoản hoặc chia sẻ với hai ứng dụng khác.
+- Worker Secrets lưu OWNER_GOOGLE_SUB, PACKAGE_MASTER_KEY_V1 và secret vận hành. vars chỉ chứa cấu hình công khai. Không nhúng khóa mã hóa hoặc quyền OWNER vào APK.
+- GitHub token trong Worker cập nhật APK chỉ được cấp fine-grained quyền đọc Contents/Metadata của repository AUTU-LIO; không cấp write, administration, workflow hoặc quyền ở repository khác nếu không cần.
+- Bảo vệ nhánh main bằng branch protection/ruleset: giới hạn người ghi, bắt buộc PR review/status checks, chặn force-push và xóa nhánh. Phải kiểm tra cấu hình trực tiếp trong GitHub Settings vì kết nối hiện tại không có quyền đọc/chỉnh branch protection.
+- Bật Secret scanning, Push protection, Dependabot alerts và security updates nếu gói/tính năng cho phép. Nếu phát hiện secret từng bị commit thì thu hồi/rotate trước, sau đó mới làm sạch lịch sử.
+- Worker phải xác minh tài khoản, license, trạng thái thiết bị và quyền gói ở phía server cho mọi thao tác nhạy cảm. Thông báo chỉ là thông tin, không phải cơ chế cấp/thu hồi quyền.
+- Không đưa dữ liệu khách hàng, script chưa công bố, package plaintext, private key hoặc token vào log/issue/commit. Không tạo endpoint chẩn đoán trả secret hoặc dump toàn bộ environment.
+- Không tự xoay/xóa secret đang chạy khi chưa đánh giá ảnh hưởng và chuẩn bị rollback.
