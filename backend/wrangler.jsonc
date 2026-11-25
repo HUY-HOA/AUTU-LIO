@@ -39,6 +39,14 @@
         "limit": 30,
         "period": 60
       }
+    },
+    {
+      "name": "USER_API_LIMITER",
+      "namespace_id": "61003",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
     }
   ],
   "vars": {
