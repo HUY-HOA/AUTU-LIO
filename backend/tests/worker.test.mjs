@@ -1719,7 +1719,8 @@ test("package distribution rejects non-customer recipients and an empty selected
             if (sql.includes("FROM script_packages WHERE id = ?")) return { id: packageId };
             return null;
           },
-          async all() { return { results: [] }; }
+          async all() { return { results: [] }; },
+          async run() { return { meta: { changes: 1 } }; }
         };
       },
       async batch() { throw new Error("batch should not run for invalid recipients"); }
@@ -1810,7 +1811,8 @@ test("customer cannot download an AUTU that is not assigned to the account", asy
             }
             if (sql.includes("FROM script_packages p JOIN script_package_versions")) return null;
             return null;
-          }
+          },
+          async run() { return { meta: { changes: 1 } }; }
         };
       }
     }
