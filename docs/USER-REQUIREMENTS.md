@@ -115,3 +115,15 @@ Theo trạng thái repository, các hạng mục cần tiếp tục kiểm tra t
 - docs/NGON_NGU_MAC_DINH_VI.md
 
 **Quy tắc cập nhật sổ:** Yêu cầu mới phải được thêm vào đây và tài liệu kỹ thuật có liên quan. Khi hoàn thành, cập nhật trạng thái và bằng chứng kiểm thử; không đánh dấu hoàn thành chỉ vì có giao diện hoặc CI compile thành công.
+
+## 12. Quyết định kiến trúc thông báo — dùng chung chuẩn không Firebase/FCM
+
+Quyết định ngày 26/11/2026: AUTU-LIO dùng Cloudflare Workers + D1 + WorkManager + Android Local Notification làm phương án thông báo mặc định. Không yêu cầu Firebase hoặc FCM.
+
+- Workers cung cấp API thông báo; D1 lưu thông báo, trạng thái đã nhận/đã đọc và phạm vi tài khoản/thiết bị khi cần.
+- WorkManager kiểm tra API khi có mạng; Android NotificationManager/NotificationCompat hiển thị thông báo. Dùng notification channel phù hợp, quyền POST_NOTIFICATIONS và cơ chế chống trùng theo notification ID.
+- Công việc định kỳ WorkManager có chu kỳ tối thiểu 15 phút; Android Doze, tiết kiệm pin và chính sách OEM có thể trì hoãn thêm. Không quảng cáo đây là push tức thời hoặc bảo đảm thông báo đúng phút.
+- Payload thông báo chỉ chứa metadata tối thiểu. Không đưa mã AUTU Script, nội dung package, khóa, token, dữ liệu đăng nhập hoặc bí mật vào notification payload hay log.
+- Thông báo thay đổi license, thiết bị, package và cập nhật chỉ mang tính thông tin. Thu hồi quyền phải được kiểm tra và thực thi ở Worker/API trong mọi thao tác nhạy cảm; không dựa vào việc thiết bị đã nhận thông báo để bảo vệ quyền truy cập.
+- Không tự động bắt đầu/chạy lại runtime khi nhận thông báo. Người dùng phải chủ động mở app và thực hiện thao tác được phép.
+- Không thêm Firebase/FCM, OneSignal, Pushy, ntfy hoặc dịch vụ push bên ngoài cho kiến trúc mặc định. Chỉ xem xét nhà cung cấp push khác nếu chủ dự án yêu cầu riêng.
