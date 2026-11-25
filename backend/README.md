@@ -8,7 +8,7 @@ Cloudflare Worker + D1 backend for one Android APK with server-verified account 
 
 - Google ID token signature validation against Google's published signing keys.
 - Issuer, audience, expiry, verified-email and one-time nonce checks.
-- Five-minute, one-time sign-in challenge and persistent hashed bearer sessions; sessions remain valid until logout or explicit account/session revocation.
+- Five-minute, one-time sign-in challenge and hashed bearer sessions stored persistently on the Android client. The Worker enforces a 30-day idle timeout and a 90-day absolute lifetime; sign-in with Google creates a new session after expiry.
 - Server-side role lookup on every protected request.
 - One-owner bootstrap by the exact Google OpenID Connect `sub` claim configured as the `OWNER_GOOGLE_SUB` Worker secret; email is not used to grant OWNER.
 - D1 schema migrations and local migration validation.
@@ -31,7 +31,7 @@ Database ID: `ade35e39-c894-4389-b6c9-31d9f35ec6a2`
 
 Primary location: APAC.
 
-Migrations `0001`–`0010` are applied to the remote `autu_lio_auth` D1 database. Migration `0007_device_revocation_reasons.sql` records why a device was revoked; migration `0008_device_presence.sql` adds app-presence and AUTU runtime-state timestamps; `0009_persistent_sessions.sql` makes every non-revoked login session persistent; `0010_package_customer_distribution.sql` adds customer targeting for each published package. `licenses.expires_at` remains unchanged and still controls customer license validity. All 10 migrations are recorded in `d1_migrations`; keep every SQL migration in source control as schema history.
+Migrations `0001`–`0013` are applied to the remote `autu_lio_auth` D1 database. Migration `0007_device_revocation_reasons.sql` records why a device was revoked; migration `0008_device_presence.sql` adds app-presence and AUTU runtime-state timestamps; `0009_persistent_sessions.sql` originally retained login sessions until explicit revocation; `0010_package_customer_distribution.sql` adds customer targeting for each published package; `0013_session_timeouts.sql` applies a 90-day absolute session lifetime while preserving each session's last-activity timestamp. The Worker also rejects sessions idle for more than 30 days and updates `last_seen_at` on authenticated requests. `licenses.expires_at` remains unchanged and still controls customer license validity. All 13 migrations are recorded in `d1_migrations`; keep every SQL migration in source control as schema history.
 
 ## Required Worker secrets and variables
 
