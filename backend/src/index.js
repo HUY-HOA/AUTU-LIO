@@ -1837,7 +1837,7 @@ async function route(request, env) {
     }
     return response(request, {
       user,
-      session: { expiresAt: session.expires_at, persistent: false, idleTimeoutSeconds: 30 * 24 * 60 * 60 }
+      session: { expiresAt: session.expires_at, persistent: true, idleTimeoutSeconds: 30 * 24 * 60 * 60 }
     }, 200, env);
   }
 
