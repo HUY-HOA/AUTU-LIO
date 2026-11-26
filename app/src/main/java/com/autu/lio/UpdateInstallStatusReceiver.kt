@@ -18,14 +18,18 @@ class UpdateInstallStatusReceiver : BroadcastReceiver() {
             PackageInstaller.STATUS_FAILURE
         )
         val statusMessage = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
+        val confirmation = if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            if (Build.VERSION.SDK_INT >= 33) {
+                intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_INTENT)
+            }
+        } else null
+        AppUpdateManager.handleInstallerStatus(context, status, statusMessage, confirmation)
+
         when (status) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
-                val confirmation = if (Build.VERSION.SDK_INT >= 33) {
-                    intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableExtra(Intent.EXTRA_INTENT)
-                }
                 if (confirmation != null) {
                     val safeIntent = Intent(confirmation).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     postNotification(
@@ -34,7 +38,6 @@ class UpdateInstallStatusReceiver : BroadcastReceiver() {
                         "Chạm để tiếp tục cài đặt bản cập nhật.",
                         safeIntent
                     )
-                    runCatching { context.startActivity(safeIntent) }
                 } else {
                     postNotification(
                         context,
@@ -47,11 +50,8 @@ class UpdateInstallStatusReceiver : BroadcastReceiver() {
 
             PackageInstaller.STATUS_SUCCESS -> {
                 val launch = launchIntent(context)
-                // Android may block an Activity launch from the background. Attempt it,
-                // then always provide a notification as a reliable user-controlled fallback.
-                if (launch != null) {
-                    runCatching { context.startActivity(launch) }
-                }
+                // Do not launch Activities from this background BroadcastReceiver.
+                // The user can reopen the app or tap the completion notification.
                 postNotification(
                     context,
                     "Đã cập nhật xong",
@@ -122,7 +122,12 @@ class UpdateInstallStatusReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setContentIntent(pending)
             .setPriority(Notification.PRIORITY_HIGH)
-        manager.notify(NOTIFICATION_ID, builder.build())
+        try {
+            manager.notify(NOTIFICATION_ID, builder.build())
+        } catch (error: SecurityException) {
+            // Android 13+ blocks notifications until POST_NOTIFICATIONS is granted.
+            android.util.Log.w("AUTU-LIO-UPDATER", "Notification permission is not granted.", error)
+        }
     }
 
     private companion object {

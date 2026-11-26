@@ -81,11 +81,13 @@ import com.autu.lio.runtime.ScreenDisplayGeometryStore
 class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
+        AppUpdateManager.onActivityResumed(this)
         AppUpdateManager.checkOnStartup(this)
         AppUpdateManager.resume(this)
     }
 
     override fun onPause() {
+        AppUpdateManager.onActivityPaused(this)
         super.onPause()
     }
 
