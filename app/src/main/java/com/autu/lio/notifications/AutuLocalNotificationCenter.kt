@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.autu.lio.MainActivity
 import java.util.UUID
@@ -24,6 +25,7 @@ internal object AutuLocalNotificationCenter {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return false
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
 
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val key = "shown_" + UUID.nameUUIDFromBytes(id.toByteArray()).toString()
@@ -35,6 +37,10 @@ internal object AutuLocalNotificationCenter {
                 NotificationChannel(CHANNEL_ID, "Thông báo AUTU-LIO", NotificationManager.IMPORTANCE_DEFAULT)
             )
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE
+        ) return false
+
         val openApp = PendingIntent.getActivity(
             context,
             0,
