@@ -44,8 +44,8 @@ jobs:
             echo "::error::Missing CLOUDFLARE_API_TOKEN."
             exit 1
           }
-          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-fA-F0-9]{32}$ ]] || {
-            echo "::error::CLOUDFLARE_ACCOUNT_ID is missing or invalid."
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || {
+            echo "::error::Missing CLOUDFLARE_ACCOUNT_ID."
             exit 1
           }
           cp cloudflare/update-worker.js "$RUNNER_TEMP/update-worker.mjs"
