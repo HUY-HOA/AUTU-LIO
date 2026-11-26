@@ -40,12 +40,17 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
+          # A leading backslash was accidentally included when these existing
+          # GitHub secrets were originally pasted. Normalize in-memory only.
+          CLOUDFLARE_API_TOKEN="\${CLOUDFLARE_API_TOKEN#\\\\}"
+          CLOUDFLARE_ACCOUNT_ID="\${CLOUDFLARE_ACCOUNT_ID#\\\\}"
+          export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
           test -n "$CLOUDFLARE_API_TOKEN" || {
             echo "::error::Missing CLOUDFLARE_API_TOKEN."
             exit 1
           }
-          test -n "$CLOUDFLARE_ACCOUNT_ID" || {
-            echo "::error::Missing CLOUDFLARE_ACCOUNT_ID."
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-fA-F0-9]{32}$ ]] || {
+            echo "::error::CLOUDFLARE_ACCOUNT_ID is invalid after removing the accidental leading backslash."
             exit 1
           }
           cp cloudflare/update-worker.js "$RUNNER_TEMP/update-worker.mjs"
@@ -56,7 +61,11 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@4 deploy --config cloudflare/wrangler.update.jsonc
+        run: |
+          set -euo pipefail
+          export CLOUDFLARE_API_TOKEN="\${CLOUDFLARE_API_TOKEN#\\\\}"
+          export CLOUDFLARE_ACCOUNT_ID="\${CLOUDFLARE_ACCOUNT_ID#\\\\}"
+          npx --yes wrangler@4 deploy --config cloudflare/wrangler.update.jsonc
 
       - name: Verify deployed updater endpoints
         shell: bash
