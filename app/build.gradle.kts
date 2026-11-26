@@ -77,6 +77,7 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.activity.compose)
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
