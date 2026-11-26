@@ -207,3 +207,4 @@ jobs:
             --notes "Bản phát hành AUTU-LIO Android. Chỉ cài đặt APK từ bản phát hành chính thức này. Xem thay đổi tại commit ${GITHUB_SHA}."
 # Manual BUILD APK request received 2026-11-25.
 # Explicit owner-requested rebuild trigger: 2026-11-26.
+# Owner-triggered BUILD APK request: 2026-11-26T08:01+07:00
