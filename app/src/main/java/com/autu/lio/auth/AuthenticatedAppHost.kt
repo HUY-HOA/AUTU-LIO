@@ -1,7 +1,13 @@
 package com.autu.lio.auth
 
 import com.autu.lio.GoogleSignInButton
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.compose.foundation.Canvas
@@ -30,6 +36,7 @@ import com.autu.lio.access.AccessRole
 import com.autu.lio.accessibility.AutoClickAccessibilityService
 import com.autu.lio.tr
 import com.autu.lio.localizedErrorMessage
+import com.autu.lio.notifications.AutuNotificationSyncScheduler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -41,6 +48,9 @@ internal fun AuthenticatedAppHost() {
     val repository = remember(context) { AuthRepository(context) }
     val store = remember(context) { SecureSessionStore(context) }
     val scope = rememberCoroutineScope()
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
 
     var user by remember { mutableStateOf<AuthenticatedUser?>(null) }
     var accessToken by remember { mutableStateOf<String?>(null) }
@@ -91,11 +101,22 @@ internal fun AuthenticatedAppHost() {
         restoreSession()
     }
 
+    LaunchedEffect(user?.id) {
+        if (user == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return@LaunchedEffect
+        val permissionPrefs = context.getSharedPreferences("autu_lio_notification_permission", android.content.Context.MODE_PRIVATE)
+        if (!permissionPrefs.getBoolean("requested_v1", false)) {
+            permissionPrefs.edit().putBoolean("requested_v1", true).apply()
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
 
     // Recheck server authorization periodically so a remotely revoked session
     // cannot continue using the floating runner indefinitely.
     LaunchedEffect(accessToken) {
         val token = accessToken ?: return@LaunchedEffect
+        AutuNotificationSyncScheduler.schedule(context)
         while (true) {
             delay(60_000)
             try {
