@@ -6,6 +6,11 @@ name: AUTU-LIO Android APK
 run-name: AUTU-LIO Release APK - ${{ github.ref_name }}
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-apks.yml"
   push:
     branches:
       - main
@@ -14,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: autu-lio-apk-build
+  group: autu-lio-apk-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -22,7 +27,7 @@ jobs:
     permissions:
       contents: write
 
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK'
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK') || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/updater-progress-install-2026-11-26' && github.event.pull_request.head.repo.full_name == 'HUY-HOA/AUTU-LIO')
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -193,7 +198,7 @@ jobs:
           retention-days: 14
 
       - name: Publish signed Release APK to GitHub Releases
-        if: steps.signing.outputs.variant == 'release'
+        if: steps.signing.outputs.variant == 'release' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION_NAME: 0.1.${{ github.run_number }}
@@ -206,5 +211,3 @@ jobs:
             --title "AUTU-LIO v${VERSION_NAME}" \
             --notes "Bản phát hành AUTU-LIO Android. Chỉ cài đặt APK từ bản phát hành chính thức này. Xem thay đổi tại commit ${GITHUB_SHA}."
 # Manual BUILD APK request received 2026-11-25.
-# Explicit owner-requested rebuild trigger: 2026-11-26.
-# Owner-triggered BUILD APK request: 2026-11-26T08:01+07:00

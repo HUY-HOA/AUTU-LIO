@@ -15,6 +15,11 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.widget.Toast
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
+import java.lang.ref.WeakReference
 import org.json.JSONObject
 import java.io.InputStream
 import java.io.IOException
@@ -32,11 +37,228 @@ object AppUpdateManager {
     private const val KEY_PENDING_URL = "pending_url"
     private const val KEY_PENDING_VERSION = "pending_version"
     private const val KEY_PENDING_SHA256 = "pending_sha256"
+    private const val KEY_NOTIFICATION_PERMISSION_PROMPTED = "notification_permission_prompted"
+    private const val KEY_PENDING_INSTALL_CONFIRMATION = "pending_install_confirmation_uri"
     private const val APK_MIME = "application/vnd.android.package-archive"
     private val handler = Handler(Looper.getMainLooper())
     private val activeDownloads = ConcurrentHashMap.newKeySet<Long>()
     @Volatile private var lastManualCheckAtMs = 0L
     @Volatile private var lastStartupCheckAtMs = 0L
+
+    @Volatile private var foregroundActivity: WeakReference<Activity>? = null
+    @Volatile private var pendingInstallConfirmation: Intent? = null
+    private var progressDialog: AlertDialog? = null
+    private var progressDialogActivity: WeakReference<Activity>? = null
+    private var progressLabel: TextView? = null
+    private var progressStats: TextView? = null
+    private var progressBar: ProgressBar? = null
+    private var installConfirmationDialog: AlertDialog? = null
+
+    /** Tracks the visible screen so download and installer state can be shown in-app. */
+    fun onActivityResumed(activity: Activity) {
+        foregroundActivity = WeakReference(activity)
+        val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val confirmation = pendingInstallConfirmation ?: prefs.getString(KEY_PENDING_INSTALL_CONFIRMATION, null)
+            ?.let { stored -> runCatching { Intent.parseUri(stored, Intent.URI_INTENT_SCHEME) }.getOrNull() }
+        if (confirmation != null) {
+            pendingInstallConfirmation = confirmation
+            showInstallConfirmation(activity, confirmation)
+            return
+        }
+        if (prefs.getLong(KEY_DOWNLOAD_ID, -1L) > 0L) {
+            showDownloadProgress(
+                activity,
+                prefs.getString(KEY_PENDING_VERSION, "").orEmpty(),
+                "Đang khôi phục tiến trình tải bản cập nhật…"
+            )
+        }
+    }
+
+    fun onActivityPaused(activity: Activity) {
+        if (foregroundActivity?.get() === activity) foregroundActivity = null
+        handler.post {
+            if (progressDialogActivity?.get() === activity) {
+                progressDialog?.dismiss()
+            }
+        }
+    }
+
+    /** PackageInstaller may require a user tap. Never launch its UI from a background receiver. */
+    fun handleInstallerStatus(
+        context: Context,
+        status: Int,
+        statusMessage: String,
+        confirmation: Intent?
+    ) {
+        when (status) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                if (confirmation != null) {
+                    val safeIntent = Intent(confirmation)
+                    pendingInstallConfirmation = safeIntent
+                    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                        .putString(KEY_PENDING_INSTALL_CONFIRMATION, safeIntent.toUri(Intent.URI_INTENT_SCHEME))
+                        .apply()
+                    foregroundActivity?.get()?.let { showInstallConfirmation(it, safeIntent) }
+                }
+            }
+            PackageInstaller.STATUS_SUCCESS -> {
+                pendingInstallConfirmation = null
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .remove(KEY_PENDING_INSTALL_CONFIRMATION).apply()
+                closeDownloadProgress()
+            }
+            else -> {
+                pendingInstallConfirmation = null
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .remove(KEY_PENDING_INSTALL_CONFIRMATION).apply()
+                closeDownloadProgress()
+                val detail = statusMessage.take(140)
+                val message = if (detail.isBlank()) {
+                    "Android chưa cài được bản cập nhật. Hãy mở lại ứng dụng và thử cập nhật."
+                } else {
+                    "Android chưa cài được bản cập nhật: " + detail
+                }
+                handler.post {
+                    val activity = foregroundActivity?.get()
+                    if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
+                        Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(context.applicationContext, message, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showInstallConfirmation(activity: Activity, confirmation: Intent) {
+        handler.post {
+            if (activity.isFinishing || activity.isDestroyed) return@post
+            if (installConfirmationDialog?.isShowing == true) return@post
+            progressDialog?.dismiss()
+            val dialog = AlertDialog.Builder(activity)
+                .setTitle("Cần xác nhận cài đặt")
+                .setMessage(
+                    "APK đã tải và kiểm tra xong. Android cần bạn xác nhận cài đặt để tiếp tục. " +
+                        "Ứng dụng không thể tự bỏ qua bước bảo mật này."
+                )
+                .setPositiveButton("Tiếp tục cài đặt") { _, _ ->
+                    pendingInstallConfirmation = null
+                    activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                        .remove(KEY_PENDING_INSTALL_CONFIRMATION).apply()
+                    runCatching { activity.startActivity(Intent(confirmation)) }
+                        .onFailure {
+                            pendingInstallConfirmation = confirmation
+                            activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                                .putString(KEY_PENDING_INSTALL_CONFIRMATION, confirmation.toUri(Intent.URI_INTENT_SCHEME))
+                                .apply()
+                            Toast.makeText(
+                                activity,
+                                "Không mở được màn hình cài đặt. Hãy mở lại ứng dụng để tiếp tục.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                }
+                .setNegativeButton("Để sau", null)
+                .create()
+            installConfirmationDialog = dialog
+            dialog.setOnDismissListener {
+                if (installConfirmationDialog === dialog) installConfirmationDialog = null
+            }
+            dialog.show()
+        }
+    }
+
+    private fun showDownloadProgress(
+        activity: Activity,
+        version: String,
+        message: String = "Đang tải bản cập nhật…"
+    ) {
+        handler.post {
+            if (activity.isFinishing || activity.isDestroyed) return@post
+            if (progressDialog?.isShowing == true && progressDialogActivity?.get() === activity) {
+                progressLabel?.text = message
+                return@post
+            }
+            progressDialog?.dismiss()
+            val density = activity.resources.displayMetrics.density
+            val padding = (20 * density).toInt()
+            val content = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(padding, padding / 2, padding, padding / 2)
+            }
+            val label = TextView(activity).apply {
+                text = message
+                textSize = 14f
+            }
+            val bar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 100
+                isIndeterminate = true
+            }
+            val stats = TextView(activity).apply {
+                text = "Đang chuẩn bị tải xuống…"
+                textSize = 12f
+            }
+            content.addView(label, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ))
+            content.addView(bar, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, (8 * density).toInt()
+            ).apply { topMargin = (14 * density).toInt() })
+            content.addView(stats, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = (8 * density).toInt() })
+            val dialog = AlertDialog.Builder(activity)
+                .setTitle("AUTU-LIO · " + version)
+                .setView(content)
+                .setNegativeButton("Ẩn", null)
+                .create()
+            dialog.setCancelable(false)
+            dialog.setCanceledOnTouchOutside(false)
+            progressDialogActivity = WeakReference(activity)
+            progressLabel = label
+            progressStats = stats
+            progressBar = bar
+            progressDialog = dialog
+            dialog.setOnDismissListener {
+                if (progressDialog === dialog) {
+                    progressDialog = null
+                    progressDialogActivity = null
+                    progressLabel = null
+                    progressStats = null
+                    progressBar = null
+                }
+            }
+            dialog.show()
+        }
+    }
+
+    private fun updateDownloadProgress(message: String, downloaded: Long, total: Long) {
+        handler.post {
+            val label = progressLabel ?: return@post
+            label.text = message
+            val bar = progressBar
+            val stats = progressStats
+            if (total > 0L) {
+                val percent = ((downloaded * 100L) / total).toInt().coerceIn(0, 100)
+                bar?.isIndeterminate = false
+                bar?.progress = percent
+                stats?.text = "$percent% · " + formatBytes(downloaded) + " / " + formatBytes(total)
+            } else {
+                bar?.isIndeterminate = true
+                stats?.text = formatBytes(downloaded) + " đã tải"
+            }
+        }
+    }
+
+    private fun formatBytes(value: Long): String {
+        val mb = value.coerceAtLeast(0L).toDouble() / (1024.0 * 1024.0)
+        return String.format(java.util.Locale.US, "%.1f MB", mb)
+    }
+
+    private fun closeDownloadProgress() {
+        handler.post { progressDialog?.dismiss() }
+    }
+
 
     /** Checks only the exact release snapshot last published by OWNER. */
     private fun checkPublishedRelease(activity: Activity, startup: Boolean) {
@@ -293,7 +515,27 @@ object AppUpdateManager {
                 }.setNegativeButton("Để sau", null).show()
             return
         }
+        maybeRequestNotificationPermission(activity)
         beginDownload(activity, version, url, sha)
+    }
+
+    private fun maybeRequestNotificationPermission(activity: Activity) {
+        if (Build.VERSION.SDK_INT < 33 ||
+            activity.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) return
+        val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_NOTIFICATION_PERMISSION_PROMPTED, false)) return
+        prefs.edit().putBoolean(KEY_NOTIFICATION_PERMISSION_PROMPTED, true).apply()
+        AlertDialog.Builder(activity)
+            .setTitle("Cho phép thông báo cập nhật")
+            .setMessage("Android đôi khi yêu cầu xác nhận cài đặt sau khi tải APK. Cho phép thông báo để có thể mở bước xác nhận nếu ứng dụng đang chạy nền. Bạn vẫn có thể tiếp tục tải nếu không bật.")
+            .setPositiveButton("Cho phép") { _, _ ->
+                if (Build.VERSION.SDK_INT >= 33) {
+                    activity.requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 7822)
+                }
+            }
+            .setNegativeButton("Tiếp tục không bật", null)
+            .show()
     }
 
     @Synchronized
@@ -315,9 +557,10 @@ object AppUpdateManager {
             // Keep the URL while downloading so a missing DownloadManager row can be recovered on resume.
             prefs.edit().putLong(KEY_DOWNLOAD_ID, id).putString(KEY_PENDING_URL, url)
                 .putString(KEY_PENDING_VERSION, version).putString(KEY_PENDING_SHA256, sha).apply()
-            Toast.makeText(activity, "Đang tải AUTU-LIO ${version}.", Toast.LENGTH_LONG).show()
+            showDownloadProgress(activity, version, "Đang tải AUTU-LIO " + version + "…")
             pollDownload(activity, id)
         } catch (_: Exception) {
+            closeDownloadProgress()
             Toast.makeText(activity, "Không thể bắt đầu tải bản cập nhật.", Toast.LENGTH_LONG).show()
         }
     }
@@ -358,6 +601,7 @@ object AppUpdateManager {
                 if (!hasRow) {
                     activeDownloads.remove(id)
                     clearDownloadId(context)
+                    closeDownloadProgress()
                     handler.post {
                         Toast.makeText(context, "Tác vụ tải không còn trong Android. Mở lại AUTU-LIO để thử tải lại.", Toast.LENGTH_LONG).show()
                     }
@@ -372,16 +616,20 @@ object AppUpdateManager {
                 when (status) {
                     DownloadManager.STATUS_SUCCESSFUL -> {
                         activeDownloads.remove(id)
-                        installDownloaded(activity, id)
+                        updateDownloadProgress("Đã tải xong. Đang xác minh APK…", downloadedBytes, totalBytes)
+                        // Hashing and copying a large APK into PackageInstaller must never run on the UI thread.
+                        Thread({ installDownloaded(activity, id) }, "AUTU-LIO-APK-INSTALL").start()
                     }
                     DownloadManager.STATUS_FAILED -> {
                         activeDownloads.remove(id)
+                        closeDownloadProgress()
                         clearPending(context)
                         handler.post {
                             Toast.makeText(context, downloadFailureMessage(reason), Toast.LENGTH_LONG).show()
                         }
                     }
                     DownloadManager.STATUS_PAUSED -> {
+                        updateDownloadProgress(downloadPausedMessage(reason), downloadedBytes, totalBytes)
                         if (lastPausedReason != reason) {
                             lastPausedReason = reason
                             handler.post {
@@ -392,10 +640,16 @@ object AppUpdateManager {
                     }
                     DownloadManager.STATUS_PENDING, DownloadManager.STATUS_RUNNING -> {
                         lastPausedReason = null
+                        updateDownloadProgress(
+                            if (status == DownloadManager.STATUS_PENDING) "Đang chờ Android bắt đầu tải…" else "Đang tải AUTU-LIO…",
+                            downloadedBytes,
+                            totalBytes
+                        )
                         handler.postDelayed(this, 2_000L)
                     }
                     else -> {
                         activeDownloads.remove(id)
+                        closeDownloadProgress()
                         clearDownloadId(context)
                         handler.post {
                             Toast.makeText(context, "Trạng thái tải không xác định ($status). Mở lại AUTU-LIO để thử tiếp.", Toast.LENGTH_LONG).show()
@@ -408,33 +662,39 @@ object AppUpdateManager {
     }
 
     private fun installDownloaded(activity: Activity, id: Long) {
+        val uiActivity = foregroundActivity?.get()
         val context = activity.applicationContext
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val uri = manager.getUriForDownloadedFile(id)
         if (uri == null) {
+            closeDownloadProgress()
             clearPending(context); manager.remove(id)
             showUpdateMessage(activity, "Không tìm thấy APK vừa tải. Nhấn Kiểm tra cập nhật để thử lại.")
             return
         }
         if (!canInstallPackages(context)) {
-            if (!activity.isFinishing && !activity.isDestroyed) handler.post {
-                AlertDialog.Builder(activity).setTitle("Cần cho phép cài đặt")
-                    .setMessage("Android cần cho phép "+ "AUTU-LIO" +" cài bản cập nhật tải từ máy chủ chính thức. Chỉ cần bật quyền này một lần.")
+            closeDownloadProgress()
+            if (uiActivity != null && !uiActivity.isFinishing && !uiActivity.isDestroyed) handler.post {
+                AlertDialog.Builder(uiActivity).setTitle("Cần cho phép cài đặt")
+                    .setMessage("Android cần cho phép " + "AUTU-LIO" + " cài bản cập nhật tải từ máy chủ chính thức. Chỉ cần bật quyền này một lần.")
                     .setPositiveButton("Mở cài đặt") { _, _ ->
-                        runCatching { activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                            Uri.parse("package:${activity.packageName}"))) }
+                        runCatching { uiActivity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:${uiActivity.packageName}"))) }
                     }.setNegativeButton("Để sau", null).show()
             }
             return
         }
+        updateDownloadProgress("Đang xác minh tính toàn vẹn của APK…", 0L, -1L)
         val expected = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_PENDING_SHA256, null)
         if (expected.isNullOrBlank() || !expected.matches(Regex("(?i)^[a-f0-9]{64}$"))) {
+            closeDownloadProgress()
             clearPending(context); manager.remove(id)
             showUpdateMessage(activity, "Thiếu mã SHA-256 của bản được công bố. Đã hủy cài đặt.")
             return
         }
         val actual = runCatching { context.contentResolver.openInputStream(uri)?.use { sha256(it) } }.getOrNull()
         if (actual == null || !actual.equals(expected, ignoreCase = true)) {
+            closeDownloadProgress()
             clearPending(context); manager.remove(id)
             showUpdateMessage(activity, "Mã kiểm tra APK không khớp. Đã hủy cài đặt.")
             return
@@ -465,8 +725,9 @@ object AppUpdateManager {
             }
             manager.remove(id)
             clearPending(context)
-            showUpdateMessage(activity, "Đã chuyển APK cho Android cài đặt. Ứng dụng sẽ khởi động lại khi Android hoàn tất.")
+            updateDownloadProgress("Đã chuyển APK cho Android. Chờ xác nhận cài đặt nếu được yêu cầu…", 0L, -1L)
         } catch (error: Exception) {
+            closeDownloadProgress()
             if (sessionId >= 0) runCatching { context.packageManager.packageInstaller.abandonSession(sessionId) }
             clearPending(context); manager.remove(id)
             showUpdateMessage(activity, error.message?.takeIf { it.isNotBlank() }
