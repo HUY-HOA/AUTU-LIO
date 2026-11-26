@@ -1129,6 +1129,29 @@ class AuthRepository(context: Context) {
         else -> "Yêu cầu chưa thực hiện được (mã HTTP $status). Vui lòng thử lại."
     }
 
+    suspend fun syncNotifications(accessToken: String): Int {
+        require(accessToken.isNotBlank()) { "Thiếu phiên đăng nhập để đồng bộ thông báo." }
+        val response = apiRequest("/api/notifications", "GET", bearerToken = accessToken)
+        val items = response.optJSONArray("notifications") ?: JSONArray()
+        var acknowledged = 0
+        for (index in 0 until items.length()) {
+            val item = items.optJSONObject(index) ?: continue
+            val id = item.optString("id")
+            if (!id.matches(Regex("^[A-Fa-f0-9_-]{1,80}$"))) continue
+            val displayed = com.autu.lio.notifications.AutuLocalNotificationCenter.show(
+                appContext,
+                id,
+                item.optString("title", "AUTU-LIO"),
+                item.optString("body")
+            )
+            if (displayed) {
+                apiRequest("/api/notifications/$id/read", "POST", JSONObject(), accessToken)
+                acknowledged++
+            }
+        }
+        return acknowledged
+    }
+
     private fun ensureConfigured() {
         if (!isConfigured) {
             throw IOException("Chưa cấu hình địa chỉ Auth API và Google Server Client ID.")

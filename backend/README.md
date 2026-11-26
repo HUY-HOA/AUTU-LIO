@@ -120,3 +120,15 @@ RSA-OAEP SHA-1/MGF1-SHA1 is used only to wrap the 32-byte AES data key for compa
 ## GitHub Actions deployment
 
 The production Worker and D1 backend are deployed automatically by `.github/workflows/worker-deploy.yml` when files under `backend/` change on `main`, or when the workflow is run manually. The workflow installs the pinned Wrangler dependency, runs `npm run check`, applies pending migrations with `npm run migrate:remote`, and deploys the Worker with `npm run deploy`. It requires repository Actions secrets `CLOUDFLARE_API_TOKEN` (scoped to the AUTU-LIO Cloudflare account with Workers Scripts Edit and D1 Read/Edit permissions) and `CLOUDFLARE_ACCOUNT_ID` (`b1e6af9f0ef491fb7557747974a863f9`). These deployment secrets are separate from the four Android APK signing secrets. This workflow does not build an Android APK.
+
+
+## Notification inbox (Cloudflare + Android local notifications)
+
+- GET /api/notifications: trả về tối đa 100 thông báo chưa đọc của phiên hiện tại; query luôn giới hạn theo session.user_id.
+- POST /api/notifications/:id/read: chỉ đánh dấu đã đọc thông báo thuộc tài khoản đăng nhập hiện tại.
+- POST /api/admin/notifications: OWNER-only; gửi thông báo announcement/community/update/account/system tới CUSTOMER hoặc CUSTOMER được chỉ định.
+- Khi OWNER công bố release bằng /api/admin/app-update-policy, Worker tự tạo thông báo cập nhật, ngoài việc lưu manifest công bố.
+- Android dùng WorkManager (một lần sau khi có session và định kỳ tối thiểu 15 phút khi có mạng) để đọc inbox; NotificationCompat hiển thị local notification, sau đó client đánh dấu đã nhận.
+- Notification payload chỉ chứa metadata ngắn; không gửi source AUTU, package, secret, token hay dữ liệu đăng nhập.
+- Người dùng cần cấp quyền POST_NOTIFICATIONS trên Android 13+. Không có quyền thì thông báo tiếp tục nằm trong D1 cho lần đồng bộ sau.
+- Đây là polling, không phải push tức thời. Doze, tối ưu pin, chính sách OEM, mạng và force-stop có thể làm chậm hoặc ngừng kiểm tra. Không yêu cầu Firebase/FCM hoặc dịch vụ push ngoài.

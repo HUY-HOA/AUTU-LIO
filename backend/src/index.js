@@ -302,6 +302,51 @@ async function normalizeAnnouncedUpdateManifest(value, expectedVersion) {
   };
 }
 
+async function publishUserNotifications(env, { type, title, body, payload = {}, targetUserId = null }) {
+  const createdAt = Math.floor(Date.now() / 1000);
+  const payloadJson = JSON.stringify(payload);
+  const sql = targetUserId
+    ? "INSERT INTO notifications (id, user_id, type, title, body, payload_json, created_at) " +
+      "SELECT lower(hex(randomblob(16))), id, ?, ?, ?, ?, ? FROM users " +
+      "WHERE id = ? AND status = 'ACTIVE' AND role = 'CUSTOMER'"
+    : "INSERT INTO notifications (id, user_id, type, title, body, payload_json, created_at) " +
+      "SELECT lower(hex(randomblob(16))), id, ?, ?, ?, ?, ? FROM users " +
+      "WHERE status = 'ACTIVE' AND role = 'CUSTOMER'";
+  const statement = env.DB.prepare(sql);
+  const result = targetUserId
+    ? await statement.bind(type, title, body, payloadJson, createdAt, targetUserId).run()
+    : await statement.bind(type, title, body, payloadJson, createdAt).run();
+  return Number(result?.meta?.changes || 0);
+}
+
+async function adminPublishNotification(request, env, session) {
+  await requireRole(session, ["OWNER"]);
+  const body = await readBody(request, 8000);
+  const type = typeof body.type === "string" ? body.type.trim().toLowerCase() : "announcement";
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const message = typeof body.body === "string" ? body.body.trim() : "";
+  const targetUserId = typeof body.targetUserId === "string" ? body.targetUserId.trim() : "";
+  const allowedTypes = new Set(["announcement", "community", "update", "account", "system"]);
+  if (!allowedTypes.has(type) || !title || title.length > 120 || !message || message.length > 1000) {
+    throw new HttpError(400, "invalid_notification", "Notification type, title or body is invalid.");
+  }
+  if (targetUserId && !/^[0-9a-f-]{36}$/i.test(targetUserId)) {
+    throw new HttpError(400, "invalid_notification_target", "Notification target is invalid.");
+  }
+  const sent = await publishUserNotifications(env, {
+    type,
+    title,
+    body: message,
+    payload: {},
+    targetUserId: targetUserId || null
+  });
+  await audit(env, session.user_id, "notification.published", "notification", targetUserId || "all_customers", {
+    type,
+    recipientCount: sent
+  });
+  return { sent, targetUserId: targetUserId || null };
+}
+
 async function updateAppUpdatePolicy(request, env, session) {
   await requireRole(session, ["OWNER"]);
   const body = await readBody(request, 12000);
@@ -330,9 +375,16 @@ async function updateAppUpdatePolicy(request, env, session) {
     announcementSent: true,
     version
   });
+  const notificationsCreated = await publishUserNotifications(env, {
+    type: "update",
+    title: "Có bản cập nhật AUTU-LIO",
+    body: "Phiên bản " + version + " đã được công bố. Mở AUTU-LIO để kiểm tra cập nhật.",
+    payload: { version }
+  });
   return {
     updated: true,
     announcementSent: true,
+    notificationsCreated,
     version,
     mandatory: false,
     requiredVersion: version,
@@ -1813,8 +1865,26 @@ async function route(request, env) {
 
   const session = await getSession(request, env);
   await enforceAuthenticatedApiRateLimit(request, env, session, path);
+  if (method === "POST" && path === "/api/admin/notifications") {
+    return response(request, await adminPublishNotification(request, env, session), 201, env);
+  }
   if (method === "POST" && path === "/api/admin/app-update-policy") {
     return response(request, await updateAppUpdatePolicy(request, env, session), 200, env);
+  }
+
+  if (method === "GET" && path === "/api/notifications") {
+    const result = await env.DB.prepare(
+      "SELECT id, type, title, body, payload_json, created_at FROM notifications " +
+      "WHERE user_id = ? AND read_at IS NULL ORDER BY created_at ASC LIMIT 100"
+    ).bind(session.user_id).all();
+    return response(request, { notifications: result.results || [] }, 200, env);
+  }
+  const notificationReadMatch = path.match(/^\/api\/notifications\/([A-Za-z0-9_-]{1,80})\/read$/);
+  if (method === "POST" && notificationReadMatch) {
+    const result = await env.DB.prepare(
+      "UPDATE notifications SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL"
+    ).bind(Math.floor(Date.now() / 1000), notificationReadMatch[1], session.user_id).run();
+    return response(request, { read: Number(result?.meta?.changes || 0) > 0 }, 200, env);
   }
 
   if (method === "GET" && path === "/api/auth/me") {

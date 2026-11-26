@@ -182,7 +182,7 @@ async function json(response) {
   return response.json();
 }
 
-test("OWNER can publish an update without push notifications", async () => {
+test("OWNER can publish an update and enqueue customer notifications", async () => {
   const { env, queries } = createEnv({ session: ownerSession });
   const response = await worker.fetch(
     makeRequest("/api/admin/app-update-policy", {
@@ -199,9 +199,42 @@ test("OWNER can publish an update without push notifications", async () => {
   const body = await json(response);
   assert.equal(body.updated, true);
   assert.equal(body.announcementSent, true);
+  assert.equal(body.notificationsCreated, 1);
   assert.equal(body.requiredVersion, "0.2.0");
   assert.ok(queries.some(sql => sql.includes("INSERT INTO app_update_policy")));
+  assert.ok(queries.some(sql => sql.includes("INSERT INTO notifications")));
 });
+
+test("notification inbox is scoped to the authenticated AUTU-LIO user", async () => {
+  const { env, queries } = createEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/notifications", {
+      headers: { Authorization: `Bearer ${"C".repeat(48)}` }
+    }),
+    env
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual((await json(response)).notifications, []);
+  assert.ok(queries.some(sql => sql.includes("FROM notifications WHERE user_id = ?")));
+});
+
+test("CUSTOMER cannot publish AUTU-LIO notifications", async () => {
+  const { env, queries } = createEnv({ session: customerSession });
+  const response = await worker.fetch(
+    makeRequest("/api/admin/notifications", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${"C".repeat(48)}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ type: "announcement", title: "Thông báo", body: "Nội dung" })
+    }),
+    env
+  );
+  assert.equal(response.status, 403);
+  assert.equal(queries.some(sql => sql.includes("INSERT INTO notifications")), false);
+});
+
 test("owner bootstrap matches the verified Google sub, not the email address", () => {
   const env = { OWNER_GOOGLE_SUB: "google-sub-owner-123" };
 
