@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   verify:
-    if: github.event.pull_request.head.ref == 'fix/updater-progress-install-2026-11-26' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
