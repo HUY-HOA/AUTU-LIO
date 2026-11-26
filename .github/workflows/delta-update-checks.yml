@@ -39,7 +39,7 @@ jobs:
           python-version: "3.12"
 
       - name: Check Cloudflare Worker JavaScript syntax
-        run: node --check cloudflare/update-worker.js
+        run: cp cloudflare/update-worker.js "$RUNNER_TEMP/update-worker.mjs" && node --check "$RUNNER_TEMP/update-worker.mjs"
 
       - name: Verify patch generator syntax and binary reconstruction
         shell: bash
