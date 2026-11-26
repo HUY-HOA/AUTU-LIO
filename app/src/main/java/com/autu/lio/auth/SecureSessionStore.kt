@@ -11,7 +11,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 class SecureSessionStore(context: Context) {
-    private val preferences = context.applicationContext.getSharedPreferences(
+    private val appContext = context.applicationContext
+    private val preferences = appContext.getSharedPreferences(
         "autulio_secure_session",
         Context.MODE_PRIVATE
     )
@@ -25,6 +26,7 @@ class SecureSessionStore(context: Context) {
             .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
             .putString(KEY_DATA, Base64.encodeToString(encrypted, Base64.NO_WRAP))
             .apply()
+        com.autu.lio.notifications.AutuNotificationSyncScheduler.schedule(appContext)
     }
 
     fun read(): String? {
@@ -47,6 +49,7 @@ class SecureSessionStore(context: Context) {
     }
 
     fun clear() {
+        com.autu.lio.notifications.AutuNotificationSyncScheduler.cancel(appContext)
         preferences.edit().clear().apply()
     }
 
