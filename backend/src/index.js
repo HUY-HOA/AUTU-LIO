@@ -1879,7 +1879,7 @@ async function route(request, env) {
     ).bind(session.user_id).all();
     return response(request, { notifications: result.results || [] }, 200, env);
   }
-  const notificationReadMatch = path.match(/^\\/api\\/notifications\\/([A-Za-z0-9_-]{1,80})\\/read$/);
+  const notificationReadMatch = path.match(/^\/api\/notifications\/([A-Za-z0-9_-]{1,80})\/read$/);
   if (method === "POST" && notificationReadMatch) {
     const result = await env.DB.prepare(
       "UPDATE notifications SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL"
