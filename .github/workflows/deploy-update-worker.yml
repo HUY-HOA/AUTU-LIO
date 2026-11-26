@@ -48,8 +48,9 @@ jobs:
             echo "::error::CLOUDFLARE_ACCOUNT_ID is missing or invalid."
             exit 1
           }
-          node --check cloudflare/update-worker.js
-          node -e 'const c=require("./cloudflare/wrangler.update.jsonc"); if(c.name!=="autu-lio-updates"||c.main!=="update-worker.js"||c.workers_dev!==true) process.exit(1);'
+          cp cloudflare/update-worker.js "$RUNNER_TEMP/update-worker.mjs"
+          node --check "$RUNNER_TEMP/update-worker.mjs"
+          node -e 'const fs=require("fs"); const c=JSON.parse(fs.readFileSync("cloudflare/wrangler.update.jsonc","utf8")); if(c.name!=="autu-lio-updates"||c.main!=="update-worker.js"||c.workers_dev!==true) process.exit(1);'
 
       - name: Deploy AUTU-LIO update Worker
         env:
