@@ -197,17 +197,45 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish signed Release APK to GitHub Releases
+      - name: Publish signed AUTU-LIO APK with optional verified delta
         if: steps.signing.outputs.variant == 'release' && github.ref == 'refs/heads/main'
         env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION_NAME: 0.1.${{ github.run_number }}
+          GH_TOKEN: \${{ github.token }}
+          VERSION_NAME: 0.1.\${{ github.run_number }}
         run: |
           set -euo pipefail
-          APK_PATH="app/build/outputs/apk/release/AUTU-LIO-v${VERSION_NAME}.apk"
+          APK_PATH="app/build/outputs/apk/release/AUTU-LIO-v\${VERSION_NAME}.apk"
+          TAG="v\${VERSION_NAME}"
           test -s "$APK_PATH"
-          gh release create "v${VERSION_NAME}" "$APK_PATH#AUTU-LIO.apk" \
-            --target "$GITHUB_SHA" \
-            --title "AUTU-LIO v${VERSION_NAME}" \
-            --notes "Bản phát hành AUTU-LIO Android. Chỉ cài đặt APK từ bản phát hành chính thức này. Xem thay đổi tại commit ${GITHUB_SHA}."
+          ASSETS=("$APK_PATH#AUTU-LIO.apk")
+          PREVIOUS_TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft,isPrerelease --jq '[.[] | select(.isDraft == false and .isPrerelease == false)][0].tagName // ""')"
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            PREVIOUS_VERSION="\${PREVIOUS_TAG#v}"
+            if [[ "$PREVIOUS_VERSION" =~ ^[0-9]+([.][0-9]+){1,3}$ ]]; then
+              OLD_DIR="$RUNNER_TEMP/delta-old-release"; mkdir -p "$OLD_DIR"
+              if gh release download "$PREVIOUS_TAG" --repo "$GITHUB_REPOSITORY" --pattern "AUTU-LIO.apk" --dir "$OLD_DIR"; then
+                OLD_APK="$OLD_DIR/AUTU-LIO.apk"
+                PATCH_PATH="$RUNNER_TEMP/AUTU-LIO-delta-from-\${PREVIOUS_VERSION}.lio.gz"
+                if [[ -s "$OLD_APK" ]] && python3 tools/create_lio_delta.py --from-apk "$OLD_APK" --to-apk "$APK_PATH" --output "$PATCH_PATH"; then
+                  PATCH_BYTES="$(stat -c%s "$PATCH_PATH")"; APK_BYTES="$(stat -c%s "$APK_PATH")"
+                  if (( PATCH_BYTES * 10 < APK_BYTES * 9 )); then
+                    ASSETS+=("$PATCH_PATH#AUTU-LIO-delta-from-\${PREVIOUS_VERSION}.lio.gz")
+                    echo "::notice::Verified delta: $PATCH_BYTES bytes for a $APK_BYTES-byte APK."
+                    echo "- Delta asset: \`AUTU-LIO-delta-from-\${PREVIOUS_VERSION}.lio.gz\` ($PATCH_BYTES bytes)" >> "$GITHUB_STEP_SUMMARY"
+                  else
+                    echo "::notice::Delta is not sufficiently smaller; publishing the APK only."
+                    rm -f "$PATCH_PATH"
+                  fi
+                else
+                  echo "::warning::Delta generation or self-verification failed; publishing the APK only."
+                  rm -f "$PATCH_PATH"
+                fi
+              else
+                echo "::warning::Could not download the previous signed APK; publishing the APK only."
+              fi
+            fi
+          else
+            echo "No previous stable release found; this release will seed delta updates."
+          fi
+          gh release create "v\${VERSION_NAME}" "\${ASSETS[@]}" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "AUTU-LIO v\${VERSION_NAME}" --notes "Bản phát hành AUTU-LIO Android. Chỉ cài đặt APK từ bản phát hành chính thức này. Xem thay đổi tại commit \${GITHUB_SHA}."
 # Manual BUILD APK request received 2026-11-25.
