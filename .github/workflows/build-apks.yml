@@ -27,7 +27,7 @@ jobs:
     permissions:
       contents: write
 
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK') || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/updater-progress-install-2026-11-26' && github.event.pull_request.head.repo.full_name == 'HUY-HOA/AUTU-LIO')
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'BUILD APK') || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'build/release-apk-owner-request-2026-11-27' && github.event.pull_request.head.repo.full_name == 'HUY-HOA/AUTU-LIO')
     name: Build one AUTU-LIO APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
