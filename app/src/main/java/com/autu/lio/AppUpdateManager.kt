@@ -126,14 +126,24 @@ object AppUpdateManager {
                     .remove(KEY_PENDING_INSTALL_CONFIRMATION).apply()
                 closeDownloadProgress()
                 val detail = statusMessage.take(140)
-                val message = if (detail.isBlank()) {
-                    "Android chưa cài được bản cập nhật. Hãy mở lại ứng dụng và thử cập nhật."
-                } else {
-                    "Android chưa cài được bản cập nhật: " + detail
+                val permissionAllowed = canInstallPackages(context)
+                val aborted = status == PackageInstaller.STATUS_FAILURE_ABORTED
+                val message = when {
+                    aborted && !permissionAllowed ->
+                        "Android đã từ chối quyền cài đặt. Hãy bật Cho phép cài đặt ứng dụng không rõ nguồn gốc cho ứng dụng này rồi thử lại."
+                    aborted ->
+                        "Android đã hủy hoặc từ chối bước xác nhận cài đặt. Khi màn hình cài đặt của Android hiện ra, hãy chọn Cài đặt; không chọn Hủy."
+                    detail.isBlank() ->
+                        "Android chưa cài được bản cập nhật. Hãy mở lại ứng dụng và thử cập nhật."
+                    else ->
+                        "Android chưa cài được bản cập nhật: " + detail
                 }
                 handler.post {
                     val activity = foregroundActivity?.get()
-                    if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
+                    if (aborted && !permissionAllowed && activity != null &&
+                        !activity.isFinishing && !activity.isDestroyed) {
+                        promptInstallPermission(activity)
+                    } else if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
                         Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
                     } else {
                         Toast.makeText(context.applicationContext, message, Toast.LENGTH_LONG).show()
@@ -808,7 +818,8 @@ object AppUpdateManager {
             val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
             params.setAppPackageName(context.packageName)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+                // Sideloaded updater: require Android's explicit confirmation instead of a silent install.
+                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
             }
             sessionId = installer.createSession(params)
             installer.openSession(sessionId).use { session ->
