@@ -62,10 +62,13 @@ class UpdateInstallStatusReceiver : BroadcastReceiver() {
 
             else -> {
                 val detail = statusMessage.take(140)
-                val text = if (detail.isBlank()) {
-                    "Android chưa cài được bản mới. Mở ứng dụng và nhấn Kiểm tra cập nhật để thử lại."
-                } else {
-                    "Android chưa cài được bản mới ($detail). Mở ứng dụng và nhấn Kiểm tra cập nhật để thử lại."
+                val text = when {
+                    status == PackageInstaller.STATUS_FAILURE_ABORTED ->
+                        "Android đã hủy hoặc từ chối bước xác nhận cài đặt. Mở ứng dụng, kiểm tra quyền cài ứng dụng không rõ nguồn gốc cho ứng dụng này; khi Android hiện màn hình cài đặt, chọn Cài đặt."
+                    detail.isBlank() ->
+                        "Android chưa cài được bản mới. Mở ứng dụng và nhấn Kiểm tra cập nhật để thử lại."
+                    else ->
+                        "Android chưa cài được bản mới ($detail). Mở ứng dụng và nhấn Kiểm tra cập nhật để thử lại."
                 }
                 postNotification(
                     context,
