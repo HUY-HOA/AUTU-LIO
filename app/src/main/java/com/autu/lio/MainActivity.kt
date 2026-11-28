@@ -1569,6 +1569,17 @@ private fun AdminSettingsScreen(
                 ThemeModeSelector()
                 DatabaseBackupControls()
                 ScriptFileControls()
+                HorizontalDivider()
+                Text(
+                    tr(
+                        "Phiên bản hiện tại: AUTU-LIO v${BuildConfig.VERSION_NAME}",
+                        "Current version: AUTU-LIO v${BuildConfig.VERSION_NAME}"
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
